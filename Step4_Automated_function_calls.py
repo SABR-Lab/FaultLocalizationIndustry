@@ -26,7 +26,7 @@ from dataclasses import dataclass
 
 # Import the crash extraction functionality
 try:
-    from Crash_filter import Step1SingleSignatureTest, CrashInfo
+    from Step1_crash_extractor import Step1SingleSignatureTest, CrashInfo
     CRASH_EXTRACTION_AVAILABLE = True
     print(" Crash extraction functionality imported successfully")
 except ImportError as e:
@@ -36,7 +36,7 @@ except ImportError as e:
 
 # Import the automated analysis functionality
 try:
-    from complete_rootcause import AutomatedMozillaCrashAnalyzer
+    from Step3_crash_analyzer import AutomatedMozillaCrashAnalyzer
     AUTOMATED_ANALYSIS_AVAILABLE = True
     print(" Automated analysis functionality imported successfully")
 except ImportError as e:
@@ -458,7 +458,7 @@ class UnifiedCrashFunctionAnalyzer:
         """
         Generate a comprehensive report of function calls across all analyzed crashes
         """
-        print(f"    📊 Generating comprehensive function call report")
+        print(f"     Generating comprehensive function call report")
         
         # Aggregate all function calls
         all_function_calls = {}

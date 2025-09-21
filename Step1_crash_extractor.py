@@ -2,6 +2,7 @@
 """
 Step 1: Test crash filtering with a specific signature
 Much simpler and more reliable for initial testing
+Enhanced with file and module information extraction
 """
 
 import requests
@@ -11,6 +12,12 @@ from typing import List, Dict, Optional
 from dataclasses import dataclass
 
 @dataclass
+class FunctionInfo:
+    function_name: str
+    file_name: str
+    module_name: str
+
+@dataclass
 class CrashInfo:
     crash_id: str
     signature: str
@@ -18,9 +25,9 @@ class CrashInfo:
     product_channel: str
     bug_report_url: Optional[str]
     stack_trace: List[str]
-    top_10_functions: List[str]
+    all_functions: List[FunctionInfo]  # Changed to FunctionInfo objects
     crash_report_url: str
-    api_url: str  # Add this field for the API URL
+    api_url: str
 
 class Step1SingleSignatureTest:
     def __init__(self):
@@ -97,7 +104,7 @@ class Step1SingleSignatureTest:
         
         print(f"\n FINAL UNIQUE DATASET: {len(unique_crashes)} crashes")
         
-        return unique_crashes  # ← This was missing!
+        return unique_crashes
         
     def _deduplicate_crashes(self, crashes: List[CrashInfo], dedup_strategy: str = "stack_trace") -> List[CrashInfo]:
         """
@@ -155,7 +162,7 @@ class Step1SingleSignatureTest:
             
         elif strategy == "top_functions":
             # Hash just the top 5 functions (less strict)
-            top_5 = crash.top_10_functions[:5] if crash.top_10_functions else []
+            top_5 = [func.function_name for func in crash.all_functions[:5]] if crash.all_functions else []
             top_str = "|".join(top_5)
             return hashlib.md5(top_str.encode()).hexdigest()
             
@@ -167,7 +174,7 @@ class Step1SingleSignatureTest:
             # Combine multiple factors for robust deduplication
             factors = [
                 crash.signature,
-                "|".join(crash.top_10_functions[:3]) if crash.top_10_functions else "empty",
+                "|".join([func.function_name for func in crash.all_functions[:3]]) if crash.all_functions else "empty",
                 crash.product_channel,
                 # Note: Don't include date as crashes can repeat over time
             ]
@@ -192,9 +199,9 @@ class Step1SingleSignatureTest:
         # Analyze by stack trace similarity
         stack_groups = defaultdict(list)
         for crash in original_crashes:
-            if crash.top_10_functions:
+            if crash.all_functions:
                 # Use top 3 functions as grouping key
-                key = "|".join(crash.top_10_functions[:3])
+                key = "|".join([func.function_name for func in crash.all_functions[:3]])
                 stack_groups[key].append(crash)
         
         # Find groups with multiple crashes (duplicates)
@@ -304,10 +311,6 @@ class Step1SingleSignatureTest:
             hits = data.get('hits', [])
             total_available = data.get('total', 0)
             
-            # Debug output for troubleshooting
-            if total_available > 0:
-                print(f"       API found {total_available} total crashes, returning {len(hits)}")
-            
             # Process crashes efficiently (sample only some for full details)
             sample_size = min(10, len(hits))  # Max 10 detailed crashes per period/channel
             for i, hit in enumerate(hits[:sample_size]):
@@ -395,8 +398,6 @@ class Step1SingleSignatureTest:
                     crash_detail = self._get_crash_details(crash_id, channel)
                     if crash_detail:
                         crashes.append(crash_detail)
-                        if (i + 1) % 50 == 0:  # Progress update every 50 crashes
-                            print(f"       ✓ Processed {i+1}/{len(hits)} crashes...")
                     
                 all_crashes.extend(crashes)
                 
@@ -408,7 +409,7 @@ class Step1SingleSignatureTest:
                 
                 # Safety limit to prevent infinite loops
                 if len(all_crashes) >= 5000:  # Reasonable limit
-                    print(f"     ⚠️  Reached safety limit of 5000 crashes for {channel}")
+                    print(f"       Reached safety limit of 5000 crashes for {channel}")
                     break
                     
             except Exception as e:
@@ -420,7 +421,7 @@ class Step1SingleSignatureTest:
     def get_crash_stack(self, uuid: str):
         """Get crash stack trace using the ProcessedCrash API"""
         url = f"https://crash-stats.mozilla.org/api/ProcessedCrash/?crash_id={uuid}"
-        print(f"Fetching stack trace from: {url}")
+        # Removed the print statement for cleaner output
         
         headers = {
             'User-Agent': 'Mozilla Crash Analysis Test 1.0'
@@ -428,8 +429,38 @@ class Step1SingleSignatureTest:
         response = requests.get(url, headers=headers)
         return response
 
+    def _extract_file_and_module_info(self, frame: dict) -> FunctionInfo:
+        """Extract function, file, and module information from a stack frame"""
+        function_name = frame.get('function', 'Unknown Function')
+        
+        # Extract file name
+        file_name = 'Unknown File'
+        if 'file' in frame and frame['file']:
+            file_path = frame['file']
+            # Extract just the filename from the path
+            file_name = file_path.split('/')[-1] if '/' in file_path else file_path.split('\\')[-1]
+        elif 'filename' in frame and frame['filename']:
+            file_path = frame['filename']
+            file_name = file_path.split('/')[-1] if '/' in file_path else file_path.split('\\')[-1]
+        
+        # Extract module name
+        module_name = 'Unknown Module'
+        if 'module' in frame and frame['module']:
+            module_path = frame['module']
+            # Extract just the module name from the path
+            module_name = module_path.split('/')[-1] if '/' in module_path else module_path.split('\\')[-1]
+        elif 'module_name' in frame and frame['module_name']:
+            module_name = frame['module_name']
+        
+        return FunctionInfo(
+            function_name=function_name,
+            file_name=file_name,
+            module_name=module_name
+        )
+
+
     def _get_crash_details(self, crash_id: str, channel: str) -> Optional[CrashInfo]:
-        """Get detailed crash information including stack trace"""
+        """Get detailed crash information including stack trace with file and module info"""
         try:
             # Use the ProcessedCrash API to get stack trace
             response = self.get_crash_stack(crash_id)
@@ -440,19 +471,23 @@ class Step1SingleSignatureTest:
             crash_report_url = f"https://crash-stats.mozilla.org/report/index/{crash_id}"
             api_url = f"https://crash-stats.mozilla.org/api/ProcessedCrash/?crash_id={crash_id}"
             
-            # Extract stack trace and top 10 functions
+            # Extract stack trace and all functions with file and module info
             stack_trace = []
-            top_10_functions = []
+            all_functions = []  # Renamed from top_10_functions to include all functions
             
             if 'json_dump' in data and 'threads' in data['json_dump']:
                 for thread in data['json_dump']['threads']:
                     if thread.get('frames'):
-                        for frame in thread['frames'][:20]:  # Look at top 20 frames
+                        for frame in thread['frames']:  # Process all frames, no limit
                             if 'function' in frame and frame['function']:
                                 function_name = frame['function']
                                 stack_trace.append(function_name)
-                                if len(top_10_functions) < 10 and function_name not in top_10_functions:
-                                    top_10_functions.append(function_name)
+                                
+                                # Extract detailed function info for all frames
+                                existing_functions = [f.function_name for f in all_functions]
+                                if function_name not in existing_functions:
+                                    function_info = self._extract_file_and_module_info(frame)
+                                    all_functions.append(function_info)
             
             # Look for bug report URL
             bug_report_url = None
@@ -468,9 +503,9 @@ class Step1SingleSignatureTest:
                 product_channel=channel,
                 bug_report_url=bug_report_url,
                 stack_trace=stack_trace,
-                top_10_functions=top_10_functions,
+                all_functions=all_functions,  # Updated to include all functions
                 crash_report_url=crash_report_url,
-                api_url=api_url  # Add this field
+                api_url=api_url
             )
             
         except Exception as e:
@@ -525,10 +560,13 @@ def test_with_specific_signature():
             print(f"  Crash Report URL: {crash.crash_report_url}")
             print(f"  API URL: {crash.api_url}")
             
-            if crash.top_10_functions:
-                print(f"  Top Functions:")
-                for j, func in enumerate(crash.top_10_functions[:10]):  # Show all 10 functions
-                    print(f"    {j+1}. {func}")
+            if crash.all_functions:
+                print(f"  All Files and Functions:")
+                for j, func_info in enumerate(crash.all_functions):  # Remove the [:10] limit to display all functions
+                    print(f"    {j+1}. File: {func_info.file_name}")
+                    print(f"       Function: {func_info.function_name}")
+                    print(f"       Module: {func_info.module_name}")
+                    print()  # Empty line for readability
             else:
                 print(f"  Top Functions: None found")
                 
@@ -571,5 +609,3 @@ if __name__ == "__main__":
     # print(f"\nExample signatures you could try:")
     # for sig in EXAMPLE_SIGNATURES:
     #     print(f"  {sig}")
-
-

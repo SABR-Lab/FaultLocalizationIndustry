@@ -32,6 +32,7 @@ KEY PARAMETERS:
 import requests
 import json
 import re
+import subprocess
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 from collections import defaultdict
@@ -49,11 +50,19 @@ except ImportError:
 class SignatureToBugMapper:
     """Maps crash signatures to bug numbers"""
     
-    def __init__(self):
+    def __init__(self, local_repos: Dict[str, str] = None):
+        """
+        Initialize the mapper
+        
+        Args:
+            local_repos: Dictionary mapping repo names to local paths
+                        Example: {'autoland': '/home/user/mozilla-autoland'}
+        """
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla Crash Bug Mapper 1.0'
         })
+        self.local_repos = local_repos or {}
     
     def get_crashes_for_signature(self, signature: str, months_back: int = 6, 
                                   max_fetch: int = 500) -> List[Dict]:
@@ -213,7 +222,7 @@ class SignatureToBugMapper:
     def get_bug_numbers_from_revision(self, revision: str) -> List[str]:
         """
         Get bug numbers from a revision's commit message
-        Uses Mozilla's hgweb API
+        Tries local repositories first, then falls back to remote API
         
         Args:
             revision: Mercurial revision hash
@@ -221,12 +230,45 @@ class SignatureToBugMapper:
         Returns:
             List of bug numbers found in commit message
         """
-        # Try mozilla-central first, then other repos
+        # Try local repositories first
+        for repo_name, repo_path in self.local_repos.items():
+            try:
+                result = subprocess.run(
+                    ['hg', 'log', '-r', revision, '--template', '{desc}'],
+                    cwd=repo_path,
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                
+                if result.returncode == 0:
+                    description = result.stdout
+                    
+                    # Extract bug numbers
+                    if UTILS_AVAILABLE:
+                        bug_numbers = BugBugUtils.extract_bug_ids_from_desc(description)
+                    else:
+                        bug_numbers = re.findall(r'[Bb]ug\s+(\d+)', description)
+                    
+                    if bug_numbers:
+                        print(f"   Found in local repo: {repo_name}")
+                        return bug_numbers
+            except Exception:
+                continue
+        
+        # Fall back to remote repositories if not found locally
+        if self.local_repos:
+            print(f"   Revision not found locally, checking remote repos...")
+        
         repos = [
             'mozilla-central',
+            'integration/autoland',
             'releases/mozilla-release',
             'releases/mozilla-beta',
-            'releases/mozilla-esr115'
+            'releases/mozilla-esr128',
+            'releases/mozilla-esr115',
+            'releases/mozilla-esr102',
+            'releases/mozilla-esr91'
         ]
         
         for repo in repos:
@@ -238,16 +280,16 @@ class SignatureToBugMapper:
                     data = response.json()
                     description = data.get('desc', '')
                     
-                    # Extract bug numbers using utility function if available
+                    # Extract bug numbers
                     if UTILS_AVAILABLE:
                         bug_numbers = BugBugUtils.extract_bug_ids_from_desc(description)
                     else:
-                        # Fallback to local extraction
                         bug_numbers = re.findall(r'[Bb]ug\s+(\d+)', description)
                     
                     if bug_numbers:
+                        print(f"   Found in remote repo: {repo}")
                         return bug_numbers
-                    
+                        
             except Exception:
                 continue
         
@@ -423,7 +465,7 @@ class SignatureToBugMapper:
             'crashes_with_bugs': crashes_with_bugs,
             'unique_bugs': list(bugs_found),
             'results': results,
-            'bugs_index': bugs_index  # NEW: Index organized by bug number
+            'bugs_index': bugs_index
         }
     
     def save_results(self, mapping_results: Dict, filename: str = None):
@@ -436,7 +478,7 @@ class SignatureToBugMapper:
         """
         if not filename:
             safe_sig = mapping_results['signature'].replace(':', '_').replace('/', '_')[:50]
-            filename = f"step1_sig_to_bugs_{safe_sig}.json" #{datetime.now().strftime('%Y%m%d_%H%M%S')}.json
+            filename = f"step1_sig_to_bugs_{safe_sig}.json"
         
         try:
             with open(filename, 'w') as f:
@@ -475,7 +517,7 @@ class SignatureToBugMapper:
             print(f"Bugzilla URL: {bug_data['bugzilla_url']}")
             print(f"\nAssociated Crash IDs:")
             
-            for i, crash_detail in enumerate(bug_data['crash_details'][:10], 1):  # Show first 10
+            for i, crash_detail in enumerate(bug_data['crash_details'][:10], 1):
                 date = crash_detail['date'][:10] if crash_detail['date'] else 'N/A'
                 print(f"  {i}. {crash_detail['crash_id']}")
                 print(f"     Date: {date} | Version: {crash_detail['version']} | Build: {crash_detail['build_id']}")
@@ -487,8 +529,15 @@ class SignatureToBugMapper:
 def main():
     """Main execution function"""
     
-    # Initialize mapper
-    mapper = SignatureToBugMapper()
+    # Initialize mapper with local repositories (in same folder as script)
+    local_repos = {
+        'autoland': './mozilla-autoland',
+        'central': './mozilla-central',
+        'release': './mozilla-release',
+        'esr115': './mozilla-esr115'
+    }
+    
+    mapper = SignatureToBugMapper(local_repos=local_repos)
     
     # Example signature - CHANGE THIS to your signature
     signature = "OOM | small"
@@ -496,9 +545,9 @@ def main():
     # Run mapping
     results = mapper.map_signature_to_bugs(
         signature=signature,
-        months_back=6,      # Last 6 months
-        max_crashes=600,    # Process up to 600 crashes
-        max_fetch=1000       # Fetch up to 1000 crashes initially
+        months_back=6,
+        max_crashes=1000,
+        max_fetch=2000
     )
     
     # Print detailed bugs report
@@ -511,7 +560,7 @@ def main():
     print(f"{'Crash ID':<40} {'Date':<20} {'Bug Numbers':<20}")
     print("-"*80)
     
-    for result in results['results'][:20]:  # Show first 20
+    for result in results['results'][:20]:
         bugs = ', '.join(result['bug_numbers']) if result['bug_numbers'] else 'None'
         date = result['date'][:10] if result['date'] else 'N/A'
         print(f"{result['crash_id']:<40} {date:<20} {bugs:<20}")

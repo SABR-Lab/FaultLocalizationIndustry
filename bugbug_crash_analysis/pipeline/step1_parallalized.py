@@ -15,18 +15,13 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Import shared utilities
-try:
-    from bugbug_utils import BugBugUtils
-    UTILS_AVAILABLE = True
-except ImportError:
-    UTILS_AVAILABLE = False
-    print("Warning: bugbug_utils.py not found. Some features may be limited.")
-
+from bugbug_utils import BugBugUtils
+    
 
 class SignatureToBugMapper:
     """Maps crash signatures to bug numbers (PARALLELIZED)"""
     
-    def __init__(self, local_repos: Dict[str, str] = None, max_workers: int = 10):
+    def __init__(self, local_repos: Dict[str, str] = None, max_workers: int = None):
         """
         Initialize the mapper
         
@@ -40,6 +35,8 @@ class SignatureToBugMapper:
             'User-Agent': 'Mozilla Crash Bug Mapper 1.0'
         })
         self.local_repos = local_repos or {}
+        if max_workers is None:
+            max_workers = min(32, (subprocess.cpu_count() or 2) * 2)
         self.max_workers = max_workers
         print(f"  Parallelization: {max_workers} worker threads")
     
@@ -122,7 +119,7 @@ class SignatureToBugMapper:
             response = self.session.get(url, timeout=15)
             response.raise_for_status()
             data = response.json()
-            return data.get('build')
+            return data.get('build', {}).get('buildId')
         except Exception as e:
             print(f"    Error getting build ID for {crash_id}: {e}")
             return None
@@ -464,7 +461,7 @@ def main():
     }
     
     # Initialize with custom max_workers (increase for faster network)
-    mapper = SignatureToBugMapper(local_repos=local_repos, max_workers=10)
+    mapper = SignatureToBugMapper(local_repos=local_repos)
     
     signature = "OOM | small"
     

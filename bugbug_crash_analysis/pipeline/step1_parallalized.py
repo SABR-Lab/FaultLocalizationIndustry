@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 STEP 1: CRASH SIGNATURE TO BUG MAPPER (PARALLELIZED)
 With concurrent processing to speed up API calls
@@ -13,11 +12,11 @@ from typing import List, Dict, Optional
 from collections import defaultdict
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import os
 
 # Import shared utilities
 from bugbug_utils import BugBugUtils
     
-
 class SignatureToBugMapper:
     """Maps crash signatures to bug numbers (PARALLELIZED)"""
     
@@ -36,81 +35,106 @@ class SignatureToBugMapper:
         })
         self.local_repos = local_repos or {}
         if max_workers is None:
-            max_workers = min(32, (subprocess.cpu_count() or 2) * 2)
+            max_workers = min(32, (os.cpu_count() or 2) * 2)
         self.max_workers = max_workers
         print(f"  Parallelization: {max_workers} worker threads")
     
     def get_crashes_for_signature(self, signature: str, months_back: int = 6, 
-                                  max_fetch: int = 500) -> List[Dict]:
+                                  max_fetch_per_day: int = 10000) -> List[Dict]:
         """
         Get crash IDs for a signature from the past N months
         Limited to max_fetch crashes to avoid excessive API calls
         """
         print(f" Searching for crashes with signature: {signature}")
         print(f" Time period: Last {months_back} months")
-        print(f"  Will fetch maximum {max_fetch} crashes")
+        print(f"  Will fetch maximum {max_fetch_per_day} crashes")
         
         end_date = datetime.now()
         start_date = end_date - timedelta(days=months_back * 30)
         
         crashes = []
-        page = 1
-        
-        while len(crashes) < max_fetch:
-            print(f"  Fetching page {page}... ({len(crashes)} crashes so far)")
-            
-            params = {
-                'signature': f'={signature}',
-                'date': [
-                    f'>={start_date.strftime("%Y-%m-%d")}',
-                    f'<{end_date.strftime("%Y-%m-%d")}'
-                ],
-                '_results_number': 100,
-                '_results_offset': (page - 1) * 100,
-                '_facets': 'signature',
-                '_columns': ['uuid', 'date', 'build_id', 'version', 'product']
-            }
-            
-            try:
-                response = self.session.get(
-                    'https://crash-stats.mozilla.org/api/SuperSearch/',
-                    params=params,
-                    timeout=30
-                )
-                response.raise_for_status()
-                data = response.json()
+        current_date = start_date
+        day_count = 0
+        days_with_crashes = 0
+
+        # outer loop (iterate through each day)
+        while current_date < end_date:
+            next_date = current_date + timedelta(days=1)
+            day_crashes=[]
+            page = 1
+            day_count += 1
+            print(f"\n Processing day {day_count}: {current_date.strftime('%Y-%m-%d')}")
+
+            # inner loop (paginate through crashes for the day)
+            while len(day_crashes) < max_fetch_per_day:
+                print(f"  page {page}... ({len(day_crashes)} crashes so far for this day)")
                 
-                hits = data.get('hits', [])
-                if not hits:
-                    break
+                params = {
+                    'signature': f'={signature}',
+                    'date': [
+                        f'>={current_date.strftime("%Y-%m-%d")}',
+                        f'<{next_date.strftime("%Y-%m-%d")}'
+                    ],
+                    '_results_number': 100,
+                    '_results_offset': (page - 1) * 100,
+                    '_facets': 'signature',
+                    '_columns': ['uuid', 'date', 'build_id', 'version', 'product']
+                }
                 
-                for hit in hits:
-                    if len(crashes) >= max_fetch:
+                try:
+                    response = self.session.get(
+                        'https://crash-stats.mozilla.org/api/SuperSearch/',
+                        params=params,
+                        timeout=30
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    
+                    hits = data.get('hits', [])
+                    if not hits:
                         break
-                    crashes.append({
-                        'crash_id': hit.get('uuid'),
-                        'date': hit.get('date'),
-                        'build_id': hit.get('build_id'),
-                        'version': hit.get('version'),
-                        'product': hit.get('product')
-                    })
-                
-                total = data.get('total', 0)
-                print(f"    Found {len(hits)} crashes (total available: {total})")
-                
-                if len(crashes) >= max_fetch or len(crashes) >= total:
+                    
+                    for hit in hits:
+                        if len(day_crashes) >= max_fetch_per_day:
+                            break
+                        day_crashes.append({
+                            'crash_id': hit.get('uuid'),
+                            'date': hit.get('date'),
+                            'build_id': hit.get('build_id'),
+                            'version': hit.get('version'),
+                            'product': hit.get('product')
+                        })
+                    
+                    total = data.get('total', 0)
+                    print(f"    Found {len(hits)} crashes (total available: {total})")
+                    
+                    if len(day_crashes) >= max_fetch_per_day or len(day_crashes) >= total:
+                        break
+                    
+                    page += 1
+                    time.sleep(0.5)
+                    
+                except Exception as e:
+                    print(f"   Error fetching crashes: {e}")
                     break
-                
-                page += 1
-                time.sleep(0.5)
-                
-            except Exception as e:
-                print(f"   Error fetching crashes: {e}")
-                break
-        
-        print(f" Fetched {len(crashes)} crashes")
+            
+            # add the current day's crashes to the total
+            if day_crashes:
+                days_with_crashes += 1
+                crashes.extend(day_crashes)
+                print(f" Day {current_date.strftime('%Y-%m-%d')}: Fetched {len(day_crashes)} crashes (total so far: {len(crashes)})")
+            else:
+                print(f" Day {current_date.strftime('%Y-%m-%d')}: No crashes found")
+
+            #moving to the next day 
+            current_date = next_date
+            time.sleep(1)  # brief pause between days to avoid rate limits
+        print(f"\n Fetched {len(crashes)} crashes total")
+        print(f" Days processed: {day_count}")
+        print(f" Days with crashes: {days_with_crashes}")
         return crashes
-    
+            
+        
     def get_build_id(self, crash_id: str) -> Optional[str]:
         """Get build ID from crash data"""
         url = f"https://crash-stats.mozilla.org/api/ProcessedCrash/?crash_id={crash_id}"
@@ -313,7 +337,7 @@ class SignatureToBugMapper:
         return final_index
     
     def map_signature_to_bugs(self, signature: str, months_back: int = 6, 
-                             max_crashes: int = 100, max_fetch: int = 500) -> Dict:
+                             max_crashes: int = None, max_fetch_per_day: int = 10000) -> Dict:
         """
         Main function: Map a signature to bug numbers (PARALLELIZED)
         """
@@ -322,7 +346,7 @@ class SignatureToBugMapper:
         print("="*80)
         
         # Step 1: Get crashes for signature
-        crashes = self.get_crashes_for_signature(signature, months_back, max_fetch)
+        crashes = self.get_crashes_for_signature(signature, months_back, max_fetch_per_day)
         
         if not crashes:
             return {
@@ -333,12 +357,14 @@ class SignatureToBugMapper:
                 'bugs_index': {}
             }
         
-        # Limit crashes to process
-        crashes_to_process = crashes[:max_crashes]
-        if len(crashes) > max_crashes:
-            print(f"  Limiting to first {max_crashes} crashes")
-        
-        print(f"\n Processing {len(crashes_to_process)} crashes in parallel ({self.max_workers} workers)...\n")
+        # Limit crashes to process only if max_crashes is specified
+        if max_crashes is not None:
+            crashes_to_process = crashes[:max_crashes]
+            if len(crashes) > max_crashes:
+                print(f"  Limiting to first {max_crashes} crashes")
+        else:
+            crashes_to_process = crashes
+        print(f"\n Processing all {len(crashes_to_process)} crashes in parallel ({self.max_workers} workers)...\n")
         
         results = []
         completed = 0
@@ -469,8 +495,8 @@ def main():
     results = mapper.map_signature_to_bugs(
         signature=signature,
         months_back=6,
-        max_crashes=6000,
-        max_fetch=6000
+        max_crashes=None,
+        max_fetch_per_day=10000
     )
     
     # Print detailed bugs report
@@ -501,3 +527,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

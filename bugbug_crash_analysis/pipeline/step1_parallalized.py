@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 
 # Import shared utilities
-from bugbug_utils import BugBugUtils
+from utils.bugbug_utils import BugBugUtils
     
 class SignatureToBugMapper:
     """Maps crash signatures to bug numbers (PARALLELIZED)"""

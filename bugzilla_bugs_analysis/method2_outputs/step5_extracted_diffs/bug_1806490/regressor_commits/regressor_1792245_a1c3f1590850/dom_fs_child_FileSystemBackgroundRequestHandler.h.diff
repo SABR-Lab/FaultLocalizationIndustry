@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fs/child/FileSystemBackgroundRequestHandler.h
+# Commit: a1c3f1590850
+# Full Hash: a1c3f15908502273c13d28e50bc0448157f2d6f9
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2022-10-20 21:51:26
+# Regressor Bug: 1792245
+# File Overlap Count: 2
+# Description:
+#   Bug 1792245 - Improve FileSystemManager shutdown; r=dom-storage-reviewers,jesup
+#   
+#   Changes:
+#   - new MozPromise requests are not created after shutdown
+#   - existing MozPromise requests are disconnected during shutdown
+# ==============================================================================
+
+diff -r 214c4d6bf7f9 -r a1c3f1590850 dom/fs/child/FileSystemBackgroundRequestHandler.h
+--- a/dom/fs/child/FileSystemBackgroundRequestHandler.h	Thu Oct 20 04:21:30 2022 +0000
++++ b/dom/fs/child/FileSystemBackgroundRequestHandler.h	Thu Oct 20 04:21:30 2022 +0000
+@@ -10,6 +10,7 @@
+ #include "mozilla/MozPromise.h"
+ #include "mozilla/UniquePtr.h"
+ #include "mozilla/dom/quota/ForwardDecls.h"
++#include "mozilla/ipc/PBackgroundChild.h"
+ 
+ template <class T>
+ class RefPtr;
+@@ -52,10 +53,15 @@
+ 
+   const UniquePtr<fs::FileSystemChildFactory> mChildFactory;
+ 
++  MozPromiseRequestHolder<
++      mozilla::ipc::PBackgroundChild::CreateFileSystemManagerParentPromise>
++      mCreateFileSystemManagerParentPromiseRequestHolder;
+   MozPromiseHolder<BoolPromise> mCreateFileSystemManagerChildPromiseHolder;
+ 
+   RefPtr<FileSystemManagerChild> mFileSystemManagerChild;
+ 
++  FlippedOnce<false> mShutdown;
++
+   bool mCreatingFileSystemManagerChild;
+ };  // class FileSystemBackgroundRequestHandler
+ 

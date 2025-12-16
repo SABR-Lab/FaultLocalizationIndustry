@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/Ion.cpp
+# Commit: d9c1e44eb0ad
+# Full Hash: d9c1e44eb0addfc3e44ae299c86381128aa08e7f
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2019-12-15 21:49:48
+# Regressor Bug: 1601599
+# File Overlap Count: 1
+# Description:
+#   Bug 1601599 part 4 - Support Ion OSR at all loops. r=tcampbell
+#   
+#   Depends on D56700
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D56701
+# ==============================================================================
+
+diff -r 93842c3971f8 -r d9c1e44eb0ad js/src/jit/Ion.cpp
+--- a/js/src/jit/Ion.cpp	Sun Dec 15 11:33:36 2019 +0000
++++ b/js/src/jit/Ion.cpp	Sun Dec 15 11:34:34 2019 +0000
+@@ -2072,7 +2072,7 @@
+                             jsbytecode* osrPc, bool forceRecompile = false) {
+   MOZ_ASSERT(jit::IsIonEnabled());
+   MOZ_ASSERT(jit::IsBaselineJitEnabled());
+-  MOZ_ASSERT_IF(osrPc != nullptr, LoopHeadCanIonOsr(osrPc));
++
+   AutoGeckoProfilerEntry pseudoFrame(
+       cx, "Ion script compilation",
+       JS::ProfilingCategoryPair::JS_IonCompilation);
+@@ -2278,7 +2278,6 @@
+                                              jsbytecode* pc) {
+   MOZ_ASSERT(jit::IsIonEnabled());
+   MOZ_ASSERT((JSOp)*pc == JSOP_LOOPHEAD);
+-  MOZ_ASSERT(LoopHeadCanIonOsr(pc));
+ 
+   // Skip if the script has been disabled.
+   if (!script->canIonCompile()) {
+@@ -2356,8 +2355,6 @@
+   RootedScript script(cx, frame->script());
+   bool isLoopHead = JSOp(*pc) == JSOP_LOOPHEAD;
+ 
+-  MOZ_ASSERT(!isLoopHead || LoopHeadCanIonOsr(pc));
+-
+   // The Baseline JIT code checks for Ion disabled or compiling off-thread.
+   MOZ_ASSERT(script->canIonCompile());
+   MOZ_ASSERT(!script->isIonCompilingOffThread());
+@@ -2382,7 +2379,6 @@
+ 
+   MethodStatus stat;
+   if (isLoopHead) {
+-    MOZ_ASSERT(LoopHeadCanIonOsr(pc));
+     JitSpew(JitSpew_BaselineOSR, "  Compile at loop head!");
+     stat = BaselineCanEnterAtBranch(cx, script, frame, frameSize, pc);
+   } else if (frame->isFunctionFrame()) {

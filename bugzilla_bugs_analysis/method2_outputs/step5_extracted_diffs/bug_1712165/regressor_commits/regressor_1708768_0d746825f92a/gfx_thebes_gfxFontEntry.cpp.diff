@@ -1,0 +1,31 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxFontEntry.cpp
+# Commit: 0d746825f92a
+# Full Hash: 0d746825f92a3039433aa275997c6e7f2ebfaf56
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2021-05-18 21:36:28
+# Regressor Bug: 1708768
+# File Overlap Count: 2
+# Description:
+#   Bug 1708768 - Make InitFontList safe to call off-main-thread on macOS, and run font-list initialization on a separate thread during startup. r=lsalzman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D115295
+# ==============================================================================
+
+diff -r fbe7310ee5f3 -r 0d746825f92a gfx/thebes/gfxFontEntry.cpp
+--- a/gfx/thebes/gfxFontEntry.cpp	Tue May 18 11:10:43 2021 +0000
++++ b/gfx/thebes/gfxFontEntry.cpp	Tue May 18 11:10:43 2021 +0000
+@@ -1876,8 +1876,9 @@
+ 
+ /*virtual*/
+ gfxFontFamily::~gfxFontFamily() {
+-  // Should not be dropped by stylo
+-  MOZ_ASSERT(NS_IsMainThread());
++  // Should not be dropped by stylo, but the InitFontList thread might use
++  // a transient gfxFontFamily and that's OK.
++  MOZ_ASSERT(NS_IsMainThread() || gfxPlatformFontList::IsInitFontListThread());
+ }
+ 
+ // returns true if other names were found, false otherwise

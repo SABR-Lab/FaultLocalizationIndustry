@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: mozglue/baseprofiler/public/BaseProfilerMarkersPrerequisites.h
+# Commit: e582038fdae2
+# Full Hash: e582038fdae25b304ea153cf10f498f78dd3cc71
+# Author: Gerald Squelart <gsquelart@mozilla.com>
+# Date: 2020-10-17 09:14:56
+# Regressor Bug: 1670954
+# File Overlap Count: 1
+# Description:
+#   Bug 1670954 - MarkerThreadId::MainThread() - r=gregtatum
+#   
+#   Since the main thread is almost always being profiled, this makes it easy to direct important markers there (e.g., FileIO markers from unregistered threads).
+#   
+#   Tech note: The `#include "BaseProfiler.h"` line was moved to BaseProfilerMarkersPrerequesites.h so that `MarkerThreadId::MainThread()` there can access `profiler_main_thread_id()`.
+# ==============================================================================
+
+diff -r a01db300cf22 -r e582038fdae2 mozglue/baseprofiler/public/BaseProfilerMarkersPrerequisites.h
+--- a/mozglue/baseprofiler/public/BaseProfilerMarkersPrerequisites.h	Fri Oct 16 22:06:53 2020 +0000
++++ b/mozglue/baseprofiler/public/BaseProfilerMarkersPrerequisites.h	Fri Oct 16 22:07:20 2020 +0000
+@@ -29,10 +29,8 @@
+ #  include <utility>
+ #  include <vector>
+ 
+-namespace mozilla::baseprofiler {
+-// Implemented in platform.cpp
+-MFBT_API int profiler_current_thread_id();
+-}  // namespace mozilla::baseprofiler
++// TODO: Move common stuff to shared header instead.
++#  include "BaseProfiler.h"
+ 
+ namespace mozilla {
+ 
+@@ -282,6 +280,12 @@
+     return MarkerThreadId(baseprofiler::profiler_current_thread_id());
+   }
+ 
++  // Use the main thread's id. This can be useful to record a marker from a
++  // possibly-unregistered thread, and display it in the main thread track.
++  static MarkerThreadId MainThread() {
++    return MarkerThreadId(baseprofiler::profiler_main_thread_id());
++  }
++
+   [[nodiscard]] constexpr int ThreadId() const { return mThreadId; }
+ 
+   [[nodiscard]] constexpr bool IsUnspecified() const { return mThreadId == 0; }

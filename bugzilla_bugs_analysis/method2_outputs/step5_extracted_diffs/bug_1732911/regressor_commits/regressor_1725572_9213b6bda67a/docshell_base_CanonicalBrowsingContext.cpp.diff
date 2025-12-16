@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/CanonicalBrowsingContext.cpp
+# Commit: 9213b6bda67a
+# Full Hash: 9213b6bda67a689644f442f7b98902c5a5184c74
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2021-09-24 09:46:13
+# Regressor Bug: 1725572
+# File Overlap Count: 1
+# Description:
+#   Bug 1725572 - Part 2: Keep BrowsingContext alive until every process has acknowledged the discard, r=farre
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D125897
+# ==============================================================================
+
+diff -r 6bb38c7309e5 -r 9213b6bda67a docshell/base/CanonicalBrowsingContext.cpp
+--- a/docshell/base/CanonicalBrowsingContext.cpp	Thu Sep 23 18:54:31 2021 +0000
++++ b/docshell/base/CanonicalBrowsingContext.cpp	Thu Sep 23 18:54:31 2021 +0000
+@@ -1152,6 +1152,31 @@
+   }
+ }
+ 
++void CanonicalBrowsingContext::AddPendingDiscard() {
++  MOZ_ASSERT(!mFullyDiscarded);
++  mPendingDiscards++;
++}
++
++void CanonicalBrowsingContext::RemovePendingDiscard() {
++  mPendingDiscards--;
++  if (!mPendingDiscards) {
++    mFullyDiscarded = true;
++    auto listeners = std::move(mFullyDiscardedListeners);
++    for (const auto& listener : listeners) {
++      listener(Id());
++    }
++  }
++}
++
++void CanonicalBrowsingContext::AddFinalDiscardListener(
++    std::function<void(uint64_t)>&& aListener) {
++  if (mFullyDiscarded) {
++    aListener(Id());
++    return;
++  }
++  mFullyDiscardedListeners.AppendElement(std::move(aListener));
++}
++
+ void CanonicalBrowsingContext::AdjustPrivateBrowsingCount(
+     bool aPrivateBrowsing) {
+   if (IsDiscarded() || !EverAttached() || IsChrome()) {

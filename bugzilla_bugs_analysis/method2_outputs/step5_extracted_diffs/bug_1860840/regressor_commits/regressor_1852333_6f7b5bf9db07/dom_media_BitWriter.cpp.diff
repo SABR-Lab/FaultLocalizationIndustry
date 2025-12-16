@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/BitWriter.cpp
+# Commit: 6f7b5bf9db07
+# Full Hash: 6f7b5bf9db07f4b0e5ff088257b10772f1486340
+# Author: alwu <alwu@mozilla.com>
+# Date: 2023-10-06 15:27:33
+# Regressor Bug: 1852333
+# File Overlap Count: 4
+# Description:
+#   Bug 1852333 - part2 : detect config change for HEVC stream. r=media-playback-reviewers,padenot
+#   
+#   This patch detects inband change for the HEVC playback so that we can
+#   recreate decoder if the new config is different from the previous one.
+#   
+# ==============================================================================
+
+diff -r 1de872081cfc -r 6f7b5bf9db07 dom/media/BitWriter.cpp
+--- a/dom/media/BitWriter.cpp	Thu Oct 05 21:07:14 2023 +0000
++++ b/dom/media/BitWriter.cpp	Thu Oct 05 21:07:15 2023 +0000
+@@ -3,6 +3,9 @@
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
+ #include "BitWriter.h"
++
++#include <stdint.h>
++
+ #include "MediaData.h"
+ #include "mozilla/MathAlgorithms.h"
+ 
+@@ -93,4 +96,9 @@
+   WriteBits(0, (8 - mBitIndex) & 7);
+ }
+ 
++void BitWriter::AdvanceBytes(uint32_t aByteOffset) {
++  MOZ_DIAGNOSTIC_ASSERT(mBitIndex == 0);
++  mPosition += aByteOffset;
++}
++
+ }  // namespace mozilla

@@ -1,0 +1,31 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: accessible/generic/LocalAccessible.cpp
+# Commit: 479af777fd70
+# Full Hash: 479af777fd70edea681ac59dabee119a844f9b1a
+# Author: Nathan LaPre <nlapre@mozilla.com>
+# Date: 2024-10-12 09:45:24
+# Description:
+#   Bug 1922691: Avoid crash in BundleFieldsForCache with null check on mBounds, r=Jamie
+#   
+#   This revision adds a null check on mBounds in BundleFieldsForCache, in order to
+#   avoid crashing in release when mBounds is empty.
+#   
+# ==============================================================================
+
+diff -r 47c45ea2a52e -r 479af777fd70 accessible/generic/LocalAccessible.cpp
+--- a/accessible/generic/LocalAccessible.cpp	Fri Oct 11 17:30:23 2024 +0000
++++ b/accessible/generic/LocalAccessible.cpp	Fri Oct 11 17:31:13 2024 +0000
+@@ -3639,7 +3639,10 @@
+       }
+     }
+ 
+-    boundsChanged = IsInitialPush(CacheDomain::Bounds) ||
++    // mBounds should never be Nothing, but sometimes it is (see Bug 1922691).
++    // We null check mBounds here to avoid a crash while we figure out how this
++    // can happen.
++    boundsChanged = IsInitialPush(CacheDomain::Bounds) || !mBounds ||
+                     !newBoundsRect.IsEqualEdges(mBounds.value());
+     if (boundsChanged) {
+       mBounds = Some(newBoundsRect);

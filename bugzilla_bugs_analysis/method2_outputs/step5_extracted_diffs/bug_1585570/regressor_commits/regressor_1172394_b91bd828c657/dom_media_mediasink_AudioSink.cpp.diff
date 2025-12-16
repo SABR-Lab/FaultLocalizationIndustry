@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasink/AudioSink.cpp
+# Commit: b91bd828c657
+# Full Hash: b91bd828c657d85120fe02e57410a0b82ec0acd3
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2019-11-14 21:46:28
+# Regressor Bug: 1172394
+# File Overlap Count: 1
+# Description:
+#   Bug 1172394 - Simplify MediaSink somewhat. r=padenot
+#   
+#   This patches does several minor things:
+#   - Moves SetSink (from setSinkid) to automatic coalescing of multiple calls
+#     through a Canonical/Mirror setup instead of a manual atomic counter.
+# ==============================================================================
+
+diff -r fdf5dd8ff807 -r b91bd828c657 dom/media/mediasink/AudioSink.cpp
+--- a/dom/media/mediasink/AudioSink.cpp	Wed Nov 13 22:40:07 2019 +0000
++++ b/dom/media/mediasink/AudioSink.cpp	Wed Nov 13 22:40:05 2019 +0000
+@@ -6,6 +6,7 @@
+ 
+ #include "AudioSink.h"
+ #include "AudioConverter.h"
++#include "AudioDeviceInfo.h"
+ #include "MediaQueue.h"
+ #include "VideoUtils.h"
+ #include "mozilla/CheckedInt.h"
+@@ -34,9 +35,11 @@
+ 
+ AudioSink::AudioSink(AbstractThread* aThread,
+                      MediaQueue<AudioData>& aAudioQueue,
+-                     const TimeUnit& aStartTime, const AudioInfo& aInfo)
++                     const TimeUnit& aStartTime, const AudioInfo& aInfo,
++                     AudioDeviceInfo* aAudioDevice)
+     : mStartTime(aStartTime),
+       mInfo(aInfo),
++      mAudioDevice(aAudioDevice),
+       mPlaying(true),
+       mMonitor("AudioSink"),
+       mWritten(0),
+@@ -183,7 +186,7 @@
+   // StaticPrefs::accessibility_monoaudio_enable() or
+   // StaticPrefs::media_forcestereo_enabled() is applied.
+   nsresult rv = mAudioStream->Init(mOutputChannels, channelMap, mOutputRate,
+-                                   aParams.mSink);
++                                   mAudioDevice);
+   if (NS_FAILED(rv)) {
+     mAudioStream->Shutdown();
+     mAudioStream = nullptr;

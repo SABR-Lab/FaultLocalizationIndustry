@@ -1,0 +1,37 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/ResizeObserver.cpp
+# Commit: 95679f6ce254
+# Full Hash: 95679f6ce2544b21ec9cfd0d19961058d60155d6
+# Author: Frederic Wang <fred.wang@free.fr>
+# Date: 2023-11-27 17:00:06
+# Regressor Bug: 1807253
+# File Overlap Count: 1
+# Description:
+#   Bug 1807253 - unreliable timing for content-visibility:auto, r=emilio
+#   
+#   Rewrite implementation of content-visibility: auto as defined in
+#   https://github.com/w3c/csswg-drafts/issues/8542
+#   
+# ==============================================================================
+
+diff -r 9ea04a2cc829 -r 95679f6ce254 dom/base/ResizeObserver.cpp
+--- a/dom/base/ResizeObserver.cpp	Mon Nov 27 08:00:41 2023 +0000
++++ b/dom/base/ResizeObserver.cpp	Mon Nov 27 08:26:46 2023 +0000
+@@ -531,14 +531,12 @@
+       continue;
+     }
+     nsIFrame* frame = target->GetPrimaryFrame();
+-    if (!frame) {
++    if (!frame || frame->HidesContent()) {
+       aObserver.Unobserve(*target);
+       continue;
+     }
+     MOZ_ASSERT(!frame->IsLineParticipant() || frame->IsReplaced(),
+                "Should have unobserved non-replaced inline.");
+-    MOZ_ASSERT(!frame->HidesContent(),
+-               "Should have unobserved element skipping its contents.");
+     const nsStylePosition* stylePos = frame->StylePosition();
+     const WritingMode wm = frame->GetWritingMode();
+     bool canUpdateBSize = stylePos->ContainIntrinsicBSize(wm).HasAuto();

@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/PHttpBackgroundChannel.ipdl
+# Commit: 673030046319
+# Full Hash: 673030046319948020e1e2100e2db3cf753dbaba
+# Author: Junior Hsu <juhsu@mozilla.com>
+# Date: 2020-06-30 10:00:42
+# Regressor Bug: 1633935
+# File Overlap Count: 1
+# Description:
+#   Bug 1633935 - P9 send OnAfterLastPart via pBg IPC to avoid race between OS*R, r=mayhemer,necko-reviewers
+#   
+#   Depends on D77750
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D77751
+# ==============================================================================
+
+diff -r 045271cd2ca6 -r 673030046319 netwerk/protocol/http/PHttpBackgroundChannel.ipdl
+--- a/netwerk/protocol/http/PHttpBackgroundChannel.ipdl	Tue Jun 30 00:33:41 2020 +0000
++++ b/netwerk/protocol/http/PHttpBackgroundChannel.ipdl	Tue Jun 30 00:33:54 2020 +0000
+@@ -45,6 +45,11 @@
+ 
+   async OnStatus(nsresult status);
+ 
++  // Forwards nsIMultiPartChannelListener::onAfterLastPart. Make sure we've
++  // disconnected our listeners, since we might not have on the last
++  // OnStopRequest.
++  async OnAfterLastPart(nsresult aStatus);
++
+   // Parent has been suspended for diversion; no more events to be enqueued.
+   async FlushedForDiversion();
+ 

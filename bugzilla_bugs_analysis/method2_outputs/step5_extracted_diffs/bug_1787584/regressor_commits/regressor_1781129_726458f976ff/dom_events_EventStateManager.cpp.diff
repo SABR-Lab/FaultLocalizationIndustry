@@ -1,0 +1,32 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/events/EventStateManager.cpp
+# Commit: 726458f976ff
+# Full Hash: 726458f976fff2b05bb0eaf7e940cd7be06d75f5
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2022-08-03 03:42:48
+# Regressor Bug: 1781129
+# File Overlap Count: 1
+# Description:
+#   Bug 1781129 - Part 1: Use BigBuffer for IPCDataTransfer, r=edgar
+#   
+#   The IPCDataTransfer type is used to transfer Clipboard/Drag & Drop payloads
+#   over IPC to allow them to be written to or read from the relevant system
+#   interfaces. Previously, the system which was used was somewhat complex, and
+# ==============================================================================
+
+diff -r 1aa5ec22f47a -r 726458f976ff dom/events/EventStateManager.cpp
+--- a/dom/events/EventStateManager.cpp	Tue Aug 02 17:08:59 2022 +0000
++++ b/dom/events/EventStateManager.cpp	Tue Aug 02 17:15:41 2022 +0000
+@@ -6046,8 +6046,8 @@
+                 transferable->GetRequestingPrincipal();
+             nsContentPolicyType contentPolicyType =
+                 transferable->GetContentPolicyType();
+-            remote->SendPasteTransferable(ipcDataTransfer, isPrivateData,
+-                                          requestingPrincipal,
++            remote->SendPasteTransferable(std::move(ipcDataTransfer),
++                                          isPrivateData, requestingPrincipal,
+                                           contentPolicyType);
+             rv = NS_OK;
+           } else {

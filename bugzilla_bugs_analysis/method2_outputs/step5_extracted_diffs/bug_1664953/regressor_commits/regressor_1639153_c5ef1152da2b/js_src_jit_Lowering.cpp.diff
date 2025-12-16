@@ -1,0 +1,36 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/Lowering.cpp
+# Commit: c5ef1152da2b
+# Full Hash: c5ef1152da2bd1de3d98b51daa635ac42ff0a153
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-10-02 04:10:47
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 6.2: Establish dependency from tls for x86 callWithABI div/mod i64. r=lth
+#   
+#   x86 has few register so to do div/mod for i64 it call the runtime
+#   and clobber almost all gp registers including WasmTlsReg.
+#   To be able to call c++ runtime via Builtin thunk we need to set up WasmTlsReg.
+# ==============================================================================
+
+diff -r f0f44cfd6a07 -r c5ef1152da2b js/src/jit/Lowering.cpp
+--- a/js/src/jit/Lowering.cpp	Thu Oct 01 07:52:07 2020 +0000
++++ b/js/src/jit/Lowering.cpp	Thu Oct 01 07:52:24 2020 +0000
+@@ -1869,6 +1869,14 @@
+   MOZ_CRASH("Unhandled number specialization");
+ }
+ 
++void LIRGenerator::visitWasmBuiltinDivI64(MWasmBuiltinDivI64* div) {
++  lowerWasmBuiltinDivI64(div);
++}
++
++void LIRGenerator::visitWasmBuiltinModI64(MWasmBuiltinModI64* mod) {
++  lowerWasmBuiltinModI64(mod);
++}
++
+ void LIRGenerator::visitMod(MMod* ins) {
+   MOZ_ASSERT(ins->lhs()->type() == ins->rhs()->type());
+   MOZ_ASSERT(IsNumberType(ins->type()));

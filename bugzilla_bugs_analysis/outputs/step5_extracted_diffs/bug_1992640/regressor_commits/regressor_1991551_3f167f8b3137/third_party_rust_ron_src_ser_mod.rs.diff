@@ -1,0 +1,74 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/ron/src/ser/mod.rs
+# Commit: 3f167f8b3137
+# Full Hash: 3f167f8b313749f50f135e189e5854bef7ac0c73
+# Author: Erich Gubler <erichdongubler@gmail.com>
+# Date: 2025-10-03 18:08 +0000
+# Regressor Bug: 1991551
+# File Overlap Count: 23
+# Overlapping Files: third_party/rust/wgpu-hal/Cargo.toml, supply-chain/audits.toml, third_party/rust/naga/src/back/spv/writer.rs, third_party/rust/naga/src/back/msl/writer.rs, third_party/rust/wgpu-types/src/lib.rs
+# Description:
+#   Bug 1991551 - build(webgpu): update WGPU to 8c4aebc0c1b75e3f7412dfc180745a0717fc30ec r=webgpu-reviewers,supply-chain-reviewers,nical
+# ==============================================================================
+
+diff -r 823439f307a0 -r 3f167f8b3137 third_party/rust/ron/src/ser/mod.rs
+--- a/third_party/rust/ron/src/ser/mod.rs	Fri Oct 03 18:01:30 2025 +0000
++++ b/third_party/rust/ron/src/ser/mod.rs	Fri Oct 03 18:08:29 2025 +0000
+@@ -1,4 +1,5 @@
+-use std::{borrow::Cow, fmt};
++use alloc::{borrow::Cow, string::String};
++use core::fmt;
+ 
+ use serde::{ser, ser::Serialize};
+ use serde_derive::{Deserialize, Serialize};
+@@ -562,7 +563,7 @@
+ 
+     fn serialize_escaped_byte_str(&mut self, value: &[u8]) -> fmt::Result {
+         self.output.write_str("b\"")?;
+-        for c in value.iter().flat_map(|c| std::ascii::escape_default(*c)) {
++        for c in value.iter().flat_map(|c| core::ascii::escape_default(*c)) {
+             self.output.write_char(char::from(c))?;
+         }
+         self.output.write_char('"')?;
+@@ -736,7 +737,9 @@
+ 
+         write!(self.output, "{}", v)?;
+ 
+-        if v.fract() == 0.0 {
++        // Equivalent to v.fract() == 0.0
++        // See: https://docs.rs/num-traits/0.2.19/src/num_traits/float.rs.html#459-465
++        if v % 1. == 0.0 {
+             write!(self.output, ".0")?;
+         }
+ 
+@@ -754,7 +757,9 @@
+ 
+         write!(self.output, "{}", v)?;
+ 
+-        if v.fract() == 0.0 {
++        // Equivalent to v.fract() == 0.0
++        // See: https://docs.rs/num-traits/0.2.19/src/num_traits/float.rs.html#459-465
++        if v % 1. == 0.0 {
+             write!(self.output, ".0")?;
+         }
+ 
+@@ -788,7 +793,7 @@
+     fn serialize_bytes(self, v: &[u8]) -> Result<()> {
+         // We need to fall back to escaping if the byte string would be invalid UTF-8
+         if !self.escape_strings() {
+-            if let Ok(v) = std::str::from_utf8(v) {
++            if let Ok(v) = core::str::from_utf8(v) {
+                 return self
+                     .serialize_unescaped_or_raw_byte_str(v)
+                     .map_err(Error::from);
+@@ -1371,7 +1376,7 @@
+         guard_recursion! { self.ser => value.serialize(&mut *self.ser)? };
+ 
+         if let Some((ref mut config, _)) = self.ser.pretty {
+-            std::mem::swap(&mut config.path_meta, &mut restore_field);
++            core::mem::swap(&mut config.path_meta, &mut restore_field);
+ 
+             if let Some(ref mut field) = config.path_meta {
+                 if let Some(fields) = field.fields_mut() {

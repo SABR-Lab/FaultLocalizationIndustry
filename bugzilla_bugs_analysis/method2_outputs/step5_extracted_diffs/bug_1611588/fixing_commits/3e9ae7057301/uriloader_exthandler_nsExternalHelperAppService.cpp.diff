@@ -1,0 +1,55 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: uriloader/exthandler/nsExternalHelperAppService.cpp
+# Commit: 3e9ae7057301
+# Full Hash: 3e9ae70573011a8e393603157578a003f09e9c1d
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2020-02-04 04:04:16
+# Description:
+#   Bug 1611588 - Handle null BrowsingContext in ExternalHelperAppParent. r=nika
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D61309
+# ==============================================================================
+
+diff -r cc1190f55c46 -r 3e9ae7057301 uriloader/exthandler/nsExternalHelperAppService.cpp
+--- a/uriloader/exthandler/nsExternalHelperAppService.cpp	Mon Feb 03 18:55:44 2020 +0000
++++ b/uriloader/exthandler/nsExternalHelperAppService.cpp	Mon Feb 03 18:57:08 2020 +0000
+@@ -1526,16 +1526,18 @@
+     aChannel->GetContentLength(&mContentLength);
+   }
+ 
+-  mMaybeCloseWindowHelper = new MaybeCloseWindowHelper(mBrowsingContext);
+-  mMaybeCloseWindowHelper->SetShouldCloseWindow(mShouldCloseWindow);
+-
+-  nsCOMPtr<nsIPropertyBag2> props(do_QueryInterface(request, &rv));
+-  // Determine whether a new window was opened specifically for this request
+-  if (props) {
+-    bool tmp = false;
+-    if (NS_SUCCEEDED(props->GetPropertyAsBool(
+-            NS_LITERAL_STRING("docshell.newWindowTarget"), &tmp))) {
+-      mMaybeCloseWindowHelper->SetShouldCloseWindow(tmp);
++  if (mBrowsingContext) {
++    mMaybeCloseWindowHelper = new MaybeCloseWindowHelper(mBrowsingContext);
++    mMaybeCloseWindowHelper->SetShouldCloseWindow(mShouldCloseWindow);
++
++    nsCOMPtr<nsIPropertyBag2> props(do_QueryInterface(request, &rv));
++    // Determine whether a new window was opened specifically for this request
++    if (props) {
++      bool tmp = false;
++      if (NS_SUCCEEDED(props->GetPropertyAsBool(
++              NS_LITERAL_STRING("docshell.newWindowTarget"), &tmp))) {
++        mMaybeCloseWindowHelper->SetShouldCloseWindow(tmp);
++      }
+     }
+   }
+ 
+@@ -1552,7 +1554,7 @@
+   // download. We don't run this in the content process, since we have
+   // an instance running in the parent as well, which will handle this
+   // if needed.
+-  if (!XRE_IsContentProcess()) {
++  if (!XRE_IsContentProcess() && mMaybeCloseWindowHelper) {
+     mBrowsingContext = mMaybeCloseWindowHelper->MaybeCloseWindow();
+   }
+ 

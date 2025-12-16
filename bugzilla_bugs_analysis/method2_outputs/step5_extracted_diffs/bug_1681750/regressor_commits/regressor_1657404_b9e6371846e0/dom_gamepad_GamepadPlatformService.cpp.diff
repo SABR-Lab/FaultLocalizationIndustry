@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/gamepad/GamepadPlatformService.cpp
+# Commit: b9e6371846e0
+# Full Hash: b9e6371846e0ae62c4cd5826c182f7b12eec1620
+# Author: Chris Martin <cmartin@mozilla.com>
+# Date: 2020-08-07 21:36:18
+# Regressor Bug: 1657404
+# File Overlap Count: 1
+# Description:
+#   Bug 1657404 - Refactor gamepad monitoring - Part 2 r=daoshengmu
+#   
+#   Substitute and eliminate MaybeStopGamepadMonitoring(). The logic to do this
+#   is so dependent on GamepadPlatformService that it should probably just be a
+#   member.
+# ==============================================================================
+
+diff -r 550630983bc5 -r b9e6371846e0 dom/gamepad/GamepadPlatformService.cpp
+--- a/dom/gamepad/GamepadPlatformService.cpp	Fri Aug 07 13:32:17 2020 +0000
++++ b/dom/gamepad/GamepadPlatformService.cpp	Fri Aug 07 13:27:55 2020 +0000
+@@ -255,19 +255,14 @@
+   {
+     MutexAutoLock autoLock(mMutex);
+     mChannelParents.RemoveElement(aParent);
++    if (!mChannelParents.IsEmpty()) {
++      return;
++    }
+   }
+ 
+-  MaybeStopGamepadMonitoring();
+-}
+-
+-bool GamepadPlatformService::HasGamepadListeners() {
+-  // mChannelParents may be accessed by background thread in the
+-  // same time, we use mutex to prevent possible race condtion
+-  AssertIsOnBackgroundThread();
+-
+-  // We use mutex here to prevent race condition with monitor thread
+-  MutexAutoLock autoLock(mMutex);
+-  return !mChannelParents.IsEmpty();
++  StopGamepadMonitoring();
++  ResetGamepadIndexes();
++  MaybeShutdown();
+ }
+ 
+ void GamepadPlatformService::MaybeShutdown() {

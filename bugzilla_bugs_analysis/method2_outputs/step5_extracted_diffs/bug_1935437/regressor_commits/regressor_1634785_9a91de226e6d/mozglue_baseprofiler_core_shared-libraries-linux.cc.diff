@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: mozglue/baseprofiler/core/shared-libraries-linux.cc
+# Commit: 9a91de226e6d
+# Full Hash: 9a91de226e6dd18687c8177cdd668387226d5cce
+# Author: Nazım Can Altınova <canaltinova@gmail.com>
+# Date: 2024-11-26 09:36:10
+# Regressor Bug: 1634785
+# File Overlap Count: 1
+# Description:
+#   Bug 1634785 - Apply recent breakpad changes to baseprofiler copy r=mstange,profiler-reviewers
+#   
+#   Well, I said recent in the commit title but it's actually 3 years old change.
+#   It was implemented in Bug 1741760. Looks like it was writing garbage code IDs
+#   to the modules that aren't ELF files without this change. So I think it's good
+# ==============================================================================
+
+diff -r 0cc852631023 -r 9a91de226e6d mozglue/baseprofiler/core/shared-libraries-linux.cc
+--- a/mozglue/baseprofiler/core/shared-libraries-linux.cc	Mon Nov 25 22:09:04 2024 +0000
++++ b/mozglue/baseprofiler/core/shared-libraries-linux.cc	Mon Nov 25 22:09:04 2024 +0000
+@@ -553,8 +553,6 @@
+   // a simple hash by XORing the first page worth of bytes into |identifier|.
+   static bool HashElfTextSection(const void* elf_mapped_base,
+                                  std::vector<uint8_t>& identifier) {
+-    identifier.resize(kMDGUIDSize);
+-
+     void* text_section;
+     size_t text_size;
+     if (!FindElfSection(elf_mapped_base, ".text", SHT_PROGBITS,
+@@ -565,6 +563,7 @@
+ 
+     // Only provide |kMDGUIDSize| bytes to keep identifiers produced by this
+     // function backwards-compatible.
++    identifier.resize(kMDGUIDSize);
+     memset(&identifier[0], 0, kMDGUIDSize);
+     const uint8_t* ptr = reinterpret_cast<const uint8_t*>(text_section);
+     const uint8_t* ptr_end =

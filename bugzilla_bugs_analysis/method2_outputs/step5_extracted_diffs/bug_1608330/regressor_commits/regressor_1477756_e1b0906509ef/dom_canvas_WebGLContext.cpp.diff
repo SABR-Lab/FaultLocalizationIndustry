@@ -1,0 +1,205 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLContext.cpp
+# Commit: e1b0906509ef
+# Full Hash: e1b0906509efa6433978b9f980ec639b7eafbc6d
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Fix non-webgl CI tests. r=handyman
+#   
+#   * Revert some partial webgl+oop+vr code.
+#   * More missing FuncScope.
+#   * Fix compile errors.
+# ==============================================================================
+
+diff -r 7e2a2b1b416f -r e1b0906509ef dom/canvas/WebGLContext.cpp
+--- a/dom/canvas/WebGLContext.cpp	Wed Jan 08 22:19:23 2020 +0000
++++ b/dom/canvas/WebGLContext.cpp	Wed Jan 08 22:19:26 2020 +0000
+@@ -158,6 +158,7 @@
+       mMsaaSamples((uint8_t)StaticPrefs::webgl_msaa_samples()),
+       mRequestedSize(desc.size) {
+   host.mContext = this;
++  const FuncScope funcScope(*this, "<Create>");
+ 
+   if (mOptions.antialias && !StaticPrefs::webgl_msaa_force()) {
+     const nsCOMPtr<nsIGfxInfo> gfxInfo = services::GetGfxInfo();
+@@ -311,6 +312,8 @@
+ 
+ bool WebGLContext::CreateAndInitGL(
+     bool forceEnabled, std::vector<FailureReason>* const out_failReasons) {
++  const FuncScope funcScope(*this, "<Create>");
++
+   // Can't use WebGL in headless mode.
+   if (gfxPlatform::IsHeadless()) {
+     FailureReason reason;
+@@ -545,7 +548,7 @@
+ 
+ bool WebGLContext::EnsureDefaultFB() {
+   if (mDefaultFB) {
+-    MOZ_ASSERT(*uvec2::From(mDefaultFB->mSize) == mRequestedSize);
++    MOZ_ASSERT(*uvec2::FromSize(mDefaultFB->mSize) == mRequestedSize);
+     return true;
+   }
+ 
+@@ -583,7 +586,7 @@
+ 
+   mDefaultFB_IsInvalid = true;
+ 
+-  const auto actualSize = *uvec2::From(mDefaultFB->mSize);
++  const auto actualSize = *uvec2::FromSize(mDefaultFB->mSize);
+   if (actualSize != mRequestedSize) {
+     GenerateWarning(
+         "Requested size %ux%u was too large, but resize"
+@@ -1303,7 +1306,7 @@
+ 
+   if (!EnsureDefaultFB()) return {};
+ 
+-  return *uvec2::From(mDefaultFB->mSize);
++  return *uvec2::FromSize(mDefaultFB->mSize);
+ }
+ 
+ bool WebGLContext::ValidateAndInitFB(const WebGLFramebuffer* const fb,
+@@ -1680,64 +1683,57 @@
+ #endif
+ }
+ 
+-#if defined(MOZ_WIDGET_ANDROID)
+-already_AddRefed<layers::SharedSurfaceTextureClient>
+-WebGLContext::GetVRFrame() {
++RefPtr<layers::SharedSurfaceTextureClient> WebGLContext::GetVRFrame() {
+   if (!gl) return nullptr;
+ 
+   EnsureVRReady();
+-
+-  // Create a custom GLScreenBuffer for VR.
+-  if (!mVRScreen) {
+-    auto caps = gl->Screen()->mCaps;
+-    mVRScreen = GLScreenBuffer::Create(gl, gfx::IntSize(1, 1), caps);
++  UniquePtr<gl::GLScreenBuffer>* maybeVrScreen = nullptr;
++#if defined(MOZ_WIDGET_ANDROID)
++  maybeVrScreen = &mVRScreen;
++#endif
++  RefPtr<layers::SharedSurfaceTextureClient> sharedSurface;
++  if (maybeVrScreen) {
++    auto& vrScreen = *maybeVrScreen;
++    // Create a custom GLScreenBuffer for VR.
++    if (!vrScreen) {
++      auto caps = gl->Screen()->mCaps;
++      vrScreen = gl::GLScreenBuffer::Create(gl, gfx::IntSize(1, 1), caps);
++    }
++    MOZ_ASSERT(vrScreen);
++
++    // Swap buffers as though composition has occurred.
++    // We will then share the resulting front buffer to be submitted to the VR
++    // compositor.
++    PresentScreenBuffer(vrScreen.get());
++
++    if (IsContextLost()) return nullptr;
++
++    sharedSurface = vrScreen->Front();
++    if (!sharedSurface || !sharedSurface->Surf() ||
++        !sharedSurface->Surf()->IsBufferAvailable())
++      return nullptr;
++
++    // Make sure that the WebGL buffer is committed to the attached
++    // SurfaceTexture on Android.
++    sharedSurface->Surf()->ProducerAcquire();
++    sharedSurface->Surf()->Commit();
++    sharedSurface->Surf()->ProducerRelease();
++  } else {
++    /**
++     * Swap buffers as though composition has occurred.
++     * We will then share the resulting front buffer to be submitted to the VR
++     * compositor.
++     */
++    PresentScreenBuffer();
++
++    gl::GLScreenBuffer* screen = gl->Screen();
++    if (!screen) return nullptr;
++
++    sharedSurface = screen->Front();
++    if (!sharedSurface) return nullptr;
+   }
+-
+-  MOZ_ASSERT(mVRScreen);
+-
+-  // Swap buffers as though composition has occurred.
+-  // We will then share the resulting front buffer to be submitted to the VR
+-  // compositor.
+-  PresentScreenBuffer(mVRScreen.get());
+-
+-  if (IsContextLost()) return nullptr;
+-
+-  RefPtr<SharedSurfaceTextureClient> sharedSurface = mVRScreen->Front();
+-  if (!sharedSurface || !sharedSurface->Surf() ||
+-      !sharedSurface->Surf()->IsBufferAvailable())
+-    return nullptr;
+-
+-  // Make sure that the WebGL buffer is committed to the attached SurfaceTexture
+-  // on Android.
+-  sharedSurface->Surf()->ProducerAcquire();
+-  sharedSurface->Surf()->Commit();
+-  sharedSurface->Surf()->ProducerRelease();
+-
+-  return sharedSurface.forget();
++  return sharedSurface;
+ }
+-#else
+-already_AddRefed<layers::SharedSurfaceTextureClient>
+-WebGLContext::GetVRFrame() {
+-  if (!gl) return nullptr;
+-
+-  EnsureVRReady();
+-  /**
+-   * Swap buffers as though composition has occurred.
+-   * We will then share the resulting front buffer to be submitted to the VR
+-   * compositor.
+-   */
+-  PresentScreenBuffer();
+-
+-  gl::GLScreenBuffer* screen = gl->Screen();
+-  if (!screen) return nullptr;
+-
+-  RefPtr<layers::SharedSurfaceTextureClient> sharedSurface = screen->Front();
+-  if (!sharedSurface) return nullptr;
+-
+-  return sharedSurface.forget();
+-}
+-
+-#endif  // ifdefined(MOZ_WIDGET_ANDROID)
+ 
+ void WebGLContext::EnsureVRReady() {
+   if (mVRReady) {
+@@ -1756,12 +1752,18 @@
+   }
+   auto factory = gl::GLScreenBuffer::CreateFactory(gl, caps, nullptr, flags);
+   gl->Screen()->Morph(std::move(factory));
++
++  bool needsResize = false;
+ #if defined(MOZ_WIDGET_ANDROID)
+   // On Android we are using a different GLScreenBuffer for WebVR, so we need
+   // a resize here because PresentScreenBuffer() may not be called for the
+   // gl->Screen() after we set the new factory.
+-  gl->Screen()->Resize(DrawingBufferSize());
++  needsResize = true;
+ #endif
++  if (needsResize) {
++    const auto& size = DrawingBufferSize();
++    gl->Screen()->Resize({size.x, size.y});
++  }
+   mVRReady = true;
+ }
+ 
+@@ -1772,7 +1774,7 @@
+   if (MOZ_LIKELY(mFuncScope)) {
+     ret = mFuncScope->mFuncName;
+   } else {
+-    MOZ_ASSERT(false);
++    MOZ_ASSERT(false, "FuncScope not on stack!");
+     ret = "<funcName unknown>";
+   }
+   return ret;

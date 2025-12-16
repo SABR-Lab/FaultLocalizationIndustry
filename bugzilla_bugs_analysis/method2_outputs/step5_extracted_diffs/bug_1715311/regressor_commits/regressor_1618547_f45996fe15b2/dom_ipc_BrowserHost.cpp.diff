@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/BrowserHost.cpp
+# Commit: f45996fe15b2
+# Full Hash: f45996fe15b23696c88f85a6b154146d3717fc58
+# Author: Andrew McCreight <continuation@gmail.com>
+# Date: 2021-05-06 03:49:11
+# Regressor Bug: 1618547
+# File Overlap Count: 1
+# Description:
+#   Bug 1618547 - Support Fission in the process priority manager. r=kmag,gsvelto
+#   
+#   With Fission, there can be multiple BrowserParents in a single tab, so
+#   this patch moves the tracking of active tabs onto the top BrowsingContext
+#   in a tab. If the priority of a top BC is changed, then the activity
+# ==============================================================================
+
+diff -r 0e0f90271853 -r f45996fe15b2 dom/ipc/BrowserHost.cpp
+--- a/dom/ipc/BrowserHost.cpp	Wed May 05 20:07:07 2021 +0000
++++ b/dom/ipc/BrowserHost.cpp	Wed May 05 20:29:14 2021 +0000
+@@ -10,6 +10,7 @@
+ #include "mozilla/dom/CancelContentJSOptionsBinding.h"
+ #include "mozilla/dom/ContentParent.h"
+ #include "mozilla/dom/WindowGlobalParent.h"
++#include "mozilla/ProcessPriorityManager.h"
+ 
+ #include "nsIObserverService.h"
+ 
+@@ -116,6 +117,8 @@
+   if (!mRoot) {
+     return NS_OK;
+   }
++  ProcessPriorityManager::ActivityChanged(GetBrowsingContext()->Canonical(),
++                                          aRenderLayers);
+   mRoot->SetRenderLayers(aRenderLayers);
+   return NS_OK;
+ }
+@@ -149,8 +152,8 @@
+   if (!mRoot) {
+     return NS_OK;
+   }
+-  VisitAll(
+-      [](BrowserParent* aBrowserParent) { aBrowserParent->Deprioritize(); });
++  ProcessPriorityManager::ActivityChanged(GetBrowsingContext()->Canonical(),
++                                          /* aIsActive = */ false);
+   return NS_OK;
+ }
+ 

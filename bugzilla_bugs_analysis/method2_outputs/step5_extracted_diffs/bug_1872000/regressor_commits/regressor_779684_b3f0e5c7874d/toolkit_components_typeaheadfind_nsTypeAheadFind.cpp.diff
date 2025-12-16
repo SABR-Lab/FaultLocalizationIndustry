@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/typeaheadfind/nsTypeAheadFind.cpp
+# Commit: b3f0e5c7874d
+# Full Hash: b3f0e5c7874dbd470d96e476e116740e4ca35925
+# Author: David Zbarsky <dzbarsky@gmail.com>
+# Date: 2012-08-06 14:40:43
+# Regressor Bug: 779684
+# File Overlap Count: 1
+# Description:
+#   Bug 779684: Create a stack-based nsFrameIterator class out of nsIFrameTraversal and nsIFrameEnumerator r=roc
+# ==============================================================================
+
+diff -r 4bc7154190dd -r b3f0e5c7874d toolkit/components/typeaheadfind/nsTypeAheadFind.cpp
+--- a/toolkit/components/typeaheadfind/nsTypeAheadFind.cpp	Sun Aug 05 22:55:18 2012 -0400
++++ b/toolkit/components/typeaheadfind/nsTypeAheadFind.cpp	Sun Aug 05 23:00:55 2012 -0400
+@@ -25,7 +25,7 @@
+ #include "nsIDOMNode.h"
+ #include "mozilla/dom/Element.h"
+ #include "nsIFrame.h"
+-#include "nsFrameTraversal.h"
++#include "nsFrameIterator.h"
+ #include "nsIImageDocument.h"
+ #include "nsIDOMHTMLDocument.h"
+ #include "nsIDOMHTMLElement.h"
+@@ -63,8 +63,6 @@
+ NS_IMPL_ADDREF(nsTypeAheadFind)
+ NS_IMPL_RELEASE(nsTypeAheadFind)
+ 
+-static NS_DEFINE_CID(kFrameTraversalCID, NS_FRAMETRAVERSAL_CID);
+-
+ #define NS_FIND_CONTRACTID "@mozilla.org/embedcomp/rangefind;1"
+ 
+ nsTypeAheadFind::nsTypeAheadFind():
+@@ -1116,23 +1114,12 @@
+   // We know that the target range isn't usable because it's not in the
+   // view port. Move range forward to first visible point,
+   // this speeds us up a lot in long documents
+-  nsCOMPtr<nsIFrameEnumerator> frameTraversal;
+-  nsCOMPtr<nsIFrameTraversal> trav(do_CreateInstance(kFrameTraversalCID));
+-  if (trav)
+-    trav->NewFrameTraversal(getter_AddRefs(frameTraversal),
+-                            aPresContext, frame,
+-                            eLeaf,
+-                            false, // aVisual
+-                            false, // aLockInScrollView
+-                            false     // aFollowOOFs
+-                            );
+-
+-  if (!frameTraversal)
+-    return false;
++  nsFrameIterator frameTraversal(aPresContext, frame,
++                                 eLeaf, FrameIteratorFlags::FLAG_NONE);
+ 
+   while (rectVisibility == nsRectVisibility_kAboveViewport) {
+-    frameTraversal->Next();
+-    frame = frameTraversal->CurrentItem();
++    frameTraversal.Next();
++    frame = frameTraversal.CurrentItem();
+     if (!frame)
+       return false;
+ 

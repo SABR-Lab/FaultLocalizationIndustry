@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/StaticRange.cpp
+# Commit: 2d732ba0d3b6
+# Full Hash: 2d732ba0d3b6f7ec0be35261ebffb8331fe2cb23
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2024-06-21 04:13:05
+# Regressor Bug: 1881096
+# File Overlap Count: 2
+# Description:
+#   Bug 1881096 - Invalidate the boundary offset when a child of container is being removed for CrossShadowBoundaryRange r=emilio,jjaschke,dom-core
+#   
+#   This is added to support the use case of nsPrintJob where new
+#   ranges were created and elements within these ranges are removed.
+#   
+# ==============================================================================
+
+diff -r ae87b6009cbc -r 2d732ba0d3b6 dom/base/StaticRange.cpp
+--- a/dom/base/StaticRange.cpp	Thu Jun 20 20:15:15 2024 +0000
++++ b/dom/base/StaticRange.cpp	Thu Jun 20 20:15:50 2024 +0000
+@@ -72,7 +72,8 @@
+ already_AddRefed<StaticRange> StaticRange::Create(nsINode* aNode) {
+   MOZ_ASSERT(aNode);
+   if (!sCachedRanges || sCachedRanges->IsEmpty()) {
+-    return do_AddRef(new StaticRange(aNode));
++    return do_AddRef(
++        new StaticRange(aNode, RangeBoundaryIsMutationObserved::No));
+   }
+   RefPtr<StaticRange> staticRange = sCachedRanges->PopLastElement().forget();
+   staticRange->Init(aNode);
+@@ -118,8 +119,8 @@
+   bool checkCommonAncestor =
+       IsInAnySelection() && (mStart.Container() != aStartBoundary.Container() ||
+                              mEnd.Container() != aEndBoundary.Container());
+-  mStart.CopyFrom(aStartBoundary, RangeBoundaryIsMutationObserved::No);
+-  mEnd.CopyFrom(aEndBoundary, RangeBoundaryIsMutationObserved::No);
++  mStart.CopyFrom(aStartBoundary, mIsMutationObserved);
++  mEnd.CopyFrom(aEndBoundary, mIsMutationObserved);
+   MOZ_ASSERT(mStart.IsSet() == mEnd.IsSet());
+   mIsPositioned = mStart.IsSet() && mEnd.IsSet();
+ 

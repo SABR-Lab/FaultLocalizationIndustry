@@ -1,0 +1,91 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/BrowserParent.cpp
+# Commit: 2d0e5336e455
+# Full Hash: 2d0e5336e455f560cdd345afa57f21b8cdbfc1fb
+# Author: Andreas Farre <farre@mozilla.com>
+# Date: 2019-08-26 22:30:36
+# Regressor Bug: 1563619
+# File Overlap Count: 1
+# Description:
+#   Bug 1563619 - Handle subframe crashes in BrowserParent::ActorDestroy. r=mconley,kmag,peterv
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D40937
+# ==============================================================================
+
+diff -r fd3185644de9 -r 2d0e5336e455 dom/ipc/BrowserParent.cpp
+--- a/dom/ipc/BrowserParent.cpp	Mon Aug 26 13:07:26 2019 +0000
++++ b/dom/ipc/BrowserParent.cpp	Mon Aug 26 13:08:32 2019 +0000
+@@ -719,6 +719,10 @@
+     // If this was a crash, tell our nsFrameLoader to fire crash events.
+     if (why == AbnormalShutdown) {
+       frameLoader->MaybeNotifyCrashed(mBrowsingContext, GetIPCChannel());
++
++      if (!mBrowsingContext->IsTopContent()) {
++        OnSubFrameCrashed();
++      }
+     }
+   }
+ 
+@@ -3872,5 +3876,60 @@
+   return NS_OK;
+ }
+ 
++void BrowserParent::OnSubFrameCrashed() {
++  if (mBrowsingContext->IsDiscarded()) {
++    return;
++  }
++
++  auto processId = Manager()->ChildID();
++  BrowsingContext* parent = mBrowsingContext->GetParent();
++  ContentParent* embedderProcess = parent->Canonical()->GetContentParent();
++  if (!embedderProcess) {
++    return;
++  }
++
++  ContentParent* manager = Manager();
++  // Set the owner process of a browsing context belonging to a
++  // crashed process to the parent context's process, since
++  // we'll be showing the crashed page in that process.
++  mBrowsingContext->SetOwnerProcessId(embedderProcess->ChildID());
++
++  // Find all same process sub tree nodes and detach them, cache all
++  // other nodes in the sub tree.
++  mBrowsingContext->PostOrderWalk([&](auto* aContext) {
++    // Post-order means bottom up in our case, which means that all
++    // same-process, i.e. crashing process have already been detached, and
++    // all others should only be cached and torn down regulalarly.
++
++    aContext->Group()->EachOtherParent(manager, [&](auto* aParent) {
++      Unused << aParent->SendCacheBrowsingContextChildren(aContext);
++    });
++    aContext->CacheChildren(/* aFromIPC */ true);
++
++    // We will never detach the root node of the subtree since
++    // we've changed the owner process to be different from
++    // processId.
++    if (aContext->Canonical()->IsOwnedByProcess(processId)) {
++      // Hold a reference to `context` until the response comes back to
++      // ensure it doesn't die while messages relating to this context are
++      // in-flight.
++      RefPtr<BrowsingContext> context = aContext;
++      auto resolve = [context](bool) {};
++      auto reject = [context](ResponseRejectReason) {};
++      aContext->Group()->EachOtherParent(manager, [&](auto* aParent) {
++        aParent->SendDetachBrowsingContext(aContext->Id(), resolve, reject);
++      });
++
++      aContext->Detach(/* aFromIPC */ true);
++    }
++  });
++
++  MOZ_DIAGNOSTIC_ASSERT(!mBrowsingContext->GetChildren().Length());
++  // Tell the browser bridge to show the subframe crashed page.
++  if (GetBrowserBridgeParent()) {
++    Unused << GetBrowserBridgeParent()->SendSubFrameCrashed(mBrowsingContext);
++  }
++}
++
+ }  // namespace dom
+ }  // namespace mozilla

@@ -1,0 +1,179 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/base/nsFrameTraversal.cpp
+# Commit: 92148b810f22
+# Full Hash: 92148b810f228e4e9e84255682fe888a5bee07d5
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2023-12-24 09:09:23
+# Regressor Bug: 779684
+# File Overlap Count: 1
+# Description:
+#   Bug 779684 - part 2: Get rid of `nsFrameTraversal` and `nsIFrameTraversal` r=emilio
+#   
+#   The class is used only for creating `nsFrameIterator`, but it's unnecessary
+#   so that we can get rid of it and its interface.
+#   
+# ==============================================================================
+
+diff -r d4411b38cae7 -r 92148b810f22 layout/base/nsFrameTraversal.cpp
+--- a/layout/base/nsFrameTraversal.cpp	Sun Dec 24 06:01:19 2023 +0000
++++ b/layout/base/nsFrameTraversal.cpp	Sun Dec 24 06:01:19 2023 +0000
+@@ -22,11 +22,11 @@
+ // Bidi visual iterator
+ class nsVisualIterator : public nsFrameIterator {
+  public:
+-  nsVisualIterator(nsPresContext* aPresContext, nsIFrame* aStart,
+-                   nsIteratorType aType, bool aLockScroll, bool aFollowOOFs,
++  nsVisualIterator(nsPresContext* aPresContext, nsIFrame* aStart, Type aType,
++                   bool aLockInScrollView, bool aFollowOOFs,
+                    bool aSkipPopupChecks, nsIFrame* aLimiter)
+-      : nsFrameIterator(aPresContext, aStart, aType, aLockScroll, aFollowOOFs,
+-                        aSkipPopupChecks, aLimiter) {}
++      : nsFrameIterator(aPresContext, aStart, aType, aLockInScrollView,
++                        aFollowOOFs, aSkipPopupChecks, aLimiter) {}
+ 
+  protected:
+   nsIFrame* GetFirstChildInner(nsIFrame* aFrame) override;
+@@ -38,60 +38,32 @@
+ 
+ /************IMPLEMENTATIONS**************/
+ 
+-nsresult NS_CreateFrameTraversal(nsIFrameTraversal** aResult) {
+-  NS_ENSURE_ARG_POINTER(aResult);
+-
+-  nsCOMPtr<nsIFrameTraversal> t = new nsFrameTraversal();
+-  t.forget(aResult);
+-
+-  return NS_OK;
+-}
+-
+-nsresult NS_NewFrameTraversal(nsFrameIterator** aEnumerator,
+-                              nsPresContext* aPresContext, nsIFrame* aStart,
+-                              nsIteratorType aType, bool aVisual,
+-                              bool aLockInScrollView, bool aFollowOOFs,
+-                              bool aSkipPopupChecks, nsIFrame* aLimiter) {
+-  if (!aEnumerator || !aStart) return NS_ERROR_NULL_POINTER;
++// static
++already_AddRefed<nsFrameIterator> nsFrameIterator::Create(
++    nsPresContext* aPresContext, nsIFrame* aStart, Type aType, bool aVisual,
++    bool aLockInScrollView, bool aFollowOOFs, bool aSkipPopupChecks,
++    nsIFrame* aLimiter) {
++  MOZ_ASSERT(aStart);
+ 
+   if (aFollowOOFs) {
+     aStart = nsPlaceholderFrame::GetRealFrameFor(aStart);
+   }
+ 
+-  RefPtr<nsFrameIterator> trav;
++  RefPtr<nsFrameIterator> iterator;
+   if (aVisual) {
+-    trav = new nsVisualIterator(aPresContext, aStart, aType, aLockInScrollView,
+-                                aFollowOOFs, aSkipPopupChecks, aLimiter);
++    iterator =
++        new nsVisualIterator(aPresContext, aStart, aType, aLockInScrollView,
++                             aFollowOOFs, aSkipPopupChecks, aLimiter);
+   } else {
+-    trav = new nsFrameIterator(aPresContext, aStart, aType, aLockInScrollView,
+-                               aFollowOOFs, aSkipPopupChecks, aLimiter);
++    iterator =
++        new nsFrameIterator(aPresContext, aStart, aType, aLockInScrollView,
++                            aFollowOOFs, aSkipPopupChecks, aLimiter);
+   }
+-  trav.forget(aEnumerator);
+-  return NS_OK;
++  return iterator.forget();
+ }
+ 
+-nsFrameTraversal::nsFrameTraversal() = default;
+-
+-nsFrameTraversal::~nsFrameTraversal() = default;
+-
+-NS_IMPL_ISUPPORTS(nsFrameTraversal, nsIFrameTraversal)
+-
+-NS_IMETHODIMP
+-nsFrameTraversal::NewFrameTraversal(nsFrameIterator** aEnumerator,
+-                                    nsPresContext* aPresContext,
+-                                    nsIFrame* aStart, int32_t aType,
+-                                    bool aVisual, bool aLockInScrollView,
+-                                    bool aFollowOOFs, bool aSkipPopupChecks,
+-                                    nsIFrame* aLimiter) {
+-  return NS_NewFrameTraversal(
+-      aEnumerator, aPresContext, aStart, static_cast<nsIteratorType>(aType),
+-      aVisual, aLockInScrollView, aFollowOOFs, aSkipPopupChecks, aLimiter);
+-}
+-
+-// nsFrameIterator implementation
+-
+ nsFrameIterator::nsFrameIterator(nsPresContext* aPresContext, nsIFrame* aStart,
+-                                 nsIteratorType aType, bool aLockInScrollView,
++                                 Type aType, bool aLockInScrollView,
+                                  bool aFollowOOFs, bool aSkipPopupChecks,
+                                  nsIFrame* aLimiter)
+     : mPresContext(aPresContext),
+@@ -144,12 +116,12 @@
+   nsIFrame* parent = GetCurrent();
+   if (!parent) parent = GetLast();
+ 
+-  if (mType == eLeaf) {
++  if (mType == Type::Leaf) {
+     // Drill down to first leaf
+     while ((result = GetFirstChild(parent))) {
+       parent = result;
+     }
+-  } else if (mType == ePreOrder) {
++  } else if (mType == Type::PreOrder) {
+     result = GetFirstChild(parent);
+     if (result) parent = result;
+   }
+@@ -160,7 +132,7 @@
+     while (parent) {
+       result = GetNextSibling(parent);
+       if (result) {
+-        if (mType != ePreOrder) {
++        if (mType != Type::PreOrder) {
+           parent = result;
+           while ((result = GetFirstChild(parent))) {
+             parent = result;
+@@ -175,7 +147,7 @@
+         result = nullptr;
+         break;
+       }
+-      if (mType == ePostOrder) {
++      if (mType == Type::PostOrder) {
+         break;
+       }
+       parent = result;
+@@ -195,12 +167,12 @@
+   nsIFrame* parent = GetCurrent();
+   if (!parent) parent = GetLast();
+ 
+-  if (mType == eLeaf) {
++  if (mType == Type::Leaf) {
+     // Drill down to last leaf
+     while ((result = GetLastChild(parent))) {
+       parent = result;
+     }
+-  } else if (mType == ePostOrder) {
++  } else if (mType == Type::PostOrder) {
+     result = GetLastChild(parent);
+     if (result) parent = result;
+   }
+@@ -211,7 +183,7 @@
+     while (parent) {
+       result = GetPrevSibling(parent);
+       if (result) {
+-        if (mType != ePostOrder) {
++        if (mType != Type::PostOrder) {
+           parent = result;
+           while ((result = GetLastChild(parent))) {
+             parent = result;
+@@ -226,7 +198,7 @@
+         result = nullptr;
+         break;
+       }
+-      if (mType == ePreOrder) {
++      if (mType == Type::PreOrder) {
+         break;
+       }
+       parent = result;

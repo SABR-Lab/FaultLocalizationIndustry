@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasource/TrackBuffersManager.h
+# Commit: f6df4eb84932
+# Full Hash: f6df4eb84932ddaccae4e53d4897234e0153913e
+# Author: Chris Pearce <cpearce@mozilla.com>
+# Date: 2019-06-14 10:00:22
+# Regressor Bug: 1558364
+# File Overlap Count: 1
+# Description:
+#   Bug 1558364 - Add MediaSpan and use it for TrackBuffersManager::mInputBuffer. r=jya
+#   
+#   As seen in this profile of a Twitch replay: https://perfht.ml/2K9Ydb3 we can
+#   often end up spending time in TrackBuffersManager::CodedFrameProcessing()
+#   shaving off bytes from the front off TrackBuffersManager::mInputBuffer. This
+# ==============================================================================
+
+diff -r e708fe457a95 -r f6df4eb84932 dom/media/mediasource/TrackBuffersManager.h
+--- a/dom/media/mediasource/TrackBuffersManager.h	Fri Jun 14 00:37:25 2019 +0000
++++ b/dom/media/mediasource/TrackBuffersManager.h	Fri Jun 14 02:10:09 2019 +0000
+@@ -19,6 +19,7 @@
+ #include "MediaDataDemuxer.h"
+ #include "MediaResult.h"
+ #include "MediaSourceDecoder.h"
++#include "MediaSpan.h"
+ #include "SourceBufferTask.h"
+ #include "TimeUnits.h"
+ #include "nsAutoPtr.h"
+@@ -200,7 +201,7 @@
+ 
+   // The input buffer as per
+   // http://w3c.github.io/media-source/index.html#sourcebuffer-input-buffer
+-  RefPtr<MediaByteBuffer> mInputBuffer;
++  Maybe<MediaSpan> mInputBuffer;
+   // Buffer full flag as per
+   // https://w3c.github.io/media-source/#sourcebuffer-buffer-full-flag. Accessed
+   // on both the main thread and the task queue.
+@@ -221,7 +222,9 @@
+   nsAutoPtr<ContainerParser> mParser;
+ 
+   // Demuxer objects and methods.
++  void AppendDataToCurrentInputBuffer(const MediaSpan& aData);
+   void AppendDataToCurrentInputBuffer(MediaByteBuffer* aData);
++
+   RefPtr<MediaByteBuffer> mInitData;
+   // Temporary input buffer to handle partial media segment header.
+   // We store the current input buffer content into it should we need to

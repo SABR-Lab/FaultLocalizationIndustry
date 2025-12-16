@@ -1,0 +1,33 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/nsWindow.cpp
+# Commit: f165cdcc6bbd
+# Full Hash: f165cdcc6bbd128b021463d102477014cdf55906
+# Author: stransky <stransky@redhat.com>
+# Date: 2022-08-16 16:01:29
+# Description:
+#   Bug 1784336 [Linux] Don't resume compositor if mCompositorWidgetDelegate is missing r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D154785
+# ==============================================================================
+
+diff -r 9e2e2cf54cc9 -r f165cdcc6bbd widget/gtk/nsWindow.cpp
+--- a/widget/gtk/nsWindow.cpp	Tue Aug 16 14:31:39 2022 +0300
++++ b/widget/gtk/nsWindow.cpp	Tue Aug 16 11:30:13 2022 +0000
+@@ -5463,9 +5463,14 @@
+       LOG("  quit, mIsDestroyed = %d mIsMapped = %d", mIsDestroyed, mIsMapped);
+       return;
+     }
+-
+     // Compositor will be resumed later by ResumeCompositorFlickering().
+     if (mCompositorState == COMPOSITOR_PAUSED_FLICKERING) {
++      LOG("  quit, will be resumed by ResumeCompositorFlickering.");
++      return;
++    }
++    // Compositor will be resumed at nsWindow::SetCompositorWidgetDelegate().
++    if (!mCompositorWidgetDelegate) {
++      LOG("  quit, missing mCompositorWidgetDelegate");
+       return;
+     }
+ 

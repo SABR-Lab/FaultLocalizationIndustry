@@ -1,0 +1,99 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/angle/checkout/src/libANGLE/renderer/driver_utils.cpp
+# Commit: 13282d7a47a5
+# Full Hash: 13282d7a47a57a73be8d060efd9645b4d642f03e
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2019-09-08 09:46:52
+# Regressor Bug: 1578576
+# File Overlap Count: 4
+# Description:
+#   Bug 1578576 - Part 2: Update to ANGLE 3865 r=jgilbert
+#   
+#   Depends on D44561
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44579
+# ==============================================================================
+
+diff -r 3064469c073d -r 13282d7a47a5 gfx/angle/checkout/src/libANGLE/renderer/driver_utils.cpp
+--- a/gfx/angle/checkout/src/libANGLE/renderer/driver_utils.cpp	Sat Sep 07 13:36:46 2019 +0000
++++ b/gfx/angle/checkout/src/libANGLE/renderer/driver_utils.cpp	Sat Sep 07 13:38:36 2019 +0000
+@@ -10,6 +10,12 @@
+ 
+ #include "libANGLE/renderer/driver_utils.h"
+ 
++#include "common/platform.h"
++
++#if defined(ANGLE_PLATFORM_ANDROID)
++#    include <sys/system_properties.h>
++#endif
++
+ namespace rx
+ {
+ // Intel
+@@ -127,6 +133,8 @@
+             return "Intel";
+         case VENDOR_ID_QUALCOMM:
+             return "Qualcomm";
++        case VENDOR_ID_ARM:
++            return "ARM";
+         default:
+             // TODO(jmadill): More vendor IDs.
+             ASSERT(vendorId == 0xba5eba11);  // Mock vendor ID used for tests.
+@@ -134,4 +142,53 @@
+     }
+ }
+ 
+-}  // namespace rx
+\ No newline at end of file
++int GetAndroidSDKVersion()
++{
++#if defined(ANGLE_PLATFORM_ANDROID)
++    char apiVersion[PROP_VALUE_MAX];
++    int length = __system_property_get("ro.build.version.sdk", apiVersion);
++    if (length == 0)
++    {
++        return 0;
++    }
++    return atoi(apiVersion);
++#else
++    return 0;
++#endif
++}
++
++OSVersion::OSVersion() {}
++OSVersion::OSVersion(int major, int minor, int patch)
++    : majorVersion(major), minorVersion(minor), patchVersion(patch)
++{}
++
++bool operator==(const OSVersion &a, const OSVersion &b)
++{
++    return std::tie(a.majorVersion, a.minorVersion, a.patchVersion) ==
++           std::tie(b.majorVersion, b.minorVersion, b.patchVersion);
++}
++bool operator!=(const OSVersion &a, const OSVersion &b)
++{
++    return std::tie(a.majorVersion, a.minorVersion, a.patchVersion) !=
++           std::tie(b.majorVersion, b.minorVersion, b.patchVersion);
++}
++bool operator<(const OSVersion &a, const OSVersion &b)
++{
++    return std::tie(a.majorVersion, a.minorVersion, a.patchVersion) <
++           std::tie(b.majorVersion, b.minorVersion, b.patchVersion);
++}
++bool operator>=(const OSVersion &a, const OSVersion &b)
++{
++    return std::tie(a.majorVersion, a.minorVersion, a.patchVersion) >=
++           std::tie(b.majorVersion, b.minorVersion, b.patchVersion);
++}
++
++#if !defined(ANGLE_PLATFORM_APPLE)
++OSVersion GetMacOSVersion()
++{
++    // Return a default version
++    return OSVersion(0, 0, 0);
++}
++#endif
++
++}  // namespace rx

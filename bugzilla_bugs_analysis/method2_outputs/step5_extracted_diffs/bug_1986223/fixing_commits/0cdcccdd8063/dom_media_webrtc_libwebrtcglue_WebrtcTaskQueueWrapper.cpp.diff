@@ -1,0 +1,57 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/WebrtcTaskQueueWrapper.cpp
+# Commit: 0cdcccdd8063
+# Full Hash: 0cdcccdd8063e73c060f06694e6ad48aebc20881
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2025-09-10 09:32:25
+# Description:
+#   Bug 1986223 - Make WebrtcTaskQueueWrapper dispatches silently fallible, to match upstream. r=ng
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D263450
+# ==============================================================================
+
+diff -r d02a2da0a83b -r 0cdcccdd8063 dom/media/webrtc/libwebrtcglue/WebrtcTaskQueueWrapper.cpp
+--- a/dom/media/webrtc/libwebrtcglue/WebrtcTaskQueueWrapper.cpp	Tue Sep 09 18:28:47 2025 +0000
++++ b/dom/media/webrtc/libwebrtcglue/WebrtcTaskQueueWrapper.cpp	Tue Sep 09 18:28:49 2025 +0000
+@@ -169,8 +169,20 @@
+   void PostTaskImpl(absl::AnyInvocable<void() &&> aTask,
+                     const PostTaskTraits& aTraits,
+                     const webrtc::Location& aLocation) override {
+-    MOZ_ALWAYS_SUCCEEDS(
+-        mTaskQueue->Dispatch(WrapInvocable(std::move(aTask), aLocation)));
++    if (NS_FAILED(mTaskQueue->Dispatch(
++            WrapInvocable(std::move(aTask), aLocation),
++            /* Pass NS_DISPATCH_FALLIBLE as documentation, but note
++               that TaskQueue::Dispatch does not leak the task even
++               with NS_DISPATCH_NORMAL, which is what
++               DelayedDispatch below results in. */
++            NS_DISPATCH_FALLIBLE))) {
++      NS_WARNING(
++          nsFmtCString(
++              FMT_STRING(
++                  "TaskQueue '{}' failed to dispatch a task from {} ({}:{})"),
++              mName, aLocation.mFunction, aLocation.mFile, aLocation.mLine)
++              .get());
++    };
+   }
+ 
+   void PostDelayedTaskImpl(absl::AnyInvocable<void() &&> aTask,
+@@ -182,8 +194,14 @@
+       PostTaskImpl(std::move(aTask), PostTaskTraits{}, aLocation);
+       return;
+     }
+-    MOZ_ALWAYS_SUCCEEDS(mTaskQueue->DelayedDispatch(
+-        WrapInvocable(std::move(aTask), aLocation), aDelay.ms()));
++    if (NS_FAILED(mTaskQueue->DelayedDispatch(
++            WrapInvocable(std::move(aTask), aLocation), aDelay.ms()))) {
++      NS_WARNING(nsFmtCString(FMT_STRING("TaskQueue '{}' failed to dispatch a "
++                                         "delayed task from {} ({}:{})"),
++                              mName, aLocation.mFunction, aLocation.mFile,
++                              aLocation.mLine)
++                     .get());
++    }
+   }
+ 
+   // If Blocking, access is through WebrtcTaskQueueWrapper, which has to keep

@@ -1,0 +1,155 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/ActorsParent.cpp
+# Commit: 83daa2e3f527
+# Full Hash: 83daa2e3f52741654afc7cbf2f5f12ab15e02d7f
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-10-10 09:22:33
+# Regressor Bug: 1866402
+# File Overlap Count: 1
+# Description:
+#   Bug 1866402 - Resolve promises for origin initialization immediately if origins are already initialized; r=dom-storage-reviewers,jari
+#   
+#   It's now possible to check if an origin is already initialized on the owning
+#   thread and it's also possible to evaluate existing directory locks if there are
+#   any uninit origin operations pending. So we can add optimizations to origin
+# ==============================================================================
+
+diff -r 5c07a7c55bf3 -r 83daa2e3f527 dom/quota/ActorsParent.cpp
+--- a/dom/quota/ActorsParent.cpp	Wed Oct 09 22:16:52 2024 +0000
++++ b/dom/quota/ActorsParent.cpp	Wed Oct 09 22:16:53 2024 +0000
+@@ -1335,6 +1335,13 @@
+                                   DirectoryLockCategory::UninitStorage);
+ }
+ 
++bool IsDirectoryLockBlockedByUninitStorageOrUninitOriginsOperation(
++    const RefPtr<DirectoryLock>& aDirectoryLock) {
++  return IsDirectoryLockBlockedBy(aDirectoryLock,
++                                  {DirectoryLockCategory::UninitStorage,
++                                   DirectoryLockCategory::UninitOrigins});
++}
++
+ }  // namespace
+ 
+ /*******************************************************************************
+@@ -4935,7 +4942,7 @@
+ 
+   // If storage is initialized but there's a clear storage or shutdown storage
+   // operation already scheduled, we can't immediately resolve the promise and
+-  // return from the function because the clear or shutdown storage operation
++  // return from the function because the clear and shutdown storage operation
+   // uninitializes storage.
+   if (mStorageInitialized &&
+       !IsDirectoryLockBlockedByUninitStorageOperation(directoryLock)) {
+@@ -5374,16 +5381,23 @@
+                 GetInfoFromValidatedPrincipalInfo(aPrincipalInfo),
+                 CreateAndRejectBoolPromise);
+ 
+-  // XXX Resolve the promise immediately if the persistent origin is already
+-  // initialized (this can't be done yet because there's currently no way to
+-  // check if a persistent origin is already initialized on the PBackground
+-  // thread).
+-
+   RefPtr<UniversalDirectoryLock> directoryLock = CreateDirectoryLockInternal(
+       PersistenceScope::CreateFromValue(PERSISTENCE_TYPE_PERSISTENT),
+       OriginScope::FromOrigin(principalMetadata.mOrigin),
+       Nullable<Client::Type>(), /* aExclusive */ false);
+ 
++  // If persistent origin is initialized but there's a clear storage, shutdown
++  // storage, clear origin, or shutdown origin operation already scheduled, we
++  // can't immediately resolve the promise and return from the function because
++  // the clear and shutdown storage operations uninitialize storage (which also
++  // includes uninitialization of origins) and because clear and shutdown origin
++  // operations uninitialize origins directly.
++  if (IsPersistentOriginInitialized(aPrincipalInfo) &&
++      !IsDirectoryLockBlockedByUninitStorageOrUninitOriginsOperation(
++          directoryLock)) {
++    return BoolPromise::CreateAndResolve(true, __func__);
++  }
++
+   return directoryLock->Acquire()->Then(
+       GetCurrentSerialEventTarget(), __func__,
+       [self = RefPtr(this), aPrincipalInfo,
+@@ -5401,6 +5415,21 @@
+     const PrincipalInfo& aPrincipalInfo,
+     RefPtr<UniversalDirectoryLock> aDirectoryLock) {
+   AssertIsOnOwningThread();
++  MOZ_ASSERT(aDirectoryLock);
++  MOZ_ASSERT(aDirectoryLock->Acquired());
++
++  // If persistent origin is initialized and the directory lock for the
++  // initialize persistent origin operation is acquired, we can immediately
++  // resolve the promise and return from the function because there can't be a
++  // clear storage, shutdown storage, clear origin, or shutdown origin
++  // operation which would uninitialize storage (which also includes
++  // uninitialization of origins), or which would uninitialize origins
++  // directly.
++  if (IsPersistentOriginInitialized(aPrincipalInfo)) {
++    DropDirectoryLock(aDirectoryLock);
++
++    return BoolPromise::CreateAndResolve(true, __func__);
++  }
+ 
+   auto initializePersistentOriginOp = CreateInitializePersistentOriginOp(
+       WrapMovingNotNullUnchecked(this), aPrincipalInfo,
+@@ -5522,16 +5551,23 @@
+                 GetInfoFromValidatedPrincipalInfo(aPrincipalInfo),
+                 CreateAndRejectBoolPromise);
+ 
+-  // XXX Resolve the promise immediately if the temporary origin is already
+-  // initialized (this can't be done yet because there's currently no way to
+-  // check if a temporary origin is already initialized on the PBackground
+-  // thread).
+-
+   RefPtr<UniversalDirectoryLock> directoryLock = CreateDirectoryLockInternal(
+       PersistenceScope::CreateFromValue(aPersistenceType),
+       OriginScope::FromOrigin(principalMetadata.mOrigin),
+       Nullable<Client::Type>(), /* aExclusive */ false);
+ 
++  // If temporary origin is initialized but there's a clear storage, shutdown
++  // storage, clear origin, or shutdown origin operation already scheduled, we
++  // can't immediately resolve the promise and return from the function because
++  // the clear and shutdown storage operations uninitialize storage (which also
++  // includes uninitialization of origins) and because clear and shutdown origin
++  // operations uninitialize origins directly.
++  if (IsTemporaryOriginInitialized(aPersistenceType, aPrincipalInfo) &&
++      !IsDirectoryLockBlockedByUninitStorageOrUninitOriginsOperation(
++          directoryLock)) {
++    return BoolPromise::CreateAndResolve(true, __func__);
++  }
++
+   return directoryLock->Acquire()->Then(
+       GetCurrentSerialEventTarget(), __func__,
+       [self = RefPtr(this), aPersistenceType, aPrincipalInfo,
+@@ -5549,6 +5585,21 @@
+     PersistenceType aPersistenceType, const PrincipalInfo& aPrincipalInfo,
+     RefPtr<UniversalDirectoryLock> aDirectoryLock) {
+   AssertIsOnOwningThread();
++  MOZ_ASSERT(aDirectoryLock);
++  MOZ_ASSERT(aDirectoryLock->Acquired());
++
++  // If temporary origin is initialized and the directory lock for the
++  // initialize temporary origin operation is acquired, we can immediately
++  // resolve the promise and return from the function because there can't be a
++  // clear storage, shutdown storage, clear origin, or shutdown origin
++  // operation which would uninitialize storage (which also includes
++  // uninitialization of origins), or which would uninitialize origins
++  // directly.
++  if (IsTemporaryOriginInitialized(aPersistenceType, aPrincipalInfo)) {
++    DropDirectoryLock(aDirectoryLock);
++
++    return BoolPromise::CreateAndResolve(true, __func__);
++  }
+ 
+   auto initializeTemporaryOriginOp = CreateInitializeTemporaryOriginOp(
+       WrapMovingNotNullUnchecked(this), aPersistenceType, aPrincipalInfo,
+@@ -5729,7 +5780,7 @@
+ 
+   // If temporary storage is initialized but there's a clear storage or
+   // shutdown storage operation already scheduled, we can't immediately resolve
+-  // the promise and return from the function because the clear or shutdown
++  // the promise and return from the function because the clear and shutdown
+   // storage operation uninitializes storage.
+   if (mTemporaryStorageInitialized &&
+       !IsDirectoryLockBlockedByUninitStorageOperation(directoryLock)) {

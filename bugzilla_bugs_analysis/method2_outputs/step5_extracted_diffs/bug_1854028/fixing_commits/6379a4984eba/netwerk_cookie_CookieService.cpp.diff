@@ -1,0 +1,75 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: netwerk/cookie/CookieService.cpp
+# Commit: 6379a4984eba
+# Full Hash: 6379a4984ebafb659428ec3e4493f72173b3a70a
+# Author: Paul Zuehlcke <pbz@mozilla.com>
+# Date: 2023-09-22 04:22:03
+# Description:
+#   Bug 1854028 - Update BounceTrackingStorageObserver cookie check and remove nsICookieNotification isThirdPartyCookie. r=bvandersloot,cookie-reviewers,anti-tracking-reviewers,timhuang
+#   
+#   For the BounceTrackingStorageObserver, instead of passing in a third-party flag
+#   we can simply check if the changed cookie is partitioned or not.
+#   
+# ==============================================================================
+
+diff -r 24c5f04d3793 -r 6379a4984eba netwerk/cookie/CookieService.cpp
+--- a/netwerk/cookie/CookieService.cpp	Thu Sep 21 14:30:17 2023 +0000
++++ b/netwerk/cookie/CookieService.cpp	Thu Sep 21 14:42:32 2023 +0000
+@@ -581,9 +581,9 @@
+       do_QueryInterface(aDocument->GetChannel());
+ 
+   // add the cookie to the list. AddCookie() takes care of logging.
+-  PickStorage(attrs)->AddCookie(
+-      crc, baseDomain, attrs, cookie, currentTimeInUsec, documentURI,
+-      aCookieString, false, aDocument->GetBrowsingContext(), thirdParty);
++  PickStorage(attrs)->AddCookie(crc, baseDomain, attrs, cookie,
++                                currentTimeInUsec, documentURI, aCookieString,
++                                false, aDocument->GetBrowsingContext());
+   return NS_OK;
+ }
+ 
+@@ -733,8 +733,7 @@
+ 
+     // add the cookie to the list. AddCookie() takes care of logging.
+     storage->AddCookie(crc, baseDomain, attrs, cookie, currentTimeInUsec,
+-                       aHostURI, aCookieHeader, true, bc,
+-                       loadInfo->GetIsThirdPartyContextToTopWindow());
++                       aHostURI, aCookieHeader, true, bc);
+   }
+ 
+   return NS_OK;
+@@ -862,8 +861,7 @@
+ 
+   CookieStorage* storage = PickStorage(*aOriginAttributes);
+   storage->AddCookie(nullptr, baseDomain, *aOriginAttributes, cookie,
+-                     currentTimeInUsec, nullptr, VoidCString(), true, nullptr,
+-                     false);
++                     currentTimeInUsec, nullptr, VoidCString(), true, nullptr);
+   return NS_OK;
+ }
+ 
+@@ -2482,8 +2480,7 @@
+                                       const OriginAttributes& aAttrs,
+                                       nsIURI* aHostURI, bool aFromHttp,
+                                       const nsTArray<CookieStruct>& aCookies,
+-                                      uint64_t aBrowsingContextId,
+-                                      bool aIsThirdPartyCookie) {
++                                      BrowsingContext* aBrowsingContext) {
+   if (!IsInitialized()) {
+     // If we are probably shutting down, we can ignore this cookie.
+     return true;
+@@ -2522,11 +2519,8 @@
+     cookie->SetCreationTime(
+         Cookie::GenerateUniqueCreationTime(currentTimeInUsec));
+ 
+-    RefPtr<dom::BrowsingContext> browsingContext =
+-        BrowsingContext::Get(aBrowsingContextId);
+     storage->AddCookie(nullptr, aBaseDomain, aAttrs, cookie, currentTimeInUsec,
+-                       aHostURI, ""_ns, aFromHttp, browsingContext,
+-                       aIsThirdPartyCookie);
++                       aHostURI, ""_ns, aFromHttp, aBrowsingContext);
+   }
+ 
+   return true;

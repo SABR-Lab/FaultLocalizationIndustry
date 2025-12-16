@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/MacroAssembler.cpp
+# Commit: 09390cf1d667
+# Full Hash: 09390cf1d66716146aeb3112f0ac640e317890d9
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-09-14 09:51:01
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 6.6: Add tls dependency for truncate i32. r=lth
+#   
+#   We generate builtin call for MTruncateToInt32 operation for floating points types,
+#   so we need to add a tls dependency.
+#   I inserted NYI for arm64 because Ion doesn't support arm64.
+# ==============================================================================
+
+diff -r 83a3ed07220d -r 09390cf1d667 js/src/jit/MacroAssembler.cpp
+--- a/js/src/jit/MacroAssembler.cpp	Mon Sep 14 04:00:18 2020 +0000
++++ b/js/src/jit/MacroAssembler.cpp	Mon Sep 14 05:19:44 2020 +0000
+@@ -2431,7 +2431,8 @@
+ void MacroAssembler::outOfLineTruncateSlow(FloatRegister src, Register dest,
+                                            bool widenFloatToDouble,
+                                            bool compilingWasm,
+-                                           wasm::BytecodeOffset callOffset) {
++                                           wasm::BytecodeOffset callOffset,
++                                           mozilla::Maybe<int32_t> tlsOffset) {
+ #if defined(JS_CODEGEN_ARM) || defined(JS_CODEGEN_ARM64) || \
+     defined(JS_CODEGEN_MIPS32) || defined(JS_CODEGEN_MIPS64)
+   ScratchDoubleScope fpscratch(*this);
+@@ -2458,7 +2459,7 @@
+   if (compilingWasm) {
+     setupWasmABICall();
+     passABIArg(src, MoveOp::DOUBLE);
+-    callWithABI(callOffset, wasm::SymbolicAddress::ToInt32, mozilla::Nothing());
++    callWithABI(callOffset, wasm::SymbolicAddress::ToInt32, tlsOffset);
+   } else {
+     setupUnalignedABICall(dest);
+     passABIArg(src, MoveOp::DOUBLE);

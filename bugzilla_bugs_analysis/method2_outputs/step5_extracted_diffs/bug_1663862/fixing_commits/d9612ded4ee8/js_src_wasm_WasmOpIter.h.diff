@@ -1,0 +1,46 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmOpIter.h
+# Commit: d9612ded4ee8
+# Full Hash: d9612ded4ee87528a9519a7e6c60480fcc7acf15
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2020-09-10 15:21:10
+# Description:
+#   Bug 1663862 - Check OOM from wasm::ToString(). r=lth
+#   
+#   wasm::ToCString() couldn't OOM, but wasm::ToString() can, so the
+#   all the use cases need to check for OOM and propagate it.
+#   
+# ==============================================================================
+
+diff -r f0551b411d48 -r d9612ded4ee8 js/src/wasm/WasmOpIter.h
+--- a/js/src/wasm/WasmOpIter.h	Thu Sep 10 09:14:01 2020 +0300
++++ b/js/src/wasm/WasmOpIter.h	Thu Sep 10 06:08:45 2020 +0000
+@@ -570,7 +570,15 @@
+   }
+ 
+   UniqueChars actualText = ToString(actual);
++  if (!actualText) {
++    return false;
++  }
++
+   UniqueChars expectedText = ToString(expected);
++  if (!expectedText) {
++    return false;
++  }
++
+   UniqueChars error(
+       JS_smprintf("type mismatch: expression has type %s but expected %s",
+                   actualText.get(), expectedText.get()));
+@@ -691,6 +699,10 @@
+   }
+ 
+   UniqueChars actualText = ToString(stackType.valType());
++  if (!actualText) {
++    return false;
++  }
++
+   UniqueChars error(JS_smprintf(
+       "type mismatch: expression has type %s but expected a reference type",
+       actualText.get()));

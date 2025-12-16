@@ -1,0 +1,72 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/CodeGenerator.cpp
+# Commit: 8129ee5398d5
+# Full Hash: 8129ee5398d5ce34183dd2ca51c3aa1d27e9c318
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2023-01-20 03:46:23
+# Regressor Bug: 1809359
+# File Overlap Count: 1
+# Description:
+#   Bug 1809359 - Inline SetElementMegamorphic r=jandem
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D166401
+# ==============================================================================
+
+diff -r a4156a9d0b2b -r 8129ee5398d5 js/src/jit/CodeGenerator.cpp
+--- a/js/src/jit/CodeGenerator.cpp	Thu Jan 19 22:22:32 2023 +0000
++++ b/js/src/jit/CodeGenerator.cpp	Thu Jan 19 23:53:40 2023 +0000
+@@ -13595,6 +13595,33 @@
+ 
+ void CodeGenerator::visitMegamorphicSetElement(LMegamorphicSetElement* lir) {
+   Register obj = ToRegister(lir->getOperand(0));
++  ValueOperand idVal = ToValue(lir, LMegamorphicSetElement::IndexIndex);
++  ValueOperand value = ToValue(lir, LMegamorphicSetElement::ValueIndex);
++
++  Register temp0 = ToRegister(lir->temp0());
++  // See comment in LIROps.yaml (x86 is short on registers)
++#ifndef JS_CODEGEN_X86
++  Register temp1 = ToRegister(lir->temp1());
++  Register temp2 = ToRegister(lir->temp2());
++#endif
++
++  Label cacheHit, done;
++  if (JitOptions.enableWatchtowerMegamorphic) {
++#ifdef JS_CODEGEN_X86
++    masm.emitMegamorphicCachedSetSlot(
++        idVal, obj, temp0, value, &cacheHit,
++        [](MacroAssembler& masm, const Address& addr, MIRType mirType) {
++          EmitPreBarrier(masm, addr, mirType);
++        });
++#else
++    masm.emitMegamorphicCachedSetSlot(
++        idVal, obj, temp0, temp1, temp2, value, &cacheHit,
++        [](MacroAssembler& masm, const Address& addr, MIRType mirType) {
++          EmitPreBarrier(masm, addr, mirType);
++        });
++#endif
++  }
++
+   pushArg(Imm32(lir->mir()->strict()));
+   pushArg(TypedOrValueRegister(MIRType::Object, AnyRegister(obj)));
+   pushArg(ToValue(lir, LMegamorphicSetElement::ValueIndex));
+@@ -13604,6 +13631,18 @@
+   using Fn = bool (*)(JSContext*, HandleObject, HandleValue, HandleValue,
+                       HandleValue, bool);
+   callVM<Fn, js::jit::SetElementMegamorphic>(lir);
++
++  masm.jump(&done);
++  masm.bind(&cacheHit);
++
++  masm.branchPtrInNurseryChunk(Assembler::Equal, obj, temp0, &done);
++  masm.branchValueIsNurseryCell(Assembler::NotEqual, value, temp0, &done);
++
++  saveVolatile(temp0);
++  emitPostWriteBarrier(obj);
++  restoreVolatile(temp0);
++
++  masm.bind(&done);
+ }
+ 
+ void CodeGenerator::visitLoadFixedSlotV(LLoadFixedSlotV* ins) {

@@ -1,0 +1,888 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: parser/html/javasrc/Tokenizer.java
+# Commit: 9a8abd87cc79
+# Full Hash: 9a8abd87cc7935f29b94248c1a6f8203faa14403
+# Author: Henri Sivonen <hsivonen@hsivonen.fi>
+# Date: 2021-12-08 21:43:06
+# Regressor Bug: 1701828
+# File Overlap Count: 10
+# Description:
+#   Bug 1701828 - meta charset rewrite. r=smaug
+#   
+#   Implements https://github.com/whatwg/html/issues/6962 . Improves performance
+#   when <meta charset> occurs in head but after the first kilobyte and aligns
+#   behavior better with WebKit and Blink.
+# ==============================================================================
+
+diff --git a/parser/html/javasrc/Tokenizer.java b/parser/html/javasrc/Tokenizer.java
+--- a/parser/html/javasrc/Tokenizer.java
++++ b/parser/html/javasrc/Tokenizer.java
+@@ -360,16 +360,18 @@ public class Tokenizer implements Locato
+     private int candidate;
+ 
+     private int charRefBufMark;
+ 
+     protected int value;
+ 
+     private boolean seenDigits;
+ 
++    private boolean suspendAfterCurrentNonTextToken;
++
+     protected int cstart;
+ 
+     /**
+      * The SAX public id for the resource being tokenized. (Only passed to back
+      * as part of locator data.)
+      */
+     private String publicId;
+ 
+@@ -538,16 +540,17 @@ public class Tokenizer implements Locato
+         this.entCol = 0;
+         this.firstCharKey = 0;
+         this.lo = 0;
+         this.hi = 0;
+         this.candidate = 0;
+         this.charRefBufMark = 0;
+         this.value = 0;
+         this.seenDigits = false;
++        this.suspendAfterCurrentNonTextToken = false;
+         this.cstart = 0;
+         this.strBufLen = 0;
+         this.newAttributesEachTime = newAttributesEachTime;
+         // &CounterClockwiseContourIntegral; is the longest valid char ref and
+         // the semicolon never gets appended to the buffer.
+         this.charRefBuf = new char[32];
+         this.charRefBufLen = 0;
+         this.bmpChar = new char[1];
+@@ -596,16 +599,17 @@ public class Tokenizer implements Locato
+         this.entCol = 0;
+         this.firstCharKey = 0;
+         this.lo = 0;
+         this.hi = 0;
+         this.candidate = 0;
+         this.charRefBufMark = 0;
+         this.value = 0;
+         this.seenDigits = false;
++        this.suspendAfterCurrentNonTextToken = false;
+         this.cstart = 0;
+         this.strBufLen = 0;
+         // &CounterClockwiseContourIntegral; is the longest valid char ref and
+         // the semicolon never gets appended to the buffer.
+         this.charRefBuf = new char[32];
+         this.charRefBufLen = 0;
+         this.bmpChar = new char[1];
+         this.astralChar = new char[2];
+@@ -1081,33 +1085,45 @@ public class Tokenizer implements Locato
+     @Inline private void appendCharRefBufToStrBuf() throws SAXException {
+         appendStrBuf(charRefBuf, 0, charRefBufLen);
+         charRefBufLen = 0;
+     }
+ 
+     /**
+      * Emits the current comment token.
+      *
++     * NOTE: The method may set <code>shouldSuspend</code>, so the caller
++     * must have this pattern after the state's <code>transition</code> call:
++     *
++     * <pre>
++     * if (shouldSuspend) {
++     *     break stateloop;
++     * }
++     * continue stateloop;
++     * </pre>
++     *
+      * @param pos
+      *            TODO
+      *
+      * @throws SAXException
+      */
+     private void emitComment(int provisionalHyphens, int pos)
+             throws SAXException {
++        // CPPONLY: RememberGt(pos);
+         // [NOCPP[
+         if (wantsComments) {
+             // ]NOCPP]
+             tokenHandler.comment(strBuf, 0, strBufLen
+                     - provisionalHyphens);
+             // [NOCPP[
+         }
+         // ]NOCPP]
+         clearStrBufAfterUse();
+         cstart = pos + 1;
++        suspendIfRequestedAfterCurrentNonTextToken();
+     }
+ 
+     /**
+      * Flushes coalesced character tokens.
+      *
+      * @param buf
+      *            TODO
+      * @param pos
+@@ -1208,18 +1224,36 @@ public class Tokenizer implements Locato
+                         );
+                 tagName = nonInternedTagName;
+             }
+         }
+         containsHyphen = false;
+         clearStrBufAfterUse();
+     }
+ 
++    /**
++     * Emits a tag token.
++     *
++     * NOTE: The method may set <code>shouldSuspend</code>, so the caller
++     * must have this pattern after the state's <code>transition</code> call:
++     * <pre>
++     * if (shouldSuspend) {
++     *     break stateloop;
++     * }
++     * continue stateloop;
++     * </pre>
++     *
++     * @param selfClosing
++     * @param pos
++     * @return
++     * @throws SAXException
++     */
+     private int emitCurrentTagToken(boolean selfClosing, int pos)
+             throws SAXException {
++        // CPPONLY: RememberGt(pos);
+         cstart = pos + 1;
+         maybeErrSlashInEndTag(selfClosing);
+         stateSave = Tokenizer.DATA;
+         HtmlAttributes attrs = (attributes == null ? HtmlAttributes.EMPTY_ATTRIBUTES
+                 : attributes);
+         if (endTag) {
+             /*
+              * When an end tag token is emitted, the content model flag must be
+@@ -1247,16 +1281,17 @@ public class Tokenizer implements Locato
+             attributes = null;
+         } else {
+             attributes.clear(mappingLangToXmlLang);
+         }
+         /*
+          * The token handler may have called setStateAndEndTagExpectation
+          * and changed stateSave since the start of this method.
+          */
++        suspendIfRequestedAfterCurrentNonTextToken();
+         return stateSave;
+     }
+ 
+     private void attributeNameComplete() throws SAXException {
+         attributeName = AttributeName.nameByBuffer(strBuf, strBufLen, interner);
+         if (attributeName == null) {
+             // [NOCPP[
+             attributeName = AttributeName.createAttributeName(
+@@ -2577,16 +2612,19 @@ public class Tokenizer implements Locato
+                                  */
+                                 errPrematureEndOfComment();
+                                 /* Emit the comment token. */
+                                 emitComment(0, pos);
+                                 /*
+                                  * Switch to the data state.
+                                  */
+                                 state = transition(state, Tokenizer.DATA, reconsume, pos);
++                                if (shouldSuspend) {
++                                    break stateloop;
++                                }
+                                 continue stateloop;
+                             case '<':
+                                 appendStrBuf(c);
+                                 state = transition(state, Tokenizer.COMMENT_LESSTHAN, reconsume, pos);
+                                 continue stateloop;
+                             case '\r':
+                                 appendStrBufCarriageReturn();
+                                 state = transition(state, Tokenizer.COMMENT, reconsume, pos);
+@@ -2724,16 +2762,19 @@ public class Tokenizer implements Locato
+                                  * U+003E GREATER-THAN SIGN (>) Emit the comment
+                                  * token.
+                                  */
+                                 emitComment(2, pos);
+                                 /*
+                                  * Switch to the data state.
+                                  */
+                                 state = transition(state, Tokenizer.DATA, reconsume, pos);
++                                if (shouldSuspend) {
++                                    break stateloop;
++                                }
+                                 continue stateloop;
+                             case '-':
+                                 /* U+002D HYPHEN-MINUS (-) Parse error. */
+                                 /*
+                                  * Append a U+002D HYPHEN-MINUS (-) character to
+                                  * the comment token's data.
+                                  */
+                                 adjustDoubleHyphenAndAppendToStrBufAndErr(c, reportedConsecutiveHyphens);
+@@ -2793,16 +2834,19 @@ public class Tokenizer implements Locato
+                                  * U+003E GREATER-THAN SIGN (>) Emit the comment
+                                  * token.
+                                  */
+                                 emitComment(3, pos);
+                                 /*
+                                  * Switch to the data state.
+                                  */
+                                 state = transition(state, Tokenizer.DATA, reconsume, pos);
++                                if (shouldSuspend) {
++                                    break stateloop;
++                                }
+                                 continue stateloop;
+                             case '-':
+                                 /*
+                                  * Append two U+002D HYPHEN-MINUS (-) characters
+                                  * and a U+0021 EXCLAMATION MARK (!) character
+                                  * to the comment token's data.
+                                  */
+                                 appendStrBuf(c);
+@@ -2940,16 +2984,19 @@ public class Tokenizer implements Locato
+                             break stateloop;
+                         }
+                         c = checkChar(buf, pos);
+                         switch (c) {
+                             case '>':
+                                 appendStrBuf(c);
+                                 emitComment(3, pos);
+                                 state = transition(state, Tokenizer.DATA, reconsume, pos);
++                                if (shouldSuspend) {
++                                    break stateloop;
++                                }
+                                 continue stateloop;
+                             case '-':
+                                 errNestedComment();
+                                 adjustDoubleHyphenAndAppendToStrBufAndErr(c, reportedConsecutiveHyphens);
+                                 reportedConsecutiveHyphens = true;
+                                 state = transition(state, Tokenizer.COMMENT_END, reconsume, pos);
+                                 continue stateloop;
+                             case '\r':
+@@ -3005,16 +3052,19 @@ public class Tokenizer implements Locato
+                         case '>':
+                             errPrematureEndOfComment();
+                             /* Emit the comment token. */
+                             emitComment(1, pos);
+                             /*
+                              * Switch to the data state.
+                              */
+                             state = transition(state, Tokenizer.DATA, reconsume, pos);
++                            if (shouldSuspend) {
++                                break stateloop;
++                            }
+                             continue stateloop;
+                         case '<':
+                             appendStrBuf(c);
+                             state = transition(state, Tokenizer.COMMENT_LESSTHAN, reconsume, pos);
+                             continue stateloop;
+                         case '\r':
+                             appendStrBufCarriageReturn();
+                             state = transition(state, Tokenizer.COMMENT, reconsume, pos);
+@@ -3126,16 +3176,26 @@ public class Tokenizer implements Locato
+                                 // first one) and stay in this state to
+                                 // remember that the last two characters seen
+                                 // have been ]].
+                                 tokenHandler.characters(Tokenizer.RSQB_RSQB, 0, 1);
+                                 continue;
+                             case '>':
+                                 cstart = pos + 1;
+                                 state = transition(state, Tokenizer.DATA, reconsume, pos);
++                                // Since a CDATA section starts with a less-than sign, it
++                                // is participates in the suspension-after-current-token
++                                // behavior. (The suspension can be requested when the
++                                // less-than sign has been seen but we don't yet know the
++                                // resulting token type.) Therefore, we need to deal with
++                                // a potential request here.
++                                suspendIfRequestedAfterCurrentNonTextToken();
++                                if (shouldSuspend) {
++                                    break stateloop;
++                                }
+                                 continue stateloop;
+                             default:
+                                 tokenHandler.characters(Tokenizer.RSQB_RSQB, 0, 2);
+                                 cstart = pos;
+                                 reconsume = true;
+                                 state = transition(state, Tokenizer.CDATA_SECTION, reconsume, pos);
+                                 continue stateloop;
+                         }
+@@ -4124,16 +4184,19 @@ public class Tokenizer implements Locato
+                          *
+                          * If the end of the file was reached, reconsume the EOF
+                          * character.
+                          */
+                         switch (c) {
+                             case '>':
+                                 emitComment(0, pos);
+                                 state = transition(state, Tokenizer.DATA, reconsume, pos);
++                                if (shouldSuspend) {
++                                    break stateloop;
++                                }
+                                 continue stateloop;
+                             case '-':
+                                 appendStrBuf(c);
+                                 state = transition(state, Tokenizer.BOGUS_COMMENT_HYPHEN, reconsume, pos);
+                                 break boguscommentloop;
+                             case '\r':
+                                 appendStrBufCarriageReturn();
+                                 break stateloop;
+@@ -4157,16 +4220,19 @@ public class Tokenizer implements Locato
+                         c = checkChar(buf, pos);
+                         switch (c) {
+                             case '>':
+                                 // [NOCPP[
+                                 maybeAppendSpaceToBogusComment();
+                                 // ]NOCPP]
+                                 emitComment(0, pos);
+                                 state = transition(state, Tokenizer.DATA, reconsume, pos);
++                                if (shouldSuspend) {
++                                    break stateloop;
++                                }
+                                 continue stateloop;
+                             case '-':
+                                 appendSecondHyphenToBogusComment();
+                                 continue boguscommenthyphenloop;
+                             case '\r':
+                                 appendStrBufCarriageReturn();
+                                 state = transition(state, Tokenizer.BOGUS_COMMENT, reconsume, pos);
+                                 break stateloop;
+@@ -4958,16 +5024,19 @@ public class Tokenizer implements Locato
+                                 /*
+                                  * Emit the token.
+                                  */
+                                 emitDoctypeToken(pos);
+                                 /*
+                                  * Switch to the data state.
+                                  */
+                                 state = transition(state, Tokenizer.DATA, reconsume, pos);
++                                if (shouldSuspend) {
++                                    break stateloop;
++                                }
+                                 continue stateloop;
+                             case '\u0000':
+                                 c = '\uFFFD';
+                                 // CPPONLY: MOZ_FALLTHROUGH;
+                             default:
+                                 if (c >= 'A' && c <= 'Z') {
+                                     /*
+                                      * U+0041 LATIN CAPITAL LETTER A through to
+@@ -5031,16 +5100,19 @@ public class Tokenizer implements Locato
+                                  * DOCTYPE token.
+                                  */
+                                 strBufToDoctypeName();
+                                 emitDoctypeToken(pos);
+                                 /*
+                                  * Switch to the data state.
+                                  */
+                                 state = transition(state, Tokenizer.DATA, reconsume, pos);
++                                if (shouldSuspend) {
++                                    break stateloop;
++                                }
+                                 continue stateloop;
+                             case '\u0000':
+                                 c = '\uFFFD';
+                                 // CPPONLY: MOZ_FALLTHROUGH;
+                             default:
+                                 /*
+                                  * U+0041 LATIN CAPITAL LETTER A through to
+                                  * U+005A LATIN CAPITAL LETTER Z Append the
+@@ -5094,16 +5166,19 @@ public class Tokenizer implements Locato
+                                  * U+003E GREATER-THAN SIGN (>) Emit the current
+                                  * DOCTYPE token.
+                                  */
+                                 emitDoctypeToken(pos);
+                                 /*
+                                  * Switch to the data state.
+                                  */
+                                 state = transition(state, Tokenizer.DATA, reconsume, pos);
++                                if (shouldSuspend) {
++                                    break stateloop;
++                                }
+                                 continue stateloop;
+                             case 'p':
+                             case 'P':
+                                 index = 0;
+                                 state = transition(state, Tokenizer.DOCTYPE_UBLIC, reconsume, pos);
+                                 break afterdoctypenameloop;
+                             // continue stateloop;
+                             case 's':
+@@ -5240,16 +5315,19 @@ public class Tokenizer implements Locato
+                                 /*
+                                  * Emit that DOCTYPE token.
+                                  */
+                                 emitDoctypeToken(pos);
+                                 /*
+                                  * Switch to the data state.
+                                  */
+                                 state = transition(state, Tokenizer.DATA, reconsume, pos);
++                                if (shouldSuspend) {
++                                    break stateloop;
++                                }
+                                 continue stateloop;
+                             default:
+                                 bogusDoctype();
+                                 /*
+                                  * Set the DOCTYPE token's force-quirks flag to
+                                  * on.
+                                  */
+                                 // done by bogusDoctype();
+@@ -5325,16 +5403,19 @@ public class Tokenizer implements Locato
+                                 /*
+                                  * Emit that DOCTYPE token.
+                                  */
+                                 emitDoctypeToken(pos);
+                                 /*
+                                  * Switch to the data state.
+                                  */
+                                 state = transition(state, Tokenizer.DATA, reconsume, pos);
++                                if (shouldSuspend) {
++                                    break stateloop;
++                                }
+                                 continue stateloop;
+                             default:
+                                 bogusDoctype();
+                                 /*
+                                  * Set the DOCTYPE token's force-quirks flag to
+                                  * on.
+                                  */
+                                 // done by bogusDoctype();
+@@ -5379,16 +5460,19 @@ public class Tokenizer implements Locato
+                                  * Emit that DOCTYPE token.
+                                  */
+                                 publicIdentifier = strBufToString();
+                                 emitDoctypeToken(pos);
+                                 /*
+                                  * Switch to the data state.
+                                  */
+                                 state = transition(state, Tokenizer.DATA, reconsume, pos);
++                                if (shouldSuspend) {
++                                    break stateloop;
++                                }
+                                 continue stateloop;
+                             case '\r':
+                                 appendStrBufCarriageReturn();
+                                 break stateloop;
+                             case '\n':
+                                 appendStrBufLineFeed();
+                                 continue;
+                             case '\u0000':
+@@ -5443,16 +5527,19 @@ public class Tokenizer implements Locato
+                                  * U+003E GREATER-THAN SIGN (>) Emit the current
+                                  * DOCTYPE token.
+                                  */
+                                 emitDoctypeToken(pos);
+                                 /*
+                                  * Switch to the data state.
+                                  */
+                                 state = transition(state, Tokenizer.DATA, reconsume, pos);
++                                if (shouldSuspend) {
++                                    break stateloop;
++                                }
+                                 continue stateloop;
+                             case '"':
+                                 /*
+                                  * U+0022 QUOTATION MARK (") Parse error.
+                                  */
+                                 errNoSpaceBetweenPublicAndSystemIds();
+                                 /*
+                                  * Set the DOCTYPE token's system identifier to
+@@ -5527,16 +5614,19 @@ public class Tokenizer implements Locato
+                                  * U+003E GREATER-THAN SIGN (>) Emit the current
+                                  * DOCTYPE token.
+                                  */
+                                 emitDoctypeToken(pos);
+                                 /*
+                                  * Switch to the data state.
+                                  */
+                                 state = transition(state, Tokenizer.DATA, reconsume, pos);
++                                if (shouldSuspend) {
++                                    break stateloop;
++                                }
+                                 continue stateloop;
+                             case '"':
+                                 /*
+                                  * U+0022 QUOTATION MARK (") Set the DOCTYPE
+                                  * token's system identifier to the empty string
+                                  * (not missing),
+                                  */
+                                 clearStrBufBeforeUse();
+@@ -5607,16 +5697,19 @@ public class Tokenizer implements Locato
+                                  * Emit that DOCTYPE token.
+                                  */
+                                 systemIdentifier = strBufToString();
+                                 emitDoctypeToken(pos);
+                                 /*
+                                  * Switch to the data state.
+                                  */
+                                 state = transition(state, Tokenizer.DATA, reconsume, pos);
++                                if (shouldSuspend) {
++                                    break stateloop;
++                                }
+                                 continue stateloop;
+                             case '\r':
+                                 appendStrBufCarriageReturn();
+                                 break stateloop;
+                             case '\n':
+                                 appendStrBufLineFeed();
+                                 continue;
+                             case '\u0000':
+@@ -5666,16 +5759,19 @@ public class Tokenizer implements Locato
+                                  * U+003E GREATER-THAN SIGN (>) Emit the current
+                                  * DOCTYPE token.
+                                  */
+                                 emitDoctypeToken(pos);
+                                 /*
+                                  * Switch to the data state.
+                                  */
+                                 state = transition(state, Tokenizer.DATA, reconsume, pos);
++                                if (shouldSuspend) {
++                                    break stateloop;
++                                }
+                                 continue stateloop;
+                             default:
+                                 /*
+                                  * Switch to the bogus DOCTYPE state. (This does
+                                  * not set the DOCTYPE token's force-quirks flag
+                                  * to on.)
+                                  */
+                                 bogusDoctypeWithoutQuirks();
+@@ -5704,16 +5800,19 @@ public class Tokenizer implements Locato
+                                  * U+003E GREATER-THAN SIGN (>) Emit that
+                                  * DOCTYPE token.
+                                  */
+                                 emitDoctypeToken(pos);
+                                 /*
+                                  * Switch to the data state.
+                                  */
+                                 state = transition(state, Tokenizer.DATA, reconsume, pos);
++                                if (shouldSuspend) {
++                                    break stateloop;
++                                }
+                                 continue stateloop;
+                             case '\r':
+                                 silentCarriageReturn();
+                                 break stateloop;
+                             case '\n':
+                                 silentLineFeed();
+                                 // CPPONLY: MOZ_FALLTHROUGH;
+                             default:
+@@ -5834,16 +5933,19 @@ public class Tokenizer implements Locato
+                                 /*
+                                  * Emit that DOCTYPE token.
+                                  */
+                                 emitDoctypeToken(pos);
+                                 /*
+                                  * Switch to the data state.
+                                  */
+                                 state = transition(state, Tokenizer.DATA, reconsume, pos);
++                                if (shouldSuspend) {
++                                    break stateloop;
++                                }
+                                 continue stateloop;
+                             default:
+                                 bogusDoctype();
+                                 /*
+                                  * Set the DOCTYPE token's force-quirks flag to
+                                  * on.
+                                  */
+                                 // done by bogusDoctype();
+@@ -5919,16 +6021,19 @@ public class Tokenizer implements Locato
+                                 /*
+                                  * Emit that DOCTYPE token.
+                                  */
+                                 emitDoctypeToken(pos);
+                                 /*
+                                  * Switch to the data state.
+                                  */
+                                 state = transition(state, Tokenizer.DATA, reconsume, pos);
++                                if (shouldSuspend) {
++                                    break stateloop;
++                                }
+                                 continue stateloop;
+                             default:
+                                 bogusDoctype();
+                                 /*
+                                  * Set the DOCTYPE token's force-quirks flag to
+                                  * on.
+                                  */
+                                 // done by bogusDoctype();
+@@ -5969,16 +6074,19 @@ public class Tokenizer implements Locato
+                                  * Emit that DOCTYPE token.
+                                  */
+                                 systemIdentifier = strBufToString();
+                                 emitDoctypeToken(pos);
+                                 /*
+                                  * Switch to the data state.
+                                  */
+                                 state = transition(state, Tokenizer.DATA, reconsume, pos);
++                                if (shouldSuspend) {
++                                    break stateloop;
++                                }
+                                 continue stateloop;
+                             case '\r':
+                                 appendStrBufCarriageReturn();
+                                 break stateloop;
+                             case '\n':
+                                 appendStrBufLineFeed();
+                                 continue;
+                             case '\u0000':
+@@ -6027,16 +6135,19 @@ public class Tokenizer implements Locato
+                                  * Emit that DOCTYPE token.
+                                  */
+                                 publicIdentifier = strBufToString();
+                                 emitDoctypeToken(pos);
+                                 /*
+                                  * Switch to the data state.
+                                  */
+                                 state = transition(state, Tokenizer.DATA, reconsume, pos);
++                                if (shouldSuspend) {
++                                    break stateloop;
++                                }
+                                 continue stateloop;
+                             case '\r':
+                                 appendStrBufCarriageReturn();
+                                 break stateloop;
+                             case '\n':
+                                 appendStrBufLineFeed();
+                                 continue;
+                             case '\u0000':
+@@ -6079,16 +6190,33 @@ public class Tokenizer implements Locato
+                     if (++pos == endPos) {
+                         break stateloop;
+                     }
+                     c = checkChar(buf, pos);
+                     switch (c) {
+                         case '>':
+                             state = transition(state, Tokenizer.DATA,
+                                     reconsume, pos);
++                            // Processing instruction syntax goes through these
++                            // states only in Gecko's XML View Source--not in HTML
++                            // parsing in Java or in Gecko.
++                            // Since XML View Source doesn't use the
++                            // suspension-after-current-token facility, its extension
++                            // to processing instruction states is strictly unnecessary
++                            // at the moment. However, if these states ever were to be
++                            // used together with the suspension-after-current-token
++                            // facility, these states would need to participate, since
++                            // suspension could be requested when only less-than has been
++                            // seen and we don't yet know if we end up here. Handling
++                            // the currently unnecessary case in order to avoid leaving
++                            // a trap for future modification.
++                            suspendIfRequestedAfterCurrentNonTextToken();
++                            if (shouldSuspend) {
++                                break stateloop;
++                            }
+                             continue stateloop;
+                         default:
+                             state = transition(state,
+                                     Tokenizer.PROCESSING_INSTRUCTION,
+                                     reconsume, pos);
+                             continue stateloop;
+                     }
+                     // END HOTSPOT WORKAROUND
+@@ -6814,28 +6942,173 @@ public class Tokenizer implements Locato
+         // case DATA:
+         /*
+          * EOF Emit an end-of-file token.
+          */
+         tokenHandler.eof();
+         return;
+     }
+ 
++    /**
++     * Emits a doctype token.
++     *
++     * NOTE: The method may set <code>shouldSuspend</code>, so the caller
++     * must have this pattern after the state's <code>transition</code> call:
++     * <pre>
++     * if (shouldSuspend) {
++     *     break stateloop;
++     * }
++     * continue stateloop;
++     * </pre>
++     *
++     * @param pos
++     * @throws SAXException
++     */
+     private void emitDoctypeToken(int pos) throws SAXException {
++        // CPPONLY: RememberGt(pos);
+         cstart = pos + 1;
+         tokenHandler.doctype(doctypeName, publicIdentifier, systemIdentifier,
+                 forceQuirks);
+         // It is OK and sufficient to release these here, since
+         // there's no way out of the doctype states than through paths
+         // that call this method.
+         doctypeName = null;
+         Portability.releaseString(publicIdentifier);
+         publicIdentifier = null;
+         Portability.releaseString(systemIdentifier);
+         systemIdentifier = null;
++        suspendIfRequestedAfterCurrentNonTextToken();
++    }
++
++    /**
++     * If a previous call to <code>suspendAfterCurrentTokenIfNotInText()</code>
++     * happened in a non-text context, this method turns that deferred suspension
++     * request into an immediately pending suspension request.
++     */
++    private void suspendIfRequestedAfterCurrentNonTextToken() {
++        if (suspendAfterCurrentNonTextToken) {
++            suspendAfterCurrentNonTextToken = false;
++            shouldSuspend = true;
++        }
++    }
++
++    // Making this private until the full Java implementation is done.
++    /**
++     * Request suspension after the current token if the tokenizer is currently
++     * in a non-text state (i.e. it's known that the next token will be a
++     * non-text token).
++     *
++     * Must not be called when <code>tokenizeBuffer()</code> is on the call
++     * stack.
++     */
++    @SuppressWarnings("unused") private void suspendAfterCurrentTokenIfNotInText() {
++        switch (stateSave) {
++            case DATA:
++            case RCDATA:
++            case SCRIPT_DATA:
++            case RAWTEXT:
++            case SCRIPT_DATA_ESCAPED:
++            case PLAINTEXT:
++            case NON_DATA_END_TAG_NAME: // We haven't yet committed to the next
++                                        // token being a non-text token, though
++                                        // it could be.
++            case SCRIPT_DATA_LESS_THAN_SIGN:
++            case SCRIPT_DATA_ESCAPE_START:
++            case SCRIPT_DATA_ESCAPE_START_DASH:
++            case SCRIPT_DATA_ESCAPED_DASH:
++            case SCRIPT_DATA_ESCAPED_DASH_DASH:
++            case RAWTEXT_RCDATA_LESS_THAN_SIGN:
++            case SCRIPT_DATA_ESCAPED_LESS_THAN_SIGN:
++            case SCRIPT_DATA_DOUBLE_ESCAPE_START:
++            case SCRIPT_DATA_DOUBLE_ESCAPED:
++            case SCRIPT_DATA_DOUBLE_ESCAPED_LESS_THAN_SIGN:
++            case SCRIPT_DATA_DOUBLE_ESCAPED_DASH:
++            case SCRIPT_DATA_DOUBLE_ESCAPED_DASH_DASH:
++            case SCRIPT_DATA_DOUBLE_ESCAPE_END:
++                return;
++            case TAG_NAME:
++            case BEFORE_ATTRIBUTE_NAME:
++            case ATTRIBUTE_NAME:
++            case AFTER_ATTRIBUTE_NAME:
++            case BEFORE_ATTRIBUTE_VALUE:
++            case AFTER_ATTRIBUTE_VALUE_QUOTED:
++            case BOGUS_COMMENT:
++            case MARKUP_DECLARATION_OPEN:
++            case DOCTYPE:
++            case BEFORE_DOCTYPE_NAME:
++            case DOCTYPE_NAME:
++            case AFTER_DOCTYPE_NAME:
++            case BEFORE_DOCTYPE_PUBLIC_IDENTIFIER:
++            case DOCTYPE_PUBLIC_IDENTIFIER_DOUBLE_QUOTED:
++            case DOCTYPE_PUBLIC_IDENTIFIER_SINGLE_QUOTED:
++            case AFTER_DOCTYPE_PUBLIC_IDENTIFIER:
++            case BEFORE_DOCTYPE_SYSTEM_IDENTIFIER:
++            case DOCTYPE_SYSTEM_IDENTIFIER_DOUBLE_QUOTED:
++            case DOCTYPE_SYSTEM_IDENTIFIER_SINGLE_QUOTED:
++            case AFTER_DOCTYPE_SYSTEM_IDENTIFIER:
++            case BOGUS_DOCTYPE:
++            case COMMENT_START:
++            case COMMENT_START_DASH:
++            case COMMENT:
++            case COMMENT_END_DASH:
++            case COMMENT_END:
++            case COMMENT_END_BANG:
++            case TAG_OPEN:
++            case CLOSE_TAG_OPEN:
++            case MARKUP_DECLARATION_HYPHEN:
++            case MARKUP_DECLARATION_OCTYPE:
++            case DOCTYPE_UBLIC:
++            case DOCTYPE_YSTEM:
++            case AFTER_DOCTYPE_PUBLIC_KEYWORD:
++            case BETWEEN_DOCTYPE_PUBLIC_AND_SYSTEM_IDENTIFIERS:
++            case AFTER_DOCTYPE_SYSTEM_KEYWORD:
++            case SELF_CLOSING_START_TAG:
++            case ATTRIBUTE_VALUE_DOUBLE_QUOTED:
++            case ATTRIBUTE_VALUE_SINGLE_QUOTED:
++            case ATTRIBUTE_VALUE_UNQUOTED:
++            case BOGUS_COMMENT_HYPHEN:
++            case COMMENT_LESSTHAN:
++            case COMMENT_LESSTHAN_BANG:
++            case COMMENT_LESSTHAN_BANG_DASH:
++            case COMMENT_LESSTHAN_BANG_DASH_DASH:
++            case CDATA_START:
++            case CDATA_SECTION:
++            case CDATA_RSQB:
++            case CDATA_RSQB_RSQB:
++            case PROCESSING_INSTRUCTION:
++            case PROCESSING_INSTRUCTION_QUESTION_MARK:
++                break;
++            case CONSUME_CHARACTER_REFERENCE:
++            case CONSUME_NCR:
++            case CHARACTER_REFERENCE_TAIL:
++            case HEX_NCR_LOOP:
++            case DECIMAL_NRC_LOOP:
++            case HANDLE_NCR_VALUE:
++            case HANDLE_NCR_VALUE_RECONSUME:
++            case CHARACTER_REFERENCE_HILO_LOOKUP:
++                if (returnStateSave == DATA || returnStateSave == RCDATA) {
++                    return;
++                }
++                break;
++            default:
++                assert false : "Incomplete switch";
++                return;
++        }
++        suspendAfterCurrentNonTextToken = true;
++    }
++
++    // Making this private until the full Java implementation is done.
++    /**
++     * Queries if we are about to suspend after the current non-text token due to a request
++     * from <code>suspendAfterCurrentTokenIfNotInText()</code>.
++     * @return <code>true</code> iff <code>suspendAfterCurrentTokenIfNotInText()</code> was
++     * called in a non-text position and the then-current token has not been emitted yet.
++     */
++    @SuppressWarnings("unused") private boolean suspensionAfterCurrentNonTextTokenPending() {
++        return suspendAfterCurrentNonTextToken;
+     }
+ 
+     @Inline protected char checkChar(@NoLength char[] buf, int pos)
+             throws SAXException {
+         return buf[pos];
+     }
+ 
+     public boolean internalEncodingDeclaration(String internalCharset)
+@@ -6954,16 +7227,17 @@ public class Tokenizer implements Locato
+         entCol = -1;
+         firstCharKey = -1;
+         lo = 0;
+         hi = 0; // will always be overwritten before use anyway
+         candidate = -1;
+         charRefBufMark = 0;
+         value = 0;
+         seenDigits = false;
++        suspendAfterCurrentNonTextToken = false;
+         endTag = false;
+         shouldSuspend = false;
+         initDoctypeFields();
+         containsHyphen = false;
+         tagName = null;
+         attributeName = null;
+         if (newAttributesEachTime) {
+             if (attributes != null) {
+@@ -6997,16 +7271,17 @@ public class Tokenizer implements Locato
+         lo = other.lo;
+         hi = other.hi;
+         candidate = other.candidate;
+         charRefBufMark = other.charRefBufMark;
+         value = other.value;
+         seenDigits = other.seenDigits;
+         endTag = other.endTag;
+         shouldSuspend = false;
++        suspendAfterCurrentNonTextToken = false;
+         doctypeName = other.doctypeName;
+ 
+         Portability.releaseString(systemIdentifier);
+         if (other.systemIdentifier == null) {
+             systemIdentifier = null;
+         } else {
+             systemIdentifier = Portability.newStringFromString(other.systemIdentifier);
+         }

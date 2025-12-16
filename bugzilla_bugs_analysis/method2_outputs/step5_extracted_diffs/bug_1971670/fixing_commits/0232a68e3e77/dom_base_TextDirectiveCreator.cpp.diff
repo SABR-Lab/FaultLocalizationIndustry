@@ -1,0 +1,32 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/base/TextDirectiveCreator.cpp
+# Commit: 0232a68e3e77
+# Full Hash: 0232a68e3e772c14fe2a3e5d5092e53ca660927e
+# Author: Jan-Niklas Jaeschke <jjaschke@mozilla.com>
+# Date: 2025-07-16 21:45:35
+# Description:
+#   Bug 1971670 - Text Fragments: Correctly deal with whitespace-only ranges. r=dom-core,avandolder
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D257502
+# ==============================================================================
+
+diff -r 9ae8f02369d2 -r 0232a68e3e77 dom/base/TextDirectiveCreator.cpp
+--- a/dom/base/TextDirectiveCreator.cpp	Wed Jul 16 15:45:50 2025 +0000
++++ b/dom/base/TextDirectiveCreator.cpp	Wed Jul 16 15:49:29 2025 +0000
+@@ -44,6 +44,14 @@
+     TEXT_FRAGMENT_LOG("Input range does not contain text.");
+     return VoidCString();
+   }
++  const bool rangeIsOnlyWhitespace =
++      std::all_of(rangeContent.View().cbegin(), rangeContent.View().cend(),
++                  nsContentUtils::IsHTMLWhitespaceOrNBSP);
++
++  if (rangeIsOnlyWhitespace) {
++    TEXT_FRAGMENT_LOG("Input range contains only whitespace.");
++    return VoidCString();
++  }
+ 
+   const RefPtr<AbstractRange> extendedRange =
+       MOZ_TRY(ExtendRangeToWordBoundaries(aInputRange));

@@ -1,0 +1,40 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/DMABufLibWrapper.cpp
+# Commit: 6356631de34f
+# Full Hash: 6356631de34fe4a440982f14ad4ab85c087ec600
+# Author: stransky <stransky@redhat.com>
+# Date: 2024-07-09 09:45:28
+# Description:
+#   Bug 1906591 [Linux] Set GBM_BACKEND in parent process only r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D215896
+# ==============================================================================
+
+diff -r b487ccc88d01 -r 6356631de34f widget/gtk/DMABufLibWrapper.cpp
+--- a/widget/gtk/DMABufLibWrapper.cpp	Mon Jul 08 13:26:54 2024 +0000
++++ b/widget/gtk/DMABufLibWrapper.cpp	Mon Jul 08 13:36:35 2024 +0000
+@@ -184,13 +184,15 @@
+   }
+ 
+   // See Bug 1865747 for details.
+-  if (auto* gbmBackend = getenv("GBM_BACKEND")) {
+-    const nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
+-    nsAutoString vendorID;
+-    gfxInfo->GetAdapterVendorID(vendorID);
+-    if (vendorID != GfxDriverInfo::GetDeviceVendor(DeviceVendor::NVIDIA)) {
+-      if (strstr(gbmBackend, "nvidia")) {
+-        unsetenv("GBM_BACKEND");
++  if (XRE_IsParentProcess()) {
++    if (auto* gbmBackend = getenv("GBM_BACKEND")) {
++      const nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
++      nsAutoString vendorID;
++      gfxInfo->GetAdapterVendorID(vendorID);
++      if (vendorID != GfxDriverInfo::GetDeviceVendor(DeviceVendor::NVIDIA)) {
++        if (strstr(gbmBackend, "nvidia")) {
++          unsetenv("GBM_BACKEND");
++        }
+       }
+     }
+   }

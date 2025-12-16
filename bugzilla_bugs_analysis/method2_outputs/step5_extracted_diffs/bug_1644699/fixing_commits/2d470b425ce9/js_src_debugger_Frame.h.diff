@@ -1,0 +1,59 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/debugger/Frame.h
+# Commit: 2d470b425ce9
+# Full Hash: 2d470b425ce9d8fc12c89f087d76ff1a337619ab
+# Author: Logan Smyth <loganfsmyth@gmail.com>
+# Date: 2020-06-15 21:48:38
+# Description:
+#   Bug 1644699 - Allow Debugger.Frame to have GeneratorInfo that is closed. r=arai
+#   
+#   The GeneratorInfo data associated with a Debugger.Frame is not guaranteed
+#   to be cleared when a generator transitions from running/suspended to closed.
+#   In the current codebase, we have broadly assumed that to be true, which was
+# ==============================================================================
+
+diff -r d56e40dc9c0f -r 2d470b425ce9 js/src/debugger/Frame.h
+--- a/js/src/debugger/Frame.h	Mon Jun 15 14:33:28 2020 +0000
++++ b/js/src/debugger/Frame.h	Mon Jun 15 14:26:35 2020 +0000
+@@ -195,13 +195,15 @@
+   // Like isOnStack, but works even in the midst of a relocating GC.
+   bool isOnStackMaybeForwarded() const;
+ 
++  bool isSuspended() const;
++
+   OnStepHandler* onStepHandler() const;
+   OnPopHandler* onPopHandler() const;
+   void setOnPopHandler(JSContext* cx, OnPopHandler* handler);
+ 
+-  inline bool hasGenerator() const;
++  inline bool hasGeneratorInfo() const;
+ 
+-  // If hasGenerator(), return an direct cross-compartment reference to this
++  // If hasGeneratorInfo(), return an direct cross-compartment reference to this
+   // Debugger.Frame's generator object.
+   AbstractGeneratorObject& unwrappedGenerator() const;
+ 
+@@ -226,8 +228,8 @@
+    * association while the call is on the stack, and the relationships are easy
+    * to discern.
+    */
+-  MOZ_MUST_USE bool setGenerator(JSContext* cx,
+-                                 Handle<AbstractGeneratorObject*> genObj);
++  MOZ_MUST_USE bool setGeneratorInfo(JSContext* cx,
++                                     Handle<AbstractGeneratorObject*> genObj);
+ 
+   /*
+    * Undo the effects of a prior call to setGenerator.
+@@ -244,8 +246,8 @@
+    * function will not otherwise disturb generatorFrames. Passing the enum
+    * allows this function to be used while iterating over generatorFrames.
+    */
+-  void clearGenerator(JSFreeOp* fop);
+-  void clearGenerator(
++  void clearGeneratorInfo(JSFreeOp* fop);
++  void clearGeneratorInfo(
+       JSFreeOp* fop, Debugger* owner,
+       Debugger::GeneratorWeakMap::Enum* maybeGeneratorFramesEnum = nullptr);
+ 

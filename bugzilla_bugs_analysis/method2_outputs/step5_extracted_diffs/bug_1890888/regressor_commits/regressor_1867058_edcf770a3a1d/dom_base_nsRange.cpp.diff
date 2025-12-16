@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsRange.cpp
+# Commit: edcf770a3a1d
+# Full Hash: edcf770a3a1df7b6d618062eb7cdbde9596adbad
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2024-03-26 04:11:24
+# Regressor Bug: 1867058
+# File Overlap Count: 1
+# Description:
+#   Bug 1867058 - Part 8: Update Selection to support across shadow dom selection r=smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D195310
+# ==============================================================================
+
+diff -r d665bdcc228a -r edcf770a3a1d dom/base/nsRange.cpp
+--- a/dom/base/nsRange.cpp	Mon Mar 25 13:40:58 2024 +0000
++++ b/dom/base/nsRange.cpp	Mon Mar 25 13:40:59 2024 +0000
+@@ -3188,7 +3188,7 @@
+           // This is the initial range and all its nodes until now are
+           // non-selectable so just trim them from the start.
+           IgnoredErrorResult err;
+-          range->SetStartBefore(*node, err);
++          range->SetStartBefore(*node, err, AllowRangeCrossShadowBoundary::Yes);
+           if (err.Failed()) {
+             return;
+           }
+@@ -3202,7 +3202,8 @@
+ 
+         // Truncate the current range before the first non-selectable node.
+         IgnoredErrorResult err;
+-        range->SetEndBefore(*firstNonSelectableContent, err);
++        range->SetEndBefore(*firstNonSelectableContent, err,
++                            AllowRangeCrossShadowBoundary::Yes);
+ 
+         // Store it in the result (strong ref) - do this before creating
+         // a new range in |newRange| below so we don't drop the last ref

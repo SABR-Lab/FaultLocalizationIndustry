@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/GPUVideoImage.h
+# Commit: afef5857aea6
+# Full Hash: afef5857aea6cbbd3e9296ce39c004812967d095
+# Author: Brad Werth <bwerth@mozilla.com>
+# Date: 2022-09-08 04:52:24
+# Regressor Bug: 1787561
+# File Overlap Count: 1
+# Description:
+#   Bug 1787561 Part 1: Make GPUVideoImage track color depth, and make RemoteImageHolder pass it through. r=media-playback-reviewers,gfx-reviewers,alwu,aosmond
+#   
+#   This ensures that the Image that the client receives has the color depth
+#   information that was sent to the GPU, even though the client can't query
+#   the GPU directly.
+# ==============================================================================
+
+diff -r 1b2dc91d3c38 -r afef5857aea6 gfx/layers/GPUVideoImage.h
+--- a/gfx/layers/GPUVideoImage.h	Wed Sep 07 18:23:24 2022 +0000
++++ b/gfx/layers/GPUVideoImage.h	Wed Sep 07 18:31:45 2022 +0000
+@@ -38,8 +38,11 @@
+ 
+  public:
+   GPUVideoImage(IGPUVideoSurfaceManager* aManager,
+-                const SurfaceDescriptorGPUVideo& aSD, const gfx::IntSize& aSize)
+-      : Image(nullptr, ImageFormat::GPU_VIDEO), mSize(aSize) {
++                const SurfaceDescriptorGPUVideo& aSD, const gfx::IntSize& aSize,
++                const gfx::ColorDepth& aColorDepth)
++      : Image(nullptr, ImageFormat::GPU_VIDEO),
++        mSize(aSize),
++        mColorDepth(aColorDepth) {
+     // Create the TextureClient immediately since the GPUVideoTextureData
+     // is responsible for deallocating the SurfaceDescriptor.
+     //
+@@ -56,6 +59,8 @@
+ 
+   gfx::IntSize GetSize() const override { return mSize; }
+ 
++  gfx::ColorDepth GetColorDepth() const override { return mColorDepth; }
++
+   Maybe<SurfaceDescriptor> GetDesc() override {
+     return GetDescFromTexClient(mTextureClient);
+   }
+@@ -89,6 +94,7 @@
+ 
+  private:
+   gfx::IntSize mSize;
++  gfx::ColorDepth mColorDepth;
+   RefPtr<TextureClient> mTextureClient;
+ };
+ 

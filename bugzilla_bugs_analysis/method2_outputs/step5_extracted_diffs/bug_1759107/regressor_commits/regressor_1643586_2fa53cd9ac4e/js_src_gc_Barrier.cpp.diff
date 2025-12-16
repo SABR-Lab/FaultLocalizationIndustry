@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/Barrier.cpp
+# Commit: 2fa53cd9ac4e
+# Full Hash: 2fa53cd9ac4e821763dbc4402e58b58184ce230b
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2022-03-04 04:18:28
+# Regressor Bug: 1643586
+# File Overlap Count: 1
+# Description:
+#   Bug 1643586 - Part 6: Stop using JSContext for GC helper thread tasks r=jandem
+#   
+#   This patch moves the debug-only GC state from JSContext to JSFreeOp. Support
+#   functions for this move to FreeOp.h and most RAII classes move to GCInternals.h.
+#   
+# ==============================================================================
+
+diff -r 054a08d13999 -r 2fa53cd9ac4e js/src/gc/Barrier.cpp
+--- a/js/src/gc/Barrier.cpp	Thu Mar 03 17:49:18 2022 +0000
++++ b/js/src/gc/Barrier.cpp	Thu Mar 03 17:49:18 2022 +0000
+@@ -67,36 +67,6 @@
+   return jcx && jcx->inIonBackend();
+ }
+ 
+-bool CurrentThreadIsGCMarking() {
+-  JSContext* cx = MaybeGetJSContext();
+-  return cx && cx->gcUse == JSContext::GCUse::Marking;
+-}
+-
+-bool CurrentThreadIsGCSweeping() {
+-  JSContext* cx = MaybeGetJSContext();
+-  return cx && cx->gcUse == JSContext::GCUse::Sweeping;
+-}
+-
+-bool CurrentThreadIsGCFinalizing() {
+-  JSContext* cx = MaybeGetJSContext();
+-  return cx && cx->gcUse == JSContext::GCUse::Finalizing;
+-}
+-
+-bool CurrentThreadIsTouchingGrayThings() {
+-  JSContext* cx = MaybeGetJSContext();
+-  return cx && cx->isTouchingGrayThings;
+-}
+-
+-AutoTouchingGrayThings::AutoTouchingGrayThings() {
+-  TlsContext.get()->isTouchingGrayThings++;
+-}
+-
+-AutoTouchingGrayThings::~AutoTouchingGrayThings() {
+-  JSContext* cx = TlsContext.get();
+-  MOZ_ASSERT(cx->isTouchingGrayThings);
+-  cx->isTouchingGrayThings--;
+-}
+-
+ #endif  // DEBUG
+ 
+ // Tagged pointer barriers

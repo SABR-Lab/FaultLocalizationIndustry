@@ -1,0 +1,69 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/mac/MOXAccessibleProtocol.h
+# Commit: 0441d1553b6b
+# Full Hash: 0441d1553b6bbf99d711300680eccd335e0b3545
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2020-07-03 03:56:55
+# Regressor Bug: 1649575
+# File Overlap Count: 1
+# Description:
+#   Bug 1649575 - Part 3: Introduce MOXTextMarkerDelegate. r=morgan
+#   
+#   The delegate is associated with accessible documents (either local or remote).
+#   
+#   I made a separate protocol for all the text marker stuff as it really is a seperate API.
+# ==============================================================================
+
+diff -r 65f8e705d730 -r 0441d1553b6b accessible/mac/MOXAccessibleProtocol.h
+--- a/accessible/mac/MOXAccessibleProtocol.h	Thu Jul 02 21:24:39 2020 +0000
++++ b/accessible/mac/MOXAccessibleProtocol.h	Thu Jul 02 21:33:07 2020 +0000
+@@ -3,6 +3,8 @@
+  * License, v. 2.0. If a copy of the MPL was not distributed with this
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
++@protocol MOXTextMarkerSupport;
++
+ // This protocol's primary use is for abstracting the NSAccessibility informal protocol
+ // into a formal internal API. Conforming classes get to choose a subset of the optional
+ // methods to implement. Those methods will be mapped to NSAccessibility attributes or actions.
+@@ -29,6 +31,9 @@
+ // - accessibilityIsAttributeSettable
+ - (BOOL)moxBlockSelector:(SEL _Nonnull)selector;
+ 
++// Return text delegate if it exists.
++- (id<MOXTextMarkerSupport> _Nullable)moxTextMarkerDelegate;
++
+ @optional
+ 
+ #pragma mark - AttributeGetters
+@@ -297,3 +302,28 @@
+ - (NSAttributedString* _Nullable)moxAttributedStringForRange:(NSValue* _Nonnull)range;
+ 
+ @end
++
++// This protocol maps text marker and text marker range parameters to
++// methods. It is implemented by a delegate of a MOXAccessible.
++@protocol MOXTextMarkerSupport
++
++#pragma mark - TextAttributeGetters
++
++// AXStartTextMarker
++- (id _Nullable)moxStartTextMarker;
++
++// AXEndTextMarker
++- (id _Nullable)moxEndTextMarker;
++
++#pragma mark - ParameterizedTextAttributeGetters
++
++// AXLengthForTextMarkerRange
++- (NSNumber* _Nullable)moxLengthForTextMarkerRange:(id _Nonnull)textMarkerRange;
++
++// AXStringForTextMarkerRange
++- (NSString* _Nullable)moxStringForTextMarkerRange:(id _Nonnull)textMarkerRange;
++
++// AXTextMarkerRangeForUnorderedTextMarkers
++- (id _Nullable)moxTextMarkerRangeForUnorderedTextMarkers:(NSArray* _Nonnull)textMarkers;
++
++@end

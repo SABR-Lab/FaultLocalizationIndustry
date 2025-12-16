@@ -1,0 +1,118 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/angle/checkout/src/compiler/translator/FunctionLookup.cpp
+# Commit: 13282d7a47a5
+# Full Hash: 13282d7a47a57a73be8d060efd9645b4d642f03e
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2019-09-08 09:46:52
+# Regressor Bug: 1578576
+# File Overlap Count: 4
+# Description:
+#   Bug 1578576 - Part 2: Update to ANGLE 3865 r=jgilbert
+#   
+#   Depends on D44561
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44579
+# ==============================================================================
+
+diff -r 3064469c073d -r 13282d7a47a5 gfx/angle/checkout/src/compiler/translator/FunctionLookup.cpp
+--- a/gfx/angle/checkout/src/compiler/translator/FunctionLookup.cpp	Sat Sep 07 13:36:46 2019 +0000
++++ b/gfx/angle/checkout/src/compiler/translator/FunctionLookup.cpp	Sat Sep 07 13:38:36 2019 +0000
+@@ -8,6 +8,7 @@
+ //
+ 
+ #include "compiler/translator/FunctionLookup.h"
++#include "compiler/translator/ImmutableStringBuilder.h"
+ 
+ namespace sh
+ {
+@@ -19,6 +20,27 @@
+ 
+ constexpr const ImmutableString kEmptyName("");
+ 
++// Helper function for GetMangledNames
++// Gets all ordered combinations of elements in list[currentIndex, end]
++std::vector<std::vector<int>> GetImplicitConversionCombinations(const std::vector<int> &list)
++{
++    std::vector<std::vector<int>> target;
++    target.push_back(std::vector<int>());
++
++    for (size_t currentIndex = 0; currentIndex < list.size(); currentIndex++)
++    {
++        size_t prevIterSize = target.size();
++        for (size_t copyIndex = 0; copyIndex < prevIterSize; copyIndex++)
++        {
++            std::vector<int> combination = target[copyIndex];
++            combination.push_back(list[currentIndex]);
++            target.push_back(combination);
++        }
++    }
++
++    return target;
++}
++
+ }  // anonymous namespace
+ 
+ TFunctionLookup::TFunctionLookup(const ImmutableString &name,
+@@ -65,6 +87,60 @@
+     return ImmutableString(newName);
+ }
+ 
++std::vector<ImmutableString> GetMangledNames(const char *functionName,
++                                             const TIntermSequence &arguments)
++{
++    std::vector<ImmutableString> target;
++
++    std::vector<int> indexes;
++    for (int i = 0; i < static_cast<int>(arguments.size()); i++)
++    {
++        TIntermNode *argument = arguments[i];
++        TBasicType argType    = argument->getAsTyped()->getType().getBasicType();
++        if (argType == EbtInt || argType == EbtUInt)
++        {
++            indexes.push_back(i);
++        }
++    }
++
++    std::vector<std::vector<int>> combinations = GetImplicitConversionCombinations(indexes);
++    for (const std::vector<int> &combination : combinations)
++    {
++        // combination: ordered list of indexes for arguments that should be converted to float
++        std::string newName(functionName);
++        newName += kFunctionMangledNameSeparator;
++        // combination[currentIndex] represents index of next argument to be converted
++        int currentIndex = 0;
++        for (int i = 0; i < (int)arguments.size(); i++)
++        {
++            TIntermNode *argument = arguments[i];
++
++            if (currentIndex != static_cast<int>(combination.size()) &&
++                combination[currentIndex] == i)
++            {
++                // Convert
++                TType type = argument->getAsTyped()->getType();
++                type.setBasicType(EbtFloat);
++                newName += type.getMangledName();
++                currentIndex++;
++            }
++            else
++            {
++                // Don't convert
++                newName += argument->getAsTyped()->getType().getMangledName();
++            }
++        }
++        target.push_back(ImmutableString(newName));
++    }
++
++    return target;
++}
++
++std::vector<ImmutableString> TFunctionLookup::getMangledNamesForImplicitConversions() const
++{
++    return GetMangledNames(mName.data(), mArguments);
++}
++
+ bool TFunctionLookup::isConstructor() const
+ {
+     return mConstructorType != nullptr;

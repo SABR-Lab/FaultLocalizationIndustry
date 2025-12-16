@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/Zone.cpp
+# Commit: 2fa53cd9ac4e
+# Full Hash: 2fa53cd9ac4e821763dbc4402e58b58184ce230b
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2022-03-04 04:18:28
+# Regressor Bug: 1643586
+# File Overlap Count: 1
+# Description:
+#   Bug 1643586 - Part 6: Stop using JSContext for GC helper thread tasks r=jandem
+#   
+#   This patch moves the debug-only GC state from JSContext to JSFreeOp. Support
+#   functions for this move to FreeOp.h and most RAII classes move to GCInternals.h.
+#   
+# ==============================================================================
+
+diff -r 054a08d13999 -r 2fa53cd9ac4e js/src/gc/Zone.cpp
+--- a/js/src/gc/Zone.cpp	Thu Mar 03 17:49:18 2022 +0000
++++ b/js/src/gc/Zone.cpp	Thu Mar 03 17:49:18 2022 +0000
+@@ -139,9 +139,9 @@
+   // Unfortunately we don't have enough context here to know whether we're being
+   // called on behalf of the collector so we have to do a TLS lookup to find
+   // out.
+-  JSContext* cx = TlsContext.get();
++  JSFreeOp* fop = TlsFreeOp.get();
+   zone_->decNonGCMemory(this, nbytes, MemoryUse::ZoneAllocPolicy,
+-                        cx->defaultFreeOp()->isCollecting());
++                        fop->isCollecting());
+ }
+ 
+ JS::Zone::Zone(JSRuntime* rt, Kind kind)

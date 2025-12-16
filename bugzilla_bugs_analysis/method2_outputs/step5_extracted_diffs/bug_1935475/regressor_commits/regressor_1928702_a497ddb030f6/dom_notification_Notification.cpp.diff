@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/notification/Notification.cpp
+# Commit: a497ddb030f6
+# Full Hash: a497ddb030f6d0852bca56f875b48bc2e1ebc134
+# Author: Kagami Sascha Rosylight <saschanaz@outlook.com>
+# Date: 2024-11-08 04:19:40
+# Regressor Bug: 1928702
+# File Overlap Count: 1
+# Description:
+#   Bug 1928702 - Part 5: Implement RecvShow r=asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D227690
+# ==============================================================================
+
+diff -r 5a94b945a3ad -r a497ddb030f6 dom/notification/Notification.cpp
+--- a/dom/notification/Notification.cpp	Thu Nov 07 17:32:05 2024 +0000
++++ b/dom/notification/Notification.cpp	Thu Nov 07 17:32:05 2024 +0000
+@@ -789,32 +789,15 @@
+ nsresult Notification::Persist() {
+   AssertIsOnMainThread();
+ 
+-  nsCOMPtr<nsINotificationStorage> notificationStorage =
+-      GetNotificationStorage(IsInPrivateBrowsing());
+-  if (NS_WARN_IF(!notificationStorage)) {
+-    return NS_ERROR_UNEXPECTED;
+-  }
+-
+-  nsString origin;
+-  nsresult rv = GetOrigin(GetPrincipal(), origin);
+-  if (NS_WARN_IF(NS_FAILED(rv))) {
+-    return rv;
+-  }
+-
+-  nsString id;
+-  GetID(id);
+-
+   nsString alertName;
+   GetAlertName(alertName);
+ 
+-  nsAutoString behavior;
+-  if (!mBehavior.ToJSON(behavior)) {
+-    return NS_ERROR_FAILURE;
+-  }
++  IPCNotificationOptions options(mTitle, mDir, mLang, mBody, mTag, mIconUrl,
++                                 mRequireInteraction, mSilent, mVibrate,
++                                 mDataAsBase64, mBehavior);
+ 
+-  rv = notificationStorage->Put(origin, id, mTitle, GetEnumString(mDir), mLang,
+-                                mBody, mTag, mIconUrl, alertName, mDataAsBase64,
+-                                behavior, mScope);
++  nsresult rv =
++      PersistNotification(GetPrincipal(), mID, alertName, options, mScope);
+ 
+   if (NS_FAILED(rv)) {
+     return rv;

@@ -1,0 +1,29 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/platforms/ffmpeg/FFmpegVideoFramePool.h
+# Commit: c3d14f2b234a
+# Full Hash: c3d14f2b234a7494edf3231113af52f5fc2d2355
+# Author: stransky <stransky@redhat.com>
+# Date: 2022-01-25 16:37:35
+# Regressor Bug: 1724385
+# File Overlap Count: 1
+# Description:
+#   Bug 1724385 [Linux] Try to create EGLImage over decoded VA-API video frame r=alwu,emilio,media-playback-reviewers
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D135460
+# ==============================================================================
+
+diff -r 5834c469b533 -r c3d14f2b234a dom/media/platforms/ffmpeg/FFmpegVideoFramePool.h
+--- a/dom/media/platforms/ffmpeg/FFmpegVideoFramePool.h	Tue Jan 25 07:03:13 2022 +0000
++++ b/dom/media/platforms/ffmpeg/FFmpegVideoFramePool.h	Tue Jan 25 07:08:02 2022 +0000
+@@ -160,6 +160,9 @@
+   // Protect mDMABufSurfaces pool access
+   mozilla::Mutex mSurfaceLock;
+   nsTArray<RefPtr<VideoFrameSurface>> mDMABufSurfaces;
++  // We may fails to create texture over DMABuf memory due to driver bugs
++  // so check that before we export first DMABuf video frame.
++  Maybe<bool> mTextureCreationWorks;
+ };
+ 
+ }  // namespace mozilla

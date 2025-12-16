@@ -1,0 +1,78 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmValType.h
+# Commit: 72bf9c871ded
+# Full Hash: 72bf9c871ded006f56f09b24d0723365516445bb
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2023-08-05 09:19:01
+# Regressor Bug: 1692065
+# File Overlap Count: 5
+# Description:
+#   Bug 1692065 - wasm: Add tagging for 31-bit integers and i31ref. r=yury
+#   
+#   This commit adds a tag 0x1 for 31-bit integers in AnyRef. Any JS value
+#   that is losslessly representable (without coercion) in this range is
+#   stored without boxing. This is chosen to line up exactly with how the
+# ==============================================================================
+
+diff -r 28feda14fdec -r 72bf9c871ded js/src/wasm/WasmValType.h
+--- a/js/src/wasm/WasmValType.h	Fri Aug 04 14:06:50 2023 +0000
++++ b/js/src/wasm/WasmValType.h	Fri Aug 04 14:06:50 2023 +0000
+@@ -308,6 +308,7 @@
+     NoExtern = uint8_t(TypeCode::NullExternRef),
+     None = uint8_t(TypeCode::NullAnyRef),
+     Eq = uint8_t(TypeCode::EqRef),
++    I31 = uint8_t(TypeCode::I31Ref),
+     Struct = uint8_t(TypeCode::StructRef),
+     Array = uint8_t(TypeCode::ArrayRef),
+     TypeRef = uint8_t(AbstractTypeRefCode)
+@@ -356,6 +357,7 @@
+       case TypeCode::ExternRef:
+       case TypeCode::AnyRef:
+       case TypeCode::EqRef:
++      case TypeCode::I31Ref:
+       case TypeCode::StructRef:
+       case TypeCode::ArrayRef:
+       case TypeCode::NullFuncRef:
+@@ -376,6 +378,7 @@
+   static RefType noextern() { return RefType(NoExtern, true); }
+   static RefType none() { return RefType(None, true); }
+   static RefType eq() { return RefType(Eq, true); }
++  static RefType i31() { return RefType(I31, true); }
+   static RefType struct_() { return RefType(Struct, true); }
+   static RefType array() { return RefType(Array, true); }
+ 
+@@ -386,6 +389,7 @@
+   bool isNoExtern() const { return kind() == RefType::NoExtern; }
+   bool isNone() const { return kind() == RefType::None; }
+   bool isEq() const { return kind() == RefType::Eq; }
++  bool isI31() const { return kind() == RefType::I31; }
+   bool isStruct() const { return kind() == RefType::Struct; }
+   bool isArray() const { return kind() == RefType::Array; }
+   bool isTypeRef() const { return kind() == RefType::TypeRef; }
+@@ -451,6 +455,7 @@
+ #ifdef ENABLE_WASM_GC
+       case TypeCode::AnyRef:
+       case TypeCode::EqRef:
++      case TypeCode::I31Ref:
+       case TypeCode::StructRef:
+       case TypeCode::ArrayRef:
+       case TypeCode::NullFuncRef:
+@@ -527,6 +532,7 @@
+ #ifdef ENABLE_WASM_GC
+       case TypeCode::AnyRef:
+       case TypeCode::EqRef:
++      case TypeCode::I31Ref:
+       case TypeCode::StructRef:
+       case TypeCode::ArrayRef:
+       case TypeCode::NullFuncRef:
+@@ -695,6 +701,8 @@
+ 
+   bool isEqRef() const { return tc_.typeCode() == TypeCode::EqRef; }
+ 
++  bool isI31Ref() const { return tc_.typeCode() == TypeCode::I31Ref; }
++
+   bool isStructRef() const { return tc_.typeCode() == TypeCode::StructRef; }
+ 
+   bool isArrayRef() const { return tc_.typeCode() == TypeCode::ArrayRef; }

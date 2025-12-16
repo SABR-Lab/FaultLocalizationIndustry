@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/WindowSurfaceProvider.cpp
+# Commit: b4a30d9e69dc
+# Full Hash: b4a30d9e69dc22dab6ea70b2e6f9406c78b82c76
+# Author: stransky <stransky@redhat.com>
+# Date: 2021-05-27 21:28:01
+# Regressor Bug: 1710436
+# File Overlap Count: 1
+# Description:
+#   Bug 1710436 [Wayland] Rework Wayland popup hierarchy, r=jhorak
+#   
+#   - Keep strong popup hierarchy for every toplevel nsWindow.
+#   - Divide popups to tracked and non-tracked. Tracked popups are tracked in popup hierarchy for every toplevel window. Non-tracked popups are handled as X11 ones.
+#   - Map non-tracked popups as wl_surfaces and use gtk_window_move() on them.
+# ==============================================================================
+
+diff -r 455afdd12fcd -r b4a30d9e69dc widget/gtk/WindowSurfaceProvider.cpp
+--- a/widget/gtk/WindowSurfaceProvider.cpp	Thu May 27 13:03:25 2021 +0000
++++ b/widget/gtk/WindowSurfaceProvider.cpp	Thu May 27 13:18:03 2021 +0000
+@@ -21,6 +21,17 @@
+ #  include "WindowSurfaceXRender.h"
+ #endif
+ 
++#undef LOG
++#ifdef MOZ_LOGGING
++#  include "mozilla/Logging.h"
++#  include "nsTArray.h"
++#  include "Units.h"
++extern mozilla::LazyLogModule gWidgetLog;
++#  define LOG(args) MOZ_LOG(gWidgetLog, mozilla::LogLevel::Debug, args)
++#else
++#  define LOG(args)
++#endif /* MOZ_LOGGING */
++
+ namespace mozilla {
+ namespace widget {
+ 

@@ -1,0 +1,105 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/sandbox/win/src/policy_engine_processor.cc
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 2
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/sandbox/win/src/policy_engine_processor.cc
+--- a/security/sandbox/chromium/sandbox/win/src/policy_engine_processor.cc	Wed Jun 12 21:55:59 2019 +1200
++++ b/security/sandbox/chromium/sandbox/win/src/policy_engine_processor.cc	Wed Jun 12 11:10:48 2019 +0100
+@@ -2,11 +2,11 @@
+ // Use of this source code is governed by a BSD-style license that can be
+ // found in the LICENSE file.
+ 
++#include "sandbox/win/src/policy_engine_processor.h"
++
+ #include <stddef.h>
+ #include <stdint.h>
+ 
+-#include "sandbox/win/src/policy_engine_processor.h"
+-
+ namespace sandbox {
+ 
+ void PolicyProcessor::SetInternalState(size_t index, EvalResult result) {
+@@ -23,7 +23,8 @@
+ // true if the opcode should be skipped or not and also can set keep_skipping
+ // to false to signal that the current instruction should be skipped but not
+ // the next after the current one.
+-bool SkipOpcode(const PolicyOpcode& opcode, MatchContext* context,
++bool SkipOpcode(const PolicyOpcode& opcode,
++                MatchContext* context,
+                 bool* keep_skipping) {
+   if (opcode.IsAction()) {
+     uint32_t options = context->options;
+@@ -38,15 +39,12 @@
+ PolicyResult PolicyProcessor::Evaluate(uint32_t options,
+                                        ParameterSet* parameters,
+                                        size_t param_count) {
+-  if (NULL == policy_) {
+-    return NO_POLICY_MATCH;
+-  }
+-  if (0 == policy_->opcode_count) {
++  if (!policy_)
+     return NO_POLICY_MATCH;
+-  }
+-  if (!(kShortEval & options)) {
++  if (0 == policy_->opcode_count)
++    return NO_POLICY_MATCH;
++  if (!(kShortEval & options))
+     return POLICY_ERROR;
+-  }
+ 
+   MatchContext context;
+   bool evaluation = false;
+@@ -67,29 +65,25 @@
+     PolicyOpcode& opcode = policy_->opcodes[ix];
+     // Skipping block.
+     if (skip_group) {
+-      if (SkipOpcode(opcode, &context, &skip_group)) {
++      if (SkipOpcode(opcode, &context, &skip_group))
+         continue;
+-      }
+     }
+     // Evaluation block.
+     EvalResult result = opcode.Evaluate(parameters, param_count, &context);
+     switch (result) {
+       case EVAL_FALSE:
+         evaluation = false;
+-        if (kPolUseOREval != context.options) {
++        if (kPolUseOREval != context.options)
+           skip_group = true;
+-        }
+         break;
+       case EVAL_ERROR:
+-        if (kStopOnErrors & options) {
++        if (kStopOnErrors & options)
+           return POLICY_ERROR;
+-        }
+         break;
+       case EVAL_TRUE:
+         evaluation = true;
+-        if (kPolUseOREval == context.options) {
++        if (kPolUseOREval == context.options)
+           skip_group = true;
+-        }
+         break;
+       default:
+         // We have evaluated an action.
+@@ -106,5 +100,4 @@
+   return NO_POLICY_MATCH;
+ }
+ 
+-
+ }  // namespace sandbox

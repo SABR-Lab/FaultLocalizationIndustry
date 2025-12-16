@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/MediaStreamTrack.h
+# Commit: ba640de8df47
+# Full Hash: ba640de8df47d54906c708eb78f2d000d6f6d7f6
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2024-09-13 21:45:07
+# Regressor Bug: 1908245
+# File Overlap Count: 1
+# Description:
+#   Bug 1908245 - Add support for missing requestVideoFrameCallback parameters. r=media-playback-reviewers,webidl,padenot,saschanaz
+#   
+#   This patch adds support for exposing the capture time, receive time,
+#   processing duration and RTP timestamp parameters on the callback for
+#   rVFC for WebRTC related elements.
+# ==============================================================================
+
+diff -r 2f4f9cce6f7d -r ba640de8df47 dom/media/MediaStreamTrack.h
+--- a/dom/media/MediaStreamTrack.h	Fri Sep 13 18:15:18 2024 +0000
++++ b/dom/media/MediaStreamTrack.h	Fri Sep 13 18:19:57 2024 +0000
+@@ -40,6 +40,7 @@
+ 
+ class AudioStreamTrack;
+ class VideoStreamTrack;
++class RTCStatsTimestampMaker;
+ enum class CallerType : uint32_t;
+ 
+ /**
+@@ -141,6 +142,14 @@
+   virtual const PeerIdentity* GetPeerIdentity() const { return nullptr; }
+ 
+   /**
++   * This is used in WebRTC. The timestampMaker can convert between different
++   * timestamp types used during the session.
++   */
++  virtual const RTCStatsTimestampMaker* GetTimestampMaker() const {
++    return nullptr;
++  }
++
++  /**
+    * MediaStreamTrack::GetLabel (see spec) calls through to here.
+    */
+   void GetLabel(nsAString& aLabel) { aLabel.Assign(mLabel); }
+@@ -459,6 +468,13 @@
+     return GetSource().GetPeerIdentity();
+   }
+ 
++  /**
++   * Get this track's RTCStatsTimestampMaker.
++   */
++  const RTCStatsTimestampMaker* GetTimestampMaker() const {
++    return GetSource().GetTimestampMaker();
++  }
++
+   ProcessedMediaTrack* GetTrack() const;
+   MediaTrackGraph* Graph() const;
+   MediaTrackGraphImpl* GraphImpl() const;

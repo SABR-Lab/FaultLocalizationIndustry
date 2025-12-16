@@ -1,0 +1,37 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmFrameIter.cpp
+# Commit: 7dcf45990771
+# Full Hash: 7dcf45990771541f86bb277f9bb02a5eed4fea03
+# Author: Yury Delendik <ydelendik@mozilla.com>
+# Date: 2024-05-14 04:13:33
+# Description:
+#   Bug 1891422 - Check if debugEnabled for top frame when unwinding. r=jseward
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D208756
+# ==============================================================================
+
+diff -r daa3733b4c4f -r 7dcf45990771 js/src/wasm/WasmFrameIter.cpp
+--- a/js/src/wasm/WasmFrameIter.cpp	Tue May 14 02:15:10 2024 +0300
++++ b/js/src/wasm/WasmFrameIter.cpp	Mon May 13 23:12:59 2024 +0000
+@@ -90,6 +90,19 @@
+     lineOrBytecode_ = trapData.bytecodeOffset;
+     failedUnwindSignatureMismatch_ = trapData.failedUnwindSignatureMismatch;
+ 
++#ifdef ENABLE_WASM_TAIL_CALLS
++    // The debugEnabled() relies on valid value of resumePCinCurrentFrame_
++    // to identify DebugFrame. Normally this field is updated at popFrame().
++    // The only case when this can happend is during IndirectCallBadSig
++    // trapping and stack unwinding. The top frame will never be at ReturnStub
++    // callsite, except during IndirectCallBadSig unwinding.
++    const CallSite* site = code_->lookupCallSite(unwoundPC);
++    if (site && site->kind() == CallSite::ReturnStub) {
++      MOZ_ASSERT(trapData.trap == Trap::IndirectCallBadSig);
++      resumePCinCurrentFrame_ = (uint8_t*)unwoundPC;
++    }
++#endif
++
+     MOZ_ASSERT(!done());
+     return;
+   }

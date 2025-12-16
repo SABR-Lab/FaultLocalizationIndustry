@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/clients/manager/ClientManager.cpp
+# Commit: 959792318fbb
+# Full Hash: 959792318fbb8853a9b1fa23cfd3c5b2175643c3
+# Author: Luca Greco <lgreco@mozilla.com>
+# Date: 2021-09-03 03:51:58
+# Regressor Bug: 1727405
+# File Overlap Count: 1
+# Description:
+#   Bug 1727405 - Add a diagnostic assert to check that ClientManager::GetOrCreateForCurrentThread is not returning a stale ClientManager instance that is already shutdown. r=asuth
+#   
+#   While investigating an unexpected test failure triggered by a mochitest that was testing the identity WebExtensions API
+#   (D121683 from Bug 1723852) I did notice that the actual underlying issue was triggered by a leak
+#   (in particular the Extension API class in the initial draft of that D121683 patch was missing a RefPtr
+# ==============================================================================
+
+diff -r c1aa00bd2722 -r 959792318fbb dom/clients/manager/ClientManager.cpp
+--- a/dom/clients/manager/ClientManager.cpp	Thu Sep 02 20:55:01 2021 +0000
++++ b/dom/clients/manager/ClientManager.cpp	Thu Sep 02 21:24:58 2021 +0000
+@@ -13,6 +13,7 @@
+ #include "mozilla/dom/WorkerPrivate.h"
+ #include "mozilla/ipc/BackgroundChild.h"
+ #include "mozilla/ipc/PBackgroundChild.h"
++#include "mozilla/ClearOnShutdown.h"  // PastShutdownPhase
+ #include "nsContentUtils.h"
+ #include "prthread.h"
+ 
+@@ -217,6 +218,12 @@
+   }
+ 
+   MOZ_DIAGNOSTIC_ASSERT(cm);
++  // Check that the ClientManager instance associated to the current thread has
++  // not been kept alive when it was expected to have been already deallocated
++  // (e.g. due to a leak ClientManager's mShutdown can have ben set to true from
++  // its RevokeActor method but never fully deallocated and unset from the
++  // thread locals).
++  MOZ_DIAGNOSTIC_ASSERT(!cm->IsShutdown());
+   return cm.forget();
+ }
+ 
+@@ -230,6 +237,12 @@
+ /* static */ bool ClientManager::ExpectOrForgetFutureSource(
+     const ClientInfo& aClientInfo,
+     bool (PClientManagerChild::*aMethod)(const IPCClientInfo&)) {
++  // Return earlier if called late in the XPCOM shutdown path,
++  // ClientManager would be already shutdown at the point.
++  if (NS_WARN_IF(PastShutdownPhase(ShutdownPhase::XPCOMShutdown))) {
++    return false;
++  }
++
+   bool rv = true;
+ 
+   RefPtr<ClientManager> mgr = ClientManager::GetOrCreateForCurrentThread();

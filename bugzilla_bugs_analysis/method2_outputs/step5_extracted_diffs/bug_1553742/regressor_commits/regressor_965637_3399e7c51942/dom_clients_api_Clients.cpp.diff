@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/clients/api/Clients.cpp
+# Commit: 3399e7c51942
+# Full Hash: 3399e7c519424a82824f48abd3b2a4d75346d723
+# Author: Christoph Kerschbaumer <ckerschb@christophkerschbaumer.com>
+# Date: 2019-05-22 03:40:58
+# Regressor Bug: 965637
+# File Overlap Count: 3
+# Description:
+#   Bug 965637: Move CSP from Principal into Client, part 2: worker changes. r=baku
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D27655
+# ==============================================================================
+
+diff -r ddf4012a7652 -r 3399e7c51942 dom/clients/api/Clients.cpp
+--- a/dom/clients/api/Clients.cpp	Tue May 21 23:14:27 2019 +0000
++++ b/dom/clients/api/Clients.cpp	Tue May 21 23:14:50 2019 +0000
+@@ -22,6 +22,7 @@
+ namespace mozilla {
+ namespace dom {
+ 
++using mozilla::ipc::CSPInfo;
+ using mozilla::ipc::PrincipalInfo;
+ 
+ NS_IMPL_CYCLE_COLLECTING_ADDREF(Clients);
+@@ -218,11 +219,10 @@
+   }
+ 
+   const PrincipalInfo& principalInfo = workerPrivate->GetPrincipalInfo();
+-  const nsTArray<mozilla::ipc::ContentSecurityPolicy>& cspInfos =
+-      workerPrivate->GetCSPInfos();
++  const CSPInfo& cspInfo = workerPrivate->GetCSPInfo();
+   nsCString baseURL = workerPrivate->GetLocationInfo().mHref;
+ 
+-  ClientOpenWindowArgs args(principalInfo, cspInfos,
++  ClientOpenWindowArgs args(principalInfo, Some(cspInfo),
+                             NS_ConvertUTF16toUTF8(aURL), baseURL);
+ 
+   nsCOMPtr<nsIGlobalObject> global = mGlobal;

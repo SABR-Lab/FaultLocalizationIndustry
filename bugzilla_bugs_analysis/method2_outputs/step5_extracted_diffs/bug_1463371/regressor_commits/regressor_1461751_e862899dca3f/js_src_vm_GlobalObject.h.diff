@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/GlobalObject.h
+# Commit: e862899dca3f
+# Full Hash: e862899dca3f252a8fe3c7be10d83d79dad328c5
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2018-05-16 18:32:17
+# Regressor Bug: 1461751
+# File Overlap Count: 2
+# Description:
+#   Bug 1461751 - Simplify module resolve hook to be a function pointer r=luke r=baku
+# ==============================================================================
+
+diff -r 1076e77e7b5c -r e862899dca3f js/src/vm/GlobalObject.h
+--- a/js/src/vm/GlobalObject.h	Tue Apr 24 16:19:51 2018 +0200
++++ b/js/src/vm/GlobalObject.h	Wed May 16 11:59:09 2018 +0100
+@@ -105,7 +105,6 @@
+         DEBUGGERS,
+         INTRINSICS,
+         FOR_OF_PIC_CHAIN,
+-        MODULE_RESOLVE_HOOK,
+         WINDOW_PROXY,
+ 
+         /* Total reserved-slot count for global objects. */
+@@ -821,19 +820,6 @@
+         setReservedSlot(WINDOW_PROXY, ObjectValue(*windowProxy));
+     }
+ 
+-    void setModuleResolveHook(HandleFunction hook) {
+-        MOZ_ASSERT(hook);
+-        setSlot(MODULE_RESOLVE_HOOK, ObjectValue(*hook));
+-    }
+-
+-    JSFunction* moduleResolveHook() {
+-        Value value = getSlotRef(MODULE_RESOLVE_HOOK);
+-        if (value.isUndefined())
+-            return nullptr;
+-
+-        return &value.toObject().as<JSFunction>();
+-    }
+-
+     // A class used in place of a prototype during off-thread parsing.
+     struct OffThreadPlaceholderObject : public NativeObject
+     {

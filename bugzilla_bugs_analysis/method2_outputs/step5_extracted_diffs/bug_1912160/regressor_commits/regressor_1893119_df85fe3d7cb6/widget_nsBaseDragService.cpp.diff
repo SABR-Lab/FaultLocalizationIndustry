@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/nsBaseDragService.cpp
+# Commit: df85fe3d7cb6
+# Full Hash: df85fe3d7cb6a219c37e0a80d00f51e07783aec1
+# Author: David P <daparks@mozilla.com>
+# Date: 2024-07-04 16:09:52
+# Regressor Bug: 1893119
+# File Overlap Count: 1
+# Description:
+#   Bug 1893119: Part 22 - Make nsIDragService::StartDragSession return the nsIDragSession r=rkraesig,win-reviewers,gstoll,geckoview-reviewers,m_kato
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D212298
+# ==============================================================================
+
+diff -r 384b025f56d3 -r df85fe3d7cb6 widget/nsBaseDragService.cpp
+--- a/widget/nsBaseDragService.cpp	Thu Jul 04 07:48:11 2024 +0000
++++ b/widget/nsBaseDragService.cpp	Thu Jul 04 07:48:12 2024 +0000
+@@ -614,21 +614,18 @@
+ }
+ 
+ //-------------------------------------------------------------------------
+-NS_IMETHODIMP
+-nsBaseDragService::StartDragSession(nsISupports* aWidgetProvider) {
++nsIDragSession* nsBaseDragService::StartDragSession(nsISupports* aWidgetProvider) {
+   MOZ_ASSERT(XRE_IsParentProcess());
+   if (!aWidgetProvider) {
+-    return NS_ERROR_NULL_POINTER;
++    return nullptr;
+   }
+   if (mCurrentParentDragSession) {
+-    return NS_ERROR_ALREADY_INITIALIZED;
++    return mCurrentParentDragSession;
+   }
+ 
+   RefPtr<nsIDragSession> session = CreateDragSession();
+-  if (XRE_IsParentProcess()) {
+-    mCurrentParentDragSession = session;
+-  }
+-  return NS_OK;
++  mCurrentParentDragSession = session;
++  return session;
+ }
+ 
+ NS_IMETHODIMP
+@@ -644,11 +641,7 @@
+   // This method must set mSessionIsSynthesizedForTests
+   MOZ_ASSERT(!mNeverAllowSessionIsSynthesizedForTests);
+ 
+-  nsresult rv = StartDragSession(aWidgetProvider);
+-  NS_ENSURE_SUCCESS(rv, rv);
+-
+-  nsCOMPtr<nsIDragSession> session;
+-  GetCurrentSession(aWidgetProvider, getter_AddRefs(session));
++  RefPtr<nsIDragSession> session = StartDragSession(aWidgetProvider);
+   MOZ_ASSERT(session);
+   session->InitForTests(aAllowedEffect);
+   return NS_OK;

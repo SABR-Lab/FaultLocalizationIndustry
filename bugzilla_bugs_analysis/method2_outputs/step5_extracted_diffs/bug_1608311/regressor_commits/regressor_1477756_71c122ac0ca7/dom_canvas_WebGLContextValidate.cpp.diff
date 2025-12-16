@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLContextValidate.cpp
+# Commit: 71c122ac0ca7
+# Full Hash: 71c122ac0ca73391866b1ef19f4f82bc2d28568b
+# Author: David Parks <davidp99@gmail.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Initial out-of-process WebGL implementation. r=mccr8,handyman
+#   
+#   Splits WebGLContext into ClientWebGLContext and HostWebGLContext.  The Client enables the JS-control of a WebGL context in a content procecss while the Host executes the WebGL graphics operations (via a WebGLContext that maintains much of the existing code) in the compositor process.  At this point, the cross-process behavior is disabled -- this series of patches is an incremental step toward that final goal.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D54018
+# ==============================================================================
+
+diff -r 5cbf5bb11c58 -r 71c122ac0ca7 dom/canvas/WebGLContextValidate.cpp
+--- a/dom/canvas/WebGLContextValidate.cpp	Wed Jan 08 21:52:03 2020 +0000
++++ b/dom/canvas/WebGLContextValidate.cpp	Wed Jan 08 22:19:14 2020 +0000
+@@ -226,7 +226,7 @@
+ 
+   if (!loc->ValidateArrayLength(setterElemSize, setterArraySize)) return false;
+ 
+-  const auto& elemCount = loc->mInfo->mActiveInfo->mElemCount;
++  const auto& elemCount = loc->mInfo->mActiveInfo.mElemCount;
+   MOZ_ASSERT(elemCount > loc->mArrayIndex);
+   const uint32_t uniformElemCount = elemCount - loc->mArrayIndex;
+ 
+@@ -255,7 +255,7 @@
+     return false;
+   }
+ 
+-  const auto& elemCount = loc->mInfo->mActiveInfo->mElemCount;
++  const auto& elemCount = loc->mInfo->mActiveInfo.mElemCount;
+   MOZ_ASSERT(elemCount > loc->mArrayIndex);
+   const uint32_t uniformElemCount = elemCount - loc->mArrayIndex;
+ 
+@@ -627,22 +627,22 @@
+   mDefaultVertexArray->BindVertexArray();
+   mDefaultVertexArray->mAttribs.resize(mGLMaxVertexAttribs);
+ 
+-  mPixelStore_FlipY = false;
+-  mPixelStore_PremultiplyAlpha = false;
+-  mPixelStore_ColorspaceConversion = BROWSER_DEFAULT_WEBGL;
+-  mPixelStore_RequireFastPath = false;
++  mPixelStore.mFlipY = false;
++  mPixelStore.mPremultiplyAlpha = false;
++  mPixelStore.mColorspaceConversion = BROWSER_DEFAULT_WEBGL;
++  mPixelStore.mRequireFastPath = false;
+ 
+   // GLES 3.0.4, p259:
+-  mPixelStore_UnpackImageHeight = 0;
+-  mPixelStore_UnpackSkipImages = 0;
+-  mPixelStore_UnpackRowLength = 0;
+-  mPixelStore_UnpackSkipRows = 0;
+-  mPixelStore_UnpackSkipPixels = 0;
+-  mPixelStore_UnpackAlignment = 4;
+-  mPixelStore_PackRowLength = 0;
+-  mPixelStore_PackSkipRows = 0;
+-  mPixelStore_PackSkipPixels = 0;
+-  mPixelStore_PackAlignment = 4;
++  mPixelStore.mUnpackImageHeight = 0;
++  mPixelStore.mUnpackSkipImages = 0;
++  mPixelStore.mUnpackRowLength = 0;
++  mPixelStore.mUnpackSkipRows = 0;
++  mPixelStore.mUnpackSkipPixels = 0;
++  mPixelStore.mUnpackAlignment = 4;
++  mPixelStore.mPackRowLength = 0;
++  mPixelStore.mPackSkipRows = 0;
++  mPixelStore.mPackSkipPixels = 0;
++  mPixelStore.mPackAlignment = 4;
+ 
+   mPrimRestartTypeBytes = 0;
+ 

@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsGlobalWindowOuter.cpp
+# Commit: 0b4595b2c153
+# Full Hash: 0b4595b2c1531b83fc24fbf9b0f6ceacfc3506bd
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-04-22 09:35:42
+# Regressor Bug: 1580565
+# File Overlap Count: 3
+# Description:
+#   Bug 1580565 - Part 4: Use WindowContext to manage BrowsingContext cached status, r=farre
+#   
+#   The existing infrastructure which stored cached BrowsingContexts on the
+#   BrowsingContextGroup was added before WindowContexts were added, and can cause
+#   racing issues with partially discarded trees during process switches.
+# ==============================================================================
+
+diff -r 4363e3a3d799 -r 0b4595b2c153 dom/base/nsGlobalWindowOuter.cpp
+--- a/dom/base/nsGlobalWindowOuter.cpp	Wed Apr 22 01:37:52 2020 +0000
++++ b/dom/base/nsGlobalWindowOuter.cpp	Wed Apr 22 01:37:55 2020 +0000
+@@ -3424,7 +3424,7 @@
+   BrowsingContext* bc = GetBrowsingContext();
+   NS_ENSURE_TRUE(bc, nullptr);
+ 
+-  const BrowsingContext::Children& children = bc->GetChildren();
++  Span<RefPtr<BrowsingContext>> children = bc->Children();
+   if (aIndex < children.Length()) {
+     return WindowProxyHolder(children[aIndex]);
+   }
+@@ -4192,7 +4192,7 @@
+ 
+ uint32_t nsGlobalWindowOuter::Length() {
+   BrowsingContext* bc = GetBrowsingContext();
+-  return bc ? bc->GetChildren().Length() : 0;
++  return bc ? bc->Children().Length() : 0;
+ }
+ 
+ Nullable<WindowProxyHolder> nsGlobalWindowOuter::GetTopOuter() {

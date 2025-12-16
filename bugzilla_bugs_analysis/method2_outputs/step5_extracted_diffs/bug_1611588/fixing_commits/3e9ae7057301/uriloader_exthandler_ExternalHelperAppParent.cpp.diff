@@ -1,0 +1,42 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: uriloader/exthandler/ExternalHelperAppParent.cpp
+# Commit: 3e9ae7057301
+# Full Hash: 3e9ae70573011a8e393603157578a003f09e9c1d
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2020-02-04 04:04:16
+# Description:
+#   Bug 1611588 - Handle null BrowsingContext in ExternalHelperAppParent. r=nika
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D61309
+# ==============================================================================
+
+diff -r cc1190f55c46 -r 3e9ae7057301 uriloader/exthandler/ExternalHelperAppParent.cpp
+--- a/uriloader/exthandler/ExternalHelperAppParent.cpp	Mon Feb 03 18:55:44 2020 +0000
++++ b/uriloader/exthandler/ExternalHelperAppParent.cpp	Mon Feb 03 18:57:08 2020 +0000
+@@ -80,14 +80,16 @@
+     SetPropertyAsInterface(NS_LITERAL_STRING("docshell.internalReferrer"),
+                            referrer);
+ 
+-  WindowGlobalParent* parent = aContext->Canonical()->GetCurrentWindowGlobal();
+-  if (parent) {
+-    RefPtr<BrowserParent> browser = parent->GetBrowserParent();
+-    if (browser) {
+-      bool isPrivate = false;
+-      nsCOMPtr<nsILoadContext> loadContext = browser->GetLoadContext();
+-      loadContext->GetUsePrivateBrowsing(&isPrivate);
+-      SetPrivate(isPrivate);
++  if (aContext) {
++    WindowGlobalParent* parent = aContext->Canonical()->GetCurrentWindowGlobal();
++    if (parent) {
++      RefPtr<BrowserParent> browser = parent->GetBrowserParent();
++      if (browser) {
++        bool isPrivate = false;
++        nsCOMPtr<nsILoadContext> loadContext = browser->GetLoadContext();
++        loadContext->GetUsePrivateBrowsing(&isPrivate);
++        SetPrivate(isPrivate);
++      }
+     }
+   }
+ 

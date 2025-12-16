@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/debugger/Frame.cpp
+# Commit: 73c33bf110d6
+# Full Hash: 73c33bf110d6034266cbe615b9e018476a128d63
+# Author: Logan Smyth <loganfsmyth@gmail.com>
+# Date: 2019-12-09 09:50:39
+# Regressor Bug: 1600204
+# File Overlap Count: 2
+# Description:
+#   Bug 1600204 - Part 2: Remove Debugger.Frame.prototype.generator since it is already on script. r=jimb
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D55232
+# ==============================================================================
+
+diff -r d70ec1e79887 -r 73c33bf110d6 js/src/debugger/Frame.cpp
+--- a/js/src/debugger/Frame.cpp	Fri Dec 06 02:29:18 2019 +0000
++++ b/js/src/debugger/Frame.cpp	Fri Dec 06 02:57:20 2019 +0000
+@@ -543,12 +543,6 @@
+ }
+ 
+ /* static */
+-bool DebuggerFrame::getIsGenerator(HandleDebuggerFrame frame) {
+-  AbstractFramePtr referent = DebuggerFrame::getReferent(frame);
+-  return referent.hasScript() && referent.script()->isGenerator();
+-}
+-
+-/* static */
+ bool DebuggerFrame::getOffset(JSContext* cx, HandleDebuggerFrame frame,
+                               size_t& result) {
+   if (frame->isOnStack()) {
+@@ -1408,12 +1402,10 @@
+ }
+ 
+ bool DebuggerFrame::CallData::generatorGetter() {
+-  if (!ensureOnStack()) {
+-    return false;
+-  }
+-
+-  args.rval().setBoolean(DebuggerFrame::getIsGenerator(frame));
+-  return true;
++  JS_ReportErrorASCII(cx,
++                      "Debugger.Frame.prototype.generator has been removed. "
++                      "Use frame.script.isGeneratorFunction instead.");
++  return false;
+ }
+ 
+ bool DebuggerFrame::CallData::constructingGetter() {

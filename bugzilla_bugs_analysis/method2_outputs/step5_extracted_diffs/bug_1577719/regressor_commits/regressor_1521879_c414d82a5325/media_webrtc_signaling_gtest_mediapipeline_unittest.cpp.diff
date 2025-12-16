@@ -1,0 +1,82 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/webrtc/signaling/gtest/mediapipeline_unittest.cpp
+# Commit: c414d82a5325
+# Full Hash: c414d82a532508523d40ce63111cb30b2a1076be
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2019-02-22 05:26:22
+# Regressor Bug: 1521879
+# File Overlap Count: 1
+# Description:
+#   Bug 1521879 - Part 1: IPC-based MediaTransport implementation r=mjf
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D17273
+# ==============================================================================
+
+diff -r 3a182b05e2c1 -r c414d82a5325 media/webrtc/signaling/gtest/mediapipeline_unittest.cpp
+--- a/media/webrtc/signaling/gtest/mediapipeline_unittest.cpp	Thu Feb 21 19:01:32 2019 +0200
++++ b/media/webrtc/signaling/gtest/mediapipeline_unittest.cpp	Thu Feb 21 16:42:12 2019 +0000
+@@ -132,7 +132,7 @@
+ 
+ class LoopbackTransport : public MediaTransportHandler {
+  public:
+-  LoopbackTransport() {
++  LoopbackTransport() : MediaTransportHandler(nullptr) {
+     SetState("mux", TransportLayer::TS_INIT, false);
+     SetState("mux", TransportLayer::TS_INIT, true);
+     SetState("non-mux", TransportLayer::TS_INIT, false);
+@@ -157,9 +157,9 @@
+   void EnterPrivateMode() override {}
+   void ExitPrivateMode() override {}
+ 
+-  nsresult Init(const std::string& aName,
+-                const nsTArray<dom::RTCIceServer>& aIceServers,
+-                dom::RTCIceTransportPolicy aIcePolicy) override {
++  nsresult CreateIceCtx(const std::string& aName,
++                        const nsTArray<dom::RTCIceServer>& aIceServers,
++                        dom::RTCIceTransportPolicy aIcePolicy) override {
+     return NS_OK;
+   }
+ 
+@@ -213,38 +213,17 @@
+     peer_->SignalPacketReceived(aTransportId, aPacket);
+   }
+ 
+-  TransportLayer::State GetState(const std::string& aTransportId,
+-                                 bool aRtcp) const override {
+-    if (aRtcp) {
+-      auto it = mRtcpStates.find(aTransportId);
+-      if (it != mRtcpStates.end()) {
+-        return it->second;
+-      }
+-    } else {
+-      auto it = mRtpStates.find(aTransportId);
+-      if (it != mRtpStates.end()) {
+-        return it->second;
+-      }
+-    }
+-
+-    return TransportLayer::TS_NONE;
+-  }
+-
+   void SetState(const std::string& aTransportId, TransportLayer::State aState,
+                 bool aRtcp) {
+     if (aRtcp) {
+-      mRtcpStates[aTransportId] = aState;
+-      SignalRtcpStateChange(aTransportId, aState);
++      MediaTransportHandler::OnRtcpStateChange(aTransportId, aState);
+     } else {
+-      mRtpStates[aTransportId] = aState;
+-      SignalStateChange(aTransportId, aState);
++      MediaTransportHandler::OnStateChange(aTransportId, aState);
+     }
+   }
+ 
+  private:
+   RefPtr<MediaTransportHandler> peer_;
+-  std::map<std::string, TransportLayer::State> mRtpStates;
+-  std::map<std::string, TransportLayer::State> mRtcpStates;
+ };
+ 
+ class TestAgent {

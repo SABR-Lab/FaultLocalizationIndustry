@@ -1,0 +1,67 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/cookiestore/PCookieStore.ipdl
+# Commit: bb99a3d0d1e7
+# Full Hash: bb99a3d0d1e7bf2278834e61e8878440bca791e3
+# Author: Valentin Gosu <valentin.gosu@gmail.com>
+# Date: 2025-03-29 09:19:43
+# Regressor Bug: 1951750
+# File Overlap Count: 4
+# Description:
+#   Bug 1951750 - Handle domain argument in CookieStoreParent r=baku,edgul,cookie-reviewers
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D240695
+# ==============================================================================
+
+diff -r ee233c9ac108 -r bb99a3d0d1e7 dom/cookiestore/PCookieStore.ipdl
+--- a/dom/cookiestore/PCookieStore.ipdl	Fri Mar 28 13:48:31 2025 +0000
++++ b/dom/cookiestore/PCookieStore.ipdl	Fri Mar 28 13:48:31 2025 +0000
+@@ -8,6 +8,7 @@
+ using mozilla::OriginAttributes from "mozilla/ipc/BackgroundUtils.h";
+ using struct mozilla::void_t from "ipc/IPCMessageUtils.h";
+ using struct nsID from "nsID.h";
++[RefCounted] using class nsIURI from "mozilla/ipc/URIUtils.h";
+ 
+ namespace mozilla {
+ namespace dom {
+@@ -37,7 +38,7 @@
+   manager PBackground;
+ 
+ parent:
+-  async GetRequest(nsString domain,
++  async GetRequest(nullable nsIURI cookieURI,
+                    OriginAttributes attrs,
+                    OriginAttributes? partitionedAttrs,
+                    bool thirdPartyContext,
+@@ -49,7 +50,7 @@
+                    nsCString path,
+                    bool onlyFirstMatch) returns (CookieData[] data);
+ 
+-  async SetRequest(nsString domain,
++  async SetRequest(nullable nsIURI cookieURI,
+                    OriginAttributes attrs,
+                    bool thirdPartyContext,
+                    bool partitionForeign,
+@@ -59,18 +60,20 @@
+                    nsString value,
+                    bool session,
+                    int64_t expires,
++                   nsString domain,
+                    nsString path,
+                    int32_t sameSite,
+                    bool partitioned,
+                    nsID operationId) returns (bool waitForNotification);
+ 
+-  async DeleteRequest(nsString domain,
++  async DeleteRequest(nullable nsIURI cookieURI,
+                       OriginAttributes attrs,
+                       bool thirdPartyContext,
+                       bool partitionForeign,
+                       bool usingStorageAccess,
+                       bool isOn3PCBExceptionList,
+                       nsString name,
++                      nsString domain,
+                       nsString path,
+                       bool partitioned,
+                       nsID operationID) returns (bool waitForNotification);

@@ -1,0 +1,112 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/BodyStream.cpp
+# Commit: acb4e003bfae
+# Full Hash: acb4e003bfae8bf1e90a6a9d059a995ec1c72239
+# Author: Kagami Sascha Rosylight <krosylight@mozilla.com>
+# Date: 2023-02-18 04:50:51
+# Regressor Bug: 1813011
+# File Overlap Count: 1
+# Description:
+#   Bug 1813011 - Part 1: Do not call AsyncAwait again after each pull r=smaug
+#   
+#   The reader will only get the close signal by sending another read request, so no need to check it greedily.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D169482
+# ==============================================================================
+
+diff -r 5505e602d7cf -r acb4e003bfae dom/base/BodyStream.cpp
+--- a/dom/base/BodyStream.cpp	Fri Feb 17 18:32:24 2023 +0000
++++ b/dom/base/BodyStream.cpp	Fri Feb 17 18:32:24 2023 +0000
+@@ -192,7 +192,7 @@
+   MOZ_DIAGNOSTIC_ASSERT(mOwningEventTarget->IsOnCurrentThread());
+ 
+   MOZ_DIAGNOSTIC_ASSERT(mState == eInitializing || mState == eWaiting ||
+-                        mState == eChecking || mState == eReading);
++                        mState == eReading);
+ 
+   RefPtr<Promise> resolvedWithUndefinedPromise =
+       Promise::CreateResolvedWithUndefined(aController.GetParentObject(), aRv);
+@@ -205,15 +205,6 @@
+     return resolvedWithUndefinedPromise.forget();
+   }
+ 
+-  if (mState == eChecking) {
+-    // If we are looking for more data, there is nothing else we should do:
+-    // let's move this checking operation in a reading.
+-    MOZ_ASSERT(mInputStream);
+-    mState = eReading;
+-
+-    return resolvedWithUndefinedPromise.forget();
+-  }
+-
+   if (mState == eInitializing) {
+     // The stream has been used for the first time.
+     mStreamHolder->MarkAsRead();
+@@ -264,7 +255,6 @@
+ 
+   MOZ_DIAGNOSTIC_ASSERT(mInputStream);
+   MOZ_DIAGNOSTIC_ASSERT(mState == eWriting);
+-  mState = eChecking;
+ 
+   uint32_t written;
+   nsresult rv;
+@@ -297,13 +287,6 @@
+     return;
+   }
+ 
+-  rv = mInputStream->AsyncWait(this, 0, 0, mOwningEventTarget);
+-  if (NS_WARN_IF(NS_FAILED(rv))) {
+-    ErrorPropagation(aCx, aStream, rv);
+-    return;
+-  }
+-  mAsyncWaitWorkerRef = mWorkerRef;
+-
+   // All good.
+ }
+ 
+@@ -454,7 +437,7 @@
+   AutoEntryScript aes(mGlobal, "fetch body data available");
+ 
+   MOZ_DIAGNOSTIC_ASSERT(mInputStream);
+-  MOZ_DIAGNOSTIC_ASSERT(mState == eReading || mState == eChecking);
++  MOZ_DIAGNOSTIC_ASSERT(mState == eReading);
+ 
+   JSContext* cx = aes.cx();
+   ReadableStream* stream = mStreamHolder->GetReadableStreamBody();
+@@ -464,11 +447,7 @@
+ 
+   uint64_t size = 0;
+   nsresult rv = mInputStream->Available(&size);
+-  if (NS_SUCCEEDED(rv) && size == 0) {
+-    // In theory this should not happen. If size is 0, the stream should be
+-    // considered closed.
+-    rv = NS_BASE_STREAM_CLOSED;
+-  }
++  MOZ_ASSERT_IF(NS_SUCCEEDED(rv), size > 0);
+ 
+   // No warning for stream closed.
+   if (rv == NS_BASE_STREAM_CLOSED || NS_WARN_IF(NS_FAILED(rv))) {
+@@ -476,12 +455,6 @@
+     return NS_OK;
+   }
+ 
+-  // This extra checking is completed. Let's wait for the next read request.
+-  if (mState == eChecking) {
+-    mState = eWaiting;
+-    return NS_OK;
+-  }
+-
+   mState = eWriting;
+ 
+   ErrorResult errorResult;
+@@ -492,6 +465,8 @@
+     return NS_OK;
+   }
+ 
++  mState = eWaiting;
++
+   // The previous call can execute JS (even up to running a nested event
+   // loop), so |mState| can't be asserted to have any particular value, even
+   // if the previous call succeeds.

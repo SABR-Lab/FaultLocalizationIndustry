@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/inspector/InspectorFontFace.cpp
+# Commit: 5a39eb924188
+# Full Hash: 5a39eb924188e504dad274a2148543c8d51dbae8
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2022-06-29 03:44:30
+# Regressor Bug: 1771493
+# File Overlap Count: 1
+# Description:
+#   Bug 1771493 - Part 2. Merge FontFaceSetImpl and gfxUserFontSet into a single class. r=emilio
+#   
+#   This patch merges FontFaceSetImpl and gfxUserFontSet into the same
+#   class. This reduces the level of indirection and in theory makes it
+#   easier to manage future threading issues.
+# ==============================================================================
+
+diff -r 3d30a8d83d77 -r 5a39eb924188 layout/inspector/InspectorFontFace.cpp
+--- a/layout/inspector/InspectorFontFace.cpp	Tue Jun 28 21:46:59 2022 +0000
++++ b/layout/inspector/InspectorFontFace.cpp	Tue Jun 28 21:47:00 2022 +0000
+@@ -69,13 +69,10 @@
+     // in the relevant font group's user font set
+     RawServoFontFaceRule* rule = nullptr;
+     if (mFontEntry->IsUserFont()) {
+-      FontFaceSet::UserFontSet* fontSet =
+-          static_cast<FontFaceSet::UserFontSet*>(mFontGroup->GetUserFontSet());
+-      if (fontSet) {
+-        FontFaceSetImpl* fontFaceSet = fontSet->GetFontFaceSet();
+-        if (fontFaceSet) {
+-          rule = fontFaceSet->FindRuleForEntry(mFontEntry);
+-        }
++      auto* fontFaceSet =
++          static_cast<FontFaceSetImpl*>(mFontGroup->GetUserFontSet());
++      if (fontFaceSet) {
++        rule = fontFaceSet->FindRuleForEntry(mFontEntry);
+       }
+     }
+     if (rule) {

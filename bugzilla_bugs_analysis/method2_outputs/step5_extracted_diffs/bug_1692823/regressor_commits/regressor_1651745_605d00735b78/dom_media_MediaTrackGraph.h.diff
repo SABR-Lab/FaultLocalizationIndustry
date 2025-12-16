@@ -1,0 +1,94 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/MediaTrackGraph.h
+# Commit: 605d00735b78
+# Full Hash: 605d00735b78e13abd06eea9ece5ded79818801d
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2020-11-06 04:14:34
+# Regressor Bug: 1651745
+# File Overlap Count: 1
+# Description:
+#   Bug 1651745 - Use a dedicate ProcessedMediaTrack subclass for feeding microphone capture. r=padenot
+#   
+#   This was mainly driven by the need of querying this track for its channel count,
+#   but it also moves us one usage away from SourceMediaTrack, which is a
+#   longer-term goal (because of SourceMediaTrack::mMutex).
+# ==============================================================================
+
+diff -r eb376fd954e1 -r 605d00735b78 dom/media/MediaTrackGraph.h
+--- a/dom/media/MediaTrackGraph.h	Thu Nov 05 16:42:07 2020 +0000
++++ b/dom/media/MediaTrackGraph.h	Thu Nov 05 16:42:20 2020 +0000
+@@ -86,13 +86,17 @@
+  * reprocess it. This is triggered automatically by the MediaTrackGraph.
+  */
+ 
++class AudioInputTrack;
+ class AudioNodeEngine;
+ class AudioNodeExternalInputTrack;
+ class AudioNodeTrack;
++class DirectMediaTrackListener;
++class ForwardedInputTrack;
+ class MediaInputPort;
+ class MediaTrack;
+ class MediaTrackGraph;
+ class MediaTrackGraphImpl;
++class MediaTrackListener;
+ class ProcessedMediaTrack;
+ class SourceMediaTrack;
+ 
+@@ -191,16 +195,6 @@
+  */
+ enum class DisabledTrackMode { ENABLED, SILENCE_BLACK, SILENCE_FREEZE };
+ 
+-class AudioNodeEngine;
+-class AudioNodeExternalInputTrack;
+-class AudioNodeTrack;
+-class DirectMediaTrackListener;
+-class MediaTrackGraphImpl;
+-class MediaTrackListener;
+-class ProcessedMediaTrack;
+-class SourceMediaTrack;
+-class ForwardedInputTrack;
+-
+ /**
+  * A track of audio or video data. The media type must be known at construction
+  * and cannot change. All tracks progress at the same rate --- "real time".
+@@ -379,6 +373,7 @@
+   friend class MediaInputPort;
+   friend class AudioNodeExternalInputTrack;
+ 
++  virtual AudioInputTrack* AsAudioInputTrack() { return nullptr; }
+   virtual SourceMediaTrack* AsSourceTrack() { return nullptr; }
+   virtual ProcessedMediaTrack* AsProcessedTrack() { return nullptr; }
+   virtual AudioNodeTrack* AsAudioNodeTrack() { return nullptr; }
+@@ -626,16 +621,6 @@
+    */
+   void SetPullingEnabled(bool aEnabled);
+ 
+-  // Users of audio inputs go through the track so it can track when the
+-  // last track referencing an input goes away, so it can close the cubeb
+-  // input. Main thread only.
+-  nsresult OpenAudioInput(CubebUtils::AudioDeviceID aID,
+-                          AudioDataListener* aListener);
+-  // Main thread only.
+-  void CloseAudioInput(Maybe<CubebUtils::AudioDeviceID>& aID);
+-
+-  // Main thread only.
+-  void Destroy() override;
+   // MediaTrackGraph thread only
+   void DestroyImpl() override;
+ 
+@@ -763,12 +748,6 @@
+   virtual void AdvanceTimeVaryingValuesToCurrentTime(
+       GraphTime aCurrentTime, GraphTime aBlockedTime) override;
+ 
+-  // Only accessed on the MTG thread.  Used so to ask the MTGImpl to usecount
+-  // users of a specific input.
+-  // XXX Should really be a CubebUtils::AudioDeviceID, but they aren't
+-  // copyable (opaque pointers)
+-  RefPtr<AudioDataListener> mInputListener;
+-
+   // This must be acquired *before* MediaTrackGraphImpl's lock, if they are
+   // held together.
+   Mutex mMutex;

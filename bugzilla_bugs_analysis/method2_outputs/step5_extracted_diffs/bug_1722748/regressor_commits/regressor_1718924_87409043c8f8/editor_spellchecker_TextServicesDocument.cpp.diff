@@ -1,0 +1,79 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/spellchecker/TextServicesDocument.cpp
+# Commit: 87409043c8f8
+# Full Hash: 87409043c8f8eb57e326566eb02d29aa4dbafa57
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2021-07-13 21:42:32
+# Regressor Bug: 1718924
+# File Overlap Count: 1
+# Description:
+#   Bug 1718924 - part 5: Add `OffsetEntry::OffsetInTextNodeIsInRangeOrEndOffset()` r=m_kato
+#   
+#   Depends on D119151
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D119152
+# ==============================================================================
+
+diff -r 3e43427ec342 -r 87409043c8f8 editor/spellchecker/TextServicesDocument.cpp
+--- a/editor/spellchecker/TextServicesDocument.cpp	Tue Jul 13 08:35:32 2021 +0000
++++ b/editor/spellchecker/TextServicesDocument.cpp	Tue Jul 13 08:42:00 2021 +0000
+@@ -51,6 +51,10 @@
+         mIsValid(true) {}
+ 
+   uint32_t EndOffsetInTextNode() const { return mOffsetInTextNode + mLength; }
++  bool OffsetInTextNodeIsInRangeOrEndOffset(uint32_t aOffsetInTextNode) const {
++    return aOffsetInTextNode >= mOffsetInTextNode &&
++           aOffsetInTextNode <= EndOffsetInTextNode();
++  }
+ 
+   OwningNonNull<Text> mTextNode;
+   uint32_t mOffsetInTextNode;
+@@ -1792,8 +1796,7 @@
+       NS_ENSURE_TRUE(entry, NS_ERROR_FAILURE);
+ 
+       if (entry->mTextNode == parent->AsText() &&
+-          entry->mOffsetInTextNode <= offset &&
+-          offset <= entry->EndOffsetInTextNode()) {
++          entry->OffsetInTextNodeIsInRangeOrEndOffset(offset)) {
+         *aSelStatus = BlockSelectionStatus::eBlockContains;
+         *aSelOffset = entry->mStrOffset + (offset - entry->mOffsetInTextNode);
+         *aSelLength = 0;
+@@ -1901,8 +1904,8 @@
+     const OffsetEntry* const entry = mOffsetTable[i];
+     NS_ENSURE_TRUE(entry, NS_ERROR_FAILURE);
+ 
+-    if (entry->mTextNode == textNode && entry->mOffsetInTextNode <= offset &&
+-        offset <= entry->EndOffsetInTextNode()) {
++    if (entry->mTextNode == textNode &&
++        entry->OffsetInTextNodeIsInRangeOrEndOffset(offset)) {
+       *aSelStatus = BlockSelectionStatus::eBlockContains;
+       *aSelOffset = entry->mStrOffset + (offset - entry->mOffsetInTextNode);
+       *aSelLength = 0;
+@@ -2113,11 +2116,10 @@
+     entry = mOffsetTable[i];
+     NS_ENSURE_TRUE(entry, NS_ERROR_FAILURE);
+     if (!found) {
+-      if (entry->mTextNode == p1.get() && entry->mOffsetInTextNode <= o1 &&
+-          o1 <= entry->EndOffsetInTextNode()) {
++      if (entry->mTextNode == p1.get() &&
++          entry->OffsetInTextNodeIsInRangeOrEndOffset(o1)) {
+         *aSelOffset = entry->mStrOffset + (o1 - entry->mOffsetInTextNode);
+-        if (p1 == p2 && entry->mOffsetInTextNode <= o2 &&
+-            o2 <= entry->EndOffsetInTextNode()) {
++        if (p1 == p2 && entry->OffsetInTextNodeIsInRangeOrEndOffset(o2)) {
+           // The start and end of the range are in the same offset
+           // entry. Calculate the length of the range then we're done.
+           *aSelLength = o2 - o1;
+@@ -2129,8 +2131,8 @@
+         found = true;
+       }
+     } else {  // Found.
+-      if (entry->mTextNode == p2.get() && entry->mOffsetInTextNode <= o2 &&
+-          o2 <= entry->EndOffsetInTextNode()) {
++      if (entry->mTextNode == p2.get() &&
++          entry->OffsetInTextNodeIsInRangeOrEndOffset(o2)) {
+         // We found the end of the range. Calculate the length of the
+         // sub string that is before the end of the range, then we're done.
+         *aSelLength += o2 - entry->mOffsetInTextNode;

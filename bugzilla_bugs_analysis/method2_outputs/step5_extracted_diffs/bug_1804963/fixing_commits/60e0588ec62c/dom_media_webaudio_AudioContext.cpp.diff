@@ -1,0 +1,54 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webaudio/AudioContext.cpp
+# Commit: 60e0588ec62c
+# Full Hash: 60e0588ec62cebb375ffd30b25b5b22167f50b11
+# Author: Karl Tomlinson <karlt+@karlt.net>
+# Date: 2022-12-14 16:24:11
+# Description:
+#   Bug 1804963 get RTPCallerType in AudioContext constructor where window is known non-null r=padenot
+#   
+#   This is a similar approach to that used in PerformanceMainThread.
+#   https://searchfox.org/mozilla-central/rev/2d24d893669ad0fe8d76b0427b25369d35fcc19b/dom/performance/PerformanceMainThread.cpp#99
+#   
+# ==============================================================================
+
+diff -r 87aff7e550cf -r 60e0588ec62c dom/media/webaudio/AudioContext.cpp
+--- a/dom/media/webaudio/AudioContext.cpp	Wed Dec 14 00:52:16 2022 +0000
++++ b/dom/media/webaudio/AudioContext.cpp	Wed Dec 14 01:35:31 2022 +0000
+@@ -157,6 +157,7 @@
+       mSampleRate(GetSampleRateForAudioContext(aIsOffline, aSampleRate)),
+       mAudioContextState(AudioContextState::Suspended),
+       mNumberOfChannels(aNumberOfChannels),
++      mRTPCallerType(aWindow->AsGlobal()->GetRTPCallerType()),
+       mIsOffline(aIsOffline),
+       mIsStarted(!aIsOffline),
+       mIsShutDown(false),
+@@ -739,24 +740,21 @@
+ 
+   double rawTime = track->TrackTimeToSeconds(track->GetCurrentTime());
+ 
+-  RTPCallerType callerType = GetParentObject()->AsGlobal()->GetRTPCallerType();
+-
+   // CurrentTime increments in intervals of 128/sampleRate. If the Timer
+   // Precision Reduction is smaller than this interval, the jittered time
+   // can always be reversed to the raw step of the interval. In that case
+   // we can simply return the un-reduced time; and avoid breaking tests.
+   // We have to convert each variable into a common magnitude, we choose ms.
+   if ((128 / mSampleRate) * 1000.0 >
+-      nsRFPService::TimerResolution(callerType) / 1000.0) {
++      nsRFPService::TimerResolution(mRTPCallerType) / 1000.0) {
+     return rawTime;
+   }
+ 
+-  MOZ_ASSERT(GetParentObject()->AsGlobal());
+   // The value of a MediaTrack's CurrentTime will always advance forward; it
+   // will never reset (even if one rewinds a video.) Therefore we can use a
+   // single Random Seed initialized at the same time as the object.
+   return nsRFPService::ReduceTimePrecisionAsSecs(
+-      rawTime, GetRandomTimelineSeed(), callerType);
++      rawTime, GetRandomTimelineSeed(), mRTPCallerType);
+ }
+ 
+ nsISerialEventTarget* AudioContext::GetMainThread() const {

@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxPlatformFontList.cpp
+# Commit: 91166fa9642a
+# Full Hash: 91166fa9642a6b311c73a7d50388d978aba2cc83
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2021-10-19 04:21:59
+# Regressor Bug: 1715501
+# File Overlap Count: 1
+# Description:
+#   Bug 1730460 - Ensure cached ReplacementCharacter family records are cleared when the font-list is reinitialized. r=emilio
+#   
+#   Prior to bug 1715501, we were relying on the UpdateFontVisibility() method
+#   to take care of this, but since making this a per-visibility-setting array,
+#   that no longer happens so we need to explicitly clear them here.
+# ==============================================================================
+
+diff -r 06e19c7f28ee -r 91166fa9642a gfx/thebes/gfxPlatformFontList.cpp
+--- a/gfx/thebes/gfxPlatformFontList.cpp	Mon Oct 18 17:04:33 2021 -0400
++++ b/gfx/thebes/gfxPlatformFontList.cpp	Mon Oct 18 20:59:15 2021 +0000
+@@ -505,6 +505,11 @@
+     ClearLangGroupPrefFonts();
+     CancelLoader();
+ 
++    // Clear cached family records that will no longer be valid.
++    for (auto& f : mReplacementCharFallbackFamily) {
++      f = FontFamily();
++    }
++
+     gfxFontUtils::GetPrefsFontList(kFontSystemWhitelistPref, mEnabledFontsList);
+   }
+ 

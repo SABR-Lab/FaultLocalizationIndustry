@@ -1,0 +1,482 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/ActorsParent.cpp
+# Commit: 1abd3e7f9df4
+# Full Hash: 1abd3e7f9df46911581ba653270bc8a8864374d8
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2019-11-05 22:07:34
+# Regressor Bug: 1168606
+# File Overlap Count: 1
+# Description:
+#   Bug 1168606 - Removed implicit conversion operator of CachedStatement. r=ttung,asuth
+#   
+#   Depends on D44377
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44443
+# ==============================================================================
+
+diff -r cf53f4e57313 -r 1abd3e7f9df4 dom/indexedDB/ActorsParent.cpp
+--- a/dom/indexedDB/ActorsParent.cpp	Tue Nov 05 16:45:41 2019 +0000
++++ b/dom/indexedDB/ActorsParent.cpp	Tue Nov 05 16:45:53 2019 +0000
+@@ -4853,9 +4853,7 @@
+ #endif
+   }
+ 
+-  // TODO: Remove the implicit operator, and replace it by explicit calls to
+-  // GetUnderlyingStatement.
+-  operator mozIStorageStatement*() const;
++  explicit operator bool() const;
+ 
+   mozIStorageStatement& operator*() const;
+ 
+@@ -10090,7 +10088,7 @@
+ 
+   // Make sure this statement is reset when leaving this function since we're
+   // not using the normal stack-based protection of CachedStatement.
+-  mozStorageStatementScoper scoper(aCachedStatement);
++  mozStorageStatementScoper scoper(&*aCachedStatement);
+ 
+   int32_t freelistCount;
+   rv = aCachedStatement->GetInt32(0, &freelistCount);
+@@ -10231,11 +10229,9 @@
+   MOZ_COUNT_DTOR(DatabaseConnection::CachedStatement);
+ }
+ 
+-DatabaseConnection::CachedStatement::operator mozIStorageStatement*() const {
++DatabaseConnection::CachedStatement::operator bool() const {
+   AssertIsOnConnectionThread();
+ 
+-  // Note: this might also return nullptr, which is exploited at some call
+-  // sites.
+   return mStatement;
+ }
+ 
+@@ -10775,7 +10771,7 @@
+     }
+   }
+ 
+-  mozStorageStatementScoper updateScoper(mUpdateStatement);
++  mozStorageStatementScoper updateScoper(&*mUpdateStatement);
+ 
+   rv = mUpdateStatement->BindInt32ByIndex(0, aDelta);
+   if (NS_WARN_IF(NS_FAILED(rv))) {
+@@ -10811,7 +10807,7 @@
+       }
+     }
+ 
+-    mozStorageStatementScoper selectScoper(mSelectStatement);
++    mozStorageStatementScoper selectScoper(&*mSelectStatement);
+ 
+     rv = mSelectStatement->BindInt64ByIndex(0, aId);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+@@ -10845,7 +10841,7 @@
+     }
+   }
+ 
+-  mozStorageStatementScoper insertScoper(mInsertStatement);
++  mozStorageStatementScoper insertScoper(&*mInsertStatement);
+ 
+   rv = mInsertStatement->BindInt64ByIndex(0, aId);
+   if (NS_WARN_IF(NS_FAILED(rv))) {
+@@ -18805,12 +18801,12 @@
+       return rv;
+     }
+ 
+-    rv = info.mPosition.BindToStatement(stmt, kStmtParamNameValue);
+-    if (NS_WARN_IF(NS_FAILED(rv))) {
+-      return rv;
+-    }
+-
+-    rv = info.mLocaleAwarePosition.BindToStatement(stmt,
++    rv = info.mPosition.BindToStatement(&*stmt, kStmtParamNameValue);
++    if (NS_WARN_IF(NS_FAILED(rv))) {
++      return rv;
++    }
++
++    rv = info.mLocaleAwarePosition.BindToStatement(&*stmt,
+                                                    kStmtParamNameValueLocale);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+@@ -18821,7 +18817,7 @@
+       return rv;
+     }
+ 
+-    rv = aObjectStoreKey.BindToStatement(stmt, kStmtParamNameObjectDataKey);
++    rv = aObjectStoreKey.BindToStatement(&*stmt, kStmtParamNameObjectDataKey);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+@@ -18908,13 +18904,13 @@
+       return rv;
+     }
+ 
+-    rv = indexValue.mPosition.BindToStatement(stmt, kStmtParamNameValue);
++    rv = indexValue.mPosition.BindToStatement(&*stmt, kStmtParamNameValue);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+ 
+     if (!indexValue.mUnique) {
+-      rv = aObjectStoreKey.BindToStatement(stmt, kStmtParamNameObjectDataKey);
++      rv = aObjectStoreKey.BindToStatement(&*stmt, kStmtParamNameObjectDataKey);
+       if (NS_WARN_IF(NS_FAILED(rv))) {
+         return rv;
+       }
+@@ -18970,7 +18966,7 @@
+ 
+     objectStoreKey = aKeyRange.ref().lower();
+ 
+-    rv = objectStoreKey.BindToStatement(selectStmt, kStmtParamNameKey);
++    rv = objectStoreKey.BindToStatement(&*selectStmt, kStmtParamNameKey);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+@@ -18991,7 +18987,7 @@
+     }
+ 
+     if (aKeyRange.isSome()) {
+-      rv = BindKeyRangeToStatement(aKeyRange.ref(), selectStmt);
++      rv = BindKeyRangeToStatement(aKeyRange.ref(), &*selectStmt);
+       if (NS_WARN_IF(NS_FAILED(rv))) {
+         return rv;
+       }
+@@ -19011,7 +19007,7 @@
+   bool hasResult;
+   while (NS_SUCCEEDED(rv = selectStmt->ExecuteStep(&hasResult)) && hasResult) {
+     if (!singleRowOnly) {
+-      rv = objectStoreKey.SetFromStatement(selectStmt, 1);
++      rv = objectStoreKey.SetFromStatement(&*selectStmt, 1);
+       if (NS_WARN_IF(NS_FAILED(rv))) {
+         return rv;
+       }
+@@ -19019,7 +19015,7 @@
+       indexValues.ClearAndRetainStorage();
+     }
+ 
+-    rv = ReadCompressedIndexDataValues(selectStmt, 0, indexValues);
++    rv = ReadCompressedIndexDataValues(&*selectStmt, 0, indexValues);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+@@ -19049,7 +19045,7 @@
+       return rv;
+     }
+ 
+-    rv = objectStoreKey.BindToStatement(deleteStmt, kStmtParamNameKey);
++    rv = objectStoreKey.BindToStatement(&*deleteStmt, kStmtParamNameKey);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+@@ -23522,7 +23518,7 @@
+       return rv;
+     }
+ 
+-    rv = aObjectStoreKey.BindToStatement(stmt, kStmtParamNameKey);
++    rv = aObjectStoreKey.BindToStatement(&*stmt, kStmtParamNameKey);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+@@ -23737,7 +23733,7 @@
+   while (NS_SUCCEEDED(rv = selectStmt->ExecuteStep(&hasResult)) && hasResult) {
+     // We always need the index key to delete the index row.
+     Key indexKey;
+-    rv = indexKey.SetFromStatement(selectStmt, 0);
++    rv = indexKey.SetFromStatement(&*selectStmt, 0);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+@@ -23783,7 +23779,7 @@
+       // And the |index_data_values| row if this isn't the only index.
+       if (!mIsLastIndex) {
+         lastIndexValues.ClearAndRetainStorage();
+-        rv = ReadCompressedIndexDataValues(selectStmt, 2, lastIndexValues);
++        rv = ReadCompressedIndexDataValues(&*selectStmt, 2, lastIndexValues);
+         if (NS_WARN_IF(NS_FAILED(rv))) {
+           return rv;
+         }
+@@ -23826,13 +23822,13 @@
+       return rv;
+     }
+ 
+-    rv = indexKey.BindToStatement(deleteIndexRowStmt, kStmtParamNameValue);
++    rv = indexKey.BindToStatement(&*deleteIndexRowStmt, kStmtParamNameValue);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+ 
+     if (!mUnique) {
+-      rv = lastObjectStoreKey.BindToStatement(deleteIndexRowStmt,
++      rv = lastObjectStoreKey.BindToStatement(&*deleteIndexRowStmt,
+                                               kStmtParamNameObjectDataKey);
+       if (NS_WARN_IF(NS_FAILED(rv))) {
+         return rv;
+@@ -24206,7 +24202,7 @@
+     return rv;
+   }
+ 
+-  rv = mResponse.BindToStatement(indexValuesStmt, kStmtParamNameKey);
++  rv = mResponse.BindToStatement(&*indexValuesStmt, kStmtParamNameKey);
+   if (NS_WARN_IF(NS_FAILED(rv))) {
+     return rv;
+   }
+@@ -24219,7 +24215,8 @@
+ 
+   if (hasResult) {
+     AutoTArray<IndexDataValue, 32> existingIndexValues;
+-    rv = ReadCompressedIndexDataValues(indexValuesStmt, 0, existingIndexValues);
++    rv = ReadCompressedIndexDataValues(&*indexValuesStmt, 0,
++                                       existingIndexValues);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+@@ -24465,7 +24462,7 @@
+     }
+   }
+ 
+-  key.BindToStatement(stmt, kStmtParamNameKey);
++  key.BindToStatement(&*stmt, kStmtParamNameKey);
+ 
+   if (mDataOverThreshold) {
+     // The data we store in the SQLite database is a (signed) 64-bit integer.
+@@ -24838,7 +24835,7 @@
+   }
+ 
+   if (mOptionalKeyRange.isSome()) {
+-    rv = BindKeyRangeToStatement(mOptionalKeyRange.ref(), stmt);
++    rv = BindKeyRangeToStatement(mOptionalKeyRange.ref(), &*stmt);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+@@ -24852,7 +24849,7 @@
+     }
+ 
+     rv = GetStructuredCloneReadInfoFromStatement(
+-        stmt, 1, 0, mDatabase->GetFileManager(), cloneInfo);
++        &*stmt, 1, 0, mDatabase->GetFileManager(), cloneInfo);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+@@ -25024,7 +25021,7 @@
+   }
+ 
+   if (mOptionalKeyRange.isSome()) {
+-    rv = BindKeyRangeToStatement(mOptionalKeyRange.ref(), stmt);
++    rv = BindKeyRangeToStatement(mOptionalKeyRange.ref(), &*stmt);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+@@ -25037,7 +25034,7 @@
+       return NS_ERROR_OUT_OF_MEMORY;
+     }
+ 
+-    rv = key->SetFromStatement(stmt, 0);
++    rv = key->SetFromStatement(&*stmt, 0);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+@@ -25260,7 +25257,7 @@
+   }
+ 
+   if (mParams.optionalKeyRange().isSome()) {
+-    rv = BindKeyRangeToStatement(mParams.optionalKeyRange().ref(), stmt);
++    rv = BindKeyRangeToStatement(mParams.optionalKeyRange().ref(), &*stmt);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+@@ -25425,7 +25422,7 @@
+   }
+ 
+   if (hasKeyRange) {
+-    rv = BindKeyRangeToStatement(mOptionalKeyRange.ref(), stmt);
++    rv = BindKeyRangeToStatement(mOptionalKeyRange.ref(), &*stmt);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+@@ -25439,7 +25436,7 @@
+     }
+ 
+     rv = GetStructuredCloneReadInfoFromStatement(
+-        stmt, 1, 0, mDatabase->GetFileManager(), cloneInfo);
++        &*stmt, 1, 0, mDatabase->GetFileManager(), cloneInfo);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+@@ -25594,7 +25591,7 @@
+   }
+ 
+   if (hasKeyRange) {
+-    rv = BindKeyRangeToStatement(mOptionalKeyRange.ref(), stmt);
++    rv = BindKeyRangeToStatement(mOptionalKeyRange.ref(), &*stmt);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+@@ -25607,7 +25604,7 @@
+       return NS_ERROR_OUT_OF_MEMORY;
+     }
+ 
+-    rv = key->SetFromStatement(stmt, 0);
++    rv = key->SetFromStatement(&*stmt, 0);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+@@ -25684,7 +25681,7 @@
+   }
+ 
+   if (hasKeyRange) {
+-    rv = BindKeyRangeToStatement(mParams.optionalKeyRange().ref(), stmt);
++    rv = BindKeyRangeToStatement(mParams.optionalKeyRange().ref(), &*stmt);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+@@ -26156,7 +26153,7 @@
+   }
+ 
+   if (usingKeyRange) {
+-    rv = BindKeyRangeToStatement(mOptionalKeyRange.ref(), stmt);
++    rv = BindKeyRangeToStatement(mOptionalKeyRange.ref(), &*stmt);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+@@ -26173,7 +26170,7 @@
+     return NS_OK;
+   }
+ 
+-  rv = PopulateResponseFromStatement(stmt, true);
++  rv = PopulateResponseFromStatement(&*stmt, true);
+   if (NS_WARN_IF(NS_FAILED(rv))) {
+     return rv;
+   }
+@@ -26191,7 +26188,7 @@
+   // TODO: If this is done here, do this in the other Do*DatabaseWork functions
+   // as well (or move this to DoDatabaseWork).
+ 
+-  return PopulateExtraResponses(stmt, mCursor->mMaxExtraCount,
++  return PopulateExtraResponses(&*stmt, mCursor->mMaxExtraCount,
+                                 NS_LITERAL_CSTRING("OpenOp"));
+ }
+ 
+@@ -26236,7 +26233,7 @@
+   }
+ 
+   if (usingKeyRange) {
+-    rv = BindKeyRangeToStatement(mOptionalKeyRange.ref(), stmt);
++    rv = BindKeyRangeToStatement(mOptionalKeyRange.ref(), &*stmt);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+@@ -26253,7 +26250,7 @@
+     return NS_OK;
+   }
+ 
+-  rv = PopulateResponseFromStatement(stmt, true);
++  rv = PopulateResponseFromStatement(&*stmt, true);
+   if (NS_WARN_IF(NS_FAILED(rv))) {
+     return rv;
+   }
+@@ -26351,10 +26348,10 @@
+ 
+   if (usingKeyRange) {
+     if (mCursor->IsLocaleAware()) {
+-      rv = BindKeyRangeToStatement(mOptionalKeyRange.ref(), stmt,
++      rv = BindKeyRangeToStatement(mOptionalKeyRange.ref(), &*stmt,
+                                    mCursor->mLocale);
+     } else {
+-      rv = BindKeyRangeToStatement(mOptionalKeyRange.ref(), stmt);
++      rv = BindKeyRangeToStatement(mOptionalKeyRange.ref(), &*stmt);
+     }
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+@@ -26372,7 +26369,7 @@
+     return NS_OK;
+   }
+ 
+-  rv = PopulateResponseFromStatement(stmt, true);
++  rv = PopulateResponseFromStatement(&*stmt, true);
+   if (NS_WARN_IF(NS_FAILED(rv))) {
+     return rv;
+   }
+@@ -26386,7 +26383,7 @@
+   // on the parameters of subsequent ContinueOp operations, see also comment in
+   // ContinueOp::DoDatabaseWork.
+ 
+-  return PopulateExtraResponses(stmt, mCursor->mMaxExtraCount,
++  return PopulateExtraResponses(&*stmt, mCursor->mMaxExtraCount,
+                                 NS_LITERAL_CSTRING("OpenOp"));
+ }
+ 
+@@ -26466,10 +26463,10 @@
+ 
+   if (usingKeyRange) {
+     if (mCursor->IsLocaleAware()) {
+-      rv = BindKeyRangeToStatement(mOptionalKeyRange.ref(), stmt,
++      rv = BindKeyRangeToStatement(mOptionalKeyRange.ref(), &*stmt,
+                                    mCursor->mLocale);
+     } else {
+-      rv = BindKeyRangeToStatement(mOptionalKeyRange.ref(), stmt);
++      rv = BindKeyRangeToStatement(mOptionalKeyRange.ref(), &*stmt);
+     }
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+@@ -26487,7 +26484,7 @@
+     return NS_OK;
+   }
+ 
+-  rv = PopulateResponseFromStatement(stmt, true);
++  rv = PopulateResponseFromStatement(&*stmt, true);
+   if (NS_WARN_IF(NS_FAILED(rv))) {
+     return rv;
+   }
+@@ -26695,7 +26692,7 @@
+   }
+ 
+   // Bind current key.
+-  rv = currentKey.BindToStatement(stmt, kStmtParamNameCurrentKey);
++  rv = currentKey.BindToStatement(&*stmt, kStmtParamNameCurrentKey);
+   if (NS_WARN_IF(NS_FAILED(rv))) {
+     return rv;
+   }
+@@ -26703,7 +26700,7 @@
+   // Bind range bound if it is specified.
+   if (!mCursor->mLocaleAwareRangeBound.IsUnset()) {
+     rv = mCursor->mLocaleAwareRangeBound.BindToStatement(
+-        stmt, kStmtParamNameRangeBound);
++        &*stmt, kStmtParamNameRangeBound);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+@@ -26715,13 +26712,13 @@
+       (mCursor->mDirection == IDBCursor::NEXT ||
+        mCursor->mDirection == IDBCursor::PREV)) {
+     rv = mCursor->mObjectStorePosition.BindToStatement(
+-        stmt, kStmtParamNameObjectStorePosition);
++        &*stmt, kStmtParamNameObjectStorePosition);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+   } else if (hasContinuePrimaryKey) {
+     rv = mParams.get_ContinuePrimaryKeyParams().primaryKey().BindToStatement(
+-        stmt, kStmtParamNameObjectStorePosition);
++        &*stmt, kStmtParamNameObjectStorePosition);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+@@ -26746,12 +26743,12 @@
+     }
+   }
+ 
+-  rv = PopulateResponseFromStatement(stmt, true);
+-  if (NS_WARN_IF(NS_FAILED(rv))) {
+-    return rv;
+-  }
+-
+-  return PopulateExtraResponses(stmt, maxExtraCount,
++  rv = PopulateResponseFromStatement(&*stmt, true);
++  if (NS_WARN_IF(NS_FAILED(rv))) {
++    return rv;
++  }
++
++  return PopulateExtraResponses(&*stmt, maxExtraCount,
+                                 NS_LITERAL_CSTRING("ContinueOp"));
+ }
+ 

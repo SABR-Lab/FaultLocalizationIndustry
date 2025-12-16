@@ -1,0 +1,118 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: parser/html/nsHtml5Highlighter.h
+# Commit: 9a8abd87cc79
+# Full Hash: 9a8abd87cc7935f29b94248c1a6f8203faa14403
+# Author: Henri Sivonen <hsivonen@hsivonen.fi>
+# Date: 2021-12-08 21:43:06
+# Regressor Bug: 1701828
+# File Overlap Count: 10
+# Description:
+#   Bug 1701828 - meta charset rewrite. r=smaug
+#   
+#   Implements https://github.com/whatwg/html/issues/6962 . Improves performance
+#   when <meta charset> occurs in head but after the first kilobyte and aligns
+#   behavior better with WebKit and Blink.
+# ==============================================================================
+
+diff --git a/parser/html/nsHtml5Highlighter.h b/parser/html/nsHtml5Highlighter.h
+--- a/parser/html/nsHtml5Highlighter.h
++++ b/parser/html/nsHtml5Highlighter.h
+@@ -26,16 +26,27 @@ class nsHtml5Highlighter {
+   explicit nsHtml5Highlighter(nsAHtml5TreeOpSink* aOpSink);
+ 
+   /**
+    * The destructor.
+    */
+   ~nsHtml5Highlighter();
+ 
+   /**
++   * Set the op sink (for speculation).
++   */
++  void SetOpSink(nsAHtml5TreeOpSink* aOpSink);
++
++  /**
++   * Reset state to after generated head but before processing any of the input
++   * stream.
++   */
++  void Rewind();
++
++  /**
+    * Starts the generated document.
+    */
+   void Start(const nsAutoString& aTitle);
+ 
+   /**
+    * Report a tokenizer state transition.
+    *
+    * @param aState the state being transitioned to
+@@ -141,16 +152,21 @@ class nsHtml5Highlighter {
+ 
+   /**
+    * Enqueues a tree op for adding base to the urls with the view-source:
+    *
+    * @param aValue the base URL to add
+    */
+   void AddBase(nsHtml5String aValue);
+ 
++  /**
++   * Starts a wrapper around a run of characters.
++   */
++  void StartCharacters();
++
+  private:
+   /**
+    * Starts a span with no class.
+    */
+   void StartSpan();
+ 
+   /**
+    * Starts a <span> and sets the class attribute on it.
+@@ -161,21 +177,16 @@ class nsHtml5Highlighter {
+   void StartSpan(const char16_t* aClass);
+ 
+   /**
+    * End the current <span> or <a> in the highlighter output.
+    */
+   void EndSpanOrA();
+ 
+   /**
+-   * Starts a wrapper around a run of characters.
+-   */
+-  void StartCharacters();
+-
+-  /**
+    * Ends a wrapper around a run of characters.
+    */
+   void EndCharactersAndStartMarkupRun();
+ 
+   /**
+    * Starts an <a>.
+    */
+   void StartA();
+@@ -312,17 +323,23 @@ class nsHtml5Highlighter {
+   nsHtml5UTF16Buffer* mBuffer;
+ 
+   /**
+    * The outgoing tree op queue.
+    */
+   nsTArray<nsHtml5TreeOperation> mOpQueue;
+ 
+   /**
+-   * The tree op stage for the tree op executor.
++   * The tree op stage for the tree op executor or a speculation when looking
++   * for meta charset.
++   *
++   * The op sink is owned by the nsHtml5TreeOpExecutor, which outlives this
++   * object, because this object is owned by the nsHtml5Tokenizer instance that
++   * is owned by the nsHtml5StreamParser, which keeps the executor alive via
++   * nsHtml5Streamparser::mExecutorFlusher.
+    */
+   nsAHtml5TreeOpSink* mOpSink;
+ 
+   /**
+    * The most recently opened markup declaration/tag or run of characters.
+    */
+   nsIContent** mCurrentRun;
+ 

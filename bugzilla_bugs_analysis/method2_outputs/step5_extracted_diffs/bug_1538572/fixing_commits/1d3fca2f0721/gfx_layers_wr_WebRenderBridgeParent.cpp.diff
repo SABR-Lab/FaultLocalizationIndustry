@@ -1,0 +1,167 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/wr/WebRenderBridgeParent.cpp
+# Commit: 1d3fca2f0721
+# Full Hash: 1d3fca2f0721c26585e70fa9aabb9069c99052ec
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2019-04-05 21:47:45
+# Description:
+#   Bug 1538572 - Replace mApis nsTArray with RenderRootArray r=sotaro
+#   
+#   This will allow us to simply do null checks when trying to get
+#   an API, which will prevent problems with concurrently accessing
+#   an nsTArray.
+# ==============================================================================
+
+diff -r dd68a6245f61 -r 1d3fca2f0721 gfx/layers/wr/WebRenderBridgeParent.cpp
+--- a/gfx/layers/wr/WebRenderBridgeParent.cpp	Fri Apr 05 15:38:13 2019 +0000
++++ b/gfx/layers/wr/WebRenderBridgeParent.cpp	Fri Apr 05 15:42:50 2019 +0000
+@@ -303,7 +303,6 @@
+     : mCompositorBridge(aCompositorBridge),
+       mPipelineId(aPipelineId),
+       mWidget(aWidget),
+-      mApis(aApis),
+       mAsyncImageManager(aImageMgr),
+       mCompositorScheduler(aScheduler),
+       mAnimStorage(aAnimStorage),
+@@ -330,6 +329,11 @@
+   if (!IsRootWebRenderBridgeParent() && gfxPrefs::WebRenderSplitRenderRoots()) {
+     mRenderRoot = wr::RenderRoot::Content;
+   }
++
++  for (auto& api : aApis) {
++    MOZ_ASSERT(api);
++    mApis[api->GetRenderRoot()] = api;
++  }
+ }
+ 
+ WebRenderBridgeParent::WebRenderBridgeParent(const wr::PipelineId& aPipelineId)
+@@ -742,7 +746,7 @@
+     return IPC_OK();
+   }
+ 
+-  MOZ_RELEASE_ASSERT((size_t)aRenderRoot < mApis.Length());
++  MOZ_RELEASE_ASSERT(aRenderRoot <= wr::kHighestRenderRoot);
+ 
+   wr::TransactionBuilder txn;
+   txn.SetLowPriority(!IsRootWebRenderBridgeParent());
+@@ -970,10 +974,7 @@
+   // Guard against malicious content processes
+   MOZ_RELEASE_ASSERT(aDisplayLists.Length() > 0);
+   for (auto& displayList : aDisplayLists) {
+-    // mApis.Length() should be the lowest possible length of things that we
+-    // will be indexing via a RenderRoot, so it should be sufficient to check
+-    // just that.
+-    MOZ_RELEASE_ASSERT((size_t)displayList.mRenderRoot < mApis.Length());
++    MOZ_RELEASE_ASSERT(displayList.mRenderRoot <= wr::kHighestRenderRoot);
+   }
+ 
+   if (!IsRootWebRenderBridgeParent()) {
+@@ -1106,10 +1107,7 @@
+ 
+   // Guard against malicious content processes
+   for (auto& update : aRenderRootUpdates) {
+-    // mApis.Length() should be the lowest possible length of things that we
+-    // will be indexing via a RenderRoot, so it should be sufficient to check
+-    // just that.
+-    MOZ_RELEASE_ASSERT((size_t)update.mRenderRoot < mApis.Length());
++    MOZ_RELEASE_ASSERT(update.mRenderRoot <= wr::kHighestRenderRoot);
+   }
+ 
+   if (!IsRootWebRenderBridgeParent()) {
+@@ -1661,7 +1659,9 @@
+   ClearResources();
+   mCompositorBridge = cBridge;
+   mCompositorScheduler = aScheduler;
+-  mApis = aApis;
++  for (auto& api : aApis) {
++    mApis[api->GetRenderRoot()] = api;
++  }
+   mAsyncImageManager = aImageMgr;
+   mAnimStorage = aAnimStorage;
+ 
+@@ -1929,6 +1929,9 @@
+   wr::RenderRootArray<Maybe<wr::TransactionBuilder>> sceneBuilderTxns;
+   wr::RenderRootArray<Maybe<wr::AutoTransactionSender>> senders;
+   for (auto& api : mApis) {
++    if (!api) {
++      continue;
++    }
+     auto renderRoot = api->GetRenderRoot();
+     // Ensure GenerateFrame is handled on the render backend thread rather
+     // than going through the scene builder thread. That way we continue
+@@ -1953,6 +1956,9 @@
+   uint8_t framesGenerated = 0;
+   wr::RenderRootArray<bool> generateFrame;
+   for (auto& api : mApis) {
++    if (!api) {
++      continue;
++    }
+     auto renderRoot = api->GetRenderRoot();
+     generateFrame[renderRoot] =
+         mAsyncImageManager->GetAndResetWillGenerateFrame(renderRoot) ||
+@@ -1979,6 +1985,9 @@
+   // We do this even if the arrays are empty, because it will clear out any
+   // previous properties store on the WR side, which is desirable.
+   for (auto& api : mApis) {
++    if (!api) {
++      continue;
++    }
+     auto renderRoot = api->GetRenderRoot();
+     fastTxns[renderRoot]->UpdateDynamicProperties(opacityArrays[renderRoot],
+                                                   transformArrays[renderRoot]);
+@@ -1996,10 +2005,13 @@
+ 
+   MOZ_ASSERT(framesGenerated > 0);
+   for (auto& api : mApis) {
++    if (!api) {
++      continue;
++    }
+     auto renderRoot = api->GetRenderRoot();
+     if (generateFrame[renderRoot]) {
+       fastTxns[renderRoot]->GenerateFrame();
+-      mApis[(size_t)renderRoot]->SendTransaction(*fastTxns[renderRoot]);
++      api->SendTransaction(*fastTxns[renderRoot]);
+     }
+   }
+   mMostRecentComposite = TimeStamp::Now();
+@@ -2228,7 +2240,7 @@
+ }
+ 
+ void WebRenderBridgeParent::ClearResources() {
+-  if (mApis.IsEmpty()) {
++  if (!mApis[wr::RenderRoot::Default]) {
+     return;
+   }
+ 
+@@ -2255,6 +2267,9 @@
+   mAsyncImageManager->RemovePipeline(mPipelineId, wrEpoch);
+ 
+   for (auto& api : mApis) {
++    if (!api) {
++      continue;
++    }
+     wr::TransactionBuilder txn;
+     txn.SetLowPriority(true);
+     txn.ClearDisplayList(wrEpoch, mPipelineId);
+@@ -2286,7 +2301,9 @@
+   mAnimStorage = nullptr;
+   mCompositorScheduler = nullptr;
+   mAsyncImageManager = nullptr;
+-  mApis.Clear();
++  for (auto& api : mApis) {
++    api = nullptr;
++  }
+   mCompositorBridge = nullptr;
+ }
+ 
+@@ -2348,7 +2365,7 @@
+ }
+ 
+ TextureFactoryIdentifier WebRenderBridgeParent::GetTextureFactoryIdentifier() {
+-  MOZ_ASSERT(!mApis.IsEmpty());
++  MOZ_ASSERT(!!mApis[wr::RenderRoot::Default]);
+ 
+   return TextureFactoryIdentifier(
+       LayersBackend::LAYERS_WR, XRE_GetProcessType(),

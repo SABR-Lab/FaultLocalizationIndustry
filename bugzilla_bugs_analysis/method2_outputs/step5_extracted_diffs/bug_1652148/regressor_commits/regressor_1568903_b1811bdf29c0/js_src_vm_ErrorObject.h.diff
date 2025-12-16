@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/ErrorObject.h
+# Commit: b1811bdf29c0
+# Full Hash: b1811bdf29c01a32406cd8b2fab5c7a7e3996c77
+# Author: André Bargull <andre.bargull@gmail.com>
+# Date: 2019-11-23 09:47:42
+# Regressor Bug: 1568903
+# File Overlap Count: 1
+# Description:
+#   Bug 1568903 - Part 4: Implement AggregateError for Nightly. r=jorendorff
+#   
+#   Adds AggregateError, but only enables it for Nightly builds, because the draft
+#   proposal is still incomplete, so it doesn't make sense to let this feature ride
+#   the trains at this moment.
+# ==============================================================================
+
+diff -r 2378a03445a7 -r b1811bdf29c0 js/src/vm/ErrorObject.h
+--- a/js/src/vm/ErrorObject.h	Fri Nov 22 18:12:33 2019 +0000
++++ b/js/src/vm/ErrorObject.h	Fri Nov 22 18:12:56 2019 +0000
+@@ -27,6 +27,7 @@
+ #include "vm/Shape.h"
+ 
+ namespace js {
++class ArrayObject;
+ 
+ class ErrorObject : public NativeObject {
+   static JSObject* createProto(JSContext* cx, JSProtoKey key);
+@@ -118,6 +119,22 @@
+   static bool setStack_impl(JSContext* cx, const CallArgs& args);
+ };
+ 
++class AggregateErrorObject : public ErrorObject {
++  friend class ErrorObject;
++
++  // [[AggregateErrors]] slot of AggregateErrorObjects.
++  static const uint32_t AGGREGATE_ERRORS_SLOT = ErrorObject::RESERVED_SLOTS;
++  static const uint32_t RESERVED_SLOTS = AGGREGATE_ERRORS_SLOT + 1;
++
++ public:
++  ArrayObject* aggregateErrors() const;
++  void setAggregateErrors(ArrayObject* errors);
++
++  // Getter for the AggregateError.prototype.errors accessor.
++  static bool getErrors(JSContext* cx, unsigned argc, Value* vp);
++  static bool getErrors_impl(JSContext* cx, const CallArgs& args);
++};
++
+ }  // namespace js
+ 
+ template <>
+@@ -125,4 +142,9 @@
+   return js::ErrorObject::isErrorClass(getClass());
+ }
+ 
++template <>
++inline bool JSObject::is<js::AggregateErrorObject>() const {
++  return hasClass(js::ErrorObject::classForType(JSEXN_AGGREGATEERR));
++}
++
+ #endif  // vm_ErrorObject_h_

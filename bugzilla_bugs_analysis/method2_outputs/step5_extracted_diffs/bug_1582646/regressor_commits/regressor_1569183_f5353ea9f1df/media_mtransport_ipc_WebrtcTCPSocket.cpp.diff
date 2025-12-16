@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/mtransport/ipc/WebrtcTCPSocket.cpp
+# Commit: f5353ea9f1df
+# Full Hash: f5353ea9f1dfe15a65076bc7aa272d688ebdb8ca
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2019-09-18 21:49:27
+# Regressor Bug: 1569183
+# File Overlap Count: 2
+# Description:
+#   Bug 1569183: Add a proxy policy argument to NrSocketProxyConfig, and always set this config on the NrIceCtx. r=mjf
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D45101
+# ==============================================================================
+
+diff -r ed1ae6a85255 -r f5353ea9f1df media/mtransport/ipc/WebrtcTCPSocket.cpp
+--- a/media/mtransport/ipc/WebrtcTCPSocket.cpp	Tue Sep 17 18:17:13 2019 +0000
++++ b/media/mtransport/ipc/WebrtcTCPSocket.cpp	Tue Sep 17 18:17:14 2019 +0000
+@@ -138,7 +138,8 @@
+ 
+ nsresult WebrtcTCPSocket::Open(const nsCString& aHost, const int& aPort,
+                                const net::LoadInfoArgs& aArgs,
+-                               const nsCString& aAlpn) {
++                               const nsCString& aAlpn,
++                               NrSocketProxyConfig::ProxyPolicy aProxyPolicy) {
+   LOG(("WebrtcTCPSocket::Open %p\n", this));
+ 
+   if (NS_WARN_IF(mOpened)) {
+@@ -162,10 +163,18 @@
+ 
+   mLoadInfoArgs = aArgs;
+   mAlpn = aAlpn;
++  if (aProxyPolicy == NrSocketProxyConfig::kForceProxy) {
++    mForceProxy = true;
++  }
+ 
+-  // We need to figure out whether a proxy needs to be used for mURI before we
+-  // can start on establishing a connection.
+-  rv = DoProxyConfigLookup();
++  if (aProxyPolicy == NrSocketProxyConfig::kDisableProxy) {
++    rv = OpenWithoutHttpProxy(nullptr);
++  } else {
++    // We need to figure out whether a proxy needs to be used for mURI before we
++    // can start on establishing a connection.
++    rv = DoProxyConfigLookup();
++  }
++
+   if (NS_WARN_IF(NS_FAILED(rv))) {
+     CloseWithReason(NS_ERROR_FAILURE);
+   }
+@@ -239,6 +248,10 @@
+ }
+ 
+ nsresult WebrtcTCPSocket::OpenWithoutHttpProxy(nsIProxyInfo* aSocksProxyInfo) {
++  if (NS_WARN_IF(mForceProxy && !aSocksProxyInfo)) {
++    return NS_ERROR_FAILURE;
++  }
++
+   nsCString host;
+   int32_t port;
+ 

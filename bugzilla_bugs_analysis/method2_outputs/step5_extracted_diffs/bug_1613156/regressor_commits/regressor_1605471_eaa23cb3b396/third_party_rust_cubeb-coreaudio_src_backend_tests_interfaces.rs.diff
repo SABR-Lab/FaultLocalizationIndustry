@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/cubeb-coreaudio/src/backend/tests/interfaces.rs
+# Commit: eaa23cb3b396
+# Full Hash: eaa23cb3b39686e114b1e78a78c2f8e5c91bcb29
+# Author: Chun-Min Chang <chun.m.chang@gmail.com>
+# Date: 2019-12-28 04:06:02
+# Regressor Bug: 1605471
+# File Overlap Count: 5
+# Description:
+#   Bug 1605471 - Update cubeb-coreaudio to acb90e9. r=alwu
+#   
+#   Pick commits:
+#   acb90e9 - Add license for mixer crate
+#   82e7ff9 - Move criterion crate to [dev-dependencies]
+# ==============================================================================
+
+diff -r 509cd3b3ec22 -r eaa23cb3b396 third_party/rust/cubeb-coreaudio/src/backend/tests/interfaces.rs
+--- a/third_party/rust/cubeb-coreaudio/src/backend/tests/interfaces.rs	Fri Dec 27 16:05:26 2019 +0000
++++ b/third_party/rust/cubeb-coreaudio/src/backend/tests/interfaces.rs	Fri Dec 27 16:58:18 2019 +0000
+@@ -527,21 +527,22 @@
+     });
+ }
+ 
+-// Enable this after cubeb-rs version is updated to one that implements
+-// stream_register_device_changed_callback operation.
+-// #[test]
+-// fn test_ops_stream_register_device_changed_callback() {
+-//     extern "C" fn callback(_: *mut c_void) {}
++#[test]
++fn test_ops_stream_register_device_changed_callback() {
++    extern "C" fn callback(_: *mut c_void) {}
+ 
+-//     test_default_output_stream_operation("stream: register device changed callback", |stream| {
+-//         assert_eq!(
+-//             unsafe {
+-//                 OPS.stream_register_device_changed_callback.unwrap()(
+-//                     stream,
+-//                     Some(callback)
+-//                 )
+-//             },
+-//             ffi::CUBEB_OK
+-//         );
+-//     });
+-// }
++    test_default_output_stream_operation("stream: register device changed callback", |stream| {
++        assert_eq!(
++            unsafe { OPS.stream_register_device_changed_callback.unwrap()(stream, Some(callback)) },
++            ffi::CUBEB_OK
++        );
++        assert_eq!(
++            unsafe { OPS.stream_register_device_changed_callback.unwrap()(stream, Some(callback)) },
++            ffi::CUBEB_ERROR_INVALID_PARAMETER
++        );
++        assert_eq!(
++            unsafe { OPS.stream_register_device_changed_callback.unwrap()(stream, None) },
++            ffi::CUBEB_OK
++        );
++    });
++}

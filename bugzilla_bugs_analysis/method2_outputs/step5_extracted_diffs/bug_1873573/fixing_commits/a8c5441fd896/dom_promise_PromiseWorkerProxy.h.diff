@@ -1,0 +1,51 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/promise/PromiseWorkerProxy.h
+# Commit: a8c5441fd896
+# Full Hash: a8c5441fd89658dea45d939b1e930cf3d148fafd
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2024-01-26 21:47:24
+# Description:
+#   Bug 1873573 - Rename PromiseWorkerProxy::WorkerPromise() to GetWorkerPromise(). r=dom-worker-reviewers,smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D199323
+# ==============================================================================
+
+diff -r 533ecc686bac -r a8c5441fd896 dom/promise/PromiseWorkerProxy.h
+--- a/dom/promise/PromiseWorkerProxy.h	Fri Jan 26 10:41:43 2024 +0000
++++ b/dom/promise/PromiseWorkerProxy.h	Fri Jan 26 10:48:56 2024 +0000
+@@ -98,14 +98,14 @@
+ //          // Usually do nothing, but you may want to log the fact.
+ //        }
+ //
+-//   3. In the WorkerRunnable's WorkerRun() use WorkerPromise() to access the
++//   3. In the WorkerRunnable's WorkerRun() use GetWorkerPromise() to access the
+ //      Promise and resolve/reject it. Then call CleanUp().
+ //
+ //        bool
+ //        WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override
+ //        {
+ //          aWorkerPrivate->AssertIsOnWorkerThread();
+-//          RefPtr<Promise> promise = mProxy->WorkerPromise();
++//          RefPtr<Promise> promise = mProxy->GetWorkerPromise();
+ //          promise->MaybeResolve(mResult);
+ //          mProxy->CleanUp();
+ //        }
+@@ -149,13 +149,13 @@
+   WorkerPrivate* GetWorkerPrivate() const MOZ_NO_THREAD_SAFETY_ANALYSIS;
+ 
+   // This should only be used within WorkerRunnable::WorkerRun() running on the
+-  // worker thread! Do not call this after calling CleanUp().
+-  Promise* WorkerPromise() const;
++  // worker thread! If this method is called after CleanUp(), return nullptr.
++  Promise* GetWorkerPromise() const;
+ 
+   // Worker thread only. Calling this invalidates several assumptions, so be
+   // sure this is the last thing you do.
+   // 1. WorkerPrivate() will no longer return a valid worker.
+-  // 2. WorkerPromise() will crash!
++  // 2. GetWorkerPromise() will return null!
+   void CleanUp();
+ 
+   Mutex& Lock() MOZ_RETURN_CAPABILITY(mCleanUpLock) { return mCleanUpLock; }

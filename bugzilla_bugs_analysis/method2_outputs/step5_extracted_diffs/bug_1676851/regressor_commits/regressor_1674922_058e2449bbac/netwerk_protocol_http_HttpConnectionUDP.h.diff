@@ -1,0 +1,29 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/HttpConnectionUDP.h
+# Commit: 058e2449bbac
+# Full Hash: 058e2449bbac40dcaa8cf1ade7464abd3b5217b0
+# Author: Dragana Damjanovic <dd.mozilla@gmail.com>
+# Date: 2020-11-05 21:37:48
+# Regressor Bug: 1674922
+# File Overlap Count: 1
+# Description:
+#   Bug 1674922 - Cleanup ReadSegments: r=necko-reviewers,kershaw
+#   
+#   - Move looping while calling mTransaction->ReadSegments into Http3Stream and call mTransaction->ReadSegmentsAgain. We use to loop in Http3Session which was not easy because it is not easy to find out when to leave the loop. The original code was working, but this is a better way to do this.
+#   - Remove mReadyForWriteButBlocked it is not necessary, it was used only as a double check and can only be a source of bugs.
+#   - Remove mContentBytesWritten, because it is not used.
+# ==============================================================================
+
+diff -r d9b078999ebc -r 058e2449bbac netwerk/protocol/http/HttpConnectionUDP.h
+--- a/netwerk/protocol/http/HttpConnectionUDP.h	Thu Nov 05 11:04:20 2020 +0000
++++ b/netwerk/protocol/http/HttpConnectionUDP.h	Thu Nov 05 11:37:39 2020 +0000
+@@ -97,7 +97,6 @@
+   PRIntervalTime mLastReadTime;
+   PRIntervalTime mLastWriteTime;
+   int64_t mTotalBytesRead;       // total data read
+-  int64_t mContentBytesWritten;  // does not include CONNECT tunnel or TLS
+ 
+   RefPtr<nsIAsyncInputStream> mInputOverflow;
+ 

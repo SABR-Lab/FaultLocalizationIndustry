@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/DOMException.h
+# Commit: 0f9f2acf6e13
+# Full Hash: 0f9f2acf6e136933da9a105df64ca4cc20bcb15c
+# Author: Kagami Sascha Rosylight <krosylight@mozilla.com>
+# Date: 2022-04-20 03:39:48
+# Regressor Bug: 1561357
+# File Overlap Count: 1
+# Description:
+#   Bug 1561357 - Implement [Serializable] for DOMException r=smaug,sfink
+#   
+#   Skipping stack serialization here as
+#   
+#   * it's optional per the spec
+# ==============================================================================
+
+diff -r 6e296387dc26 -r 0f9f2acf6e13 dom/base/DOMException.h
+--- a/dom/base/DOMException.h	Tue Apr 19 19:13:08 2022 +0000
++++ b/dom/base/DOMException.h	Tue Apr 19 19:31:27 2022 +0000
+@@ -24,6 +24,7 @@
+ #include "nsString.h"
+ #include "mozilla/dom/BindingDeclarations.h"
+ 
++class nsIGlobalObject;
+ class nsIStackFrame;
+ 
+ nsresult NS_GetNameAndMessageForDOMNSResult(nsresult aNSResult,
+@@ -104,6 +105,7 @@
+   Exception(const nsACString& aMessage, nsresult aResult,
+             const nsACString& aName, nsIStackFrame* aLocation,
+             nsISupports* aData);
++  Exception(nsCString&& aMessage, nsresult aResult, nsCString&& aName);
+ 
+  protected:
+   virtual ~Exception();
+@@ -140,6 +142,8 @@
+   DOMException(nsresult aRv, const nsACString& aMessage,
+                const nsACString& aName, uint16_t aCode,
+                nsIStackFrame* aLocation = nullptr);
++  DOMException(nsresult aRv, nsCString&& aMessage, nsCString&& aName,
++               uint16_t aCode);
+ 
+   NS_INLINE_DECL_REFCOUNTING_INHERITED(DOMException, Exception)
+ 
+@@ -171,6 +175,12 @@
+   static already_AddRefed<DOMException> Create(nsresult aRv,
+                                                const nsACString& aMessage);
+ 
++  static already_AddRefed<DOMException> ReadStructuredClone(
++      JSContext* aCx, nsIGlobalObject* aGlobal,
++      JSStructuredCloneReader* aReader);
++  bool WriteStructuredClone(JSContext* aCx,
++                            JSStructuredCloneWriter* aWriter) const;
++
+  protected:
+   virtual ~DOMException() = default;
+ 

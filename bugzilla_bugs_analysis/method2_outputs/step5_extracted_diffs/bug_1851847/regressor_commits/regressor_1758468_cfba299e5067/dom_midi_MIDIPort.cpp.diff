@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/midi/MIDIPort.cpp
+# Commit: cfba299e5067
+# Full Hash: cfba299e5067a4eab3f3b982374b0770970a3401
+# Author: Gabriele Svelto <gsvelto@mozilla.com>
+# Date: 2022-04-12 03:57:01
+# Regressor Bug: 1758468
+# File Overlap Count: 1
+# Description:
+#   Bug 1758468 - Use stable, anonymous IDs for Web MIDI ports r=padenot
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D142550
+# ==============================================================================
+
+diff -r c0eb987d0f76 -r cfba299e5067 dom/midi/MIDIPort.cpp
+--- a/dom/midi/MIDIPort.cpp	Mon Apr 11 17:43:08 2022 +0000
++++ b/dom/midi/MIDIPort.cpp	Mon Apr 11 17:43:09 2022 +0000
+@@ -14,6 +14,7 @@
+ #include "mozilla/dom/Document.h"
+ #include "mozilla/dom/Promise.h"
+ #include "mozilla/Unused.h"
++#include "nsContentUtils.h"
+ #include "nsISupportsImpl.h"  // for MOZ_COUNT_CTOR, MOZ_COUNT_DTOR
+ #include "MIDILog.h"
+ 
+@@ -63,8 +64,17 @@
+ }
+ 
+ bool MIDIPort::Initialize(const MIDIPortInfo& aPortInfo, bool aSysexEnabled) {
++  nsIURI* uri = GetDocumentIfCurrent()->GetDocumentURI();
++  nsAutoCString origin;
++  nsresult rv = nsContentUtils::GetASCIIOrigin(uri, origin);
++  if (NS_FAILED(rv)) {
++    return false;
++  }
+   RefPtr<MIDIPortChild> port =
+       new MIDIPortChild(aPortInfo, aSysexEnabled, this);
++  if (NS_FAILED(port->GenerateStableId(origin))) {
++    return false;
++  }
+   PBackgroundChild* b = BackgroundChild::GetForCurrentThread();
+   MOZ_ASSERT(b,
+              "Should always have a valid BackgroundChild when creating a port "
+@@ -91,7 +101,7 @@
+ 
+ void MIDIPort::GetId(nsString& aRetVal) const {
+   MOZ_ASSERT(mPort);
+-  aRetVal = mPort->MIDIPortInterface::Id();
++  aRetVal = mPort->StableId();
+ }
+ 
+ void MIDIPort::GetManufacturer(nsString& aRetVal) const {
+@@ -252,4 +262,6 @@
+   }
+ }
+ 
++const nsString& MIDIPort::StableId() { return mPort->StableId(); }
++
+ }  // namespace mozilla::dom

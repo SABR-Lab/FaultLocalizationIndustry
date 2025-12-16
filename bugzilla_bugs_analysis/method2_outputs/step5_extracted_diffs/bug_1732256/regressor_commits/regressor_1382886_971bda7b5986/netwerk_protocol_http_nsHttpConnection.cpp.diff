@@ -1,0 +1,106 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/nsHttpConnection.cpp
+# Commit: 971bda7b5986
+# Full Hash: 971bda7b59865902154ae1065df1cfbeee088d7d
+# Author: Dragana Damjanovic <dd.mozilla@gmail.com>
+# Date: 2021-09-22 15:53:06
+# Regressor Bug: 1382886
+# File Overlap Count: 1
+# Description:
+#   Bug 1382886 - Don’t use a special way to write 0RTT data. Reuse the standard code path r=necko-reviewers,kershaw
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D123680
+# ==============================================================================
+
+diff -r f69657a7e597 -r 971bda7b5986 netwerk/protocol/http/nsHttpConnection.cpp
+--- a/netwerk/protocol/http/nsHttpConnection.cpp	Wed Sep 22 09:19:30 2021 +0000
++++ b/netwerk/protocol/http/nsHttpConnection.cpp	Wed Sep 22 09:19:30 2021 +0000
+@@ -436,14 +436,10 @@
+   }
+ }
+ 
+-bool nsHttpConnection::EnsureNPNComplete(nsresult& aOut0RTTWriteHandshakeValue,
+-                                         uint32_t& aOut0RTTBytesWritten) {
++bool nsHttpConnection::EnsureNPNComplete() {
+   // If for some reason the components to check on NPN aren't available,
+   // this function will just return true to continue on and disable SPDY
+ 
+-  aOut0RTTWriteHandshakeValue = NS_OK;
+-  aOut0RTTBytesWritten = 0;
+-
+   MOZ_ASSERT(mSocketTransport);
+   if (!mSocketTransport) {
+     // this cannot happen
+@@ -493,22 +489,7 @@
+ 
+   if (rv == NS_ERROR_NOT_CONNECTED) {
+     Check0RttEnabled(ssl);
+-
+-    if (mWaitingFor0RTTResponse) {
+-      aOut0RTTWriteHandshakeValue = mTransaction->ReadSegments(
+-          this, nsIOService::gDefaultSegmentSize, &aOut0RTTBytesWritten);
+-      if (NS_FAILED(aOut0RTTWriteHandshakeValue) &&
+-          aOut0RTTWriteHandshakeValue != NS_BASE_STREAM_WOULD_BLOCK) {
+-        goto npnComplete;
+-      }
+-      LOG(
+-          ("nsHttpConnection::EnsureNPNComplete [this=%p] - written %d "
+-           "bytes during 0RTT",
+-           this, aOut0RTTBytesWritten));
+-      mContentBytesWritten0RTT += aOut0RTTBytesWritten;
+-    }
+-
+-    return false;
++    return mWaitingFor0RTTResponse;
+   }
+ 
+   if (NS_SUCCEEDED(rv)) {
+@@ -1871,8 +1852,7 @@
+     // etc.. and that is negotiated with NPN/ALPN in the SSL handshake.
+ 
+     if (mConnInfo->UsingHttpsProxy() &&
+-        !EnsureNPNComplete(rv, transactionBytes)) {
+-      MOZ_ASSERT(!transactionBytes);
++        !EnsureNPNComplete()) {
+       mSocketOutCondition = NS_BASE_STREAM_WOULD_BLOCK;
+     } else if (mProxyConnectStream) {
+       // If we're need an HTTP/1 CONNECT tunnel through a proxy
+@@ -1881,27 +1861,29 @@
+       rv = mProxyConnectStream->ReadSegments(ReadFromStream, this,
+                                              nsIOService::gDefaultSegmentSize,
+                                              &transactionBytes);
+-    } else if (!EnsureNPNComplete(rv, transactionBytes)) {
+-      if (NS_SUCCEEDED(rv) && !transactionBytes &&
+-          NS_SUCCEEDED(mSocketOutCondition)) {
+-        mSocketOutCondition = NS_BASE_STREAM_WOULD_BLOCK;
+-      }
++    } else if (!EnsureNPNComplete()) {
++      mSocketOutCondition = NS_BASE_STREAM_WOULD_BLOCK;
+     } else if (!mTransaction) {
+       rv = NS_ERROR_FAILURE;
+       LOG(("  No Transaction In OnSocketWritable\n"));
+     } else if (NS_SUCCEEDED(rv)) {
+       // for non spdy sessions let the connection manager know
+-      if (!mReportedSpdy) {
++      if (!mReportedSpdy && !mWaitingFor0RTTResponse) {
+         mReportedSpdy = true;
+         MOZ_ASSERT(!mEverUsedSpdy);
+         gHttpHandler->ConnMgr()->ReportSpdyConnection(this, false);
+       }
+ 
+       LOG(("  writing transaction request stream\n"));
++      MOZ_DIAGNOSTIC_ASSERT(!mProxyConnectInProgress || !mWaitingFor0RTTResponse);
+       mProxyConnectInProgress = false;
+       rv = mTransaction->ReadSegmentsAgain(
+           this, nsIOService::gDefaultSegmentSize, &transactionBytes, &again);
+-      mContentBytesWritten += transactionBytes;
++      if (mWaitingFor0RTTResponse) {
++        mContentBytesWritten0RTT += transactionBytes;
++      } else {
++        mContentBytesWritten += transactionBytes;
++      }
+     }
+ 
+     LOG(

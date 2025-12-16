@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/windows/msaa/GeckoCustom.h
+# Commit: a53fb045a8e3
+# Full Hash: a53fb045a8e34c1e1f14ca7b705eb9a5a0e76db2
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2021-05-02 09:29:52
+# Regressor Bug: 1694865
+# File Overlap Count: 1
+# Description:
+#   Bug 1694865 part 19: Make EnumVariant, GeckoCustom and sdn*Accessible classes aggregate MsaaAccessible/MsaaDocAccessible instead of AccessibleWrap/DocAccessibleWrap. r=morgan
+#   
+#   These objects need to aggregate the primary COM object (MsaaAccessible).
+#   Once the IUnknown implementation moves out of AccessibleWrap, it won't be possible to aggregate *AccessibleWrap any more.
+#   
+# ==============================================================================
+
+diff -r 5bd374b642fe -r a53fb045a8e3 accessible/windows/msaa/GeckoCustom.h
+--- a/accessible/windows/msaa/GeckoCustom.h	Sat May 01 21:09:04 2021 +0000
++++ b/accessible/windows/msaa/GeckoCustom.h	Sat May 01 22:29:25 2021 +0000
+@@ -7,9 +7,9 @@
+ #ifndef mozilla_a11y_GeckoCustom_h_
+ #define mozilla_a11y_GeckoCustom_h_
+ 
+-#include "AccessibleWrap.h"
+ #include "IUnknownImpl.h"
+ #include "IGeckoCustom.h"
++#include "MsaaAccessible.h"
+ 
+ namespace mozilla {
+ namespace a11y {
+@@ -20,7 +20,7 @@
+  */
+ class GeckoCustom final : public IGeckoCustom {
+  public:
+-  explicit GeckoCustom(AccessibleWrap* aAcc) : mAcc(aAcc) {}
++  explicit GeckoCustom(MsaaAccessible* aMsaa) : mMsaa(aMsaa) {}
+ 
+   // IUnknown
+   DECL_IUNKNOWN
+@@ -43,7 +43,7 @@
+   ~GeckoCustom() {}
+ 
+  protected:
+-  RefPtr<AccessibleWrap> mAcc;
++  RefPtr<MsaaAccessible> mMsaa;
+ };
+ 
+ }  // namespace a11y

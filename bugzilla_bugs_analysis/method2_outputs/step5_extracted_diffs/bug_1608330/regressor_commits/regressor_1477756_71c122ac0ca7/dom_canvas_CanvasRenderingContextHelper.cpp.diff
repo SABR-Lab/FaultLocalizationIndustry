@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/CanvasRenderingContextHelper.cpp
+# Commit: 71c122ac0ca7
+# Full Hash: 71c122ac0ca73391866b1ef19f4f82bc2d28568b
+# Author: David Parks <davidp99@gmail.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Initial out-of-process WebGL implementation. r=mccr8,handyman
+#   
+#   Splits WebGLContext into ClientWebGLContext and HostWebGLContext.  The Client enables the JS-control of a WebGL context in a content procecss while the Host executes the WebGL graphics operations (via a WebGLContext that maintains much of the existing code) in the compositor process.  At this point, the cross-process behavior is disabled -- this series of patches is an incremental step toward that final goal.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D54018
+# ==============================================================================
+
+diff -r 5cbf5bb11c58 -r 71c122ac0ca7 dom/canvas/CanvasRenderingContextHelper.cpp
+--- a/dom/canvas/CanvasRenderingContextHelper.cpp	Wed Jan 08 21:52:03 2020 +0000
++++ b/dom/canvas/CanvasRenderingContextHelper.cpp	Wed Jan 08 22:19:14 2020 +0000
+@@ -7,6 +7,7 @@
+ #include "ImageBitmapRenderingContext.h"
+ #include "ImageEncoder.h"
+ #include "mozilla/dom/CanvasRenderingContext2D.h"
++#include "mozilla/GfxMessageUtils.h"
+ #include "mozilla/Telemetry.h"
+ #include "mozilla/UniquePtr.h"
+ #include "MozFramebuffer.h"
+@@ -14,8 +15,7 @@
+ #include "nsDOMJSUtils.h"
+ #include "nsIScriptContext.h"
+ #include "nsJSUtils.h"
+-#include "WebGL1Context.h"
+-#include "WebGL2Context.h"
++#include "ClientWebGLContext.h"
+ 
+ namespace mozilla {
+ namespace dom {
+@@ -126,7 +126,7 @@
+     case CanvasContextType::WebGL1:
+       Telemetry::Accumulate(Telemetry::CANVAS_WEBGL_USED, 1);
+ 
+-      ret = WebGL1Context::Create();
++      ret = ClientWebGLContext::Create(WEBGL1);
+       if (!ret) return nullptr;
+ 
+       break;
+@@ -134,7 +134,7 @@
+     case CanvasContextType::WebGL2:
+       Telemetry::Accumulate(Telemetry::CANVAS_WEBGL_USED, 1);
+ 
+-      ret = WebGL2Context::Create();
++      ret = ClientWebGLContext::Create(WEBGL2);
+       if (!ret) return nullptr;
+ 
+       break;

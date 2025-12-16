@@ -1,0 +1,32 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/xre/nsAppRunner.cpp
+# Commit: 41d6f4cf3ec3
+# Full Hash: 41d6f4cf3ec38a5f854279049009d6fd30671585
+# Author: Mike Hommey <mh+mozilla@glandium.org>
+# Date: 2021-06-25 21:51:52
+# Regressor Bug: 1718131
+# File Overlap Count: 1
+# Description:
+#   Bug 1718131 - Close GdkDisplay in XREMain destructor. r=stransky
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D118753
+# ==============================================================================
+
+diff -r e301f30010f4 -r 41d6f4cf3ec3 toolkit/xre/nsAppRunner.cpp
+--- a/toolkit/xre/nsAppRunner.cpp	Fri Jun 25 13:28:27 2021 +0000
++++ b/toolkit/xre/nsAppRunner.cpp	Fri Jun 25 13:28:28 2021 +0000
+@@ -3384,6 +3384,12 @@
+   ~XREMain() {
+     mScopedXPCOM = nullptr;
+     mAppData = nullptr;
++#if defined(MOZ_WIDGET_GTK)
++    if (mGdkDisplay) {
++      gdk_display_close(mGdkDisplay);
++      mGdkDisplay = nullptr;
++    }
++#endif
+   }
+ 
+   int XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig);

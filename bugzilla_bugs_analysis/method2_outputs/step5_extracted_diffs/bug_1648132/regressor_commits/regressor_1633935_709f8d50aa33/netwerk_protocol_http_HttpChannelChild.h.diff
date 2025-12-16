@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/HttpChannelChild.h
+# Commit: 709f8d50aa33
+# Full Hash: 709f8d50aa33f299e1e72366c59b1c28ad0b547b
+# Author: Junior Hsu <juhsu@mozilla.com>
+# Date: 2020-06-24 09:31:07
+# Regressor Bug: 1633935
+# File Overlap Count: 1
+# Description:
+#   Bug 1633935 - P10 wait PHttpChannel::OnStartRequestSent for permission/cookie update from parent, r=mayhemer,necko-reviewers
+#   
+#   Depends on D77751
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D77752
+# ==============================================================================
+
+diff -r 3b268ac50692 -r 709f8d50aa33 netwerk/protocol/http/HttpChannelChild.h
+--- a/netwerk/protocol/http/HttpChannelChild.h	Tue Jun 23 16:58:33 2020 +0000
++++ b/netwerk/protocol/http/HttpChannelChild.h	Tue Jun 23 16:58:36 2020 +0000
+@@ -132,6 +132,7 @@
+   nsresult CrossProcessRedirectFinished(nsresult aStatus);
+ 
+  protected:
++  mozilla::ipc::IPCResult RecvOnStartRequestSent() override;
+   mozilla::ipc::IPCResult RecvFailedAsyncOpen(const nsresult& status) override;
+   mozilla::ipc::IPCResult RecvRedirect1Begin(
+       const uint32_t& registrarId, const URIParams& newURI,
+@@ -462,6 +463,13 @@
+   // CompleteRedirectSetup/RecvDeleteSelf.
+   uint8_t mSuspendForWaitCompleteRedirectSetup : 1;
+ 
++  // True if RecvOnStartRequestSent was received.
++  uint8_t mRecvOnStartRequestSentCalled : 1;
++
++  // True if this channel is suspened by waiting for permission and cookie. That
++  // is, RecvOnStartRequestSent is received.
++  uint8_t mSuspendedByWaitingForPermissionAndCookie : 1;
++
+   void FinishInterceptedRedirect();
+   void CleanupRedirectingChannel(nsresult rv);
+ 

@@ -1,0 +1,94 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/nsIFrame.cpp
+# Commit: a2da895a58ce
+# Full Hash: a2da895a58ce094d55e6a2e040dd648962b39868
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2022-02-22 09:37:09
+# Regressor Bug: 1714584
+# File Overlap Count: 2
+# Description:
+#   Bug 1714584 - Part 1: Decouple nsDisplayList internal list from nsDisplayItems r=mstange
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D138152
+# ==============================================================================
+
+diff -r c3b3315d2344 -r a2da895a58ce layout/generic/nsIFrame.cpp
+--- a/layout/generic/nsIFrame.cpp	Mon Feb 21 21:57:03 2022 +0000
++++ b/layout/generic/nsIFrame.cpp	Tue Feb 22 00:44:25 2022 +0000
+@@ -2924,7 +2924,7 @@
+   const bool isContainer = type == DisplayItemType::TYPE_WRAP_LIST ||
+                            type == DisplayItemType::TYPE_CONTAINER;
+ 
+-  if (isContainer && aItem->GetChildren()->Count() == 1) {
++  if (isContainer && aItem->GetChildren()->Length() == 1) {
+     // If the wraplist has only one child item, use the type of that item.
+     type = aItem->GetChildren()->GetBottom()->GetType();
+   }
+@@ -3131,7 +3131,6 @@
+   }
+ 
+   nsDisplayItem* container = *res;
+-  MOZ_ASSERT(!container->GetAbove());
+   MOZ_ASSERT(container->Frame() == aFrame);
+   DL_LOGD("RDL - Found SC item %p (%s) (frame: %p)", container,
+           container->Name(), container->Frame());
+@@ -3341,7 +3340,7 @@
+   bool usingSVGEffects = usingFilter || usingMask;
+ 
+   nsRect visibleRectOutsideSVGEffects = visibleRect;
+-  nsDisplayList hoistedScrollInfoItemsStorage;
++  nsDisplayList hoistedScrollInfoItemsStorage(aBuilder);
+   if (usingSVGEffects) {
+     dirtyRect =
+         SVGIntegrationUtils::GetRequiredSourceForInvalidArea(this, dirtyRect);
+@@ -3570,7 +3569,7 @@
+     content = PresContext()->Document()->GetRootElement();
+   }
+ 
+-  nsDisplayList resultList;
++  nsDisplayList resultList(aBuilder);
+   set.SerializeWithCorrectZOrder(&resultList, content);
+ 
+ #ifdef DEBUG
+@@ -3697,8 +3696,8 @@
+   if (isTransformed && extend3DContext) {
+     // Install dummy nsDisplayTransform as a leaf containing
+     // descendants not participating this 3D rendering context.
+-    nsDisplayList nonparticipants;
+-    nsDisplayList participants;
++    nsDisplayList nonparticipants(aBuilder);
++    nsDisplayList participants(aBuilder);
+     int index = 1;
+ 
+     nsDisplayItem* separator = nullptr;
+@@ -3880,7 +3879,7 @@
+     }
+ 
+     nsDisplayItem* container = resultList.GetBottom();
+-    if (resultList.Count() > 1 || container->Frame() != this) {
++    if (resultList.Length() > 1 || container->Frame() != this) {
+       container = MakeDisplayItem<nsDisplayContainer>(
+           aBuilder, this, containerItemASR, &resultList);
+     } else {
+@@ -3918,7 +3917,7 @@
+   // on which items we build, so we need to ensure that we don't transition
+   // to/from a wrap list without invalidating correctly.
+   bool needsWrapList =
+-      aList->Count() > 1 || item->Frame() != aFrame || item->GetChildren();
++      aList->Length() > 1 || item->Frame() != aFrame || item->GetChildren();
+ 
+   // If we have an explicit container item (that can't change without an
+   // invalidation) or we're doing a full build and don't need a wrap list, then
+@@ -4340,8 +4339,8 @@
+     awayFromCommonPath = true;
+   }
+ 
+-  nsDisplayList list;
+-  nsDisplayList extraPositionedDescendants;
++  nsDisplayList list(aBuilder);
++  nsDisplayList extraPositionedDescendants(aBuilder);
+   const ActiveScrolledRoot* wrapListASR;
+   bool builtContainerItem = false;
+   if (isStackingContext) {

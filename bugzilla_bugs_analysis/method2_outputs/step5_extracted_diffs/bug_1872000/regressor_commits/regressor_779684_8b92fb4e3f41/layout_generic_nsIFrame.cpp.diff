@@ -1,0 +1,71 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/nsIFrame.cpp
+# Commit: 8b92fb4e3f41
+# Full Hash: 8b92fb4e3f41d856629818bd2ecfc25bed23a643
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2023-12-23 09:52:03
+# Regressor Bug: 779684
+# File Overlap Count: 1
+# Description:
+#   Bug 779684 - part 3: Make `nsFrameIterator` non-refcountable r=emilio
+#   
+#   Nobody shares an instance of `nsFrameIterator`.  Therefore, we can make it
+#   non-refcountable.  Additionally, `nsVisualIterator` is not required because
+#   it overrides only 4 methods which are really simple.  So, once we merge it
+# ==============================================================================
+
+diff -r f357b2287591 -r 8b92fb4e3f41 layout/generic/nsIFrame.cpp
+--- a/layout/generic/nsIFrame.cpp	Sat Dec 23 05:39:38 2023 +0000
++++ b/layout/generic/nsIFrame.cpp	Sat Dec 23 05:39:39 2023 +0000
+@@ -8652,14 +8652,14 @@
+         return NS_OK;
+       }
+       // resultFrame is not a block frame
+-      RefPtr<nsFrameIterator> frameIterator = nsFrameIterator::Create(
++      Maybe<nsFrameIterator> frameIterator;
++      frameIterator.emplace(
+           pc, resultFrame, nsFrameIterator::Type::PostOrder,
+           false,  // aVisual
+           aPos->mOptions.contains(PeekOffsetOption::StopAtScroller),
+           false,  // aFollowOOFs
+           false   // aSkipPopupChecks
+       );
+-      MOZ_ASSERT(frameIterator);
+ 
+       auto FoundValidFrame = [aPos](const nsIFrame::ContentOffsets& aOffsets,
+                                     const nsIFrame* aFrame) {
+@@ -8725,7 +8725,8 @@
+ 
+       if (!found) {
+         resultFrame = storeOldResultFrame;
+-        frameIterator = nsFrameIterator::Create(
++        frameIterator.reset();
++        frameIterator.emplace(
+             pc, resultFrame, nsFrameIterator::Type::Leaf,
+             false,  // aVisual
+             aPos->mOptions.contains(PeekOffsetOption::StopAtScroller),
+@@ -9617,12 +9618,11 @@
+       aOptions.contains(PeekOffsetOption::Visual) && presContext->BidiEnabled();
+   const bool followOofs =
+       !aOptions.contains(PeekOffsetOption::StopAtPlaceholder);
+-  RefPtr<nsFrameIterator> frameIterator = nsFrameIterator::Create(
++  nsFrameIterator frameIterator(
+       presContext, this, nsFrameIterator::Type::Leaf, needsVisualTraversal,
+       aOptions.contains(PeekOffsetOption::StopAtScroller), followOofs,
+       false  // aSkipPopupChecks
+   );
+-  MOZ_ASSERT(frameIterator);
+ 
+   // Find the prev/next selectable frame
+   bool selectable = false;
+@@ -9662,7 +9662,7 @@
+       }
+     }
+ 
+-    traversedFrame = frameIterator->Traverse(aDirection == eDirNext);
++    traversedFrame = frameIterator.Traverse(aDirection == eDirNext);
+     if (!traversedFrame) {
+       return result;
+     }

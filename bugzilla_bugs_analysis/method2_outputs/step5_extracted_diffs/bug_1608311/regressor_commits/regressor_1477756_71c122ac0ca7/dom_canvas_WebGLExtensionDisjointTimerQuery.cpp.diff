@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLExtensionDisjointTimerQuery.cpp
+# Commit: 71c122ac0ca7
+# Full Hash: 71c122ac0ca73391866b1ef19f4f82bc2d28568b
+# Author: David Parks <davidp99@gmail.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Initial out-of-process WebGL implementation. r=mccr8,handyman
+#   
+#   Splits WebGLContext into ClientWebGLContext and HostWebGLContext.  The Client enables the JS-control of a WebGL context in a content procecss while the Host executes the WebGL graphics operations (via a WebGLContext that maintains much of the existing code) in the compositor process.  At this point, the cross-process behavior is disabled -- this series of patches is an incremental step toward that final goal.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D54018
+# ==============================================================================
+
+diff -r 5cbf5bb11c58 -r 71c122ac0ca7 dom/canvas/WebGLExtensionDisjointTimerQuery.cpp
+--- a/dom/canvas/WebGLExtensionDisjointTimerQuery.cpp	Wed Jan 08 21:52:03 2020 +0000
++++ b/dom/canvas/WebGLExtensionDisjointTimerQuery.cpp	Wed Jan 08 22:19:14 2020 +0000
+@@ -77,26 +77,22 @@
+   query.QueryCounter(target);
+ }
+ 
+-void WebGLExtensionDisjointTimerQuery::GetQueryEXT(
+-    JSContext* cx, GLenum target, GLenum pname,
+-    JS::MutableHandleValue retval) const {
+-  retval.setNull();
+-  if (mIsLost || !mContext) return;
++MaybeWebGLVariant WebGLExtensionDisjointTimerQuery::GetQueryEXT(
++    GLenum target, GLenum pname) const {
++  if (mIsLost || !mContext) return {};
+   const WebGLContext::FuncScope funcScope(*mContext, "getQueryEXT");
+   MOZ_ASSERT(!mContext->IsContextLost());
+ 
+-  mContext->GetQuery(cx, target, pname, retval);
++  return mContext->GetQuery(target, pname);
+ }
+ 
+-void WebGLExtensionDisjointTimerQuery::GetQueryObjectEXT(
+-    JSContext* cx, const WebGLQuery& query, GLenum pname,
+-    JS::MutableHandleValue retval) const {
+-  retval.setNull();
+-  if (mIsLost || !mContext) return;
++MaybeWebGLVariant WebGLExtensionDisjointTimerQuery::GetQueryObjectEXT(
++    const WebGLQuery& query, GLenum pname) const {
++  if (mIsLost || !mContext) return {};
+   const WebGLContext::FuncScope funcScope(*mContext, "getQueryObjectEXT");
+   MOZ_ASSERT(!mContext->IsContextLost());
+ 
+-  mContext->GetQueryParameter(cx, query, pname, retval);
++  return mContext->GetQueryParameter(query, pname);
+ }
+ 
+ bool WebGLExtensionDisjointTimerQuery::IsSupported(const WebGLContext* webgl) {
+@@ -107,7 +103,4 @@
+              gl::GLFeature::query_counter);  // provides GL_TIMESTAMP
+ }
+ 
+-IMPL_WEBGL_EXTENSION_GOOP(WebGLExtensionDisjointTimerQuery,
+-                          EXT_disjoint_timer_query)
+-
+ }  // namespace mozilla

@@ -1,0 +1,90 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: uriloader/exthandler/nsExternalProtocolHandler.cpp
+# Commit: 74f99033251c
+# Full Hash: 74f99033251cd6c36eb6b0b5a4713eb6b5c793fa
+# Author: Jonathan Kingston <jkt@mozilla.com>
+# Date: 2019-02-13 09:48:26
+# Regressor Bug: 1520868
+# File Overlap Count: 1
+# Description:
+#   Bug 1520868 - Replacing AsyncOpen2 with AsyncOpen always r=valentin
+#   
+#   Replacing js and text occurences of asyncOpen2
+#   Replacing open2 with open
+#   
+# ==============================================================================
+
+diff -r 3378fd5f4f22 -r 74f99033251c uriloader/exthandler/nsExternalProtocolHandler.cpp
+--- a/uriloader/exthandler/nsExternalProtocolHandler.cpp	Tue Feb 12 17:58:19 2019 +0100
++++ b/uriloader/exthandler/nsExternalProtocolHandler.cpp	Tue Feb 12 16:08:25 2019 +0000
+@@ -189,20 +189,24 @@
+   return rv;
+ }
+ 
+-NS_IMETHODIMP nsExtProtocolChannel::Open(nsIInputStream **_retval) {
+-  return OpenURL();
+-}
+-
+-NS_IMETHODIMP nsExtProtocolChannel::Open2(nsIInputStream **aStream) {
++NS_IMETHODIMP nsExtProtocolChannel::Open(nsIInputStream **aStream) {
+   nsCOMPtr<nsIStreamListener> listener;
+   nsresult rv =
+       nsContentSecurityManager::doContentSecurityCheck(this, listener);
+   NS_ENSURE_SUCCESS(rv, rv);
+-  return Open(aStream);
++
++  return OpenURL();
+ }
+ 
+-NS_IMETHODIMP nsExtProtocolChannel::AsyncOpen(nsIStreamListener *listener,
+-                                              nsISupports *ctxt) {
++NS_IMETHODIMP nsExtProtocolChannel::AsyncOpen(nsIStreamListener *aListener) {
++  nsCOMPtr<nsIStreamListener> listener = aListener;
++  nsresult rv =
++      nsContentSecurityManager::doContentSecurityCheck(this, listener);
++  if (NS_FAILED(rv)) {
++    mCallbacks = nullptr;
++    return rv;
++  }
++
+   if (mConnectedParent) {
+     return NS_OK;
+   }
+@@ -213,7 +217,7 @@
+           (mLoadInfo->GetSecurityMode() ==
+                nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_DATA_IS_NULL &&
+            nsContentUtils::IsSystemPrincipal(mLoadInfo->LoadingPrincipal())),
+-      "security flags in loadInfo but asyncOpen2() not called");
++      "security flags in loadInfo but doContentSecurityCheck() not called");
+ 
+   NS_ENSURE_ARG_POINTER(listener);
+   NS_ENSURE_TRUE(!mWasOpened, NS_ERROR_ALREADY_OPENED);
+@@ -224,17 +228,6 @@
+   return OpenURL();
+ }
+ 
+-NS_IMETHODIMP nsExtProtocolChannel::AsyncOpen2(nsIStreamListener *aListener) {
+-  nsCOMPtr<nsIStreamListener> listener = aListener;
+-  nsresult rv =
+-      nsContentSecurityManager::doContentSecurityCheck(this, listener);
+-  if (NS_FAILED(rv)) {
+-    mCallbacks = nullptr;
+-    return rv;
+-  }
+-  return AsyncOpen(listener, nullptr);
+-}
+-
+ NS_IMETHODIMP nsExtProtocolChannel::GetLoadFlags(nsLoadFlags *aLoadFlags) {
+   *aLoadFlags = mLoadFlags;
+   return NS_OK;
+@@ -370,7 +363,7 @@
+   // For redirects to external protocols we AsyncOpen on the child
+   // (not the parent) because child channel has the right docshell
+   // (which is needed for the select dialog).
+-  return AsyncOpen(listener, context);
++  return AsyncOpen(listener);
+ }
+ 
+ ///////////////////////////////////////////////////////////////////////

@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/webrtc/signaling/src/peerconnection/TransceiverImpl.cpp
+# Commit: b94935661622
+# Full Hash: b949356616223660996acf39e1e353e7bbd2a60d
+# Author: Dan Minor <dminor@mozilla.com>
+# Date: 2018-11-03 09:44:53
+# Regressor Bug: 1376873
+# File Overlap Count: 4
+# Description:
+#   Bug 1376873 - Use Call interface in AudioConduit; r=padenot
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D7441
+# ==============================================================================
+
+diff -r 6eca45c83131 -r b94935661622 media/webrtc/signaling/src/peerconnection/TransceiverImpl.cpp
+--- a/media/webrtc/signaling/src/peerconnection/TransceiverImpl.cpp	Mon Mar 26 16:19:23 2018 -0400
++++ b/media/webrtc/signaling/src/peerconnection/TransceiverImpl.cpp	Tue Aug 21 13:39:53 2018 -0400
+@@ -81,7 +81,7 @@
+ void
+ TransceiverImpl::InitAudio()
+ {
+-  mConduit = AudioSessionConduit::Create();
++  mConduit = AudioSessionConduit::Create(mCallWrapper, mStsThread);
+ 
+   if (!mConduit) {
+     MOZ_MTLOG(ML_ERROR, mPCHandle << "[" << mMid << "]: " << __FUNCTION__ <<
+@@ -721,6 +721,13 @@
+   RefPtr<AudioSessionConduit> conduit = static_cast<AudioSessionConduit*>(
+       mConduit.get());
+ 
++  if (!mJsepTransceiver->mRecvTrack.GetSsrcs().empty()) {
++    MOZ_MTLOG(ML_DEBUG, mPCHandle << "[" << mMid << "]: " << __FUNCTION__ <<
++              " Setting remote SSRC " <<
++              mJsepTransceiver->mRecvTrack.GetSsrcs().front());
++    conduit->SetRemoteSSRC(mJsepTransceiver->mRecvTrack.GetSsrcs().front());
++  }
++
+   if (mJsepTransceiver->mRecvTrack.GetNegotiatedDetails() &&
+       mJsepTransceiver->mRecvTrack.GetActive()) {
+     const auto& details(*mJsepTransceiver->mRecvTrack.GetNegotiatedDetails());
+@@ -734,6 +741,9 @@
+       return rv;
+     }
+ 
++    // Ensure conduit knows about extensions prior to creating streams
++    UpdateConduitRtpExtmap(details, LocalDirection::kRecv);
++
+     auto error = conduit->ConfigureRecvMediaCodecs(configs.values);
+ 
+     if (error) {
+@@ -741,7 +751,6 @@
+                           " ConfigureRecvMediaCodecs failed: " << error);
+       return NS_ERROR_FAILURE;
+     }
+-    UpdateConduitRtpExtmap(details, LocalDirection::kRecv);
+   }
+ 
+   if (mJsepTransceiver->mSendTrack.GetNegotiatedDetails() &&

@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/gamepad/GamepadHapticActuator.cpp
+# Commit: ec6a64b639a8
+# Full Hash: ec6a64b639a82e957376c09a71aef7ce62b3a5aa
+# Author: Chris Martin <cmartin@mozilla.com>
+# Date: 2020-12-03 09:47:26
+# Regressor Bug: 1657404
+# File Overlap Count: 1
+# Description:
+#   Bug 1657404 - Implement a strongly-typed, service-dependent gamepad handle r=handyman,aklotz
+#   
+#   Currently, the gamepad code uses a uint32_t as a handle and does some trickery
+#   with it by trying to create a unique ID and adding an offset to it for VR code.
+#   
+# ==============================================================================
+
+diff -r 6792f28b99bd -r ec6a64b639a8 dom/gamepad/GamepadHapticActuator.cpp
+--- a/dom/gamepad/GamepadHapticActuator.cpp	Wed Dec 02 22:36:35 2020 +0000
++++ b/dom/gamepad/GamepadHapticActuator.cpp	Wed Dec 02 23:06:05 2020 +0000
+@@ -21,10 +21,10 @@
+ NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(GamepadHapticActuator, mParent)
+ 
+ GamepadHapticActuator::GamepadHapticActuator(nsISupports* aParent,
+-                                             uint32_t aGamepadId,
++                                             GamepadHandle aGamepadHandle,
+                                              uint32_t aIndex)
+     : mParent(aParent),
+-      mGamepadId(aGamepadId),
++      mGamepadHandle(aGamepadHandle),
+       mType(GamepadHapticActuatorType::Vibration),
+       mIndex(aIndex) {}
+ 
+@@ -55,7 +55,7 @@
+   switch (mType) {
+     case GamepadHapticActuatorType::Vibration: {
+       RefPtr<Promise> promise = gamepadManager->VibrateHaptic(
+-          mGamepadId, mIndex, value, duration, global, aRv);
++          mGamepadHandle, mIndex, value, duration, global, aRv);
+       if (!promise) {
+         return nullptr;
+       }
+@@ -72,7 +72,7 @@
+ GamepadHapticActuatorType GamepadHapticActuator::Type() const { return mType; }
+ 
+ void GamepadHapticActuator::Set(const GamepadHapticActuator* aOther) {
+-  mGamepadId = aOther->mGamepadId;
++  mGamepadHandle = aOther->mGamepadHandle;
+   mType = aOther->mType;
+   mIndex = aOther->mIndex;
+ }

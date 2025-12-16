@@ -1,0 +1,58 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/JSScript.cpp
+# Commit: f2c470e06d30
+# Full Hash: f2c470e06d308602428ea31875812ea321a14906
+# Author: Yoshi Cheng-Hao Huang <allstars.chh@gmail.com>
+# Date: 2020-06-28 09:28:14
+# Description:
+#   Bug 1647115 - Add a runTaskLocked method in SourceCompressionTask. r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D80893
+# ==============================================================================
+
+diff -r df0a1af35e23 -r f2c470e06d30 js/src/vm/JSScript.cpp
+--- a/js/src/vm/JSScript.cpp	Sat Jun 27 19:15:17 2020 +0000
++++ b/js/src/vm/JSScript.cpp	Sat Jun 27 18:25:51 2020 +0000
+@@ -2548,21 +2548,29 @@
+ }
+ 
+ void SourceCompressionTask::runTask() {
+-  if (!shouldCancel()) {
+-    TraceLoggerThread* logger = TraceLoggerForCurrentThread();
+-    AutoTraceLog logCompile(logger, TraceLogger_CompressSource);
+-
+-    ScriptSource* source = sourceHolder_.get();
+-    MOZ_ASSERT(source->hasUncompressedSource());
+-
+-    source->performTaskWork(this);
++  if (shouldCancel()) {
++    return;
++  }
++
++  TraceLoggerThread* logger = TraceLoggerForCurrentThread();
++  AutoTraceLog logCompile(logger, TraceLogger_CompressSource);
++
++  ScriptSource* source = sourceHolder_.get();
++  MOZ_ASSERT(source->hasUncompressedSource());
++
++  source->performTaskWork(this);
++}
++
++void SourceCompressionTask::runTaskLocked(AutoLockHelperThreadState& locked) {
++  {
++    AutoUnlockHelperThreadState unlock(locked);
++    this->runTask();
+   }
+ 
+   {
+-    AutoLockHelperThreadState lock;
+     AutoEnterOOMUnsafeRegion oomUnsafe;
+-    if (!HelperThreadState().compressionFinishedList(lock).append(this)) {
+-      oomUnsafe.crash("handleCompressionWorkload");
++    if (!HelperThreadState().compressionFinishedList(locked).append(this)) {
++      oomUnsafe.crash("SourceCompressionTask::runTaskLocked");
+     }
+   }
+ }

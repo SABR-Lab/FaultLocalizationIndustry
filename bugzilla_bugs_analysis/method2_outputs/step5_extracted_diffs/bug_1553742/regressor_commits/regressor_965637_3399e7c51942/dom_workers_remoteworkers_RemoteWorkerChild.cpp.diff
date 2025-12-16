@@ -1,0 +1,144 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/remoteworkers/RemoteWorkerChild.cpp
+# Commit: 3399e7c51942
+# Full Hash: 3399e7c519424a82824f48abd3b2a4d75346d723
+# Author: Christoph Kerschbaumer <ckerschb@christophkerschbaumer.com>
+# Date: 2019-05-22 03:40:58
+# Regressor Bug: 965637
+# File Overlap Count: 3
+# Description:
+#   Bug 965637: Move CSP from Principal into Client, part 2: worker changes. r=baku
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D27655
+# ==============================================================================
+
+diff -r ddf4012a7652 -r 3399e7c51942 dom/workers/remoteworkers/RemoteWorkerChild.cpp
+--- a/dom/workers/remoteworkers/RemoteWorkerChild.cpp	Tue May 21 23:14:27 2019 +0000
++++ b/dom/workers/remoteworkers/RemoteWorkerChild.cpp	Tue May 21 23:14:50 2019 +0000
+@@ -34,51 +34,6 @@
+ 
+ namespace {
+ 
+-nsresult PopulateContentSecurityPolicy(
+-    nsIContentSecurityPolicy* aCSP,
+-    const nsTArray<ContentSecurityPolicy>& aPolicies) {
+-  MOZ_ASSERT(NS_IsMainThread());
+-  MOZ_ASSERT(aCSP);
+-  MOZ_ASSERT(!aPolicies.IsEmpty());
+-
+-  for (const ContentSecurityPolicy& policy : aPolicies) {
+-    nsresult rv = aCSP->AppendPolicy(policy.policy(), policy.reportOnlyFlag(),
+-                                     policy.deliveredViaMetaTagFlag());
+-    if (NS_WARN_IF(NS_FAILED(rv))) {
+-      return rv;
+-    }
+-  }
+-
+-  return NS_OK;
+-}
+-
+-nsresult PopulatePrincipalContentSecurityPolicy(
+-    nsIPrincipal* aPrincipal, const nsTArray<ContentSecurityPolicy>& aPolicies,
+-    const nsTArray<ContentSecurityPolicy>& aPreloadPolicies) {
+-  MOZ_ASSERT(NS_IsMainThread());
+-  MOZ_ASSERT(aPrincipal);
+-
+-  if (!aPolicies.IsEmpty()) {
+-    nsCOMPtr<nsIContentSecurityPolicy> csp;
+-    aPrincipal->EnsureCSP(nullptr, getter_AddRefs(csp));
+-    nsresult rv = PopulateContentSecurityPolicy(csp, aPolicies);
+-    if (NS_WARN_IF(NS_FAILED(rv))) {
+-      return rv;
+-    }
+-  }
+-
+-  if (!aPreloadPolicies.IsEmpty()) {
+-    nsCOMPtr<nsIContentSecurityPolicy> preloadCsp;
+-    aPrincipal->EnsurePreloadCSP(nullptr, getter_AddRefs(preloadCsp));
+-    nsresult rv = PopulateContentSecurityPolicy(preloadCsp, aPreloadPolicies);
+-    if (NS_WARN_IF(NS_FAILED(rv))) {
+-      return rv;
+-    }
+-  }
+-
+-  return NS_OK;
+-}
+-
+ class SharedWorkerInterfaceRequestor final : public nsIInterfaceRequestor {
+  public:
+   NS_DECL_ISUPPORTS
+@@ -243,38 +198,18 @@
+     return rv;
+   }
+ 
+-  rv = PopulatePrincipalContentSecurityPolicy(principal, aData.principalCsp(),
+-                                              aData.principalPreloadCsp());
+-  if (NS_WARN_IF(NS_FAILED(rv))) {
+-    return rv;
+-  }
+-
+   nsCOMPtr<nsIPrincipal> loadingPrincipal =
+       PrincipalInfoToPrincipal(aData.loadingPrincipalInfo(), &rv);
+   if (NS_WARN_IF(NS_FAILED(rv))) {
+     return rv;
+   }
+ 
+-  rv = PopulatePrincipalContentSecurityPolicy(
+-      loadingPrincipal, aData.loadingPrincipalCsp(),
+-      aData.loadingPrincipalPreloadCsp());
+-  if (NS_WARN_IF(NS_FAILED(rv))) {
+-    return rv;
+-  }
+-
+   nsCOMPtr<nsIPrincipal> storagePrincipal =
+       PrincipalInfoToPrincipal(aData.storagePrincipalInfo(), &rv);
+   if (NS_WARN_IF(NS_FAILED(rv))) {
+     return rv;
+   }
+ 
+-  rv = PopulatePrincipalContentSecurityPolicy(
+-      storagePrincipal, aData.storagePrincipalCsp(),
+-      aData.storagePrincipalPreloadCsp());
+-  if (NS_WARN_IF(NS_FAILED(rv))) {
+-    return rv;
+-  }
+-
+   WorkerLoadInfo info;
+   info.mBaseURI = DeserializeURI(aData.baseScriptURL());
+   info.mResolvedScriptURI = DeserializeURI(aData.resolvedScriptURL());
+@@ -305,15 +240,28 @@
+       new SharedWorkerInterfaceRequestor();
+   info.mInterfaceRequestor->SetOuterRequestor(requestor);
+ 
+-  rv = info.SetPrincipalsOnMainThread(info.mPrincipal, info.mStoragePrincipal,
+-                                      info.mLoadGroup);
++  Maybe<ClientInfo> clientInfo;
++  if (aData.clientInfo().isSome()) {
++    clientInfo.emplace(ClientInfo(aData.clientInfo().ref()));
++  }
++
++  if (clientInfo.isSome()) {
++    Maybe<mozilla::ipc::CSPInfo> cspInfo = clientInfo.ref().GetCspInfo();
++    if (cspInfo.isSome()) {
++      info.mCSP = CSPInfoToCSP(cspInfo.ref(), nullptr);
++    }
++  }
++
++  info.mCSPInfo = new CSPInfo();
++  rv = CSPToCSPInfo(info.mCSP, info.mCSPInfo);
+   if (NS_WARN_IF(NS_FAILED(rv))) {
+     return rv;
+   }
+ 
+-  Maybe<ClientInfo> clientInfo;
+-  if (aData.clientInfo().isSome()) {
+-    clientInfo.emplace(ClientInfo(aData.clientInfo().ref()));
++  rv = info.SetPrincipalsAndCSPOnMainThread(
++      info.mPrincipal, info.mStoragePrincipal, info.mLoadGroup, info.mCSP);
++  if (NS_WARN_IF(NS_FAILED(rv))) {
++    return rv;
+   }
+ 
+   // Top level workers' main script use the document charset for the script

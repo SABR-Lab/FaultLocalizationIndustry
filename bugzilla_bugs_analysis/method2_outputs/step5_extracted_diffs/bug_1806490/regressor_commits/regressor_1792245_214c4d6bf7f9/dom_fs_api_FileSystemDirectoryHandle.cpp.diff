@@ -1,0 +1,70 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fs/api/FileSystemDirectoryHandle.cpp
+# Commit: 214c4d6bf7f9
+# Full Hash: 214c4d6bf7f98a332c4ab81d325d9245ae810955
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2022-10-20 21:51:26
+# Regressor Bug: 1792245
+# File Overlap Count: 2
+# Description:
+#   Bug 1792245 - Add ErrorResult to FileSystemRequestHandler methods; r=dom-storage-reviewers,jesup
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D159572
+# ==============================================================================
+
+diff -r 330c69218a93 -r 214c4d6bf7f9 dom/fs/api/FileSystemDirectoryHandle.cpp
+--- a/dom/fs/api/FileSystemDirectoryHandle.cpp	Thu Oct 20 07:33:41 2022 +0300
++++ b/dom/fs/api/FileSystemDirectoryHandle.cpp	Thu Oct 20 04:21:30 2022 +0000
+@@ -73,7 +73,11 @@
+ 
+   fs::Name name(aName);
+   fs::FileSystemChildMetadata metadata(mMetadata.entryId(), name);
+-  mRequestHandler->GetFileHandle(mManager, metadata, aOptions.mCreate, promise);
++  mRequestHandler->GetFileHandle(mManager, metadata, aOptions.mCreate, promise,
++                                 aError);
++  if (aError.Failed()) {
++    return nullptr;
++  }
+ 
+   return promise.forget();
+ }
+@@ -91,7 +95,10 @@
+   fs::Name name(aName);
+   fs::FileSystemChildMetadata metadata(mMetadata.entryId(), name);
+   mRequestHandler->GetDirectoryHandle(mManager, metadata, aOptions.mCreate,
+-                                      promise);
++                                      promise, aError);
++  if (aError.Failed()) {
++    return nullptr;
++  }
+ 
+   return promise.forget();
+ }
+@@ -109,8 +116,11 @@
+   fs::Name name(aName);
+   fs::FileSystemChildMetadata metadata(mMetadata.entryId(), name);
+ 
+-  mRequestHandler->RemoveEntry(mManager, metadata, aOptions.mRecursive,
+-                               promise);
++  mRequestHandler->RemoveEntry(mManager, metadata, aOptions.mRecursive, promise,
++                               aError);
++  if (aError.Failed()) {
++    return nullptr;
++  }
+ 
+   return promise.forget();
+ }
+@@ -124,7 +134,10 @@
+ 
+   fs::FileSystemEntryPair pair(mMetadata.entryId(),
+                                aPossibleDescendant.GetId());
+-  mRequestHandler->Resolve(mManager, pair, promise);
++  mRequestHandler->Resolve(mManager, pair, promise, aError);
++  if (aError.Failed()) {
++    return nullptr;
++  }
+ 
+   return promise.forget();
+ }

@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/windows/nsFilePicker.h
+# Commit: 70eab0533b00
+# Full Hash: 70eab0533b00cee4ac31f7e3250d78d2a9a09758
+# Author: Ray Kraesig <rkraesig@mozilla.com>
+# Date: 2023-09-16 09:14:45
+# Regressor Bug: 1837079
+# File Overlap Count: 1
+# Description:
+#   Bug 1837079 - [7/10] Open Windows file picker out-of-process  r=gstoll,handyman,ipc-reviewers,nika
+#   
+#   When opening a new Windows file dialog, open it out-of-process if
+#   possible. Fall back to opening it in-process if that fails. (This
+#   behavior is configurable with a pref.)
+# ==============================================================================
+
+diff -r 488707a84723 -r 70eab0533b00 widget/windows/nsFilePicker.h
+--- a/widget/windows/nsFilePicker.h	Fri Sep 15 18:10:01 2023 +0000
++++ b/widget/windows/nsFilePicker.h	Fri Sep 15 18:10:01 2023 +0000
+@@ -83,6 +83,20 @@
+   bool ShowFilePicker(const nsString& aInitialDir);
+ 
+  private:
++  // Show the dialog (by default, remotely falling back to locally, or whatever
++  // is specified by the current config).
++  static Result<Maybe<Results>> ShowFilePickerImpl(
++      HWND aParent, FileDialogType type, nsTArray<Command> const& commands);
++  static Result<Maybe<nsString>> ShowFolderPickerImpl(
++      HWND aParent, nsTArray<Command> const& commands);
++
++  // Show the dialog out-of-process.
++  static Result<Maybe<Results>> ShowFilePickerRemote(
++      HWND aParent, FileDialogType type, nsTArray<Command> const& commands);
++  static Result<Maybe<nsString>> ShowFolderPickerRemote(
++      HWND aParent, nsTArray<Command> const& commands);
++
++  // Show the dialog in-process.
+   static Result<Maybe<Results>> ShowFilePickerLocal(
+       HWND aParent, FileDialogType type, nsTArray<Command> const& commands);
+   static Result<Maybe<nsString>> ShowFolderPickerLocal(

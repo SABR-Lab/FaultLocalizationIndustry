@@ -1,0 +1,92 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/EarlyHintRegistrar.h
+# Commit: b4b920f24bed
+# Full Hash: b4b920f24bed3d02a7000892e9594c515970e1f6
+# Author: Manuel Bucher <manuel@mozilla.com>
+# Date: 2022-12-03 09:24:59
+# Regressor Bug: 1771867
+# File Overlap Count: 1
+# Description:
+#   Bug 1771867 - Early Hints Phase 2 - Part 3: Add mechanism to notify EarlyHintPreloader that HttpChannelParent is ready to complete the redirect r=necko-reviewers,kershaw,valentin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D161178
+# ==============================================================================
+
+diff -r 13a9f4631369 -r b4b920f24bed netwerk/protocol/http/EarlyHintRegistrar.h
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/netwerk/protocol/http/EarlyHintRegistrar.h	Fri Dec 02 16:15:54 2022 +0000
+@@ -0,0 +1,72 @@
++/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
++/* vim: set ts=8 sts=2 et sw=2 tw=80: */
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++#ifndef mozilla_net_EarlyHintRegistrar_h__
++#define mozilla_net_EarlyHintRegistrar_h__
++
++#include "mozilla/RefCounted.h"
++#include "nsRefPtrHashtable.h"
++#include "mozilla/AlreadyAddRefed.h"
++
++class nsIParentChannel;
++
++namespace mozilla::net {
++
++class EarlyHintPreloader;
++
++/*
++ * Registrar for pairing EarlyHintPreloader and HttpChannelParent via
++ * earlyHintPreloaderId. EarlyHintPreloader has to be registered first.
++ * EarlyHintPreloader::OnParentReady will be invoked to notify the
++ * EarlyHintpreloader about the existence of the associated HttpChannelParent.
++ */
++class EarlyHintRegistrar final : public RefCounted<EarlyHintRegistrar> {
++  using EarlyHintHashtable =
++      nsRefPtrHashtable<nsUint64HashKey, EarlyHintPreloader>;
++
++ public:
++  MOZ_DECLARE_REFCOUNTED_TYPENAME(EarlyHintRegistrar)
++
++  EarlyHintRegistrar();
++  ~EarlyHintRegistrar();
++
++  /*
++   * Store EarlyHintPreloader for the HttpChannelParent to connect back to.
++   *
++   * @param aEarlyHintPreloaderId identifying the EarlyHintPreloader
++   * @param aEhp the EarlyHintPreloader to store
++   */
++  void RegisterEarlyHint(uint64_t aEarlyHintPreloaderId,
++                         EarlyHintPreloader* aEhp);
++
++  /*
++   * Link the provided nsIParentChannel with the associated EarlyHintPreloader.
++   *
++   * @param aEarlyHintPreloaderId identifying the EarlyHintPreloader
++   * @param aParent the nsIParentChannel to be paired
++   * @param aChannelId the id of the nsIChannel connecting to the
++   *        EarlyHintPreloader.
++   */
++  bool LinkParentChannel(uint64_t aEarlyHintPreloaderId,
++                         nsIParentChannel* aParent, uint64_t aChannelId);
++
++  /*
++   * Delete previous stored EarlyHintPreloader
++   *
++   * @param aEarlyHintPreloaderId identifying the EarlyHintPreloader
++   */
++  void DeleteEntry(uint64_t aEarlyHintPreloaderId);
++
++  // Singleton accessor
++  static already_AddRefed<EarlyHintRegistrar> GetOrCreate();
++
++  // Store unlinked EarlyHintPreloader objects.
++  EarlyHintHashtable mEarlyHint;
++};
++
++}  // namespace mozilla::net
++
++#endif  // mozilla_net_EarlyHintRegistrar_h__

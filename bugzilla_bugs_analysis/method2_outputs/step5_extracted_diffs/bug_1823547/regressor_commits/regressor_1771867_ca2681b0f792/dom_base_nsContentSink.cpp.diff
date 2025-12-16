@@ -1,0 +1,79 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsContentSink.cpp
+# Commit: ca2681b0f792
+# Full Hash: ca2681b0f79274712ad5f99e34075fecc6a8629c
+# Author: Manuel Bucher <manuel@mozilla.com>
+# Date: 2022-12-03 09:24:59
+# Regressor Bug: 1771867
+# File Overlap Count: 1
+# Description:
+#   Bug 1771867 - Early Hints Phase 2 - Part 11: Don't preload anchored links from early hints r=necko-reviewers,valentin
+#   
+#   They won't get passed to the PreloadService anyway. Resulting in an unnecessary
+#   additional load
+#   
+# ==============================================================================
+
+diff -r cbbdb4b4aaa9 -r ca2681b0f792 dom/base/nsContentSink.cpp
+--- a/dom/base/nsContentSink.cpp	Fri Dec 02 16:15:56 2022 +0000
++++ b/dom/base/nsContentSink.cpp	Fri Dec 02 16:15:57 2022 +0000
+@@ -273,47 +273,6 @@
+   }
+ }
+ 
+-// check whether the Link header field applies to the context resource
+-// see <http://tools.ietf.org/html/rfc5988#section-5.2>
+-
+-bool nsContentSink::LinkContextIsOurDocument(const nsAString& aAnchor) {
+-  if (aAnchor.IsEmpty()) {
+-    // anchor parameter not present or empty -> same document reference
+-    return true;
+-  }
+-
+-  nsIURI* docUri = mDocument->GetDocumentURI();
+-
+-  // the document URI might contain a fragment identifier ("#...')
+-  // we want to ignore that because it's invisible to the server
+-  // and just affects the local interpretation in the recipient
+-  nsCOMPtr<nsIURI> contextUri;
+-  nsresult rv = NS_GetURIWithoutRef(docUri, getter_AddRefs(contextUri));
+-
+-  if (NS_FAILED(rv)) {
+-    // copying failed
+-    return false;
+-  }
+-
+-  // resolve anchor against context
+-  nsCOMPtr<nsIURI> resolvedUri;
+-  rv = NS_NewURI(getter_AddRefs(resolvedUri), aAnchor, nullptr, contextUri);
+-
+-  if (NS_FAILED(rv)) {
+-    // resolving failed
+-    return false;
+-  }
+-
+-  bool same;
+-  rv = contextUri->Equals(resolvedUri, &same);
+-  if (NS_FAILED(rv)) {
+-    // comparison failed
+-    return false;
+-  }
+-
+-  return same;
+-}
+-
+ nsresult nsContentSink::ProcessLinkFromHeader(const net::LinkHeader& aHeader,
+                                               uint64_t aEarlyHintPreloaderId) {
+   uint32_t linkTypes = LinkStyle::ParseLinkTypes(aHeader.mRel);
+@@ -322,7 +281,8 @@
+   // in the anchor parameter. For the link relations supported so far,
+   // we simply abort if the link applies to a resource different to the
+   // one we've loaded
+-  if (!LinkContextIsOurDocument(aHeader.mAnchor)) {
++  if (!nsContentUtils::LinkContextIsURI(aHeader.mAnchor,
++                                        mDocument->GetDocumentURI())) {
+     return NS_OK;
+   }
+ 

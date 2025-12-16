@@ -1,0 +1,67 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/HTMLEditor.cpp
+# Commit: f2f431ee78a3
+# Full Hash: f2f431ee78a35a577f8d89a469ab17c20f71e3f0
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-09-21 03:56:08
+# Regressor Bug: 1789967
+# File Overlap Count: 1
+# Description:
+#   Bug 1789967 - part 2: Make `TextEditor` and `HTMLEditor` implement `EditorBase::CollapseSelectionToEndOfLastLeafNode` by themselves r=m_kato
+#   
+#   It does different thing for `TextEditor` and `HTMLEditor`, and used almost
+#   internally.  Therefore, it should be implemented in the sub classes and
+#   we should name them better.
+# ==============================================================================
+
+diff -r edac234f1eba -r f2f431ee78a3 editor/libeditor/HTMLEditor.cpp
+--- a/editor/libeditor/HTMLEditor.cpp	Wed Sep 21 00:20:26 2022 +0000
++++ b/editor/libeditor/HTMLEditor.cpp	Wed Sep 21 00:38:23 2022 +0000
+@@ -790,6 +790,45 @@
+   return rv;
+ }
+ 
++NS_IMETHODIMP HTMLEditor::EndOfDocument() {
++  AutoEditActionDataSetter editActionData(*this, EditAction::eNotEditing);
++  if (NS_WARN_IF(!editActionData.CanHandle())) {
++    return NS_ERROR_NOT_INITIALIZED;
++  }
++  nsresult rv = CollapseSelectionToEndOfLastLeafNodeOfDocument();
++  NS_WARNING_ASSERTION(
++      NS_SUCCEEDED(rv),
++      "HTMLEditor::CollapseSelectionToEndOfLastLeafNodeOfDocument() failed");
++  // This is low level API for embedders and chrome script so that we can return
++  // raw error code here.
++  return rv;
++}
++
++nsresult HTMLEditor::CollapseSelectionToEndOfLastLeafNodeOfDocument() const {
++  MOZ_ASSERT(IsEditActionDataAvailable());
++
++  RefPtr<Element> bodyOrDocumentElement = GetRoot();
++  if (NS_WARN_IF(!bodyOrDocumentElement)) {
++    return NS_ERROR_NULL_POINTER;
++  }
++
++  auto pointToPutCaret = [&]() -> EditorRawDOMPoint {
++    nsCOMPtr<nsIContent> lastLeafContent = HTMLEditUtils::GetLastLeafContent(
++        *bodyOrDocumentElement, {LeafNodeType::OnlyLeafNode});
++    if (!lastLeafContent) {
++      return EditorRawDOMPoint::AtEndOf(*bodyOrDocumentElement);
++    }
++    // TODO: We should put caret into text node if it's visible.
++    return HTMLEditUtils::IsContainerNode(*lastLeafContent)
++               ? EditorRawDOMPoint::AtEndOf(*lastLeafContent)
++               : EditorRawDOMPoint(lastLeafContent);
++  }();
++  nsresult rv = CollapseSelectionTo(pointToPutCaret);
++  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
++                       "EditorBase::CollapseSelectionTo() failed");
++  return rv;
++}
++
+ void HTMLEditor::InitializeSelectionAncestorLimit(
+     nsIContent& aAncestorLimit) const {
+   MOZ_ASSERT(IsEditActionDataAvailable());

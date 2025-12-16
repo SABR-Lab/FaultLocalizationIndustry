@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/webrender_bindings/RenderBufferTextureHost.cpp
+# Commit: 7a990fa02246
+# Full Hash: 7a990fa022462c702adacfac907a0fc178940b9d
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2020-10-21 09:51:28
+# Regressor Bug: 1595994
+# File Overlap Count: 1
+# Description:
+#   Bug 1595994 - P1D. Properly serialize display size when sending image over IPC. r=mattwoodrow
+#   
+#   The code always assumed that the size of the image with the Y plane dimensions, which, while often the case, isn't correct.
+#   We remove the assertions that the display offset was always (0,0) and properly carry the actual data over IPC.
+#   
+# ==============================================================================
+
+diff -r 4c7f671c7b69 -r 7a990fa02246 gfx/webrender_bindings/RenderBufferTextureHost.cpp
+--- a/gfx/webrender_bindings/RenderBufferTextureHost.cpp	Tue Oct 20 23:29:30 2020 +0000
++++ b/gfx/webrender_bindings/RenderBufferTextureHost.cpp	Tue Oct 20 23:30:04 2020 +0000
+@@ -26,7 +26,7 @@
+   switch (mDescriptor.type()) {
+     case layers::BufferDescriptor::TYCbCrDescriptor: {
+       const layers::YCbCrDescriptor& ycbcr = mDescriptor.get_YCbCrDescriptor();
+-      mSize = ycbcr.ySize();
++      mSize = ycbcr.display().Size();
+       mFormat = gfx::SurfaceFormat::YUV;
+       break;
+     }

@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/nsFrameSelection.h
+# Commit: bdbed5920aeb
+# Full Hash: bdbed5920aeb2adc75f03ac0f6c427b3ac456395
+# Author: Jan-Niklas Jaeschke <jjaschke@mozilla.com>
+# Date: 2022-10-26 03:47:46
+# Regressor Bug: 1783641
+# File Overlap Count: 2
+# Description:
+#   Bug 1783641: Deleting a selected word deletes surrounding whitespace on MacOS. r=masayuki
+#   
+#   Native behaviour on MacOS dictates one whitespace being removed after double-clicking a word and pressing delete.
+#   This behaviour is achieved by saving the information that the selection is created by doubleclick to the `nsFrameSelection`
+#   and using it in the `DeleteRangeTransaction`, where the range is extended by one whitespace character before or after the range.
+# ==============================================================================
+
+diff -r a32dbcfbd95f -r bdbed5920aeb layout/generic/nsFrameSelection.h
+--- a/layout/generic/nsFrameSelection.h	Tue Oct 25 07:00:26 2022 +0000
++++ b/layout/generic/nsFrameSelection.h	Tue Oct 25 07:00:26 2022 +0000
+@@ -247,6 +247,26 @@
+                                           FocusMode aFocusMode,
+                                           CaretAssociateHint aHint);
+ 
++ public:
++  /**
++   * Sets flag to true if a selection is created by doubleclick or
++   * long tapping a word.
++   *
++   * @param aIsDoubleClickSelection   True if the selection is created by
++   *                                  doubleclick or long tap over a word.
++   */
++  void SetIsDoubleClickSelection(bool aIsDoubleClickSelection) {
++    mIsDoubleClickSelection = aIsDoubleClickSelection;
++  }
++
++  /**
++   * Returns true if the selection was created by doubleclick or
++   * long tap over a word.
++   */
++  [[nodiscard]] bool IsDoubleClickSelection() const {
++    return mIsDoubleClickSelection;
++  }
++
+   /**
+    * HandleDrag extends the selection to contain the frame closest to aPoint.
+    *
+@@ -1097,6 +1117,12 @@
+ 
+   bool mDragState = false;  // for drag purposes
+   bool mAccessibleCaretEnabled = false;
++
++  // Records if a selection was created by doubleclicking a word.
++  // This information is needed later on to determine if a leading
++  // or trailing whitespace needs to be removed as well to achieve
++  // native behaviour on macOS.
++  bool mIsDoubleClickSelection{false};
+ };
+ 
+ #endif /* nsFrameSelection_h___ */

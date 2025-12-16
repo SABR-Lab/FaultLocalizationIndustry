@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/Runtime.cpp
+# Commit: 28829816a629
+# Full Hash: 28829816a629b28125db3b4c65c5e22518e167e8
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2022-03-09 21:37:17
+# Regressor Bug: 1643586
+# File Overlap Count: 1
+# Description:
+#   Bug 1643586 - Part 6: Stop using JSContext for GC helper thread tasks r=jandem
+#   
+#   This patch moves the debug-only GC state from JSContext to JSFreeOp. Support
+#   functions for this move to FreeOp.h and most RAII classes move to GCInternals.h.
+#   
+# ==============================================================================
+
+diff -r 410d1b57bb09 -r 28829816a629 js/src/vm/Runtime.cpp
+--- a/js/src/vm/Runtime.cpp	Wed Mar 09 10:17:07 2022 +0000
++++ b/js/src/vm/Runtime.cpp	Wed Mar 09 10:17:08 2022 +0000
+@@ -135,7 +135,6 @@
+       gc(thisFromCtor()),
+       gcInitialized(false),
+       emptyString(nullptr),
+-      defaultFreeOp_(nullptr),
+ #if !JS_HAS_INTL_API
+       thousandsSeparator(nullptr),
+       decimalSeparator(nullptr),
+@@ -199,8 +198,6 @@
+ 
+   mainContext_ = cx;
+ 
+-  defaultFreeOp_ = cx->defaultFreeOp();
+-
+   if (!gc.init(maxbytes)) {
+     return false;
+   }
+@@ -781,13 +778,6 @@
+   return CurrentThreadCanAccessRuntime(zone->runtime_);
+ }
+ 
+-#ifdef DEBUG
+-bool js::CurrentThreadIsPerformingGC() {
+-  JSContext* cx = TlsContext.get();
+-  return cx->defaultFreeOp()->isCollecting();
+-}
+-#endif
+-
+ JS_PUBLIC_API void JS::SetJSContextProfilerSampleBufferRangeStart(
+     JSContext* cx, uint64_t rangeStart) {
+   cx->runtime()->setProfilerSampleBufferRangeStart(rangeStart);

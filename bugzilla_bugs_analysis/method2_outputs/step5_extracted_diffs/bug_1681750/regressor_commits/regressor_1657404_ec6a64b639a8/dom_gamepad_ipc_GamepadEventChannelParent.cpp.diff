@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/gamepad/ipc/GamepadEventChannelParent.cpp
+# Commit: ec6a64b639a8
+# Full Hash: ec6a64b639a82e957376c09a71aef7ce62b3a5aa
+# Author: Chris Martin <cmartin@mozilla.com>
+# Date: 2020-12-03 09:47:26
+# Regressor Bug: 1657404
+# File Overlap Count: 3
+# Description:
+#   Bug 1657404 - Implement a strongly-typed, service-dependent gamepad handle r=handyman,aklotz
+#   
+#   Currently, the gamepad code uses a uint32_t as a handle and does some trickery
+#   with it by trying to create a unique ID and adding an offset to it for VR code.
+#   
+# ==============================================================================
+
+diff -r 6792f28b99bd -r ec6a64b639a8 dom/gamepad/ipc/GamepadEventChannelParent.cpp
+--- a/dom/gamepad/ipc/GamepadEventChannelParent.cpp	Wed Dec 02 22:36:35 2020 +0000
++++ b/dom/gamepad/ipc/GamepadEventChannelParent.cpp	Wed Dec 02 23:06:05 2020 +0000
+@@ -60,7 +60,7 @@
+ }
+ 
+ mozilla::ipc::IPCResult GamepadEventChannelParent::RecvVibrateHaptic(
+-    const Tainted<uint32_t>& aControllerIdx,
++    const Tainted<GamepadHandle>& aHandle,
+     const Tainted<uint32_t>& aHapticIndex, const Tainted<double>& aIntensity,
+     const Tainted<double>& aDuration, const Tainted<uint32_t>& aPromiseID) {
+   // TODO: Bug 680289, implement for standard gamepads
+@@ -76,18 +76,17 @@
+ }
+ 
+ mozilla::ipc::IPCResult GamepadEventChannelParent::RecvStopVibrateHaptic(
+-    const Tainted<uint32_t>& aControllerIdx) {
++    const Tainted<GamepadHandle>& aHandle) {
+   // TODO: Bug 680289, implement for standard gamepads
+   return IPC_OK();
+ }
+ 
+ mozilla::ipc::IPCResult GamepadEventChannelParent::RecvLightIndicatorColor(
+-    const Tainted<uint32_t>& aControllerIdx,
++    const Tainted<GamepadHandle>& aHandle,
+     const Tainted<uint32_t>& aLightColorIndex, const Tainted<uint8_t>& aRed,
+     const Tainted<uint8_t>& aGreen, const Tainted<uint8_t>& aBlue,
+     const Tainted<uint32_t>& aPromiseID) {
+-  SetGamepadLightIndicatorColor(aControllerIdx, aLightColorIndex, aRed, aGreen,
+-                                aBlue);
++  SetGamepadLightIndicatorColor(aHandle, aLightColorIndex, aRed, aGreen, aBlue);
+ 
+   // TODO: simplify tainted validation, see 1610570
+   if (SendReplyGamepadPromise(MOZ_NO_VALIDATE(

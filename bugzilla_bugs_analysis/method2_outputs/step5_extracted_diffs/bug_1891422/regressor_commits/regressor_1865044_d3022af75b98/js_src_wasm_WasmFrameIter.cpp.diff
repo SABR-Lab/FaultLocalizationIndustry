@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmFrameIter.cpp
+# Commit: d3022af75b98
+# Full Hash: d3022af75b98dc310fd04575f5d5121e18bc69ee
+# Author: Yury Delendik <ydelendik@mozilla.com>
+# Date: 2023-11-22 21:50:37
+# Regressor Bug: 1865044
+# File Overlap Count: 1
+# Description:
+#   Bug 1865044 - [wasm] Skip debugger results cleanup for return stubs. r=rhunt
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D194154
+# ==============================================================================
+
+diff -r a799320fe84d -r d3022af75b98 js/src/wasm/WasmFrameIter.cpp
+--- a/js/src/wasm/WasmFrameIter.cpp	Wed Nov 22 17:58:18 2023 +0000
++++ b/js/src/wasm/WasmFrameIter.cpp	Wed Nov 22 18:04:40 2023 +0000
+@@ -313,14 +313,28 @@
+ bool WasmFrameIter::debugEnabled() const {
+   MOZ_ASSERT(!done());
+ 
+-  // Only non-imported functions can have debug frames.
+-  //
+   // Metadata::debugEnabled is only set if debugging is actually enabled (both
+   // requested, and available via baseline compilation), and Tier::Debug code
+   // will be available.
+-  return code_->metadata().debugEnabled &&
+-         codeRange_->funcIndex() >=
+-             code_->metadata(Tier::Debug).funcImports.length();
++  if (!code_->metadata().debugEnabled) {
++    return false;
++  }
++
++  // Only non-imported functions can have debug frames.
++  if (codeRange_->funcIndex() <
++      code_->metadata(Tier::Debug).funcImports.length()) {
++    return false;
++  }
++
++#ifdef ENABLE_WASM_TAIL_CALLS
++  // Debug frame is not present at the return stub.
++  const CallSite* site = code_->lookupCallSite((void*)resumePCinCurrentFrame_);
++  if (site && site->kind() == CallSite::ReturnStub) {
++    return false;
++  }
++#endif
++
++  return true;
+ }
+ 
+ DebugFrame* WasmFrameIter::debugFrame() const {

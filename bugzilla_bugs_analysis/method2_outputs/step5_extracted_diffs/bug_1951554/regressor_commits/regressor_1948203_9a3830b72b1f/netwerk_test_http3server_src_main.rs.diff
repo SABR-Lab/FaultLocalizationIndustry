@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/test/http3server/src/main.rs
+# Commit: 9a3830b72b1f
+# Full Hash: 9a3830b72b1f2a9640a7ff945b91d17d67828bcd
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2025-02-24 17:07:55
+# Regressor Bug: 1948203
+# File Overlap Count: 5
+# Description:
+#   Bug 1948203 - Skip alt-svc validation if we already connected to the server, r=necko-reviewers,jesup
+#   
+#   This patch optimizes how Firefox handles speculative connections for alt-svc headers. When a server sends an alt-svc header, Firefox normally creates a speculative connection to validate it. With this patch, if the connection’s hash key matches the one generated from the alt-svc header, the validation step is skipped since an equivalent connection is already in place, avoiding unnecessary work.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D238218
+# ==============================================================================
+
+diff -r d5962b430cd3 -r 9a3830b72b1f netwerk/test/http3server/src/main.rs
+--- a/netwerk/test/http3server/src/main.rs	Mon Feb 24 09:01:12 2025 +0000
++++ b/netwerk/test/http3server/src/main.rs	Mon Feb 24 09:20:35 2025 +0000
+@@ -387,6 +387,29 @@
+                                         .unwrap();
+                                     stream.stream_close_send().unwrap();
+                                 }
++                            } else if path == "/alt_svc_header" {
++                                if let Some(alt_svc) =
++                                    headers.iter().find(|h| h.name() == "x-altsvc")
++                                {
++                                    stream
++                                        .send_headers(&[
++                                            Header::new(":status", "200"),
++                                            Header::new("cache-control", "no-cache"),
++                                            Header::new("content-type", "text/plain"),
++                                            Header::new("content-length", 100.to_string()),
++                                            Header::new("alt-svc", format!("h3={}", alt_svc.value())),
++                                        ])
++                                        .unwrap();
++                                    self.new_response(stream, vec![b'a'; 100]);
++                                } else {
++                                    stream
++                                        .send_headers(&[
++                                            Header::new(":status", "200"),
++                                            Header::new("cache-control", "no-cache"),
++                                        ])
++                                        .unwrap();
++                                    self.new_response(stream, vec![b'a'; 100]);
++                                }
+                             } else {
+                                 match path.trim_matches(|p| p == '/').parse::<usize>() {
+                                     Ok(v) => {

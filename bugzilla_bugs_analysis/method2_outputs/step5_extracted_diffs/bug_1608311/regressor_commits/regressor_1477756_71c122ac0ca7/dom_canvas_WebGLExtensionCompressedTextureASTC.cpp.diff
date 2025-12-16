@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLExtensionCompressedTextureASTC.cpp
+# Commit: 71c122ac0ca7
+# Full Hash: 71c122ac0ca73391866b1ef19f4f82bc2d28568b
+# Author: David Parks <davidp99@gmail.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Initial out-of-process WebGL implementation. r=mccr8,handyman
+#   
+#   Splits WebGLContext into ClientWebGLContext and HostWebGLContext.  The Client enables the JS-control of a WebGL context in a content procecss while the Host executes the WebGL graphics operations (via a WebGLContext that maintains much of the existing code) in the compositor process.  At this point, the cross-process behavior is disabled -- this series of patches is an incremental step toward that final goal.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D54018
+# ==============================================================================
+
+diff -r 5cbf5bb11c58 -r 71c122ac0ca7 dom/canvas/WebGLExtensionCompressedTextureASTC.cpp
+--- a/dom/canvas/WebGLExtensionCompressedTextureASTC.cpp	Wed Jan 08 21:52:03 2020 +0000
++++ b/dom/canvas/WebGLExtensionCompressedTextureASTC.cpp	Wed Jan 08 22:19:14 2020 +0000
+@@ -65,24 +65,23 @@
+ 
+ WebGLExtensionCompressedTextureASTC::~WebGLExtensionCompressedTextureASTC() {}
+ 
+-void WebGLExtensionCompressedTextureASTC::GetSupportedProfiles(
+-    dom::Nullable<nsTArray<nsString> >& retval) const {
+-  retval.SetNull();
+-  if (mIsLost) {
++Maybe<nsTArray<nsString>>
++WebGLExtensionCompressedTextureASTC::GetSupportedProfiles() const {
++  if (mIsLost || !mContext) {
+     if (mContext) {
+       mContext->ErrorInvalidOperation("%s: Extension is lost.",
+                                       "drawElementsInstancedANGLE");
+     }
+-    return;
++    return {};
+   }
+ 
+-  nsTArray<nsString>& arr = retval.SetValue();
++  nsTArray<nsString> arr;
+   arr.AppendElement(NS_LITERAL_STRING("ldr"));
+-
+   if (mContext->gl->IsExtensionSupported(
+           gl::GLContext::KHR_texture_compression_astc_hdr)) {
+     arr.AppendElement(NS_LITERAL_STRING("hdr"));
+   }
++  return Some(arr);
+ }
+ 
+ bool WebGLExtensionCompressedTextureASTC::IsSupported(
+@@ -92,7 +91,4 @@
+       gl::GLContext::KHR_texture_compression_astc_ldr);
+ }
+ 
+-IMPL_WEBGL_EXTENSION_GOOP(WebGLExtensionCompressedTextureASTC,
+-                          WEBGL_compressed_texture_astc)
+-
+ }  // namespace mozilla

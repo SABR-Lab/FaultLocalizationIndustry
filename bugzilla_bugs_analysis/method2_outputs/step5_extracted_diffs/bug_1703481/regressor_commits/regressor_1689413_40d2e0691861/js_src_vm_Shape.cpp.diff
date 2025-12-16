@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/Shape.cpp
+# Commit: 40d2e0691861
+# Full Hash: 40d2e069186171b8b1389e3388fad5927accbd7e
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2021-03-06 09:33:16
+# Regressor Bug: 1689413
+# File Overlap Count: 1
+# Description:
+#   Bug 1689413 part 10 - Stop passing proto in a few places now that we can get it from the shape. r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D106980
+# ==============================================================================
+
+diff -r ec72f104edbf -r 40d2e0691861 js/src/vm/Shape.cpp
+--- a/js/src/vm/Shape.cpp	Sat Mar 06 01:05:22 2021 +0000
++++ b/js/src/vm/Shape.cpp	Sat Mar 06 01:05:23 2021 +0000
+@@ -2022,7 +2022,7 @@
+                          objectFlags);
+ }
+ 
+-void NewObjectCache::invalidateEntriesForShape(Shape* shape, JSObject* proto) {
++void NewObjectCache::invalidateEntriesForShape(Shape* shape) {
+   const JSClass* clasp = shape->getObjectClass();
+ 
+   gc::AllocKind kind = gc::GetGCObjectKind(shape->numFixedSlots());
+@@ -2038,16 +2038,17 @@
+       }
+     }
+   }
++
++  JSObject* proto = shape->proto().toObject();
+   if (!proto->is<GlobalObject>() && lookupProto(clasp, proto, kind, &entry)) {
+     PodZero(&entries[entry]);
+   }
+ }
+ 
+ /* static */
+-void EmptyShape::insertInitialShape(JSContext* cx, HandleShape shape,
+-                                    HandleObject proto) {
++void EmptyShape::insertInitialShape(JSContext* cx, HandleShape shape) {
+   using Lookup = InitialShapeEntry::Lookup;
+-  Lookup lookup(shape->getObjectClass(), shape->realm(), TaggedProto(proto),
++  Lookup lookup(shape->getObjectClass(), shape->realm(), shape->proto(),
+                 shape->numFixedSlots(), shape->objectFlags());
+ 
+   InitialShapeSet::Ptr p = cx->zone()->initialShapes().lookup(lookup);
+@@ -2083,7 +2084,7 @@
+    * thread, as it will not use the new object cache for allocations.
+    */
+   if (!cx->isHelperThreadContext()) {
+-    cx->caches().newObjectCache.invalidateEntriesForShape(shape, proto);
++    cx->caches().newObjectCache.invalidateEntriesForShape(shape);
+   }
+ }
+ 

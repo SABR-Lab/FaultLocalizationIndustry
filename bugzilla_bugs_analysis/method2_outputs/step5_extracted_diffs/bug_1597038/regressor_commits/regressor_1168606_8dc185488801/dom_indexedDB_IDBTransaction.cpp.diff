@@ -1,0 +1,65 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/IDBTransaction.cpp
+# Commit: 8dc185488801
+# Full Hash: 8dc185488801ddb66e681cedb9b52941437561a8
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2019-11-05 21:49:23
+# Regressor Bug: 1168606
+# File Overlap Count: 1
+# Description:
+#   Bug 1168606 - Send extra records with every ObjectStoreCursorResponse if enabled by pref. r=ttung,asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D43252
+# ==============================================================================
+
+diff -r 9d8b02674d45 -r 8dc185488801 dom/indexedDB/IDBTransaction.cpp
+--- a/dom/indexedDB/IDBTransaction.cpp	Tue Nov 05 13:24:31 2019 +0000
++++ b/dom/indexedDB/IDBTransaction.cpp	Tue Nov 05 12:48:36 2019 +0000
+@@ -338,7 +338,7 @@
+   ++mPendingRequestCount;
+ }
+ 
+-void IDBTransaction::OnRequestFinished(bool aActorDestroyedNormally) {
++void IDBTransaction::OnRequestFinished(bool aRequestCompletedSuccessfully) {
+   AssertIsOnOwningThread();
+   MOZ_ASSERT(mPendingRequestCount);
+ 
+@@ -347,7 +347,7 @@
+   if (!mPendingRequestCount) {
+     mReadyState = COMMITTING;
+ 
+-    if (aActorDestroyedNormally) {
++    if (aRequestCompletedSuccessfully) {
+       if (NS_SUCCEEDED(mAbortCode)) {
+         SendCommit();
+       } else {
+@@ -797,6 +797,27 @@
+   return mNextIndexId++;
+ }
+ 
++void IDBTransaction::InvalidateCursorCaches() {
++  AssertIsOnOwningThread();
++
++  for (auto* const cursor : mCursors) {
++    cursor->InvalidateCachedResponses();
++  }
++}
++
++void IDBTransaction::RegisterCursor(IDBCursor* const aCursor) {
++  AssertIsOnOwningThread();
++
++  mCursors.AppendElement(aCursor);
++}
++
++void IDBTransaction::UnregisterCursor(IDBCursor* const aCursor) {
++  AssertIsOnOwningThread();
++
++  DebugOnly<bool> removed = mCursors.RemoveElement(aCursor);
++  MOZ_ASSERT(removed);
++}
++
+ nsIGlobalObject* IDBTransaction::GetParentObject() const {
+   AssertIsOnOwningThread();
+ 

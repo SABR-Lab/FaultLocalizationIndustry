@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/MediaEngineWebRTCAudio.cpp
+# Commit: a76d9158cdfd
+# Full Hash: a76d9158cdfd0165455813037633e7d8a72fcef1
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2020-11-06 04:14:34
+# Regressor Bug: 1651745
+# File Overlap Count: 1
+# Description:
+#   Bug 1651745 - Use the right thread for AudioInputProcessing::SetPassThrough and constify some ControlMessages. r=padenot
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D95937
+# ==============================================================================
+
+diff -r bd01b1a3f7d7 -r a76d9158cdfd dom/media/webrtc/MediaEngineWebRTCAudio.cpp
+--- a/dom/media/webrtc/MediaEngineWebRTCAudio.cpp	Thu Nov 05 16:59:51 2020 +0000
++++ b/dom/media/webrtc/MediaEngineWebRTCAudio.cpp	Thu Nov 05 16:42:41 2020 +0000
+@@ -386,7 +386,7 @@
+                 mRequestedInputChannelCount(aRequestedInputChannelCount) {}
+ 
+           void Run() override {
+-            mInputProcessing->SetPassThrough(mPassThrough);
++            mInputProcessing->SetPassThrough(mTrack->GraphImpl(), mPassThrough);
+             mInputProcessing->SetRequestedInputChannelCount(
+                 mTrack->GraphImpl(), mRequestedInputChannelCount);
+           }
+@@ -649,7 +649,9 @@
+   return mSkipProcessing;
+ }
+ 
+-void AudioInputProcessing::SetPassThrough(bool aPassThrough) {
++void AudioInputProcessing::SetPassThrough(MediaTrackGraphImpl* aGraph,
++                                          bool aPassThrough) {
++  MOZ_ASSERT(aGraph->OnGraphThread());
+   if (!mSkipProcessing && aPassThrough && mPacketizerInput) {
+     MOZ_ASSERT(mPacketizerInput->PacketsAvailable() == 0);
+     mSegment.AppendNullData(mPacketizerInput->FramesAvailable());

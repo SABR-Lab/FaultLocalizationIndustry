@@ -1,0 +1,90 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/CodeGenerator.cpp
+# Commit: a0d1fb0a86b0
+# Full Hash: a0d1fb0a86b04c74a8809c35230382f90cdfe779
+# Author: André Bargull <andre.bargull@gmail.com>
+# Date: 2020-01-07 21:57:58
+# Regressor Bug: 1530372
+# File Overlap Count: 1
+# Description:
+#   Bug 1530372 - Part 4: Support nursery allocation for BigInt. r=sfink,jandem
+#   
+#   Most of the code was copied from the String nursery allocation code paths and
+#   then adjusted to work with BigInts. Where applicable, the newly added BigInt
+#   functions were placed right next to the String functions, so it's easier to
+# ==============================================================================
+
+diff -r 9ae1e055de13 -r a0d1fb0a86b0 js/src/jit/CodeGenerator.cpp
+--- a/js/src/jit/CodeGenerator.cpp	Thu Jan 02 13:04:45 2020 +0000
++++ b/js/src/jit/CodeGenerator.cpp	Mon Jan 06 12:49:45 2020 +0000
+@@ -4055,16 +4055,6 @@
+   emitGetPropertyPolymorphic(ins, obj, temp, output);
+ }
+ 
+-template <typename T>
+-static void EmitUnboxedPreBarrier(MacroAssembler& masm, T address,
+-                                  JSValueType type) {
+-  if (type == JSVAL_TYPE_OBJECT) {
+-    masm.guardedCallPreBarrier(address, MIRType::Object);
+-  } else if (type == JSVAL_TYPE_STRING) {
+-    masm.guardedCallPreBarrier(address, MIRType::String);
+-  }
+-}
+-
+ void CodeGenerator::emitSetPropertyPolymorphic(
+     LInstruction* ins, Register obj, Register scratch,
+     const ConstantOrRegister& value) {
+@@ -4558,9 +4548,11 @@
+     } else {
+       MOZ_ASSERT(lir->mir()->value()->type() == MIRType::Object);
+     }
+-  } else {
+-    MOZ_ASSERT(nurseryType == MIRType::String);
++  } else if (nurseryType == MIRType::String) {
+     MOZ_ASSERT(lir->mir()->value()->type() == MIRType::String);
++  } else {
++    MOZ_ASSERT(nurseryType == MIRType::BigInt);
++    MOZ_ASSERT(lir->mir()->value()->type() == MIRType::BigInt);
+   }
+   masm.branchPtrInNurseryChunk(Assembler::Equal, value, temp, ool->entry());
+ 
+@@ -4586,8 +4578,8 @@
+   maybeEmitGlobalBarrierCheck(lir->object(), ool);
+ 
+   ValueOperand value = ToValue(lir, LPostBarrierType::Input);
+-  // Bug 1386094 - most callers only need to check for object or string, not
+-  // both.
++  // Bug 1386094 - most callers only need to check for object, string, or
++  // bigint, not all three.
+   masm.branchValueIsNurseryCell(Assembler::Equal, value, temp, ool->entry());
+ 
+   masm.bind(ool->rejoin());
+@@ -4603,6 +4595,11 @@
+   visitPostWriteBarrierCommon<LPostWriteBarrierS, MIRType::String>(lir, ool);
+ }
+ 
++void CodeGenerator::visitPostWriteBarrierBI(LPostWriteBarrierBI* lir) {
++  auto ool = new (alloc()) OutOfLineCallPostWriteBarrier(lir, lir->object());
++  visitPostWriteBarrierCommon<LPostWriteBarrierBI, MIRType::BigInt>(lir, ool);
++}
++
+ void CodeGenerator::visitPostWriteBarrierV(LPostWriteBarrierV* lir) {
+   auto ool = new (alloc()) OutOfLineCallPostWriteBarrier(lir, lir->object());
+   visitPostWriteBarrierCommonV(lir, ool);
+@@ -4682,6 +4679,14 @@
+                                                                           ool);
+ }
+ 
++void CodeGenerator::visitPostWriteElementBarrierBI(
++    LPostWriteElementBarrierBI* lir) {
++  auto ool = new (alloc())
++      OutOfLineCallPostWriteElementBarrier(lir, lir->object(), lir->index());
++  visitPostWriteBarrierCommon<LPostWriteElementBarrierBI, MIRType::BigInt>(lir,
++                                                                           ool);
++}
++
+ void CodeGenerator::visitPostWriteElementBarrierV(
+     LPostWriteElementBarrierV* lir) {
+   auto ool = new (alloc())

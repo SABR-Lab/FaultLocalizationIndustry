@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/wr/WebRenderLayerManager.cpp
+# Commit: 0c25260c4edf
+# Full Hash: 0c25260c4edf97fdfef11320c2a91bc0698b4c11
+# Author: Alexis Beingessner <a.beingessner@gmail.com>
+# Date: 2019-07-25 03:53:31
+# Regressor Bug: 1547351
+# File Overlap Count: 2
+# Description:
+#   Bug 1547351 - Automatically set content process render root r=kats
+#   
+#   This implements the idea of automatically setting a content proc's
+#   render root based on the render root enclosing the iframe that
+#   points to it. There was a bit of cleanup in here that was a bit
+# ==============================================================================
+
+diff -r f96bd2aae39c -r 0c25260c4edf gfx/layers/wr/WebRenderLayerManager.cpp
+--- a/gfx/layers/wr/WebRenderLayerManager.cpp	Wed Jul 24 14:10:56 2019 +0000
++++ b/gfx/layers/wr/WebRenderLayerManager.cpp	Wed Jul 24 14:10:56 2019 +0000
+@@ -209,7 +209,7 @@
+       !mWebRenderCommandBuilder.NeedsEmptyTransaction()) {
+     bool haveScrollUpdates = false;
+     for (auto renderRoot : wr::kRenderRoots) {
+-      if (!mPendingScrollUpdates[renderRoot].empty()) {
++      if (!mPendingScrollUpdates[renderRoot].IsEmpty()) {
+         haveScrollUpdates = true;
+         break;
+       }
+@@ -251,25 +251,26 @@
+   for (auto& stateManager : mStateManagers) {
+     auto renderRoot = stateManager.GetRenderRoot();
+     if (stateManager.mAsyncResourceUpdates ||
+-        !mPendingScrollUpdates[renderRoot].empty() ||
++        !mPendingScrollUpdates[renderRoot].IsEmpty() ||
+         WrBridge()->HasWebRenderParentCommands(renderRoot)) {
+       auto updates = renderRootUpdates.AppendElement();
+       updates->mRenderRoot = renderRoot;
++      updates->mPaintSequenceNumber = mPaintSequenceNumber;
+       if (stateManager.mAsyncResourceUpdates) {
+         stateManager.mAsyncResourceUpdates->Flush(updates->mResourceUpdates,
+                                                   updates->mSmallShmems,
+                                                   updates->mLargeShmems);
+       }
+       updates->mScrollUpdates = std::move(mPendingScrollUpdates[renderRoot]);
+-      for (const auto& entry : updates->mScrollUpdates) {
+-        nsLayoutUtils::NotifyPaintSkipTransaction(/*scroll id=*/entry.first);
++      for (auto it = updates->mScrollUpdates.Iter(); !it.Done(); it.Next()) {
++        nsLayoutUtils::NotifyPaintSkipTransaction(/*scroll id=*/it.Key());
+       }
+     }
+   }
+ 
+   Maybe<wr::IpcResourceUpdateQueue> nothing;
+   WrBridge()->EndEmptyTransaction(mFocusTarget, renderRootUpdates,
+-                                  mPaintSequenceNumber, mLatestTransactionId,
++                                  mLatestTransactionId,
+                                   mTransactionIdAllocator->GetVsyncId(),
+                                   mTransactionIdAllocator->GetVsyncStart(),
+                                   refreshStart, mTransactionStart, mURL);

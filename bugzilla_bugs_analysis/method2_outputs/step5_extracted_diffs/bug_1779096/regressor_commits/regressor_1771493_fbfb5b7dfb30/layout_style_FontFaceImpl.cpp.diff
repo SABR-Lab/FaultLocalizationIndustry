@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/style/FontFaceImpl.cpp
+# Commit: fbfb5b7dfb30
+# Full Hash: fbfb5b7dfb30b42d6debd6f2808b0f8e8bb4f868
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2022-06-29 03:44:30
+# Regressor Bug: 1771493
+# File Overlap Count: 1
+# Description:
+#   Bug 1771493 - Part 2. Merge FontFaceSetImpl and gfxUserFontSet into a single class. r=emilio
+#   
+#   This patch merges FontFaceSetImpl and gfxUserFontSet into the same
+#   class. This reduces the level of indirection and in theory makes it
+#   easier to manage future threading issues.
+# ==============================================================================
+
+diff -r 93b7e171c74a -r fbfb5b7dfb30 layout/style/FontFaceImpl.cpp
+--- a/layout/style/FontFaceImpl.cpp	Tue Jun 28 14:27:20 2022 +0000
++++ b/layout/style/FontFaceImpl.cpp	Tue Jun 28 14:27:21 2022 +0000
+@@ -517,10 +517,9 @@
+   if (mUserFontEntry) {
+     mUserFontEntry->mFontFaces.AppendElement(this);
+ 
+-    MOZ_ASSERT(
+-        mUserFontEntry->GetUserFontSet() == mFontFaceSet->GetUserFontSet(),
+-        "user font entry must be associated with the same user font set "
+-        "as the FontFace");
++    MOZ_ASSERT(mUserFontEntry->GetUserFontSet() == mFontFaceSet,
++               "user font entry must be associated with the same user font set "
++               "as the FontFace");
+ 
+     // Our newly assigned user font entry might be in the process of or
+     // finished loading, so set our status accordingly.  But only do so
+@@ -744,10 +743,10 @@
+ 
+   for (FontFaceImpl* f : mFontFaces) {
+     if (f->mInFontFaceSet) {
+-      aResult.AppendElement(f->mFontFaceSet->GetUserFontSet());
++      aResult.AppendElement(f->mFontFaceSet);
+     }
+     for (FontFaceSetImpl* s : f->mOtherFontFaceSets) {
+-      aResult.AppendElement(s->GetUserFontSet());
++      aResult.AppendElement(s);
+     }
+   }
+ 

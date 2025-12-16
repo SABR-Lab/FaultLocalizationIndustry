@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmStubs.cpp
+# Commit: bd2b8b0c2f35
+# Full Hash: bd2b8b0c2f35ff48f08561f9a4d88f1f1ee12218
+# Author: Julien Pages <jpages@mozilla.com>
+# Date: 2025-03-04 04:58:00
+# Regressor Bug: 1861078
+# File Overlap Count: 1
+# Description:
+#   Bug 1861078 - wasm: Refactor stackmaps to use a hashmap instead of a vector. r=rhunt
+#   
+#   Wasm stackmaps were stored in a sorted vector and traced at runtime with multiple
+#   binary searches. Using hashmaps should reduce the complexity of iterating over stackmaps.
+#   
+# ==============================================================================
+
+diff -r 1a3bc285395f -r bd2b8b0c2f35 js/src/wasm/WasmStubs.cpp
+--- a/js/src/wasm/WasmStubs.cpp	Mon Mar 03 16:37:47 2025 +0000
++++ b/js/src/wasm/WasmStubs.cpp	Mon Mar 03 16:37:48 2025 +0000
+@@ -1893,7 +1893,7 @@
+   // refs to track.
+   MOZ_ASSERT(stackMap);
+   if (stackMap &&
+-      !stackMaps->add((uint8_t*)(uintptr_t)trapInsnOffset.offset(), stackMap)) {
++      !stackMaps->add(trapInsnOffset.offset(), stackMap)) {
+     stackMap->destroy();
+     return false;
+   }

@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/animation/CSSTransition.h
+# Commit: 63603267402e
+# Full Hash: 63603267402ee93d6551ef60c35191d99aaee06b
+# Author: Zach Hoffman <zach@zrhoffman.net>
+# Date: 2023-12-18 17:17:57
+# Regressor Bug: 1846516
+# File Overlap Count: 3
+# Description:
+#   Bug 1846516 - [css-properties-values-api] Introduce AnimatedPropertyID/AnimatedPropertIDSet. r=firefox-animation-reviewers,firefox-style-system-reviewers,layout-reviewers,emilio,hiro
+#   
+#   This will make possible to animate custom properties on Gecko side. For now, the
+#   animation code keeps only dealing with nsCSSPropertyID, so behavior is unchanged.
+#   
+# ==============================================================================
+
+diff -r 753bc39f59ff -r 63603267402e dom/animation/CSSTransition.h
+--- a/dom/animation/CSSTransition.h	Mon Dec 18 09:24:07 2023 +0000
++++ b/dom/animation/CSSTransition.h	Mon Dec 18 09:24:08 2023 +0000
+@@ -9,6 +9,7 @@
+ 
+ #include "mozilla/ComputedTiming.h"
+ #include "mozilla/dom/Animation.h"
++#include "mozilla/AnimatedPropertyID.h"
+ #include "mozilla/StyleAnimationValue.h"
+ #include "AnimationCommon.h"
+ 
+@@ -19,11 +20,12 @@
+ 
+ class CSSTransition final : public Animation {
+  public:
+-  explicit CSSTransition(nsIGlobalObject* aGlobal)
++  explicit CSSTransition(nsIGlobalObject* aGlobal,
++                         const AnimatedPropertyID& aProperty)
+       : Animation(aGlobal),
+         mPreviousTransitionPhase(TransitionPhase::Idle),
+         mNeedsNewAnimationIndexWhenRun(false),
+-        mTransitionProperty(eCSSProperty_UNKNOWN) {}
++        mTransitionProperty(aProperty) {}
+ 
+   JSObject* WrapObject(JSContext* aCx,
+                        JS::Handle<JSObject*> aGivenProto) override;
+@@ -72,7 +74,7 @@
+ 
+   void Tick(TickState&) override;
+ 
+-  nsCSSPropertyID TransitionProperty() const;
++  const AnimatedPropertyID& TransitionProperty() const;
+   AnimationValue ToValue() const;
+ 
+   bool HasLowerCompositeOrderThan(const CSSTransition& aOther) const;
+@@ -197,7 +199,7 @@
+   // information in order to determine if there is an existing transition
+   // for a given style change. We can't store that information on the
+   // effect however since it can be replaced using the Web Animations API.
+-  nsCSSPropertyID mTransitionProperty;
++  AnimatedPropertyID mTransitionProperty;
+   AnimationValue mTransitionToValue;
+ 
+   // This is the start value to be used for a check for whether a

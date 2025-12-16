@@ -1,0 +1,92 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/PWindowGlobal.ipdl
+# Commit: 63d9972bab1f
+# Full Hash: 63d9972bab1f267a940ec30c7cea7a4c41e54fa6
+# Author: Alexandru Marc <amarc@mozila.com>
+# Date: 2025-06-06 08:52:03
+# Regressor Bug: 1969017
+# File Overlap Count: 2
+# Description:
+#   Revert "Bug 1969015, 1969017: apply code formatting via Lando" for causing leaks @ mochitest.toml
+#   
+#   This reverts commit a97cb1d6c08bc38e8644bfc916298b847dbac3a1.
+#   
+#   Revert "Bug 1969017 - Refactor FedCM to use a managed actor rather than tagging onto WindowGlobalParent - r=anti-tracking-reviewers,emz"
+# ==============================================================================
+
+diff -r 801e25cb4bfd -r 63d9972bab1f dom/ipc/PWindowGlobal.ipdl
+--- a/dom/ipc/PWindowGlobal.ipdl	Thu Jun 05 18:51:36 2025 +0000
++++ b/dom/ipc/PWindowGlobal.ipdl	Thu Jun 05 21:40:49 2025 +0300
+@@ -15,10 +15,10 @@
+ include protocol PInProcess;
+ include protocol PBrowserBridge;
+ include protocol PWebAuthnTransaction;
+-include protocol PWebIdentity;
+ 
+ include DOMTypes;
+ include ClientIPCTypes;
++include IPCIdentityCredential;
+ include NeckoChannelParams;
+ include SessionStoreTypes;
+ 
+@@ -37,7 +37,9 @@
+ [RefCounted] using mozilla::dom::SessionStoreRestoreData from "mozilla/dom/SessionStoreRestoreData.h";
+ using mozilla::dom::CredentialMediationRequirement from "mozilla/dom/CredentialManagementBinding.h";
+ using mozilla::dom::IdentityCredentialDisconnectOptions from "mozilla/dom/IdentityCredentialBinding.h";
++using mozilla::dom::IdentityCredentialInit from "mozilla/dom/IdentityCredentialBinding.h";
+ using mozilla::dom::IdentityCredentialRequestOptions from "mozilla/dom/IdentityCredentialBinding.h";
++using mozilla::dom::IdentityLoginTargetType from "mozilla/dom/IdentityCredentialBinding.h";
+ using mozilla::dom::LoginStatus from "mozilla/dom/LoginStatusBinding.h";
+ 
+ namespace mozilla {
+@@ -67,7 +69,6 @@
+ {
+   manager PBrowser or PInProcess;
+   manages PWebAuthnTransaction;
+-  manages PWebIdentity;
+ 
+ child:
+   async __delete__();
+@@ -97,6 +98,8 @@
+ 
+   async RestoreTabContent(nullable SessionStoreRestoreData aData) returns (bool success);
+ 
++  async NavigateForIdentityCredentialDiscovery(nsCString aUri, IdentityLoginTargetType aType);
++
+ both:
+   async RawMessage(JSActorMessageMeta aMetadata, ClonedMessageData? aData,
+                    ClonedMessageData? aStack);
+@@ -204,6 +207,23 @@
+ 
+   async ReloadWithHttpsOnlyException();
+ 
++  // Used by the Credential Manager API and FedCM to keep the discovery of
++  // a credential abstracted from the content process. This is required because
++  // credentialed requests that are specifically not partitioned are made and
++  // the results must not enter the child process until the user consents via
++  // purpose built UI.
++  async GetIdentityCredential(IdentityCredentialRequestOptions aOptions,
++                              CredentialMediationRequirement aMediationRequirement,
++                              bool aHasUserActivation)
++    returns (IPCIdentityCredential? identityCredential, nsresult rv);
++  async StoreIdentityCredential(IPCIdentityCredential aCredential)
++      returns (nsresult rv);
++  async DisconnectIdentityCredential(IdentityCredentialDisconnectOptions aOptions) returns (nsresult rv);
++  async PreventSilentAccess() returns (nsresult rv);
++
++  // Indicate that the page has reported itself as logged in
++  async SetLoginStatus(LoginStatus foo) returns (nsresult rv);
++
+   async GetStorageAccessPermission(bool aIncludeIdentityCredential) returns(uint32_t permission_action);
+ 
+ 
+@@ -222,7 +242,6 @@
+   async RecordUserActivationForBTP();
+ 
+   async PWebAuthnTransaction();
+-  async PWebIdentity();
+ 
+ child:
+   async NotifyPermissionChange(nsCString type, uint32_t permission);

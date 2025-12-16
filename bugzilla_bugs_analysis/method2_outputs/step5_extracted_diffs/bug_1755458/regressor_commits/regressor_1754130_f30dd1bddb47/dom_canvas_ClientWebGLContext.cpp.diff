@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/ClientWebGLContext.cpp
+# Commit: f30dd1bddb47
+# Full Hash: f30dd1bddb471a4f3487fe0e55e8c4bad0f8962a
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2022-02-12 09:47:43
+# Regressor Bug: 1754130
+# File Overlap Count: 2
+# Description:
+#   Bug 1754130 - Support presenting a WebGLFramebuffer to its own swap chain without opaque FB. r=aosmond,jgilbert
+#   
+#   Most of the support for presenting a WebGLFramebuffer to a swap chain existed as part of the
+#   mechanism for opaque WebXR framebuffer support. However, such "opaque" framebuffer are meant
+#   to be opaque in the sense that their attachments can't be inspected or changed, which does
+# ==============================================================================
+
+diff -r e178aa7d969e -r f30dd1bddb47 dom/canvas/ClientWebGLContext.cpp
+--- a/dom/canvas/ClientWebGLContext.cpp	Fri Feb 11 19:49:55 2022 +0000
++++ b/dom/canvas/ClientWebGLContext.cpp	Fri Feb 11 19:49:56 2022 +0000
+@@ -368,13 +368,7 @@
+ 
+ // ------------------------- Composition, etc -------------------------
+ 
+-void ClientWebGLContext::OnBeforePaintTransaction() {
+-  const RefPtr<layers::ImageBridgeChild> imageBridge =
+-      layers::ImageBridgeChild::GetSingleton();
+-
+-  const auto texType = layers::TexTypeForWebgl(imageBridge);
+-  Present(nullptr, texType);
+-}
++void ClientWebGLContext::OnBeforePaintTransaction() { Present(nullptr); }
+ 
+ void ClientWebGLContext::EndComposition() {
+   // Mark ourselves as no longer invalidated.
+@@ -384,6 +378,15 @@
+ // -
+ 
+ void ClientWebGLContext::Present(WebGLFramebufferJS* const xrFb,
++                                 const bool webvr) {
++  const RefPtr<layers::ImageBridgeChild> imageBridge =
++      layers::ImageBridgeChild::GetSingleton();
++
++  const auto texType = layers::TexTypeForWebgl(imageBridge);
++  Present(xrFb, texType, webvr);
++}
++
++void ClientWebGLContext::Present(WebGLFramebufferJS* const xrFb,
+                                  const layers::TextureType type,
+                                  const bool webvr) {
+   if (!mIsCanvasDirty && !xrFb) return;

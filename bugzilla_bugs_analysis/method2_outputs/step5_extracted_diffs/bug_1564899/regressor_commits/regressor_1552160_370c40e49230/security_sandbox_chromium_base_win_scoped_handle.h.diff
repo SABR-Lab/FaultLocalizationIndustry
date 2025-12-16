@@ -1,0 +1,78 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/base/win/scoped_handle.h
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 2
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/base/win/scoped_handle.h
+--- a/security/sandbox/chromium/base/win/scoped_handle.h	Wed Jun 12 21:55:59 2019 +1200
++++ b/security/sandbox/chromium/base/win/scoped_handle.h	Wed Jun 12 11:10:48 2019 +0100
+@@ -5,9 +5,10 @@
+ #ifndef BASE_WIN_SCOPED_HANDLE_H_
+ #define BASE_WIN_SCOPED_HANDLE_H_
+ 
+-#include <windows.h>
++#include "base/win/windows_types.h"
+ 
+ #include "base/base_export.h"
++#include "base/compiler_specific.h"
+ #include "base/gtest_prod_util.h"
+ #include "base/location.h"
+ #include "base/logging.h"
+@@ -73,7 +74,7 @@
+       if (Traits::IsHandleValid(handle)) {
+         handle_ = handle;
+         Verifier::StartTracking(handle, this, BASE_WIN_GET_CALLER,
+-                                tracked_objects::GetProgramCounter());
++                                GetProgramCounter());
+       }
+       ::SetLastError(last_error);
+     }
+@@ -84,12 +85,12 @@
+   }
+ 
+   // Transfers ownership away from this object.
+-  Handle Take() {
++  Handle Take() WARN_UNUSED_RESULT {
+     Handle temp = handle_;
+     handle_ = Traits::NullHandle();
+     if (Traits::IsHandleValid(temp)) {
+       Verifier::StopTracking(temp, this, BASE_WIN_GET_CALLER,
+-                             tracked_objects::GetProgramCounter());
++                             GetProgramCounter());
+     }
+     return temp;
+   }
+@@ -98,7 +99,7 @@
+   void Close() {
+     if (Traits::IsHandleValid(handle_)) {
+       Verifier::StopTracking(handle_, this, BASE_WIN_GET_CALLER,
+-                             tracked_objects::GetProgramCounter());
++                             GetProgramCounter());
+ 
+       Traits::CloseHandle(handle_);
+       handle_ = Traits::NullHandle();
+@@ -177,11 +178,6 @@
+ // tracked by the handle verifier and ScopedHandle is not the one closing it,
+ // a CHECK is generated.
+ BASE_EXPORT void OnHandleBeingClosed(HANDLE handle);
+-
+-// This testing function returns the module that the ActiveVerifier concrete
+-// implementation was instantiated in.
+-BASE_EXPORT HMODULE GetHandleVerifierModuleForTesting();
+-
+ }  // namespace win
+ }  // namespace base
+ 

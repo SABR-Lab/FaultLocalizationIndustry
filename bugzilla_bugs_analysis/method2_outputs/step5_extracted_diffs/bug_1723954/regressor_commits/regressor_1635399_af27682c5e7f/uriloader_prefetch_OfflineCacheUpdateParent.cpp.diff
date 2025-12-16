@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: uriloader/prefetch/OfflineCacheUpdateParent.cpp
+# Commit: af27682c5e7f
+# Full Hash: af27682c5e7f86ff17d6ed152c8010e763870bdc
+# Author: ssengupta <ssengupta@mozilla.com>
+# Date: 2020-05-13 03:44:05
+# Regressor Bug: 1635399
+# File Overlap Count: 1
+# Description:
+#   Bug 1635399 - Function PrincipalInfoToPrincipal now returns Result<nsCOMPtr<nsIPrincipal>, nsresult> r=ckerschb
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D73868
+# ==============================================================================
+
+diff -r 86b22b1a9f7e -r af27682c5e7f uriloader/prefetch/OfflineCacheUpdateParent.cpp
+--- a/uriloader/prefetch/OfflineCacheUpdateParent.cpp	Tue May 12 23:55:42 2020 +0300
++++ b/uriloader/prefetch/OfflineCacheUpdateParent.cpp	Tue May 12 19:02:05 2020 +0000
+@@ -12,6 +12,7 @@
+ #include "mozilla/ipc/URIUtils.h"
+ #include "mozilla/Unused.h"
+ #include "nsContentUtils.h"
++#include "nsDebug.h"
+ #include "nsOfflineCacheUpdate.h"
+ #include "nsIApplicationCache.h"
+ #include "nsNetUtil.h"
+@@ -75,15 +76,18 @@
+     const CookieJarSettingsArgs& aCookieJarSettingsArgs) {
+   LOG(("OfflineCacheUpdateParent::RecvSchedule [%p]", this));
+ 
+-  nsresult rv;
+-
+   RefPtr<nsOfflineCacheUpdate> update;
+   if (!aManifestURI) {
+     return NS_ERROR_FAILURE;
+   }
+ 
+-  mLoadingPrincipal = PrincipalInfoToPrincipal(aLoadingPrincipalInfo, &rv);
+-  NS_ENSURE_SUCCESS(rv, rv);
++  auto loadingPrincipalOrErr = PrincipalInfoToPrincipal(aLoadingPrincipalInfo);
++
++  if (NS_WARN_IF(loadingPrincipalOrErr.isErr())) {
++    return loadingPrincipalOrErr.unwrapErr();
++  }
++
++  mLoadingPrincipal = loadingPrincipalOrErr.unwrap();
+ 
+   nsOfflineCacheUpdateService* service =
+       nsOfflineCacheUpdateService::EnsureService();
+@@ -93,7 +97,8 @@
+ 
+   bool offlinePermissionAllowed = false;
+ 
+-  rv = service->OfflineAppAllowed(mLoadingPrincipal, &offlinePermissionAllowed);
++  nsresult rv =
++      service->OfflineAppAllowed(mLoadingPrincipal, &offlinePermissionAllowed);
+   NS_ENSURE_SUCCESS(rv, rv);
+ 
+   if (!offlinePermissionAllowed) {

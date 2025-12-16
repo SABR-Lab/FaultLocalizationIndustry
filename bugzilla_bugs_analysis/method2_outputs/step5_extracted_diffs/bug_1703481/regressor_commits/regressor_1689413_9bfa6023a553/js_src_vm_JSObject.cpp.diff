@@ -1,0 +1,84 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/JSObject.cpp
+# Commit: 9bfa6023a553
+# Full Hash: 9bfa6023a5539598e824e3d2a95dec25d099a378
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2021-03-06 09:33:16
+# Regressor Bug: 1689413
+# File Overlap Count: 1
+# Description:
+#   Bug 1689413 part 5 - Remove JSClass* from ObjectGroup. r=jonco
+#   
+#   BaseShape stores the JSClass* too so this patch changes the code to get the JSClass*
+#   from there instead of from the ObjectGroup.
+#   
+# ==============================================================================
+
+diff -r 2186bd51bebd -r 9bfa6023a553 js/src/vm/JSObject.cpp
+--- a/js/src/vm/JSObject.cpp	Sat Mar 06 01:05:20 2021 +0000
++++ b/js/src/vm/JSObject.cpp	Sat Mar 06 01:05:20 2021 +0000
+@@ -756,10 +756,9 @@
+ /* * */
+ 
+ static inline JSObject* NewObject(JSContext* cx, HandleObjectGroup group,
+-                                  gc::AllocKind kind, NewObjectKind newKind,
++                                  const JSClass* clasp, gc::AllocKind kind,
++                                  NewObjectKind newKind,
+                                   ObjectFlags objectFlags = {}) {
+-  const JSClass* clasp = group->clasp();
+-
+   MOZ_ASSERT(clasp != &ArrayObject::class_);
+   MOZ_ASSERT_IF(clasp == &JSFunction::class_,
+                 kind == gc::AllocKind::FUNCTION ||
+@@ -778,7 +777,7 @@
+     return nullptr;
+   }
+ 
+-  gc::InitialHeap heap = GetInitialHeap(newKind, group);
++  gc::InitialHeap heap = GetInitialHeap(newKind, clasp);
+ 
+   JSObject* obj;
+   if (clasp->isJSFunction()) {
+@@ -842,7 +841,8 @@
+     return nullptr;
+   }
+ 
+-  RootedObject obj(cx, NewObject(cx, group, allocKind, newKind, objectFlags));
++  RootedObject obj(
++      cx, NewObject(cx, group, clasp, allocKind, newKind, objectFlags));
+   if (!obj) {
+     return nullptr;
+   }
+@@ -909,7 +909,7 @@
+     return nullptr;
+   }
+ 
+-  JSObject* obj = NewObject(cx, group, allocKind, newKind);
++  JSObject* obj = NewObject(cx, group, clasp, allocKind, newKind);
+   if (!obj) {
+     return nullptr;
+   }
+@@ -3642,7 +3642,7 @@
+ 
+   TraceEdge(trc, shapePtr(), "shape");
+ 
+-  const JSClass* clasp = group()->clasp();
++  const JSClass* clasp = getClass();
+   if (clasp->isNativeObject()) {
+     NativeObject* nobj = &as<NativeObject>();
+ 
+@@ -3784,11 +3784,9 @@
+ void JSObject::debugCheckNewObject(ObjectGroup* group, Shape* shape,
+                                    js::gc::AllocKind allocKind,
+                                    js::gc::InitialHeap heap) {
+-  const JSClass* clasp = group->clasp();
++  const JSClass* clasp = shape->getObjectClass();
+   MOZ_ASSERT(clasp != &ArrayObject::class_);
+ 
+-  MOZ_ASSERT_IF(shape, clasp == shape->getObjectClass());
+-
+   if (!ClassCanHaveFixedData(clasp)) {
+     MOZ_ASSERT(shape);
+     MOZ_ASSERT(gc::GetGCKindSlots(allocKind, clasp) == shape->numFixedSlots());

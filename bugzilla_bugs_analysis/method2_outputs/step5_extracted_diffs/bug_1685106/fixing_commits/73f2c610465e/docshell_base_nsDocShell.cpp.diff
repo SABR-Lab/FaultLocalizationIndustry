@@ -1,0 +1,46 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/nsDocShell.cpp
+# Commit: 73f2c610465e
+# Full Hash: 73f2c610465eb3dde04853cfc1d15ff13193ec92
+# Author: Kris Maglione <maglione.k@gmail.com>
+# Date: 2021-02-03 03:58:16
+# Description:
+#   Bug 1685106: Add some missing IsInProcess() checks to nsDocShell. r=nika
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D103566
+# ==============================================================================
+
+diff -r 6e02cdcf8747 -r 73f2c610465e docshell/base/nsDocShell.cpp
+--- a/docshell/base/nsDocShell.cpp	Tue Feb 02 19:42:44 2021 +0000
++++ b/docshell/base/nsDocShell.cpp	Mon Feb 01 22:09:01 2021 +0000
+@@ -10109,7 +10109,8 @@
+           //
+           // We consume the flag now even if there's no user activation.
+           const bool hasFreePass = [&] {
+-            if (!active || !context->SameOriginWithTop()) {
++            if (!active ||
++                !(context->IsInProcess() && context->SameOriginWithTop())) {
+               return false;
+             }
+             nsGlobalWindowInner* win =
+@@ -10117,7 +10118,8 @@
+             return win && win->TryOpenExternalProtocolIframe();
+           }();
+ 
+-          if (context->ConsumeTransientUserGestureActivation()) {
++          if (context->IsInProcess() &&
++              context->ConsumeTransientUserGestureActivation()) {
+             // If the user has interacted with the page, consume it.
+             return false;
+           }
+@@ -10315,7 +10317,7 @@
+                          sandboxFlags);
+   RefPtr<WindowContext> context = mBrowsingContext->GetCurrentWindowContext();
+ 
+-  if (mLoadType != LOAD_ERROR_PAGE && context &&
++  if (mLoadType != LOAD_ERROR_PAGE && context && context->IsInProcess() &&
+       context->HasValidTransientUserGestureActivation()) {
+     aLoadState->SetHasValidUserGestureActivation(true);
+   }

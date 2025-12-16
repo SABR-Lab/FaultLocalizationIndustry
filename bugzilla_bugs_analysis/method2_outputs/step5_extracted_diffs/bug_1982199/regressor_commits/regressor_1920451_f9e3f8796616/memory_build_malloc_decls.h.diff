@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: memory/build/malloc_decls.h
+# Commit: f9e3f8796616
+# Full Hash: f9e3f8796616bf24fd9d1c7260bc126fe531d0e0
+# Author: Jens Stutte <jstutte@mozilla.com>
+# Date: 2025-02-19 21:53:46
+# Regressor Bug: 1920451
+# File Overlap Count: 1
+# Description:
+#   Bug 1920451 - Introduce a concept of last significant re-use to decide when to purge. r=pbone,smaug
+#   
+#   We want to better predict when it is a good moment to purge. D220616 answered well the question, when to best process a purge when it is needed (that is, during main thread idle time), but that does not necessarily mean it is a good idea for a single arena, to purge in that moment as arenas can be used on other threads intensely while the main thread is idle.
+#   
+#   If we saw a recent re-use in an arena we can most likely expect to come more of that and wait with purge a little more. So whenever we are able to re-use a dirty page, we assume that this is a sign of a significant re-use that avoided an allocation of new memory.
+# ==============================================================================
+
+diff -r 4eeb6f53b113 -r f9e3f8796616 memory/build/malloc_decls.h
+--- a/memory/build/malloc_decls.h	Wed Feb 19 07:07:49 2025 +0000
++++ b/memory/build/malloc_decls.h	Wed Feb 19 07:21:15 2025 +0000
+@@ -157,16 +157,25 @@
+ // explicitly. Disabling it may cause an immediate synchronous purge of all
+ // arenas.
+ // Must be called only on the main thread.
++// Parameters:
++// bool:            enable/disable
+ MALLOC_DECL(moz_enable_deferred_purge, bool, bool)
+ 
+ // Execute at most one purge.
+-// Returns true if there are more purges wanted, otherwise false.
+-// If the bool parameter aPeekOnly is true, it won't process any purge
+-// but just return if at least one is wanted.
++// Returns a purge_result_t with the following meaning:
++// Done:       Purge has completed for all arenas.
++// NeedsMore:  There is at least one arena that needs to be purged now.
++// WantsLater: There is at least one arena that might want a purge later,
++//             according to aReuseGraceMS passed.
++// Parameters:
++// bool:      If the bool parameter aPeekOnly is true, it won't process
++//            any purge but just return if some is needed now or wanted later.
++// uint32_t:  aReuseGraceMS is the time to wait with purge after a significant
++//            re-use happened for an arena.
+ // The cost of calling this when there is no pending purge is minimal: a mutex
+ // lock/unlock and an isEmpty check. Note that the mutex is never held during
+ // expensive operations and guards only that list.
+-MALLOC_DECL(moz_may_purge_one_now, bool, bool)
++MALLOC_DECL(moz_may_purge_one_now, purge_result_t, bool, uint32_t)
+ 
+ #  endif
+ 

@@ -1,0 +1,98 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/HostWebGLContext.h
+# Commit: 7e2a2b1b416f
+# Full Hash: 7e2a2b1b416f1a64c6548aab29e92acc9554ae7d
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Fix all webgl regression tests according to CI. r=handyman
+#   
+#   (This is a combination of 31 commits)
+#   
+#   * Fix Linux compilation.
+# ==============================================================================
+
+diff -r ccfa767dba64 -r 7e2a2b1b416f dom/canvas/HostWebGLContext.h
+--- a/dom/canvas/HostWebGLContext.h	Wed Jan 08 22:19:16 2020 +0000
++++ b/dom/canvas/HostWebGLContext.h	Wed Jan 08 22:19:23 2020 +0000
+@@ -13,11 +13,10 @@
+ #include "WebGLContext.h"
+ #include "WebGL2Context.h"
+ #include "WebGLFramebuffer.h"
+-//#include "WebGLSync.h"
+-//#include "WebGLTransformFeedback.h"
+ #include "WebGLTypes.h"
+ 
+ #include <unordered_map>
++#include <unordered_set>
+ #include <vector>
+ 
+ #ifndef WEBGL_BRIDGE_LOG_
+@@ -40,6 +39,18 @@
+ class CompositableHost;
+ }
+ 
++struct LockedOutstandingContexts final {
++ private:
++  // StaticMutexAutoLock lock; // We can't use it directly (STACK_CLASS), but
++  // this is effectively what we hold via RAII.
++
++ public:
++  const std::unordered_set<HostWebGLContext*>& contexts;
++
++  LockedOutstandingContexts();
++  ~LockedOutstandingContexts();
++};
++
+ /**
+  * Host endpoint of a WebGLContext.  HostWebGLContext owns a WebGLContext
+  * that it uses to execute commands sent from its ClientWebGLContext.
+@@ -59,6 +70,10 @@
+ 
+   using ObjectId = webgl::ObjectId;
+ 
++  static std::unique_ptr<LockedOutstandingContexts> OutstandingContexts() {
++    return std::make_unique<LockedOutstandingContexts>();
++  }
++
+  public:
+   MOZ_DECLARE_WEAKREFERENCE_TYPENAME(HostWebGLContext)
+ 
+@@ -363,8 +378,8 @@
+   Maybe<double> GetFramebufferAttachmentParameter(ObjectId id,
+                                                   GLenum attachment,
+                                                   GLenum pname) const {
+-    const auto obj = ById<WebGLFramebuffer>(id);
+-    return mContext->GetFramebufferAttachmentParameter(obj, attachment, pname);
++    return mContext->GetFramebufferAttachmentParameter(AutoResolve(id),
++                                                       attachment, pname);
+   }
+ 
+   webgl::LinkResult GetLinkResult(ObjectId id) const {
+@@ -532,7 +547,7 @@
+                           GLenum format, const uvec3& offset, const uvec3& size,
+                           const RawBuffer<const uint8_t>& src,
+                           const uint32_t pboImageSize,
+-                          const Maybe<uint64_t> pboOffset) const {
++                          const Maybe<uint64_t>& pboOffset) const {
+     mContext->CompressedTexImage(sub, imageTarget, level, format, offset, size,
+                                  MakeRange(src), pboImageSize, pboOffset);
+   }
+@@ -573,10 +588,10 @@
+   // ------------------- Programs and shaders --------------------------------
+   void UseProgram(ObjectId id) const { mContext->UseProgram(AutoResolve(id)); }
+ 
+-  void ValidateProgram(ObjectId id) const {
++  bool ValidateProgram(ObjectId id) const {
+     const auto obj = ById<WebGLProgram>(id);
+-    if (!obj) return;
+-    mContext->ValidateProgram(*obj);
++    if (!obj) return false;
++    return mContext->ValidateProgram(*obj);
+   }
+ 
+   // ------------------------ Uniforms and attributes ------------------------

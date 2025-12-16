@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/gtest/TestCubebInputStream.cpp
+# Commit: f81e1b1615b3
+# Full Hash: f81e1b1615b3a9c5ef6c62a291f79029b3807dde
+# Author: Karl Tomlinson <karlt+@karlt.net>
+# Date: 2023-03-31 09:51:00
+# Regressor Bug: 1801190
+# File Overlap Count: 1
+# Description:
+#   Bug 1801190 do not reset mAudioStreamState to None on state changes from an old cubeb_stream r=pehrsons
+#   
+#   Such resets were preventing transitions to Running for new streams and allowing
+#   MaybeStartAudioStream() to start another stream.
+#   
+# ==============================================================================
+
+diff -r 9592d9865f5a -r f81e1b1615b3 dom/media/gtest/TestCubebInputStream.cpp
+--- a/dom/media/gtest/TestCubebInputStream.cpp	Fri Mar 31 02:23:14 2023 +0300
++++ b/dom/media/gtest/TestCubebInputStream.cpp	Thu Mar 30 23:18:44 2023 +0000
+@@ -58,7 +58,7 @@
+       });
+ 
+   EXPECT_CALL(*listener, StateCallback(CUBEB_STATE_STARTED));
+-  EXPECT_CALL(*listener, StateCallback(CUBEB_STATE_STOPPED));
++  EXPECT_CALL(*listener, StateCallback(CUBEB_STATE_STOPPED)).Times(2);
+ 
+   EXPECT_CALL(*listener, DeviceChangedCallback).Times(0);
+ 
+@@ -109,6 +109,7 @@
+ 
+   EXPECT_CALL(*listener, StateCallback(CUBEB_STATE_STARTED));
+   EXPECT_CALL(*listener, StateCallback(CUBEB_STATE_ERROR));
++  EXPECT_CALL(*listener, StateCallback(CUBEB_STATE_STOPPED));
+ 
+   EXPECT_CALL(*listener, DeviceChangedCallback).Times(0);
+ 
+@@ -158,7 +159,7 @@
+   // unplugged). But it's fine to not check here since we can control how
+   // MockCubeb behaves.
+   EXPECT_CALL(*listener, StateCallback(CUBEB_STATE_STARTED));
+-  EXPECT_CALL(*listener, StateCallback(CUBEB_STATE_STOPPED));
++  EXPECT_CALL(*listener, StateCallback(CUBEB_STATE_STOPPED)).Times(2);
+ 
+   EXPECT_CALL(*listener, DeviceChangedCallback);
+ 

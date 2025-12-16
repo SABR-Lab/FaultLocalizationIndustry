@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/gl/GLScreenBuffer.cpp
+# Commit: 71c122ac0ca7
+# Full Hash: 71c122ac0ca73391866b1ef19f4f82bc2d28568b
+# Author: David Parks <davidp99@gmail.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Initial out-of-process WebGL implementation. r=mccr8,handyman
+#   
+#   Splits WebGLContext into ClientWebGLContext and HostWebGLContext.  The Client enables the JS-control of a WebGL context in a content procecss while the Host executes the WebGL graphics operations (via a WebGLContext that maintains much of the existing code) in the compositor process.  At this point, the cross-process behavior is disabled -- this series of patches is an incremental step toward that final goal.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D54018
+# ==============================================================================
+
+diff -r 5cbf5bb11c58 -r 71c122ac0ca7 gfx/gl/GLScreenBuffer.cpp
+--- a/gfx/gl/GLScreenBuffer.cpp	Wed Jan 08 21:52:03 2020 +0000
++++ b/gfx/gl/GLScreenBuffer.cpp	Wed Jan 08 22:19:14 2020 +0000
+@@ -61,10 +61,17 @@
+     GLContext* gl, const SurfaceCaps& caps,
+     KnowsCompositor* compositorConnection, const layers::TextureFlags& flags) {
+   LayersIPCChannel* ipcChannel = compositorConnection->GetTextureForwarder();
+-  const layers::LayersBackend backend =
++  layers::LayersBackend backend =
+       compositorConnection->GetCompositorBackendType();
+-  const bool useANGLE = compositorConnection->GetCompositorUseANGLE();
++  bool useANGLE = compositorConnection->GetCompositorUseANGLE();
++  return CreateFactory(gl, caps, ipcChannel, backend, useANGLE, flags);
++}
+ 
++/* static */
++UniquePtr<SurfaceFactory> GLScreenBuffer::CreateFactory(
++    GLContext* gl, const SurfaceCaps& caps, LayersIPCChannel* ipcChannel,
++    layers::LayersBackend backend, bool useANGLE,
++    const layers::TextureFlags& flags) {
+   const bool useGl =
+       !StaticPrefs::webgl_force_layers_readback() &&
+       (backend == layers::LayersBackend::LAYERS_OPENGL ||
+@@ -103,11 +110,14 @@
+     // Ensure devices initialization. SharedSurfaceANGLE and
+     // SharedSurfaceD3D11Interop use them. The devices are lazily initialized
+     // with WebRender to reduce memory usage.
+-    gfxPlatform::GetPlatform()->EnsureDevicesInitialized();
++    if (XRE_IsContentProcess()) {
++      gfxPlatform::GetPlatform()->EnsureDevicesInitialized();
++    }
+ 
+     // Enable surface sharing only if ANGLE and compositing devices
+     // are both WARP or both not WARP
+     gfx::DeviceManagerDx* dm = gfx::DeviceManagerDx::Get();
++    MOZ_ASSERT(dm);
+     if (gl->IsANGLE() && (gl->IsWARP() == dm->IsWARP()) &&
+         dm->TextureSharingWorks()) {
+       factory =

@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/wr/WebRenderCanvasRenderer.h
+# Commit: 93868cb5faa3
+# Full Hash: 93868cb5faa3fb33a1c1e7425f8a207db0dd8093
+# Author: sotaro <sotaro.ikeda.g@gmail.com>
+# Date: 2022-05-13 09:35:38
+# Regressor Bug: 1763503
+# File Overlap Count: 1
+# Description:
+#   Bug 1763503 - Hold layers::CanvasRenderer in ClientWebGLContext::mNotLost r=jgilbert,gfx-reviewers
+#   
+#   bug 1733732 decreased the size of the display port on Android. When you scroll to the bottom of the page, the canvas leaves the display port. It triggers to destroy WebRenderCanvasData and WebRenderCanvasRendererAsync. And then RenderAndroidSurfaceTextureHost::NotifyNotUsed() is called and RenderAndroidSurfaceTextureHost is destroyed.
+#   
+#   Then if scrolling makes the canvas into the display port again, WebRenderCanvasData, WebRenderCanvasRendererAsync and RenderAndroidSurfaceTextureHost are recreated again. But there is no rendering update at SharedSurface_SurfaceTexture. Since the page does WebGL rendering only once during page load.
+# ==============================================================================
+
+diff -r 0cb803c9f1bd -r 93868cb5faa3 gfx/layers/wr/WebRenderCanvasRenderer.h
+--- a/gfx/layers/wr/WebRenderCanvasRenderer.h	Thu May 12 23:40:14 2022 +0000
++++ b/gfx/layers/wr/WebRenderCanvasRenderer.h	Fri May 13 00:17:42 2022 +0000
+@@ -7,22 +7,22 @@
+ #ifndef GFX_WEBRENDERCANVASRENDERER_H
+ #define GFX_WEBRENDERCANVASRENDERER_H
+ 
++#include "mozilla/layers/RenderRootStateManager.h"
+ #include "ShareableCanvasRenderer.h"
+ 
+ namespace mozilla {
+ namespace layers {
+ 
+-class RenderRootStateManager;
+-
+ class WebRenderCanvasRenderer : public ShareableCanvasRenderer {
+  public:
+   explicit WebRenderCanvasRenderer(RenderRootStateManager* aManager)
+       : mManager(aManager) {}
+ 
+   CompositableForwarder* GetForwarder() override;
++  RenderRootStateManager* GetRenderRootStateManager() { return mManager; }
+ 
+  protected:
+-  RenderRootStateManager* mManager;
++  RefPtr<RenderRootStateManager> mManager;
+ };
+ 
+ class WebRenderCanvasRendererAsync final : public WebRenderCanvasRenderer {

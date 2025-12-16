@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/webrtc/signaling/gtest/mediapipeline_unittest.cpp
+# Commit: 675b46e5aba7
+# Full Hash: 675b46e5aba7aab81b45a56a8ea1270ae657514a
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 3
+# Description:
+#   Bug 1654112 - Destroy Call instances as their associated PeerConnections close. r=ng,bwc
+#   
+#   Prior to this patch, WebRtcCallWrapper would never clear the call instance,
+#   meaning that it went away as the classes having references to WebRtcCallWrapper
+#   also went away. These are mainly TransceiverImpl and PeerConnectionMedia. There
+# ==============================================================================
+
+diff -r da26bac32c32 -r 675b46e5aba7 media/webrtc/signaling/gtest/mediapipeline_unittest.cpp
+--- a/media/webrtc/signaling/gtest/mediapipeline_unittest.cpp	Tue Jan 19 10:59:28 2021 +0100
++++ b/media/webrtc/signaling/gtest/mediapipeline_unittest.cpp	Thu Jan 28 11:15:40 2021 +0100
+@@ -263,11 +263,11 @@
+             webrtc::AudioDecoderFactory* aAudioDecoderFactory,
+             webrtc::WebRtcKeyValueConfig* aTrials)
+       : audio_config_(109, "opus", 48000, 2, false),
++        call_(WebRtcCallWrapper::Create(dom::RTCStatsTimestampMaker(),
++                                        aModuleThread, aAudioStateConfig,
++                                        aAudioDecoderFactory, aTrials)),
+         audio_conduit_(mozilla::AudioSessionConduit::Create(
+-            WebRtcCallWrapper::Create(dom::RTCStatsTimestampMaker(),
+-                                      aModuleThread, aAudioStateConfig,
+-                                      aAudioDecoderFactory, aTrials),
+-            test_utils->sts_target())),
++            call_, test_utils->sts_target())),
+         audio_pipeline_(),
+         transport_(new LoopbackTransport) {}
+ 
+@@ -301,8 +301,15 @@
+   void Shutdown_s() { transport_->Shutdown(); }
+ 
+   void Shutdown() {
+-    if (audio_pipeline_) audio_pipeline_->Shutdown_m();
+-    if (audio_conduit_) audio_conduit_->DeleteStreams();
++    if (audio_pipeline_) {
++      audio_pipeline_->Shutdown_m();
++    }
++    if (audio_conduit_) {
++      audio_conduit_->DeleteStreams();
++    }
++    if (call_) {
++      call_->Destroy();
++    }
+ 
+     test_utils->sts_target()->Dispatch(
+         WrapRunnable(this, &TestAgent::Shutdown_s),
+@@ -335,6 +342,7 @@
+ 
+  protected:
+   mozilla::AudioCodecConfig audio_config_;
++  RefPtr<WebRtcCallWrapper> call_;
+   RefPtr<mozilla::MediaSessionConduit> audio_conduit_;
+   RefPtr<FakeAudioTrack> audio_track_;
+   // TODO(bcampen@mozilla.com): Right now this does not let us test RTCP in

@@ -1,0 +1,52 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: layout/base/PresShell.cpp
+# Commit: 649ab0049ed7
+# Full Hash: 649ab0049ed7038ffd97e772523bd4af56863cb0
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2024-03-30 09:10:19
+# Description:
+#   Bug 1888592 - Terminate mOriginalCaret properly, and fix null crash. r=masayuki
+#   
+#   We have callers that call RestoreCaret after pres shell shut down.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D206120
+# ==============================================================================
+
+diff -r e34434fd3394 -r 649ab0049ed7 layout/base/PresShell.cpp
+--- a/layout/base/PresShell.cpp	Fri Mar 29 21:50:46 2024 +0000
++++ b/layout/base/PresShell.cpp	Fri Mar 29 21:51:11 2024 +0000
+@@ -1281,10 +1281,13 @@
+ 
+   ClearApproximatelyVisibleFramesList(Some(OnNonvisible::DiscardImages));
+ 
+-  if (mCaret) {
++  if (mOriginalCaret) {
++    mOriginalCaret->Terminate();
++  }
++  if (mCaret && mCaret != mOriginalCaret) {
+     mCaret->Terminate();
+-    mCaret = nullptr;
+-  }
++  }
++  mCaret = mOriginalCaret = nullptr;
+ 
+   mFocusedFrameSelection = nullptr;
+ 
+@@ -2242,9 +2245,13 @@
+   if (mCaret == aNewCaret) {
+     return;
+   }
+-  mCaret->SchedulePaint();
++  if (mCaret) {
++    mCaret->SchedulePaint();
++  }
+   mCaret = aNewCaret;
+-  aNewCaret->SchedulePaint();
++  if (aNewCaret) {
++    aNewCaret->SchedulePaint();
++  }
+ }
+ 
+ void PresShell::RestoreCaret() { SetCaret(mOriginalCaret); }

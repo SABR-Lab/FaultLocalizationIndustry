@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit-test/tests/wasm/wasm-resizablearraybuffer.js
+# Commit: 13b7086f65cb
+# Full Hash: 13b7086f65cbbbf1fed6e0341cfbdfb309fb962c
+# Author: Julien Pages <jpages@mozilla.com>
+# Date: 2025-09-17 13:36 +0000
+# Regressor Bug: 1969509
+# File Overlap Count: 6
+# Overlapping Files: js/src/vm/ArrayBufferObject.cpp, js/src/wasm/WasmMemory.h, js/src/jit-test/tests/wasm/memory64/basic.js, js/src/jit-test/tests/wasm/wasm-resizablearraybuffer.js, js/src/jit-test/lib/wasm.js
+# Description:
+#   Bug 1969509 - wasm: Update .maxByteLength to report the source wasm max pages in bytes. r=rhunt
+# ==============================================================================
+
+diff -r f7c96ac82c1a -r 13b7086f65cb js/src/jit-test/tests/wasm/wasm-resizablearraybuffer.js
+--- a/js/src/jit-test/tests/wasm/wasm-resizablearraybuffer.js	Wed Sep 17 13:35:00 2025 +0000
++++ b/js/src/jit-test/tests/wasm/wasm-resizablearraybuffer.js	Wed Sep 17 13:36:10 2025 +0000
+@@ -73,6 +73,7 @@
+ 
+ let ab = mem.buffer;
+ assertEq(ab.resizable, false);
++assertEq(ab.maxByteLength, 20 << 16);
+ 
+ // Make .buffer resizable, detaching the old one.
+ let rab = mem.toResizableBuffer();
+@@ -91,6 +92,7 @@
+ assertEq(mem.buffer, ab2);
+ assertEq(ab2 !== ab, true);
+ assertEq(rab.detached, true);
++assertEq(ab2.byteLength, 20 << 16);
+ assertEq(ab2.maxByteLength, 20 << 16);
+ 
+ assertEq(ins.exports.check(0, 10, 3), 1);
+@@ -142,3 +144,13 @@
+ })
+ a.toResizableBuffer();
+ setSharedObject(a);
++
++// Testing the limits of our implementation.
++let big_memory = new WebAssembly.Memory({address: 'i64', initial: 0n, maximum: BigInt(MaxMemory64PagesValidation), shared: false});
++let buffer = big_memory.toResizableBuffer();
++
++// Asserts that buffer.maxByteLength is less than MAX_SAFE_INTEGER.
++assertEq(buffer.maxByteLength <= Number.MAX_SAFE_INTEGER, true);
++
++// Create a new Memory without a maximum and accessing maxByteLength.
++new WebAssembly.Memory({ initial: 10 }).buffer.maxByteLength;

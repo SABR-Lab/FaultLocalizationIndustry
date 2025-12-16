@@ -1,0 +1,53 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/CacheIR.cpp
+# Commit: c64a2d656aae
+# Full Hash: c64a2d656aae0a36fe707b286d97ed2dc374d73c
+# Author: André Bargull <andre.bargull@gmail.com>
+# Date: 2024-10-22 21:31:58
+# Description:
+#   Bug 1926235: Add missing argument length checks. r=jandem
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D226481
+# ==============================================================================
+
+diff -r b60c966750df -r c64a2d656aae js/src/jit/CacheIR.cpp
+--- a/js/src/jit/CacheIR.cpp	Tue Oct 22 15:05:19 2024 +0000
++++ b/js/src/jit/CacheIR.cpp	Tue Oct 22 15:11:44 2024 +0000
+@@ -10428,14 +10428,20 @@
+ 
+ AttachDecision InlinableNativeIRGenerator::tryAttachDateGetTime(
+     InlinableNative native) {
+-  MOZ_ASSERT_IF(native == InlinableNative::IntrinsicThisTimeValue,
+-                argc_ == 1 && args_[0].isInt32());
+-
+   // Ensure |this| is a DateObject.
+   if (!thisval_.isObject() || !thisval_.toObject().is<DateObject>()) {
+     return AttachDecision::NoAction;
+   }
+ 
++  if (native == InlinableNative::DateGetTime) {
++    // Expecting no arguments.
++    if (argc_ != 0) {
++      return AttachDecision::NoAction;
++    }
++  } else {
++    MOZ_ASSERT(argc_ == 1 && args_[0].isInt32());
++  }
++
+   // Initialize the input operand.
+   initializeInputOperand();
+ 
+@@ -10470,6 +10476,11 @@
+     return AttachDecision::NoAction;
+   }
+ 
++  // Expecting no arguments.
++  if (argc_ != 0) {
++    return AttachDecision::NoAction;
++  }
++
+   // Can't check DateTime cache when time zone is forced to UTC.
+   if (cx_->realm()->creationOptions().forceUTC()) {
+     return AttachDecision::NoAction;

@@ -1,0 +1,39 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentParent.cpp
+# Commit: 2616040b2fc8
+# Full Hash: 2616040b2fc8813de6f590e5f9cb08386a3991a8
+# Author: Yaron Tausky <ytausky@mozilla.com>
+# Date: 2020-01-08 21:56:06
+# Description:
+#   Bug 1603976 - Warn when getting session storage data for discarded browsing context r=dom-workers-and-storage-reviewers,sg,janv
+#   
+#   Under some (yet) unclear conditions it's possible for a content
+#   process to send session storage data for a browsing context that's
+#   already been discarded. This leads to an assertion failure when
+# ==============================================================================
+
+diff -r 7468eacbeec5 -r 2616040b2fc8 dom/ipc/ContentParent.cpp
+--- a/dom/ipc/ContentParent.cpp	Wed Jan 08 15:30:44 2020 +0000
++++ b/dom/ipc/ContentParent.cpp	Wed Jan 08 15:38:34 2020 +0000
+@@ -5974,11 +5974,16 @@
+ }
+ 
+ mozilla::ipc::IPCResult ContentParent::RecvSessionStorageData(
+-    BrowsingContext* const aTop, const nsACString& aOriginAttrs,
++    const uint64_t aTopContextId, const nsACString& aOriginAttrs,
+     const nsACString& aOriginKey, const nsTArray<KeyValuePair>& aDefaultData,
+     const nsTArray<KeyValuePair>& aSessionData) {
+-  aTop->GetSessionStorageManager()->LoadSessionStorageData(
+-      this, aOriginAttrs, aOriginKey, aDefaultData, aSessionData);
++  if (const RefPtr<BrowsingContext> topContext =
++          BrowsingContext::Get(aTopContextId)) {
++    topContext->GetSessionStorageManager()->LoadSessionStorageData(
++        this, aOriginAttrs, aOriginKey, aDefaultData, aSessionData);
++  } else {
++    NS_WARNING("Got session storage data for a discarded session");
++  }
+   return IPC_OK();
+ }
+ 

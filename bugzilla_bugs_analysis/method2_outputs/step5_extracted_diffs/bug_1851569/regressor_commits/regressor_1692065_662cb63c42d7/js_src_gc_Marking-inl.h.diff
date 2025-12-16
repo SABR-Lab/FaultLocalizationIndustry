@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/Marking-inl.h
+# Commit: 662cb63c42d7
+# Full Hash: 662cb63c42d7874a79256a6edf1a03d83e43a014
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2023-08-05 09:19:01
+# Regressor Bug: 1692065
+# File Overlap Count: 2
+# Description:
+#   Bug 1692065 - wasm: Create a unique wasm::AnyRef type. r=yury,jonco
+#   
+#   Right now wasm references area represented as a JSObject*. This is assumed in
+#   many places in SpiderMonkey, most prominently in our GC integration
+#   around tracing, the store buffer, and write barriers. This will cause issues
+# ==============================================================================
+
+diff -r 8b506ab41451 -r 662cb63c42d7 js/src/gc/Marking-inl.h
+--- a/js/src/gc/Marking-inl.h	Fri Aug 04 13:54:57 2023 +0000
++++ b/js/src/gc/Marking-inl.h	Fri Aug 04 14:06:49 2023 +0000
+@@ -16,6 +16,7 @@
+ #include "js/Value.h"
+ #include "vm/StringType.h"
+ #include "vm/TaggedProto.h"
++#include "wasm/WasmAnyRef.h"
+ 
+ #include "gc/Nursery-inl.h"
+ 
+@@ -65,6 +66,14 @@
+   static TaggedProto empty() { return TaggedProto(); }
+ };
+ 
++template <>
++struct TaggedPtr<wasm::AnyRef> {
++  static wasm::AnyRef wrap(JSObject* obj) {
++    return wasm::AnyRef::fromJSObjectOrNull(obj);
++  }
++  static wasm::AnyRef empty() { return wasm::AnyRef(); }
++};
++
+ template <typename T>
+ struct MightBeForwarded {
+   static_assert(std::is_base_of_v<Cell, T>);

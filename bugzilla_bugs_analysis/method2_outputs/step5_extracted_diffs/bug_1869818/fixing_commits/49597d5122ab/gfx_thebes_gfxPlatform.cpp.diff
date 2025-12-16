@@ -1,0 +1,32 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxPlatform.cpp
+# Commit: 49597d5122ab
+# Full Hash: 49597d5122ab183cf4daae40670a7d112028bf21
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2023-12-14 09:54:24
+# Description:
+#   Bug 1869818 - Disable accelerated canvas if canvas worker threads are enabled. r=gfx-reviewers,lsalzman
+#   
+#   Accelerated canvas requires that the canvas worker threads are disabled.
+#   Since CanvasChild is a per thread singleton, we cannot meaningfully give
+#   different behaviour to D2D canvas and accelerated (WebGL) canvas. For
+# ==============================================================================
+
+diff -r 2a1c0595e579 -r 49597d5122ab gfx/thebes/gfxPlatform.cpp
+--- a/gfx/thebes/gfxPlatform.cpp	Wed Dec 13 20:21:49 2023 +0000
++++ b/gfx/thebes/gfxPlatform.cpp	Wed Dec 13 20:30:39 2023 +0000
+@@ -3249,6 +3249,12 @@
+     feature.Disable(FeatureStatus::Blocklisted, message.get(), failureId);
+   }
+ 
++  if (StaticPrefs::gfx_canvas_remote_worker_threads_AtStartup() != 0) {
++    feature.ForceDisable(FeatureStatus::Failed,
++                         "Disabled with non-zero canvas worker threads",
++                         "FEATURE_FAILURE_DISABLE_BY_CANVAS_WORKER_THREADS"_ns);
++  }
++
+   gfxVars::SetUseAcceleratedCanvas2D(feature.IsEnabled());
+ }
+ 

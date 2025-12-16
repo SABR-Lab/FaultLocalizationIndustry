@@ -1,0 +1,58 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: security/manager/ssl/nsNSSModule.cpp
+# Commit: 79d687137fdf
+# Full Hash: 79d687137fdf26d60122e947ad7198521e34bbf9
+# Author: Dana Keeler <dkeeler@mozilla.com>
+# Date: 2022-09-03 09:32:11
+# Description:
+#   Bug 1788856 - initialize NSS as needed in nsNSSCertificate r=jschanck
+#   
+#   Previously, instantiating an nsIX509Cert (implemented by nsNSSCertificate)
+#   would cause NSS to be initialized. However, if 'new nsNSSCertificate()' was
+#   called directly (rather than going through XPCOM), NSS would not be
+# ==============================================================================
+
+diff -r b14b975aa6d7 -r 79d687137fdf security/manager/ssl/nsNSSModule.cpp
+--- a/security/manager/ssl/nsNSSModule.cpp	Fri Sep 02 22:15:58 2022 +0000
++++ b/security/manager/ssl/nsNSSModule.cpp	Fri Sep 02 22:26:37 2022 +0000
+@@ -7,7 +7,6 @@
+ #include "nsNSSModule.h"
+ 
+ #include "ContentSignatureVerifier.h"
+-#include "NSSErrorsService.h"
+ #include "OSKeyStore.h"
+ #include "OSReauthenticator.h"
+ #include "PKCS11ModuleDB.h"
+@@ -16,21 +15,13 @@
+ #include "mozilla/MacroArgs.h"
+ #include "mozilla/ModuleUtils.h"
+ #include "mozilla/SyncRunnable.h"
+-#include "nsCURILoader.h"
++#include "nsCertTree.h"
+ #include "nsCryptoHash.h"
+-#include "nsNSSCertificate.h"
+ #include "nsNSSCertificateDB.h"
+-#include "nsNSSComponent.h"
+-#include "nsNSSVersion.h"
+-#include "nsNetCID.h"
+ #include "nsPK11TokenDB.h"
+-#include "nsPKCS11Slot.h"
+ #include "nsRandomGenerator.h"
+-#include "nsSecureBrowserUI.h"
+ #include "nsXULAppAPI.h"
+ 
+-#include "nsCertTree.h"
+-
+ namespace mozilla {
+ namespace psm {
+ 
+@@ -104,7 +95,6 @@
+ IMPL(SecretDecoderRing, nullptr)
+ IMPL(nsPK11TokenDB, nullptr)
+ IMPL(PKCS11ModuleDB, nullptr)
+-IMPL(nsNSSCertificate, nullptr, ProcessRestriction::AnyProcess)
+ IMPL(nsNSSCertificateDB, nullptr)
+ IMPL(nsCertTree, nullptr)
+ IMPL(nsCryptoHash, nullptr, ProcessRestriction::AnyProcess)

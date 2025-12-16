@@ -1,0 +1,36 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/PreallocatedProcessManager.cpp
+# Commit: 1d413fe340a0
+# Full Hash: 1d413fe340a08f23808be58c40d8f32431fe536a
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2024-06-21 04:13:05
+# Regressor Bug: 1728331
+# File Overlap Count: 1
+# Description:
+#   Bug 1728331 - Part 1: Remove e10s process recycling, r=smaug
+#   
+#   This logic did nothing in Fission, however it did have an effect for
+#   e10s-Android, which will no longer have process recycling. I expect the impact
+#   of this to be minimal given Android's tendency to kill processes already.
+# ==============================================================================
+
+diff -r 15608efcbeb6 -r 1d413fe340a0 dom/ipc/PreallocatedProcessManager.cpp
+--- a/dom/ipc/PreallocatedProcessManager.cpp	Thu Jun 20 19:24:50 2024 +0000
++++ b/dom/ipc/PreallocatedProcessManager.cpp	Thu Jun 20 19:24:50 2024 +0000
+@@ -371,14 +371,6 @@
+     process->ShutDownProcess(ContentParent::SEND_SHUTDOWN_MESSAGE);
+     // drop ref and let it free
+   }
+-
+-  // Make sure to also clear out the recycled E10S process cache, as it's also
+-  // controlled by the same preference, and can be cleaned up due to memory
+-  // pressure.
+-  if (RefPtr<ContentParent> recycled =
+-          ContentParent::sRecycledE10SProcess.forget()) {
+-    recycled->MaybeBeginShutDown();
+-  }
+ }
+ 
+ inline PreallocatedProcessManagerImpl*

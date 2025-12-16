@@ -1,0 +1,79 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/media/platforms/ffmpeg/FFmpegVideoFramePool.cpp
+# Commit: d87eb81f8495
+# Full Hash: d87eb81f84958645ede935cfcc4b6dec93314668
+# Author: stransky <stransky@redhat.com>
+# Date: 2022-01-30 09:35:54
+# Description:
+#   Bug 1752282 [Linux] Mark VideoFrameSurface as used in VideoFramePool::GetVideoFrameSurface() r=alwu,media-playback-reviewers
+#   
+#   - Right now we mark VideoFrameSurface as used in VideoFrameSurface constructor (for newly created surfaces) and in
+#     GetFreeVideoFrameSurface() for recycled ones.
+#     In this patch we remove them and mark it as used in VideoFramePool::GetVideoFrameSurface() for both cases
+# ==============================================================================
+
+diff -r d9aa83a3159f -r d87eb81f8495 dom/media/platforms/ffmpeg/FFmpegVideoFramePool.cpp
+--- a/dom/media/platforms/ffmpeg/FFmpegVideoFramePool.cpp	Sat Jan 29 19:50:24 2022 +0000
++++ b/dom/media/platforms/ffmpeg/FFmpegVideoFramePool.cpp	Sat Jan 29 19:54:51 2022 +0000
+@@ -20,14 +20,16 @@
+ }
+ 
+ VideoFrameSurfaceVAAPI::VideoFrameSurfaceVAAPI(DMABufSurface* aSurface)
+-    : mSurface(aSurface) {
++    : mSurface(aSurface),
++      mLib(nullptr),
++      mAVHWFramesContext(nullptr),
++      mHWAVBuffer(nullptr) {
+   // Create global refcount object to track mSurface usage over
+   // gects rendering engine. We can't release it until it's used
+   // by GL compositor / WebRender.
+   MOZ_ASSERT(mSurface);
+   MOZ_RELEASE_ASSERT(mSurface->GetAsDMABufSurfaceYUV());
+   mSurface->GlobalRefCountCreate();
+-  mSurface->GlobalRefAdd();
+   FFMPEG_LOG("VideoFrameSurfaceVAAPI: creating surface UID = %d",
+              mSurface->GetUID());
+ }
+@@ -52,12 +54,14 @@
+   // In such case we don't care as the dmabuf surface will not be
+   // recycled for another frame and stays here untill last fd of it
+   // is closed.
+-  mLib->av_buffer_unref(&mHWAVBuffer);
+-  mLib->av_buffer_unref(&mAVHWFramesContext);
++  if (mLib) {
++    mLib->av_buffer_unref(&mHWAVBuffer);
++    mLib->av_buffer_unref(&mAVHWFramesContext);
++  }
+ 
++  // If we want to recycle the frame, make sure it's not used
++  // by gecko rendering pipeline.
+   if (aForFrameRecycle) {
+-    // If we want to recycle the frame, make sure it's not used
+-    // by gecko rendering pipeline.
+     MOZ_DIAGNOSTIC_ASSERT(!IsUsed());
+     mSurface->ReleaseSurface();
+   }
+@@ -94,7 +98,6 @@
+     }
+     auto* vaapiSurface = surface->AsVideoFrameSurfaceVAAPI();
+     vaapiSurface->ReleaseVAAPIData();
+-    vaapiSurface->MarkAsUsed();
+     return surface;
+   }
+   return nullptr;
+@@ -136,9 +139,10 @@
+     FFMPEG_LOG("Reusing VA-API DMABufSurface UID = %d", surface->GetUID());
+   }
+ 
+-  if (auto* vaapiSurface = videoSurface->AsVideoFrameSurfaceVAAPI()) {
+-    vaapiSurface->LockVAAPIData(aAVCodecContext, aAVFrame, aLib);
+-  }
++  auto* vaapiSurface = videoSurface->AsVideoFrameSurfaceVAAPI();
++  vaapiSurface->LockVAAPIData(aAVCodecContext, aAVFrame, aLib);
++  vaapiSurface->MarkAsUsed();
++
+   return videoSurface;
+ }
+ 

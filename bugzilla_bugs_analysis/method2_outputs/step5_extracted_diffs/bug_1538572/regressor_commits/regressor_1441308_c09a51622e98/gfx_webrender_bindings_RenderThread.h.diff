@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/webrender_bindings/RenderThread.h
+# Commit: c09a51622e98
+# Full Hash: c09a51622e988e81077c75e3aaa5a49df66284b3
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2019-03-22 16:44:08
+# Regressor Bug: 1441308
+# File Overlap Count: 2
+# Description:
+#   Bug 1441308 - Core renderroot splitting changes r=kats,sotaro
+#   
+#   This is a large patch that contains all of the core changes for
+#   renderroot splitting.
+#   
+# ==============================================================================
+
+diff -r 737807563dd5 -r c09a51622e98 gfx/webrender_bindings/RenderThread.h
+--- a/gfx/webrender_bindings/RenderThread.h	Thu Mar 21 23:14:26 2019 +0000
++++ b/gfx/webrender_bindings/RenderThread.h	Fri Mar 22 03:15:14 2019 +0000
+@@ -205,11 +205,13 @@
+   bool TooManyPendingFrames(wr::WindowId aWindowId);
+   /// Can be called from any thread.
+   void IncPendingFrameCount(wr::WindowId aWindowId, const VsyncId& aStartId,
+-                            const TimeStamp& aStartTime);
++                            const TimeStamp& aStartTime,
++                            uint8_t aDocFrameCount);
+   /// Can be called from any thread.
+   void DecPendingFrameCount(wr::WindowId aWindowId);
+   /// Can be called from any thread.
+-  void IncRenderingFrameCount(wr::WindowId aWindowId);
++  mozilla::Pair<bool, bool> IncRenderingFrameCount(wr::WindowId aWindowId,
++                                                   bool aRender);
+   /// Can be called from any thread.
+   void FrameRenderingComplete(wr::WindowId aWindowId);
+ 
+@@ -273,12 +275,15 @@
+ 
+   struct WindowInfo {
+     bool mIsDestroyed = false;
++    bool mRender = false;
+     int64_t mPendingCount = 0;
+     int64_t mRenderingCount = 0;
++    uint8_t mDocFramesSeen = 0;
+     // One entry in this queue for each pending frame, so the length
+     // should always equal mPendingCount
+     std::queue<TimeStamp> mStartTimes;
+     std::queue<VsyncId> mStartIds;
++    std::queue<uint8_t> mDocFrameCounts;
+     bool mHadSlowFrame = false;
+   };
+ 

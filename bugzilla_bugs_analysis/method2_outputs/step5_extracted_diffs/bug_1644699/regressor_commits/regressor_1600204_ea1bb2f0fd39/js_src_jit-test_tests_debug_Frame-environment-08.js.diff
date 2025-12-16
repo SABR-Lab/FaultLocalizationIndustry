@@ -1,0 +1,128 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit-test/tests/debug/Frame-environment-08.js
+# Commit: ea1bb2f0fd39
+# Full Hash: ea1bb2f0fd39a412480bd777ba944b276a54006a
+# Author: Logan Smyth <loganfsmyth@gmail.com>
+# Date: 2019-12-09 09:50:39
+# Regressor Bug: 1600204
+# File Overlap Count: 1
+# Description:
+#   Bug 1600204 - Part 5: Support .environment on suspended generator frames. r=jimb
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D55235
+# ==============================================================================
+
+diff -r 39d1ae1352b3 -r ea1bb2f0fd39 js/src/jit-test/tests/debug/Frame-environment-08.js
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/js/src/jit-test/tests/debug/Frame-environment-08.js	Sun Dec 08 23:53:27 2019 +0000
+@@ -0,0 +1,108 @@
++// |jit-test| error:all-jobs-completed-successfully
++// Test that Debugger.Frame.prototype.environment works on suspended
++// async generators.
++
++load(libdir + "asserts.js");
++
++const g = newGlobal({ newCompartment: true });
++const dbg = new Debugger(g);
++
++g.eval(`
++var resolveTop;
++var resolveBlock;
++var resolveLoop;
++var resolveCatch;
++
++async function* f() {
++  var promises = {
++    top: new Promise(r => { resolveTop = r; }),
++    block: new Promise(r => { resolveBlock = r; }),
++    loop: new Promise(r => { resolveLoop = r; }),
++    catch: new Promise(r => { resolveCatch = r; }),
++  };
++
++  var value = 42;
++  await promises.top;
++  {
++    let block = "block";
++    await promises.block;
++  }
++  for (let loop of ["loop"]) {
++    await promises.loop;
++  }
++  try {
++    throw "err";
++  } catch (err) {
++    await promises.catch;
++  }
++  return value;
++}
++`);
++
++const waitForOnPop = frame => new Promise(r => {
++  assertEq(frame.onPop, undefined);
++  frame.onPop = () => {
++    frame.onPop = undefined;
++    r();
++  };
++});
++
++let frame;
++dbg.onEnterFrame = f => {
++  frame = f;
++  dbg.onEnterFrame = undefined;
++};
++
++(async () => {
++  const it = g.f();
++
++  assertEq(!!frame, true);
++
++  let promise = it.next();
++
++  assertEq(
++    JSON.stringify(frame.environment.names()),
++    JSON.stringify(["arguments", "promises", "value"])
++  );
++
++  assertEq(frame.environment.getVariable("value"), 42);
++
++  frame.environment.setVariable("value", 43);
++
++  g.resolveTop();
++  await waitForOnPop(frame);
++
++  assertEq(
++    JSON.stringify(frame.environment.names()),
++    JSON.stringify(["block"])
++  );
++  assertEq(frame.environment.getVariable("block"), "block");
++
++  g.resolveBlock();
++  await waitForOnPop(frame);
++
++  assertEq(
++    JSON.stringify(frame.environment.names()),
++    JSON.stringify(["loop"])
++  );
++  assertEq(frame.environment.getVariable("loop"), "loop");
++
++  g.resolveLoop();
++  await waitForOnPop(frame);
++
++  assertEq(
++    JSON.stringify(frame.environment.names()),
++    JSON.stringify(["err"])
++  );
++  assertEq(frame.environment.getVariable("err"), "err");
++
++  g.resolveCatch();
++  const result = await promise;
++
++  assertEq(result.done, true);
++  assertEq(result.value, 43);
++
++  assertThrowsInstanceOf(() => frame.environment, Error);
++
++  throw "all-jobs-completed-successfully";
++})();

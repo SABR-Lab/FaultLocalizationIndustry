@@ -1,0 +1,59 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/MediaEngineWebRTCAudio.cpp
+# Commit: 094c8649451f
+# Full Hash: 094c8649451f4b3dd81e30c6546425579d96d432
+# Author: Chun-Min Chang <chun.m.chang@gmail.com>
+# Date: 2022-04-14 03:45:41
+# Description:
+#   Bug 1763630 - Connect device input via a main-thread only NativeInputTrack r=padenot
+#   
+#   We should keep a main-thread only NativeInputTrack member variable in
+#   AudioProcessingTrack and use it to connect and disconnect the device
+#   input which open and close audio microphone in MTG.
+# ==============================================================================
+
+diff -r 45536e4f0cf1 -r 094c8649451f dom/media/webrtc/MediaEngineWebRTCAudio.cpp
+--- a/dom/media/webrtc/MediaEngineWebRTCAudio.cpp	Wed Apr 13 16:11:51 2022 +0000
++++ b/dom/media/webrtc/MediaEngineWebRTCAudio.cpp	Wed Apr 13 16:21:44 2022 +0000
+@@ -9,7 +9,6 @@
+ #include <algorithm>
+ 
+ #include "AudioConverter.h"
+-#include "DeviceInputTrack.h"
+ #include "MediaManager.h"
+ #include "MediaTrackGraphImpl.h"
+ #include "MediaTrackConstraints.h"
+@@ -1339,11 +1338,11 @@
+     NS_WARNING("Failed to open audio device.");
+     return r.unwrapErr();
+   }
+-  RefPtr<NativeInputTrack> input = r.unwrap();
+-  MOZ_ASSERT(input);
+-  LOG("Open device %p (InputTrack=%p) for Mic source %p", aId, input.get(),
+-      this);
+-  mPort = AllocateInputPort(input.get());
++  mDeviceInputTrack = r.unwrap();
++  MOZ_ASSERT(mDeviceInputTrack);
++  LOG("Open device %p (InputTrack=%p) for Mic source %p", aId,
++      mDeviceInputTrack.get(), this);
++  mPort = AllocateInputPort(mDeviceInputTrack.get());
+   return NS_OK;
+ }
+ 
+@@ -1355,11 +1354,11 @@
+   }
+   MOZ_ASSERT(mPort);
+   MOZ_ASSERT(mDeviceId.isSome());
+-  RefPtr<NativeInputTrack> input(mPort->GetSource()->AsNativeInputTrack());
+   LOG("Close device %p (InputTrack=%p) for Mic source %p ", *mDeviceId,
+-      input.get(), this);
++      mDeviceInputTrack.get(), this);
+   mPort->Destroy();
+-  NativeInputTrack::CloseAudio(std::move(input), mInputListener.get());
++  NativeInputTrack::CloseAudio(std::move(mDeviceInputTrack),
++                               mInputListener.get());
+   mInputListener = nullptr;
+   mDeviceId = Nothing();
+ }

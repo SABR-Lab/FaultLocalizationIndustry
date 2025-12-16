@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/audioipc/audioipc/src/rpc/server.rs
+# Commit: 3939f37f4740
+# Full Hash: 3939f37f47400a76a94962da4c38c24456952ee6
+# Author: Matthew Gregan <kinetik@flim.org>
+# Date: 2020-01-26 09:48:16
+# Regressor Bug: 1590249
+# File Overlap Count: 3
+# Description:
+#   Bug 1590249 - Update audioipc to 86d49ddf.  r=chunmin
+#   
+#   Minus audio_thread_priority 0.21, due to Android build breakage.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D60615
+# ==============================================================================
+
+diff -r a6f08a30777b -r 3939f37f4740 media/audioipc/audioipc/src/rpc/server.rs
+--- a/media/audioipc/audioipc/src/rpc/server.rs	Sat Jan 25 22:49:44 2020 +0000
++++ b/media/audioipc/audioipc/src/rpc/server.rs	Sat Jan 25 22:50:52 2020 +0000
+@@ -155,6 +155,13 @@
+     }
+ }
+ 
++impl<S: Server> Drop for ServerHandler<S> {
++    fn drop(&mut self) {
++        let _ = self.transport.close();
++        self.in_flight.clear();
++    }
++}
++
+ ////////////////////////////////////////////////////////////////////////////////
+ 
+ enum InFlight<F: Future<Error = ()>> {

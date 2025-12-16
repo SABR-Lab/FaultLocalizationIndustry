@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/gamepad/ipc/PGamepadEventChannel.ipdl
+# Commit: ec6a64b639a8
+# Full Hash: ec6a64b639a82e957376c09a71aef7ce62b3a5aa
+# Author: Chris Martin <cmartin@mozilla.com>
+# Date: 2020-12-03 09:47:26
+# Regressor Bug: 1657404
+# File Overlap Count: 3
+# Description:
+#   Bug 1657404 - Implement a strongly-typed, service-dependent gamepad handle r=handyman,aklotz
+#   
+#   Currently, the gamepad code uses a uint32_t as a handle and does some trickery
+#   with it by trying to create a unique ID and adding an offset to it for VR code.
+#   
+# ==============================================================================
+
+diff -r 6792f28b99bd -r ec6a64b639a8 dom/gamepad/ipc/PGamepadEventChannel.ipdl
+--- a/dom/gamepad/ipc/PGamepadEventChannel.ipdl	Wed Dec 02 22:36:35 2020 +0000
++++ b/dom/gamepad/ipc/PGamepadEventChannel.ipdl	Wed Dec 02 23:06:05 2020 +0000
+@@ -2,8 +2,11 @@
+  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+  * You can obtain one at http://mozilla.org/MPL/2.0/. */
+ include protocol PBackground;
++include "mozilla/dom/GamepadMessageUtils.h";
+ include GamepadEventTypes;
+ 
++using mozilla::dom::GamepadHandle from "mozilla/dom/GamepadHandle.h";
++
+ namespace mozilla {
+ namespace dom {
+ 
+@@ -12,10 +15,10 @@
+   parent:
+     async __delete__();
+ 
+-    async VibrateHaptic(uint32_t aControllerIdx, uint32_t aHapticIndex,
++    async VibrateHaptic(GamepadHandle aHandle, uint32_t aHapticIndex,
+                         double aIntensity, double aDuration, uint32_t aPromiseID) tainted;
+-    async StopVibrateHaptic(uint32_t aControllerIdx) tainted;
+-    async LightIndicatorColor(uint32_t aControllerIdx, uint32_t aLightColorIndex,
++    async StopVibrateHaptic(GamepadHandle aHandle) tainted;
++    async LightIndicatorColor(GamepadHandle aHandle, uint32_t aLightColorIndex,
+                               uint8_t aRed, uint8_t aGreen, uint8_t aBlue, uint32_t aPromiseID) tainted;
+ 
+   child:

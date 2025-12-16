@@ -1,0 +1,77 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/test/xpcshell/test_initializeTemporaryOrigin.js
+# Commit: aaa63956f3f0
+# Full Hash: aaa63956f3f022575b29059d5909f63079723d3a
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-10-10 09:22:33
+# Regressor Bug: 1866402
+# File Overlap Count: 1
+# Description:
+#   Bug 1866402 - Add nsIQuotaManagerService::PersistentOriginInitialized and nsIQuotaManagerService::TemporaryOriginInitialized methods; r=dom-storage-reviewers,jari
+#   
+#   This additional testing infrastructure is needed for verifying origin
+#   initialization status.
+#   
+# ==============================================================================
+
+diff -r f799f35b1c84 -r aaa63956f3f0 dom/quota/test/xpcshell/test_initializeTemporaryOrigin.js
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/dom/quota/test/xpcshell/test_initializeTemporaryOrigin.js	Wed Oct 09 22:16:50 2024 +0000
+@@ -0,0 +1,55 @@
++/**
++ * Any copyright is dedicated to the Public Domain.
++ * http://creativecommons.org/publicdomain/zero/1.0/
++ */
++
++/**
++ * This test is mainly to verify that initializeTemporaryOrigin() does call
++ * QuotaManager::EnsureTemporaryOriginIsInitialized() which ensures origin
++ * directory existence.
++ */
++
++async function testSteps() {
++  const originMetadata = {
++    persistence: "default",
++    principal: getPrincipal("https://foo.example.com"),
++    file: getRelativeFile("storage/default/https+++foo.example.com"),
++  };
++
++  info("Clearing");
++
++  let request = clear();
++  await requestFinished(request);
++
++  info("Initializing");
++
++  request = init();
++  await requestFinished(request);
++
++  info("Initializing temporary storage");
++
++  request = initTemporaryStorage();
++  await requestFinished(request);
++
++  info("Initializing temporary origin");
++
++  ok(!originMetadata.file.exists(), "Origin directory does not exist");
++
++  request = initTemporaryOrigin(
++    originMetadata.persistence,
++    originMetadata.principal
++  );
++  await requestFinished(request);
++
++  ok(originMetadata.file.exists(), "Origin directory does exist");
++
++  info("Verifying temporary origin initialization status");
++
++  request = temporaryOriginInitialized(
++    originMetadata.persistence,
++    originMetadata.principal
++  );
++  await requestFinished(request);
++
++  ok(request.result, "Temporary origin is initialized");
++}

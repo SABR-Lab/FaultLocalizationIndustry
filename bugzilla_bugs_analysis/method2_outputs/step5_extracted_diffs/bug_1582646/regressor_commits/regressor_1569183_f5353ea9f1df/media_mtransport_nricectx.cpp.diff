@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/mtransport/nricectx.cpp
+# Commit: f5353ea9f1df
+# Full Hash: f5353ea9f1dfe15a65076bc7aa272d688ebdb8ca
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2019-09-18 21:49:27
+# Regressor Bug: 1569183
+# File Overlap Count: 2
+# Description:
+#   Bug 1569183: Add a proxy policy argument to NrSocketProxyConfig, and always set this config on the NrIceCtx. r=mjf
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D45101
+# ==============================================================================
+
+diff -r ed1ae6a85255 -r f5353ea9f1df media/mtransport/nricectx.cpp
+--- a/media/mtransport/nricectx.cpp	Tue Sep 17 18:17:13 2019 +0000
++++ b/media/mtransport/nricectx.cpp	Tue Sep 17 18:17:14 2019 +0000
+@@ -280,7 +280,6 @@
+       policy_(policy),
+       nat_(nullptr),
+       proxy_config_(nullptr),
+-      proxy_only_(false),
+       obfuscate_host_addresses_(false) {}
+ 
+ /* static */
+@@ -852,7 +851,7 @@
+   return NS_OK;
+ }
+ 
+-void NrIceCtx::SetCtxFlags(bool default_route_only, bool proxy_only) {
++void NrIceCtx::SetCtxFlags(bool default_route_only) {
+   ASSERT_ON_THREAD(sts_target_);
+ 
+   if (default_route_only) {
+@@ -860,15 +859,9 @@
+   } else {
+     nr_ice_ctx_remove_flags(ctx_, NR_ICE_CTX_FLAGS_ONLY_DEFAULT_ADDRS);
+   }
+-
+-  if (proxy_only) {
+-    nr_ice_ctx_add_flags(ctx_, NR_ICE_CTX_FLAGS_ONLY_PROXY);
+-  } else {
+-    nr_ice_ctx_remove_flags(ctx_, NR_ICE_CTX_FLAGS_ONLY_PROXY);
+-  }
+ }
+ 
+-nsresult NrIceCtx::StartGathering(bool default_route_only, bool proxy_only,
++nsresult NrIceCtx::StartGathering(bool default_route_only,
+                                   bool obfuscate_host_addresses) {
+   ASSERT_ON_THREAD(sts_target_);
+ 
+@@ -876,9 +869,7 @@
+ 
+   SetGatheringState(ICE_CTX_GATHER_STARTED);
+ 
+-  SetCtxFlags(default_route_only, proxy_only);
+-
+-  proxy_only_ = proxy_only;
++  SetCtxFlags(default_route_only);
+ 
+   // This might start gathering for the first time, or again after
+   // renegotiation, or might do nothing at all if gathering has already
+@@ -1098,11 +1089,6 @@
+ 
+   if (obj) {
+     config = static_cast<NrIceCtx*>(obj)->GetProxyConfig();
+-    bool ctx_proxy_only = static_cast<NrIceCtx*>(obj)->proxy_only();
+-
+-    if (ctx_proxy_only && !config) {
+-      ABORT(R_FAILED);
+-    }
+   }
+ 
+   r = NrSocketBase::CreateSocket(addr, &sock, config);

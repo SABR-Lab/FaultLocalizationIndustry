@@ -1,0 +1,39 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsINode.cpp
+# Commit: 1d31679f3675
+# Full Hash: 1d31679f367578679c347186cfaae92ebfb27cb5
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2025-05-16 21:40:29
+# Description:
+#   Bug 1966485 - Remove an assertion in the function call operator in IsItemInRangeComparator r=jjaschke
+#   
+#   I introduced this assertion in bug 1932150 with the assumption that
+#   the boundaries for `aRange` should be connected at this point. However
+#   this wasn't always the case for NativeAnonymousContent, where nsRange
+# ==============================================================================
+
+diff -r 39ef68bec9f9 -r 1d31679f3675 dom/base/nsINode.cpp
+--- a/dom/base/nsINode.cpp	Fri May 16 14:46:51 2025 +0000
++++ b/dom/base/nsINode.cpp	Fri May 16 14:56:20 2025 +0000
+@@ -367,13 +367,15 @@
+     Maybe<int32_t> cmp = ComparePoints(
+         &mNode, mEndOffset, aRange->GetMayCrossShadowBoundaryStartContainer(),
+         aRange->MayCrossShadowBoundaryStartOffset(), mCache);
+-    MOZ_ASSERT(cmp.isSome());  // Should always be connected at this point.
+-    if (cmp.value() == 1) {
++    // nsContentUtils::ComparePoints would return Nothing when nodes
++    // are disconnected, ComparePoints_Deprecated used to return 1
++    // for that case. Hence valueOr(1) to keep the legacy result.
++    if (cmp.valueOr(1) == 1) {
+       cmp = ComparePoints(&mNode, mStartOffset,
+                           aRange->GetMayCrossShadowBoundaryEndContainer(),
+                           aRange->MayCrossShadowBoundaryEndOffset(), mCache);
+-      MOZ_ASSERT(cmp.isSome());
+-      if (cmp.value() == -1) {
++      // Same reason as above.
++      if (cmp.valueOr(1) == -1) {
+         return 0;
+       }
+       return 1;

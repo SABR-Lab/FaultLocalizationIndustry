@@ -1,0 +1,74 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/public/experimental/TypedData.h
+# Commit: b5bafd6f08d3
+# Full Hash: b5bafd6f08d3050c9ddde0fedc1eeea1452d2a97
+# Author: Steve Fink <sfink@mozilla.com>
+# Date: 2021-08-13 09:27:46
+# Regressor Bug: 1720422
+# File Overlap Count: 2
+# Description:
+#   Bug 1720422 - Convert the JS_GetObjectAs(type)Array APIs r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D119859
+# ==============================================================================
+
+diff -r f212ab757312 -r b5bafd6f08d3 js/public/experimental/TypedData.h
+--- a/js/public/experimental/TypedData.h	Thu Aug 12 20:44:16 2021 +0000
++++ b/js/public/experimental/TypedData.h	Thu Aug 12 20:44:17 2021 +0000
+@@ -166,44 +166,20 @@
+ }  // namespace js
+ 
+ /*
++ * JS_GetObjectAs(type)Array(JSObject* maybeWrapped, size_t* length, bool*
++ * isSharedMemory, element_type** data)
++ *
+  * Unwrap Typed arrays all at once. Return nullptr without throwing if the
+  * object cannot be viewed as the correct typed array, or the typed array
+  * object on success, filling both outparameters.
+  */
+-extern JS_PUBLIC_API JSObject* JS_GetObjectAsInt8Array(JSObject* obj,
+-                                                       size_t* length,
+-                                                       bool* isSharedMemory,
+-                                                       int8_t** data);
+-extern JS_PUBLIC_API JSObject* JS_GetObjectAsUint8Array(JSObject* obj,
+-                                                        size_t* length,
+-                                                        bool* isSharedMemory,
+-                                                        uint8_t** data);
+-extern JS_PUBLIC_API JSObject* JS_GetObjectAsUint8ClampedArray(
+-    JSObject* obj, size_t* length, bool* isSharedMemory, uint8_t** data);
+-extern JS_PUBLIC_API JSObject* JS_GetObjectAsInt16Array(JSObject* obj,
+-                                                        size_t* length,
+-                                                        bool* isSharedMemory,
+-                                                        int16_t** data);
+-extern JS_PUBLIC_API JSObject* JS_GetObjectAsUint16Array(JSObject* obj,
+-                                                         size_t* length,
+-                                                         bool* isSharedMemory,
+-                                                         uint16_t** data);
+-extern JS_PUBLIC_API JSObject* JS_GetObjectAsInt32Array(JSObject* obj,
+-                                                        size_t* length,
+-                                                        bool* isSharedMemory,
+-                                                        int32_t** data);
+-extern JS_PUBLIC_API JSObject* JS_GetObjectAsUint32Array(JSObject* obj,
+-                                                         size_t* length,
+-                                                         bool* isSharedMemory,
+-                                                         uint32_t** data);
+-extern JS_PUBLIC_API JSObject* JS_GetObjectAsFloat32Array(JSObject* obj,
+-                                                          size_t* length,
+-                                                          bool* isSharedMemory,
+-                                                          float** data);
+-extern JS_PUBLIC_API JSObject* JS_GetObjectAsFloat64Array(JSObject* obj,
+-                                                          size_t* length,
+-                                                          bool* isSharedMemory,
+-                                                          double** data);
++#define DECLARE_GET_OBJECT_AS(ExternalType, NativeType, Name)       \
++  extern JS_PUBLIC_API JSObject* JS_GetObjectAs##Name##Array(       \
++      JSObject* maybeWrapped, size_t* length, bool* isSharedMemory, \
++      ExternalType** data);
++JS_FOR_EACH_TYPED_ARRAY(DECLARE_GET_OBJECT_AS)
++#undef DECLARE_GET_OBJECT_AS
++
+ extern JS_PUBLIC_API JSObject* JS_GetObjectAsArrayBufferView(
+     JSObject* obj, size_t* length, bool* isSharedMemory, uint8_t** data);
+ 

@@ -1,0 +1,66 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jsapi-tests/testGCHeapBarriers.cpp
+# Commit: 2fa53cd9ac4e
+# Full Hash: 2fa53cd9ac4e821763dbc4402e58b58184ce230b
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2022-03-04 04:18:28
+# Regressor Bug: 1643586
+# File Overlap Count: 1
+# Description:
+#   Bug 1643586 - Part 6: Stop using JSContext for GC helper thread tasks r=jandem
+#   
+#   This patch moves the debug-only GC state from JSContext to JSFreeOp. Support
+#   functions for this move to FreeOp.h and most RAII classes move to GCInternals.h.
+#   
+# ==============================================================================
+
+diff -r 054a08d13999 -r 2fa53cd9ac4e js/src/jsapi-tests/testGCHeapBarriers.cpp
+--- a/js/src/jsapi-tests/testGCHeapBarriers.cpp	Thu Mar 03 17:49:18 2022 +0000
++++ b/js/src/jsapi-tests/testGCHeapBarriers.cpp	Thu Mar 03 17:49:18 2022 +0000
+@@ -9,6 +9,7 @@
+ #include "mozilla/UniquePtr.h"
+ 
+ #include "gc/Cell.h"
++#include "gc/GCInternals.h"
+ #include "gc/GCRuntime.h"
+ #include "js/ArrayBuffer.h"  // JS::NewArrayBuffer
+ #include "js/experimental/TypedData.h"
+@@ -253,10 +254,8 @@
+ 
+     // Disable the check that GCPtrs are only destroyed by the GC. What happens
+     // on destruction isn't relevant to the test.
+-    mozilla::Maybe<gc::AutoSetThreadIsFinalizing> threadIsFinalizing;
+-    if constexpr (std::is_same_v<std::remove_const_t<W>, GCPtr<T>>) {
+-      threadIsFinalizing.emplace();
+-    }
++    gc::AutoSetThreadIsPerformingGC performingGC;
++    gc::AutoSetThreadIsFinalizing threadIsFinalizing;
+ 
+     js_delete(testStruct);
+   }
+@@ -299,6 +298,7 @@
+ 
+     // Disable the check that GCPtrs are only destroyed by the GC. What happens
+     // on destruction isn't relevant to the test.
++    gc::AutoSetThreadIsPerformingGC performingGC;
+     gc::AutoSetThreadIsFinalizing threadIsFinalizing;
+ 
+     js_delete(testStruct);
+@@ -782,6 +782,7 @@
+ 
+   {
+     // Let us destroy GCPtrs ourselves for testing purposes.
++    gc::AutoSetThreadIsPerformingGC performingGC;
+     gc::AutoSetThreadIsFinalizing threadIsFinalizing;
+ 
+     GCPtrObject wrapper1(obj);
+@@ -803,6 +804,7 @@
+ 
+   {
+     // Let us destroy GCPtrs ourselves for testing purposes.
++    gc::AutoSetThreadIsPerformingGC performingGC;
+     gc::AutoSetThreadIsFinalizing threadIsFinalizing;
+ 
+     GCPtrObject wrapper1(obj1);

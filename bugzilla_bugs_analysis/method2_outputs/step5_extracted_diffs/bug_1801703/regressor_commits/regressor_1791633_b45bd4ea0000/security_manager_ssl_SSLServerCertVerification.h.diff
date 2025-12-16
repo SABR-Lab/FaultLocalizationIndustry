@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/manager/ssl/SSLServerCertVerification.h
+# Commit: b45bd4ea0000
+# Full Hash: b45bd4ea0000e64e4b159cac01d09519d73166f7
+# Author: Dana Keeler <dkeeler@mozilla.com>
+# Date: 2022-11-17 09:39:01
+# Regressor Bug: 1791633
+# File Overlap Count: 1
+# Description:
+#   Bug 1791633 - separate nsITLSSocketControl from nsITransportSecurityInfo r=necko-reviewers,kershaw,jschanck
+#   
+#   Depends on D160311
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D160313
+# ==============================================================================
+
+diff -r 705439f1d269 -r b45bd4ea0000 security/manager/ssl/SSLServerCertVerification.h
+--- a/security/manager/ssl/SSLServerCertVerification.h	Wed Nov 16 16:37:29 2022 +0000
++++ b/security/manager/ssl/SSLServerCertVerification.h	Wed Nov 16 16:37:29 2022 +0000
+@@ -7,6 +7,7 @@
+ #define _SSLSERVERCERTVERIFICATION_H
+ 
+ #include "CertVerifier.h"
++#include "CommonSocketControl.h"
+ #include "ScopedNSSTypes.h"
+ #include "mozilla/Maybe.h"
+ #include "mozpkix/pkix.h"
+@@ -24,7 +25,6 @@
+ namespace mozilla {
+ namespace psm {
+ 
+-class TransportSecurityInfo;
+ enum class EVStatus : uint8_t;
+ 
+ SECStatus AuthCertificateHook(void* arg, PRFileDesc* fd, PRBool checkSig,
+@@ -34,7 +34,7 @@
+ // asynchronous and the info object will be notified when the verification has
+ // completed via SetCertVerificationResult.
+ SECStatus AuthCertificateHookWithInfo(
+-    TransportSecurityInfo* infoObject, const nsACString& aHostName,
++    CommonSocketControl* socketControl, const nsACString& aHostName,
+     const void* aPtrForLogging, nsTArray<nsTArray<uint8_t>>&& peerCertChain,
+     Maybe<nsTArray<nsTArray<uint8_t>>>& stapledOCSPResponses,
+     Maybe<nsTArray<uint8_t>>& sctsFromTLSExtension, uint32_t providerFlags);
+@@ -68,7 +68,7 @@
+   NS_DECL_ISUPPORTS_INHERITED
+   NS_DECL_NSIRUNNABLE
+ 
+-  explicit SSLServerCertVerificationResult(TransportSecurityInfo* infoObject);
++  explicit SSLServerCertVerificationResult(CommonSocketControl* socketControl);
+ 
+   void Dispatch(nsTArray<nsTArray<uint8_t>>&& aBuiltChain,
+                 nsTArray<nsTArray<uint8_t>>&& aPeerCertChain,
+@@ -82,7 +82,7 @@
+  private:
+   ~SSLServerCertVerificationResult() = default;
+ 
+-  const RefPtr<TransportSecurityInfo> mInfoObject;
++  const RefPtr<CommonSocketControl> mSocketControl;
+   nsTArray<nsTArray<uint8_t>> mBuiltChain;
+   nsTArray<nsTArray<uint8_t>> mPeerCertChain;
+   uint16_t mCertificateTransparencyStatus;

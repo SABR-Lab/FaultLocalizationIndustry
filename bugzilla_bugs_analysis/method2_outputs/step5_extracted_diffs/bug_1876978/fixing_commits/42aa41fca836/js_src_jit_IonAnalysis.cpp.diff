@@ -1,0 +1,108 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/IonAnalysis.cpp
+# Commit: 42aa41fca836
+# Full Hash: 42aa41fca836122d1d0cca50e1892d15a5b55e10
+# Author: Nicolas B. Pierron <nicolas.b.pierron@mozilla.com>
+# Date: 2024-02-03 09:21:20
+# Description:
+#   Bug 1876978 - Revert Bug 1874456 part 2 r=iain
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D200481
+# ==============================================================================
+
+diff -r 871aa35f10ed -r 42aa41fca836 js/src/jit/IonAnalysis.cpp
+--- a/js/src/jit/IonAnalysis.cpp	Fri Feb 02 18:27:49 2024 +0000
++++ b/js/src/jit/IonAnalysis.cpp	Fri Feb 02 18:33:40 2024 +0000
+@@ -1446,8 +1446,7 @@
+       // parameter passing might be live. Rewriting uses of these terms
+       // in resume points may affect the interpreter's behavior. Rather
+       // than doing a more sophisticated analysis, just ignore these.
+-      if (ins->isUnbox() || ins->isParameter() || ins->isBoxNonStrictThis() ||
+-          ins->isOsrValue()) {
++      if (ins->isUnbox() || ins->isParameter() || ins->isBoxNonStrictThis()) {
+         continue;
+       }
+ 
+@@ -1459,15 +1458,6 @@
+         continue;
+       }
+ 
+-      // If an instruction can be recovered on bailout, but it has a resume
+-      // point, then do not attempt to remove its uses. The reason being that
+-      // this is likely to be an allocation which would be flagged as recovered
+-      // on bailout by the Sink phase, as long as it is captured by resume
+-      // points, but it would not be removed by DCE as it has a resume point.
+-      if (ins->canRecoverOnBailout() && ins->resumePoint()) {
+-        continue;
+-      }
+-
+       // If the instruction's behavior has been constant folded into a
+       // separate instruction, we can't determine precisely where the
+       // instruction becomes dead and can't eliminate its uses.
+@@ -1480,11 +1470,7 @@
+       // (not resume point). This requires the instructions in the block
+       // to be numbered, ensured by running this immediately after alias
+       // analysis.
+-      //
+-      // The fact that the consumers are in the same block is a cheap way to
+-      // ensure that there is no need for block domination question, nor any Phi
+-      // at a loop edge.
+-      uint32_t lastConsumerId = 0;
++      uint32_t maxDefinition = 0;
+       for (MUseIterator uses(ins->usesBegin()); uses != ins->usesEnd();
+            uses++) {
+         MNode* consumer = uses->consumer();
+@@ -1494,7 +1480,7 @@
+           // stack, so it has to be computed.
+           MResumePoint* resume = consumer->toResumePoint();
+           if (resume->isObservableOperand(*uses)) {
+-            lastConsumerId = UINT32_MAX;
++            maxDefinition = UINT32_MAX;
+             break;
+           }
+           continue;
+@@ -1502,36 +1488,26 @@
+ 
+         MDefinition* def = consumer->toDefinition();
+         if (def->block() != *block || def->isBox() || def->isPhi()) {
+-          lastConsumerId = UINT32_MAX;
++          maxDefinition = UINT32_MAX;
+           break;
+         }
+-        lastConsumerId = std::max(lastConsumerId, def->id());
++        maxDefinition = std::max(maxDefinition, def->id());
+       }
+-      if (lastConsumerId == UINT32_MAX) {
++      if (maxDefinition == UINT32_MAX) {
+         continue;
+       }
+ 
+       // Walk the uses a second time, removing any in resume points after
+       // the last use in a definition.
+-      //
+-      // Given that all consumers are in the same block as the definition, and
+-      // there is not observable operand, then we can replace this operand in
+-      // any resume point which is after the last consumer. This means, in a
+-      // different block or located after the last consumer.
+       for (MUseIterator uses(ins->usesBegin()); uses != ins->usesEnd();) {
+         MUse* use = *uses++;
+         if (use->consumer()->isDefinition()) {
+-          MOZ_ASSERT(*block == use->consumer()->block());
+           continue;
+         }
+-
+         MResumePoint* mrp = use->consumer()->toResumePoint();
+-
+-        // The transformation below would remove the instruction from the
+-        // operand of the resume point. This condition is used to preserve any
+-        // resume point which value might flow in one of the live consumers.
+-        if (mrp->block() == *block &&
+-            (!mrp->instruction() || mrp->instruction()->id() <= lastConsumerId)) {
++        if (mrp->block() != *block || !mrp->instruction() ||
++            mrp->instruction() == *ins ||
++            mrp->instruction()->id() <= maxDefinition) {
+           continue;
+         }
+ 

@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasink/VideoSink.h
+# Commit: b91bd828c657
+# Full Hash: b91bd828c657d85120fe02e57410a0b82ec0acd3
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2019-11-14 21:46:28
+# Regressor Bug: 1172394
+# File Overlap Count: 1
+# Description:
+#   Bug 1172394 - Simplify MediaSink somewhat. r=padenot
+#   
+#   This patches does several minor things:
+#   - Moves SetSink (from setSinkid) to automatic coalescing of multiple calls
+#     through a Canonical/Mirror setup instead of a manual atomic counter.
+# ==============================================================================
+
+diff -r fdf5dd8ff807 -r b91bd828c657 dom/media/mediasink/VideoSink.h
+--- a/dom/media/mediasink/VideoSink.h	Wed Nov 13 22:40:07 2019 +0000
++++ b/dom/media/mediasink/VideoSink.h	Wed Nov 13 22:40:05 2019 +0000
+@@ -32,10 +32,6 @@
+             MediaQueue<VideoData>& aVideoQueue, VideoFrameContainer* aContainer,
+             FrameStatistics& aFrameStats, uint32_t aVQueueSentToCompositerSize);
+ 
+-  const PlaybackParams& GetPlaybackParams() const override;
+-
+-  void SetPlaybackParams(const PlaybackParams& aParams) override;
+-
+   RefPtr<EndedPromise> OnEnded(TrackType aType) override;
+ 
+   TimeUnit GetEndTime(TrackType aType) const override;
+@@ -52,6 +48,8 @@
+ 
+   void SetPlaying(bool aPlaying) override;
+ 
++  double PlaybackRate() const override;
++
+   void Redraw(const VideoInfo& aInfo) override;
+ 
+   nsresult Start(const TimeUnit& aStartTime, const MediaInfo& aInfo) override;

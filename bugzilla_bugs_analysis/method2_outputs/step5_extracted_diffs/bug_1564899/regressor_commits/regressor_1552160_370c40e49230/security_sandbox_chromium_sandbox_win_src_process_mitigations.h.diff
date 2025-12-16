@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/sandbox/win/src/process_mitigations.h
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 2
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/sandbox/win/src/process_mitigations.h
+--- a/security/sandbox/chromium/sandbox/win/src/process_mitigations.h	Wed Jun 12 21:55:59 2019 +1200
++++ b/security/sandbox/chromium/sandbox/win/src/process_mitigations.h	Wed Jun 12 11:10:48 2019 +0100
+@@ -6,6 +6,7 @@
+ #define SANDBOX_SRC_WIN_PROCESS_MITIGATIONS_H_
+ 
+ #include <windows.h>
++
+ #include <stddef.h>
+ 
+ #include "sandbox/win/src/security_level.h"
+@@ -25,9 +26,10 @@
+ MitigationFlags FilterPostStartupProcessMitigations(MitigationFlags flags);
+ 
+ // Converts sandbox flags to the PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES
+-// policy flags used by UpdateProcThreadAttribute(). The size field varies
+-// between a 32-bit and a 64-bit type based on the exact build and version of
+-// Windows, so the returned size must be passed to UpdateProcThreadAttribute().
++// policy flags used by UpdateProcThreadAttribute().
++// - |policy_flags| must be a two-element DWORD64 array.
++// - |size| is a size_t so that it can be passed directly into
++//   UpdateProcThreadAttribute().
+ void ConvertProcessMitigationsToPolicy(MitigationFlags flags,
+                                        DWORD64* policy_flags,
+                                        size_t* size);
+@@ -37,6 +39,9 @@
+ bool ApplyProcessMitigationsToSuspendedProcess(HANDLE process,
+                                                MitigationFlags flags);
+ 
++// Returns the list of process mitigations which can be enabled post startup.
++MitigationFlags GetAllowedPostStartupProcessMitigations();
++
+ // Returns true if all the supplied flags can be set after a process starts.
+ bool CanSetProcessMitigationsPostStartup(MitigationFlags flags);
+ 
+@@ -49,4 +54,3 @@
+ }  // namespace sandbox
+ 
+ #endif  // SANDBOX_SRC_WIN_PROCESS_MITIGATIONS_H_
+-

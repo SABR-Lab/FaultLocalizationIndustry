@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/script/ScriptSettings.cpp
+# Commit: c11cffaded9c
+# Full Hash: c11cffaded9cfed53b04e5c7875278e9a9e55396
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-02-18 21:52:29
+# Regressor Bug: 1742437
+# File Overlap Count: 5
+# Description:
+#   Bug 1742437 - re-scope all generic module/script loader files under js/loader; r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D138133
+# ==============================================================================
+
+diff -r 0527d227c6b6 -r c11cffaded9c dom/script/ScriptSettings.cpp
+--- a/dom/script/ScriptSettings.cpp	Fri Feb 18 12:45:52 2022 +0000
++++ b/dom/script/ScriptSettings.cpp	Fri Feb 18 12:45:53 2022 +0000
+@@ -7,7 +7,6 @@
+ #include "mozilla/dom/ScriptSettings.h"
+ 
+ #include <utility>
+-#include "LoadedScript.h"
+ #include "MainThreadUtils.h"
+ #include "js/CharacterEncoding.h"
+ #include "js/CompilationAndEvaluation.h"
+@@ -21,6 +20,8 @@
+ #include "js/Warnings.h"
+ #include "js/Wrapper.h"
+ #include "js/friend/ErrorMessages.h"
++#include "js/loader/LoadedScript.h"
++#include "js/loader/ScriptLoadRequest.h"
+ #include "jsapi.h"
+ #include "mozilla/Assertions.h"
+ #include "mozilla/BasePrincipal.h"
+@@ -33,7 +34,6 @@
+ #include "mozilla/dom/BindingUtils.h"
+ #include "mozilla/dom/Document.h"
+ #include "mozilla/dom/Element.h"
+-#include "mozilla/dom/ScriptLoadRequest.h"
+ #include "mozilla/dom/WorkerCommon.h"
+ #include "nsContentUtils.h"
+ #include "nsDebug.h"
+@@ -55,7 +55,8 @@
+   // NOTE: The result of this is only used by DevTools for matching sources, so
+   // it is safe to silently ignore any errors and return nullptr for them.
+ 
+-  LoadedScript* script = static_cast<LoadedScript*>(aPrivateValue.toPrivate());
++  JS::loader::LoadedScript* script =
++      static_cast<JS::loader::LoadedScript*>(aPrivateValue.toPrivate());
+ 
+   JS::Rooted<JS::Value> elementValue(aCx);
+   {

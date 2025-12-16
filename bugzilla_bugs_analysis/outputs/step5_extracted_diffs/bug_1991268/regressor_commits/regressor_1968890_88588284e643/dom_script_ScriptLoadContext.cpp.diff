@@ -1,0 +1,28 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/script/ScriptLoadContext.cpp
+# Commit: 88588284e643
+# Full Hash: 88588284e64389c983816d5d61c9834fa7a14e40
+# Author: Yoshi Cheng-Hao Huang <allstars.chh@gmail.com>
+# Date: 2025-09-26 06:07 +0000
+# Regressor Bug: 1968890
+# File Overlap Count: 8
+# Overlapping Files: dom/script/ScriptLoadContext.cpp, dom/script/ModuleLoader.cpp, js/loader/ModuleLoadRequest.cpp, js/loader/ModuleLoaderBase.cpp, dom/workers/loader/WorkerModuleLoader.cpp
+# Description:
+#   Bug 1968890 - Part 1: Dynamic import is not a top-level request. r=jonco,dom-worker-reviewers,edenchuang
+# ==============================================================================
+
+diff -r b5be4eed1485 -r 88588284e643 dom/script/ScriptLoadContext.cpp
+--- a/dom/script/ScriptLoadContext.cpp	Fri Sep 26 09:40:21 2025 +0300
++++ b/dom/script/ScriptLoadContext.cpp	Fri Sep 26 06:07:43 2025 +0000
+@@ -131,7 +131,8 @@
+ }
+ 
+ bool ScriptLoadContext::IsPreload() const {
+-  if (mRequest->IsModuleRequest() && !mRequest->IsTopLevel()) {
++  if (mRequest->IsModuleRequest() &&
++      mRequest->AsModuleRequest()->IsStaticImport()) {
+     JS::loader::ModuleLoadRequest* root =
+         mRequest->AsModuleRequest()->GetRootModule();
+     return root->GetScriptLoadContext()->IsPreload();

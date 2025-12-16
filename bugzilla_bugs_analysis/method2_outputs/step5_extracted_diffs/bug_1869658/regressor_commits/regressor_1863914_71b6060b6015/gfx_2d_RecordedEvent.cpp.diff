@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/2d/RecordedEvent.cpp
+# Commit: 71b6060b6015
+# Full Hash: 71b6060b60151e157e94110d28fb51d76bb6415a
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2023-12-08 04:18:28
+# Regressor Bug: 1863914
+# File Overlap Count: 2
+# Description:
+#   Bug 1863914: Use multiple shmem buffers for remote canvas recording. r=aosmond
+#   
+#   This replaces the use of a single large ring buffer.
+#   The buffers are still processed in parallel and are recycled to reduce
+#   allocation. Events that do not fit in the default sized buffer have a separate
+# ==============================================================================
+
+diff -r bf28b3c066e6 -r 71b6060b6015 gfx/2d/RecordedEvent.cpp
+--- a/gfx/2d/RecordedEvent.cpp	Thu Dec 07 17:10:06 2023 +0000
++++ b/gfx/2d/RecordedEvent.cpp	Thu Dec 07 17:27:24 2023 +0000
+@@ -25,13 +25,6 @@
+   return DoWithEvent(aStream, aType, aAction);
+ }
+ 
+-/* static */
+-bool RecordedEvent::DoWithEventFromStream(
+-    EventRingBuffer& aStream, EventType aType,
+-    const std::function<bool(RecordedEvent*)>& aAction) {
+-  return DoWithEvent(aStream, aType, aAction);
+-}
+-
+ std::string RecordedEvent::GetEventName(EventType aType) {
+   switch (aType) {
+     case DRAWTARGETCREATION:

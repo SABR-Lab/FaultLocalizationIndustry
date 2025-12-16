@@ -1,0 +1,68 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/manager/ssl/nsNSSIOLayer.cpp
+# Commit: ee9744982673
+# Full Hash: ee974498267381418f06efd6ab92c1f2c5f3735d
+# Author: Dana Keeler <dkeeler@mozilla.com>
+# Date: 2022-11-15 16:44:51
+# Regressor Bug: 1791633
+# File Overlap Count: 1
+# Description:
+#   Bug 1791633 - separate nsITLSSocketControl from nsITransportSecurityInfo r=necko-reviewers,kershaw,jschanck
+#   
+#   Depends on D160311
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D160313
+# ==============================================================================
+
+diff -r f5a4bfdaba40 -r ee9744982673 security/manager/ssl/nsNSSIOLayer.cpp
+--- a/security/manager/ssl/nsNSSIOLayer.cpp	Tue Nov 15 05:34:40 2022 +0000
++++ b/security/manager/ssl/nsNSSIOLayer.cpp	Tue Nov 15 05:34:40 2022 +0000
+@@ -578,21 +578,26 @@
+   Telemetry::Accumulate(Telemetry::SSL_HANDSHAKE_RESULT, bucket);
+ 
+   if (bucket == 0) {
++    nsCOMPtr<nsITransportSecurityInfo> securityInfo;
++    if (NS_FAILED(socketInfo->GetSecurityInfo(getter_AddRefs(securityInfo))) ||
++        !securityInfo) {
++      return;
++    }
+     // Web Privacy Telemetry for successful connections.
+     bool success = true;
+ 
+     bool usedPrivateDNS = false;
+-    success &= socketInfo->GetUsedPrivateDNS(&usedPrivateDNS) == NS_OK;
++    success &= securityInfo->GetUsedPrivateDNS(&usedPrivateDNS) == NS_OK;
+ 
+     bool madeOCSPRequest = false;
+-    success &= socketInfo->GetMadeOCSPRequests(&madeOCSPRequest) == NS_OK;
++    success &= securityInfo->GetMadeOCSPRequests(&madeOCSPRequest) == NS_OK;
+ 
+     uint16_t protocolVersion = 0;
+-    success &= socketInfo->GetProtocolVersion(&protocolVersion) == NS_OK;
++    success &= securityInfo->GetProtocolVersion(&protocolVersion) == NS_OK;
+     bool usedTLS13 = protocolVersion == 4;
+ 
+     bool usedECH = false;
+-    success &= socketInfo->GetIsAcceptedEch(&usedECH) == NS_OK;
++    success &= securityInfo->GetIsAcceptedEch(&usedECH) == NS_OK;
+ 
+     // As bucket is 0 we are reporting the results of a sucessful connection
+     // and so TransportSecurityInfo should be populated. However, this isn't
+@@ -1553,13 +1558,12 @@
+   }
+ 
+   NSSSocketControl* infoObject =
+-      new NSSSocketControl(*sharedState, providerFlags, providerTlsFlags);
++      new NSSSocketControl(nsDependentCString(host), port, *sharedState,
++                           providerFlags, providerTlsFlags);
+   if (!infoObject) return NS_ERROR_FAILURE;
+ 
+   NS_ADDREF(infoObject);
+   infoObject->SetForSTARTTLS(forSTARTTLS);
+-  infoObject->SetHostName(host);
+-  infoObject->SetPort(port);
+   infoObject->SetOriginAttributes(originAttributes);
+   if (allocatedState) {
+     infoObject->SetSharedOwningReference(allocatedState);

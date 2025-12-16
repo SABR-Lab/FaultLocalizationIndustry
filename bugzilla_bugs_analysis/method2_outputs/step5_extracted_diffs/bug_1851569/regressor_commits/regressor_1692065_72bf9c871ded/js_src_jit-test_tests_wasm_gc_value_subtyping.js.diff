@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit-test/tests/wasm/gc/value_subtyping.js
+# Commit: 72bf9c871ded
+# Full Hash: 72bf9c871ded006f56f09b24d0723365516445bb
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2023-08-05 09:19:01
+# Regressor Bug: 1692065
+# File Overlap Count: 5
+# Description:
+#   Bug 1692065 - wasm: Add tagging for 31-bit integers and i31ref. r=yury
+#   
+#   This commit adds a tag 0x1 for 31-bit integers in AnyRef. Any JS value
+#   that is losslessly representable (without coercion) in this range is
+#   stored without boxing. This is chosen to line up exactly with how the
+# ==============================================================================
+
+diff -r 28feda14fdec -r 72bf9c871ded js/src/jit-test/tests/wasm/gc/value_subtyping.js
+--- a/js/src/jit-test/tests/wasm/gc/value_subtyping.js	Fri Aug 04 14:06:50 2023 +0000
++++ b/js/src/jit-test/tests/wasm/gc/value_subtyping.js	Fri Aug 04 14:06:50 2023 +0000
+@@ -31,6 +31,7 @@
+ assertSubtype('f32', 'f32');
+ assertSubtype('f64', 'f64');
+ assertSubtype('eqref', 'eqref');
++assertSubtype('i31ref', 'i31ref');
+ assertSubtype('funcref', 'funcref');
+ 
+ // No subtyping relation between funcref, anyref, externref. These are our top
+@@ -45,6 +46,10 @@
+ // eqref is a subtype of anyref
+ assertSubtype('anyref', 'eqref');
+ 
++// i31ref is a subtype of eqref
++assertSubtype('anyref', 'i31ref');
++assertSubtype('eqref', 'i31ref');
++
+ // structref is a subtype of eqref and anyref
+ assertSubtype('anyref', 'structref');
+ assertSubtype('eqref', 'structref');

@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/builtin/intl/LanguageTag.cpp
+# Commit: a6338066da1f
+# Full Hash: a6338066da1f1d9bcb3e92ae1997c02c6f0eb49e
+# Author: André Bargull <andre.bargull@gmail.com>
+# Date: 2020-05-20 03:39:31
+# Regressor Bug: 1557727
+# File Overlap Count: 1
+# Description:
+#   Bug 1557727 - Part 3: Implement Intl.DisplayNames proposal. r=jwalden
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D52165
+# ==============================================================================
+
+diff -r 93aa11dd931b -r a6338066da1f js/src/builtin/intl/LanguageTag.cpp
+--- a/js/src/builtin/intl/LanguageTag.cpp	Tue May 19 11:17:48 2020 +0000
++++ b/js/src/builtin/intl/LanguageTag.cpp	Tue May 19 11:18:16 2020 +0000
+@@ -1418,6 +1418,20 @@
+   return false;
+ }
+ 
++JS::Result<bool> LanguageTagParser::tryParseBaseName(JSContext* cx,
++                                                     JSLinearString* locale,
++                                                     LanguageTag& tag) {
++  JS::AutoCheckCannotGC nogc;
++  LocaleChars localeChars = StringChars(locale, nogc);
++  LanguageTagParser ts(localeChars, locale->length());
++  Token tok = ts.nextToken();
++
++  // Return true if the complete input was successfully parsed.
++  bool ok;
++  MOZ_TRY_VAR(ok, parseBaseName(cx, ts, tag, tok));
++  return ok && tok.isNone();
++}
++
+ // Parse |extension|, which must be a valid `transformed_extensions` subtag, and
+ // fill |tag| and |fields| from the `tlang` and `tfield` components.
+ JS::Result<bool> LanguageTagParser::parseTransformExtension(

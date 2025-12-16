@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/style/PostTraversalTask.cpp
+# Commit: 3d30a8d83d77
+# Full Hash: 3d30a8d83d77cfb25c9d75aae2daa01051810ff0
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2022-06-29 03:44:30
+# Regressor Bug: 1771493
+# File Overlap Count: 1
+# Description:
+#   Bug 1771493 - Part 1. Split FontFace(Set) into DOM facing and implementation classes. r=emilio
+#   
+#   This patch aims to split the implementation details of FontFace(Set)
+#   into FontFace(Set)Impl classes. The Impl variants have threadsafe
+#   refcounting and are intended to be the basis for worker support for
+# ==============================================================================
+
+diff -r 53c490e52eb6 -r 3d30a8d83d77 layout/style/PostTraversalTask.cpp
+--- a/layout/style/PostTraversalTask.cpp	Tue Jun 28 21:23:39 2022 +0000
++++ b/layout/style/PostTraversalTask.cpp	Tue Jun 28 21:46:59 2022 +0000
+@@ -8,6 +8,7 @@
+ 
+ #include "mozilla/dom/FontFace.h"
+ #include "mozilla/dom/FontFaceSet.h"
++#include "mozilla/dom/FontFaceSetImpl.h"
+ #include "gfxPlatformFontList.h"
+ #include "gfxTextRun.h"
+ #include "ServoStyleSet.h"
+@@ -20,11 +21,11 @@
+ void PostTraversalTask::Run() {
+   switch (mType) {
+     case Type::ResolveFontFaceLoadedPromise:
+-      static_cast<FontFace*>(mTarget)->DoResolve();
++      static_cast<FontFace*>(mTarget)->MaybeResolve();
+       break;
+ 
+     case Type::RejectFontFaceLoadedPromise:
+-      static_cast<FontFace*>(mTarget)->DoReject(mResult);
++      static_cast<FontFace*>(mTarget)->MaybeReject(mResult);
+       break;
+ 
+     case Type::DispatchLoadingEventAndReplaceReadyPromise:
+@@ -33,7 +34,7 @@
+       break;
+ 
+     case Type::DispatchFontFaceSetCheckLoadingFinishedAfterDelay:
+-      static_cast<FontFaceSet*>(mTarget)
++      static_cast<FontFaceSetImpl*>(mTarget)
+           ->DispatchCheckLoadingFinishedAfterDelay();
+       break;
+ 

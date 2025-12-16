@@ -1,0 +1,65 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/wr/WebRenderLayerManager.h
+# Commit: c09a51622e98
+# Full Hash: c09a51622e988e81077c75e3aaa5a49df66284b3
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2019-03-22 16:44:08
+# Regressor Bug: 1441308
+# File Overlap Count: 2
+# Description:
+#   Bug 1441308 - Core renderroot splitting changes r=kats,sotaro
+#   
+#   This is a large patch that contains all of the core changes for
+#   renderroot splitting.
+#   
+# ==============================================================================
+
+diff -r 737807563dd5 -r c09a51622e98 gfx/layers/wr/WebRenderLayerManager.h
+--- a/gfx/layers/wr/WebRenderLayerManager.h	Thu Mar 21 23:14:26 2019 +0000
++++ b/gfx/layers/wr/WebRenderLayerManager.h	Fri Mar 22 03:15:14 2019 +0000
+@@ -173,7 +173,9 @@
+   WebRenderUserDataRefTable* GetWebRenderUserDataTable() {
+     return mWebRenderCommandBuilder.GetWebRenderUserDataTable();
+   }
+-  WebRenderScrollData& GetScrollData() { return mScrollData; }
++  WebRenderScrollData& GetScrollData(wr::RenderRoot aRenderRoot) {
++    return mScrollDatas[aRenderRoot];
++  }
+ 
+   void WrUpdated();
+   void WindowOverlayChanged() { mWindowOverlayChanged = true; }
+@@ -185,7 +187,10 @@
+   void StopFrameTimeRecording(uint32_t aStartIndex,
+                               nsTArray<float>& aFrameIntervals) override;
+ 
+-  RenderRootStateManager* GetRenderRootStateManager() { return &mStateManager; }
++  RenderRootStateManager* GetRenderRootStateManager(
++      wr::RenderRoot aRenderRoot) {
++    return &mStateManagers[aRenderRoot];
++  }
+ 
+  private:
+   /**
+@@ -206,7 +211,7 @@
+ 
+   // This holds the scroll data that we need to send to the compositor for
+   // APZ to do it's job
+-  WebRenderScrollData mScrollData;
++  wr::RenderRootArray<WebRenderScrollData> mScrollDatas;
+ 
+   bool mWindowOverlayChanged;
+   bool mNeedsComposite;
+@@ -231,9 +236,8 @@
+   nsCString mURL;
+   WebRenderCommandBuilder mWebRenderCommandBuilder;
+ 
+-  size_t mLastDisplayListSize;
+-
+-  RenderRootStateManager mStateManager;
++  wr::RenderRootArray<size_t> mLastDisplayListSizes;
++  wr::RenderRootArray<RenderRootStateManager> mStateManagers;
+ };
+ 
+ }  // namespace layers

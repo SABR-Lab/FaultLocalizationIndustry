@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/painting/RetainedDisplayListBuilder.cpp
+# Commit: a69c40accbf0
+# Full Hash: a69c40accbf099d041417ce4da9b82829f044167
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2023-12-06 21:30:12
+# Regressor Bug: 1860328
+# File Overlap Count: 2
+# Description:
+#   Bug 1860328 - Fix a bug where caret misses when dragging and dropping r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D192377
+# ==============================================================================
+
+diff -r c9558e7c5c2d -r a69c40accbf0 layout/painting/RetainedDisplayListBuilder.cpp
+--- a/layout/painting/RetainedDisplayListBuilder.cpp	Wed Dec 06 16:17:57 2023 +0000
++++ b/layout/painting/RetainedDisplayListBuilder.cpp	Wed Dec 06 16:29:18 2023 +0000
+@@ -1302,23 +1302,6 @@
+   return true;
+ }
+ 
+-void RetainedDisplayListBuilder::InvalidateCaretFramesIfNeeded() {
+-  if (mPreviousCaret == mBuilder.GetCaretFrame()) {
+-    // The current caret frame is the same as the previous one.
+-    return;
+-  }
+-
+-  if (mPreviousCaret) {
+-    mPreviousCaret->MarkNeedsDisplayItemRebuild();
+-  }
+-
+-  if (mBuilder.GetCaretFrame()) {
+-    mBuilder.GetCaretFrame()->MarkNeedsDisplayItemRebuild();
+-  }
+-
+-  mPreviousCaret = mBuilder.GetCaretFrame();
+-}
+-
+ class AutoClearFramePropsArray {
+  public:
+   explicit AutoClearFramePropsArray(size_t aCapacity) : mFrames(aCapacity) {}
+@@ -1574,8 +1557,6 @@
+     MarkFramesWithItemsAndImagesModified(&mList);
+   }
+ 
+-  InvalidateCaretFramesIfNeeded();
+-
+   // We set the override dirty regions during ComputeRebuildRegion or in
+   // DisplayPortUtils::InvalidateForDisplayPortChange. The display port change
+   // also marks the frame modified, so those regions are cleared here as well.

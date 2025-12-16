@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/Marking.cpp
+# Commit: f78d139e1d0e
+# Full Hash: f78d139e1d0e7d1760239cfbe4b8f67e75e1d29c
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2022-03-09 21:37:17
+# Regressor Bug: 1643586
+# File Overlap Count: 1
+# Description:
+#   Bug 1643586 - Part 4: Remove flag for disabling compartment checks from JSContext r=jandem
+#   
+#   This is only used in one place and it's simpler to check the tracer kind there.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D140191
+# ==============================================================================
+
+diff -r 8611c3ef5a77 -r f78d139e1d0e js/src/gc/Marking.cpp
+--- a/js/src/gc/Marking.cpp	Wed Mar 09 10:17:07 2022 +0000
++++ b/js/src/gc/Marking.cpp	Wed Mar 09 10:17:07 2022 +0000
+@@ -554,11 +554,15 @@
+     MOZ_ASSERT_IF(gcMarker->tracingZone,
+                   (*dst)->zone() == gcMarker->tracingZone);
+   }
++
++  // Skip compartment checks for this edge.
++  if (trc->kind() == JS::TracerKind::CompartmentCheck) {
++    return;
++  }
+ #endif
+ 
+   // Clear expected compartment for cross-compartment edge.
+   AutoClearTracingSource acts(trc);
+-  AutoDisableCompartmentCheckTracer adcct;
+   TraceEdgeInternal(trc, ConvertToBase(dst->unbarrieredAddress()), name);
+ }
+ template void js::TraceSameZoneCrossCompartmentEdge(

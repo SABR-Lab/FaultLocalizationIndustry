@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/cookiestore/CookieStoreParent.cpp
+# Commit: d01a1a055fec
+# Full Hash: d01a1a055fece12b906b938954f984bd69278ef7
+# Author: Andrea Marchesini <amarchesini@mozilla.com>
+# Date: 2025-04-30 20:49:53
+# Regressor Bug: 1960824
+# File Overlap Count: 1
+# Description:
+#   Bug 1960824 - Introduce nsICookie::SAMESITE_UNSET, r=edgul,webdriver-reviewers,extension-reviewers,cookie-reviewers,valentin,Sasha,robwu
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D246638
+# ==============================================================================
+
+diff -r 307ff391dd02 -r d01a1a055fec dom/cookiestore/CookieStoreParent.cpp
+--- a/dom/cookiestore/CookieStoreParent.cpp	Wed Apr 30 08:53:12 2025 +0000
++++ b/dom/cookiestore/CookieStoreParent.cpp	Wed Apr 30 08:59:18 2025 +0000
+@@ -319,7 +319,7 @@
+ 
+       if (aThirdPartyContext &&
+           !CookieCommons::ShouldIncludeCrossSiteCookie(
+-              cookie, aPartitionForeign, attrs.IsPrivateBrowsing(),
++              cookie, aCookieURI, aPartitionForeign, attrs.IsPrivateBrowsing(),
+               aUsingStorageAccess, aIsOn3PCBExceptionList)) {
+         continue;
+       }
+@@ -391,7 +391,8 @@
+ 
+   if (aThirdPartyContext &&
+       !CookieCommons::ShouldIncludeCrossSiteCookie(
+-          aSameSite, aPartitioned && !aOriginAttributes.mPartitionKey.IsEmpty(),
++          aCookieURI, aSameSite,
++          aPartitioned && !aOriginAttributes.mPartitionKey.IsEmpty(),
+           aPartitionForeign, aOriginAttributes.IsPrivateBrowsing(),
+           aUsingStorageAccess, aIsOn3PCBExceptionList)) {
+     return false;
+@@ -502,7 +503,7 @@
+       int32_t sameSiteAttr = cookie->SameSite();
+ 
+       if (!CookieCommons::ShouldIncludeCrossSiteCookie(
+-              sameSiteAttr,
++              aCookieURI, sameSiteAttr,
+               aPartitioned && !aOriginAttributes.mPartitionKey.IsEmpty(),
+               aPartitionForeign, attrs.IsPrivateBrowsing(), aUsingStorageAccess,
+               aIsOn3PCBExceptionList)) {

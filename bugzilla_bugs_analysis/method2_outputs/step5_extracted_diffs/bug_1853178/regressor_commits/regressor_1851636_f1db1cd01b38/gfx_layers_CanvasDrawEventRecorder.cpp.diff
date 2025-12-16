@@ -1,0 +1,31 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/CanvasDrawEventRecorder.cpp
+# Commit: f1db1cd01b38
+# Full Hash: f1db1cd01b380dcfc65ee07dcb851c4d70058175
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2023-09-07 04:09:51
+# Regressor Bug: 1851636
+# File Overlap Count: 1
+# Description:
+#   Bug 1851636: Don't create a new buffer if we fail to process the drop buffer event. r=jrmuizel
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D187558
+# ==============================================================================
+
+diff -r 1db7a958b945 -r f1db1cd01b38 gfx/layers/CanvasDrawEventRecorder.cpp
+--- a/gfx/layers/CanvasDrawEventRecorder.cpp	Wed Sep 06 16:37:55 2023 +0000
++++ b/gfx/layers/CanvasDrawEventRecorder.cpp	Wed Sep 06 16:37:56 2023 +0000
+@@ -406,7 +406,10 @@
+ 
+   // Make sure the drop buffer event has been read before continuing. We can't
+   // write an actual checkpoint because there will be no buffer to read from.
+-  WaitForCheckpoint(mOurCount);
++  if (!WaitForCheckpoint(mOurCount)) {
++    return false;
++  }
++
+   mBuf = nullptr;
+   mBufPos = nullptr;
+   mRead = nullptr;

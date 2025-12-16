@@ -1,0 +1,41 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: layout/base/PresShell.cpp
+# Commit: c78a37d01555
+# Full Hash: c78a37d0155569c3e181e5d08ad44721b1f8630b
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2024-02-16 09:46:48
+# Description:
+#   Bug 1879862 - Make `PresShell::HandleEvent` check whether the frame is alive after flushing synthesized mouse move r=smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D201673
+# ==============================================================================
+
+diff -r 212accf72683 -r c78a37d01555 layout/base/PresShell.cpp
+--- a/layout/base/PresShell.cpp	Fri Feb 16 01:11:38 2024 +0200
++++ b/layout/base/PresShell.cpp	Thu Feb 15 23:30:05 2024 +0000
+@@ -6982,12 +6982,20 @@
+         RefPtr<PresShell> rootPresShell =
+             mPresContext->IsRoot() ? this : GetRootPresShell();
+         if (rootPresShell && rootPresShell->mSynthMouseMoveEvent.IsPending()) {
++          AutoWeakFrame frameForPresShellWeak(aFrameForPresShell);
+           RefPtr<nsSynthMouseMoveEvent> synthMouseMoveEvent =
+               rootPresShell->mSynthMouseMoveEvent.get();
+           synthMouseMoveEvent->Run();
+-        }
+-        if (IsDestroying()) {
+-          return NS_OK;
++          if (IsDestroying()) {
++            return NS_OK;
++          }
++          // XXX If the frame or "this" is reframed, it might be better to
++          // recompute the frame.  However, it could treat the user input on
++          // unexpected element.  Therefore, we should not do that until we'd
++          // get a bug report caused by that.
++          if (MOZ_UNLIKELY(!frameForPresShellWeak.IsAlive())) {
++            return NS_OK;
++          }
+         }
+         break;
+       }

@@ -1,0 +1,106 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fetch/FetchDriver.cpp
+# Commit: b9d73f961292
+# Full Hash: b9d73f9612929dda88ca7e68d8d2e04de2aa2a86
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2023-01-20 21:21:03
+# Regressor Bug: 1351231
+# File Overlap Count: 2
+# Description:
+#   Bug 1351231 - FetchService integration for PFetch. r=dom-worker-reviewers,jesup
+#   
+#   Depends on D142436
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D142437
+# ==============================================================================
+
+diff -r 989cbb08b87e -r b9d73f961292 dom/fetch/FetchDriver.cpp
+--- a/dom/fetch/FetchDriver.cpp	Fri Jan 20 09:09:17 2023 +0000
++++ b/dom/fetch/FetchDriver.cpp	Fri Jan 20 09:09:17 2023 +0000
+@@ -39,6 +39,7 @@
+ #include "mozilla/dom/File.h"
+ #include "mozilla/dom/PerformanceStorage.h"
+ #include "mozilla/dom/PerformanceTiming.h"
++#include "mozilla/dom/ServiceWorkerInterceptController.h"
+ #include "mozilla/dom/UserActivation.h"
+ #include "mozilla/dom/WorkerCommon.h"
+ #include "mozilla/PreloaderBase.h"
+@@ -319,7 +320,8 @@
+ //-----------------------------------------------------------------------------
+ 
+ NS_IMPL_ISUPPORTS(FetchDriver, nsIStreamListener, nsIChannelEventSink,
+-                  nsIInterfaceRequestor, nsIThreadRetargetableStreamListener)
++                  nsIInterfaceRequestor, nsIThreadRetargetableStreamListener,
++                  nsINetworkInterceptController)
+ 
+ FetchDriver::FetchDriver(SafeRefPtr<InternalRequest> aRequest,
+                          nsIPrincipal* aPrincipal, nsILoadGroup* aLoadGroup,
+@@ -1465,6 +1467,55 @@
+ }
+ 
+ NS_IMETHODIMP
++FetchDriver::ShouldPrepareForIntercept(nsIURI* aURI, nsIChannel* aChannel,
++                                       bool* aShouldIntercept) {
++  MOZ_ASSERT(aChannel);
++
++  if (mInterceptController) {
++    MOZ_ASSERT(XRE_IsParentProcess());
++    return mInterceptController->ShouldPrepareForIntercept(aURI, aChannel,
++                                                           aShouldIntercept);
++  }
++
++  nsCOMPtr<nsINetworkInterceptController> controller;
++  NS_QueryNotificationCallbacks(nullptr, mLoadGroup,
++                                NS_GET_IID(nsINetworkInterceptController),
++                                getter_AddRefs(controller));
++  if (controller) {
++    return controller->ShouldPrepareForIntercept(aURI, aChannel,
++                                                 aShouldIntercept);
++  }
++
++  *aShouldIntercept = false;
++  return NS_OK;
++}
++
++NS_IMETHODIMP
++FetchDriver::ChannelIntercepted(nsIInterceptedChannel* aChannel) {
++  if (mInterceptController) {
++    MOZ_ASSERT(XRE_IsParentProcess());
++    return mInterceptController->ChannelIntercepted(aChannel);
++  }
++
++  nsCOMPtr<nsINetworkInterceptController> controller;
++  NS_QueryNotificationCallbacks(nullptr, mLoadGroup,
++                                NS_GET_IID(nsINetworkInterceptController),
++                                getter_AddRefs(controller));
++  if (controller) {
++    return controller->ChannelIntercepted(aChannel);
++  }
++
++  return NS_OK;
++}
++
++void FetchDriver::EnableNetworkInterceptControl() {
++  MOZ_ASSERT(XRE_IsParentProcess());
++  MOZ_ASSERT(NS_IsMainThread());
++  MOZ_ASSERT(!mInterceptController);
++  mInterceptController = new ServiceWorkerInterceptController();
++}
++
++NS_IMETHODIMP
+ FetchDriver::AsyncOnChannelRedirect(nsIChannel* aOldChannel,
+                                     nsIChannel* aNewChannel, uint32_t aFlags,
+                                     nsIAsyncVerifyRedirectCallback* aCallback) {
+@@ -1577,7 +1628,9 @@
+ PerformanceTimingData* FetchDriver::GetPerformanceTimingData(
+     nsAString& aInitiatorType, nsAString& aEntryName) {
+   MOZ_ASSERT(XRE_IsParentProcess());
+-  MOZ_ASSERT(mChannel);
++  if (!mChannel) {
++    return nullptr;
++  }
+ 
+   nsCOMPtr<nsITimedChannel> timedChannel = do_QueryInterface(mChannel);
+   if (!timedChannel) {

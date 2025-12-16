@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmOpIter.h
+# Commit: 455f2bae38f3
+# Full Hash: 455f2bae38f3dec9d30a1aa9025de7b7199f39f7
+# Author: Andy Wingo <wingo@igalia.com>
+# Date: 2020-03-09 21:52:54
+# Regressor Bug: 1620197
+# File Overlap Count: 1
+# Description:
+#   Bug 1620197 - Enable multiple results from WebAssembly functions r=lth
+#   
+#   This patch enables multi-value calls and returns, adding some tests, and
+#   conditionally disabling a couple expect-fail reftests that now pass.
+#   
+# ==============================================================================
+
+diff -r 6cafdb82131f -r 455f2bae38f3 js/src/wasm/WasmOpIter.h
+--- a/js/src/wasm/WasmOpIter.h	Mon Mar 09 11:54:27 2020 +0000
++++ b/js/src/wasm/WasmOpIter.h	Mon Mar 09 11:30:43 2020 +0000
+@@ -2061,12 +2061,6 @@
+ 
+   const FuncType& funcType = env_.types[*funcTypeIndex].funcType();
+ 
+-  // FIXME: Remove this check when full multi-value function returns land.
+-  // Bug 1585909.
+-  if (funcType.results().length() > MaxFuncResults) {
+-    return fail("too many returns in signature");
+-  }
+-
+ #ifdef WASM_PRIVATE_REFTYPES
+   if (env_.tables[*tableIndex].importedOrExported &&
+       funcType.exposesTypeIndex()) {
+@@ -2131,12 +2125,6 @@
+ 
+   const FuncType& funcType = env_.types[*funcTypeIndex].funcType();
+ 
+-  // FIXME: Remove this check when full multi-value function returns land.
+-  // Bug 1585909.
+-  if (funcType.results().length() > MaxFuncResults) {
+-    return fail("too many returns in signature");
+-  }
+-
+   if (!popCallArgs(funcType.args(), argValues)) {
+     return false;
+   }

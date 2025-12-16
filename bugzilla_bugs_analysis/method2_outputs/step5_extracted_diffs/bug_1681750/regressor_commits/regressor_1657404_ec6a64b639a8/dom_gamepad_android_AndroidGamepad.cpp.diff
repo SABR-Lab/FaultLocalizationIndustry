@@ -1,0 +1,127 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/gamepad/android/AndroidGamepad.cpp
+# Commit: ec6a64b639a8
+# Full Hash: ec6a64b639a82e957376c09a71aef7ce62b3a5aa
+# Author: Chris Martin <cmartin@mozilla.com>
+# Date: 2020-12-03 09:47:26
+# Regressor Bug: 1657404
+# File Overlap Count: 3
+# Description:
+#   Bug 1657404 - Implement a strongly-typed, service-dependent gamepad handle r=handyman,aklotz
+#   
+#   Currently, the gamepad code uses a uint32_t as a handle and does some trickery
+#   with it by trying to create a unique ID and adding an offset to it for VR code.
+#   
+# ==============================================================================
+
+diff -r 6792f28b99bd -r ec6a64b639a8 dom/gamepad/android/AndroidGamepad.cpp
+--- a/dom/gamepad/android/AndroidGamepad.cpp	Wed Dec 02 22:36:35 2020 +0000
++++ b/dom/gamepad/android/AndroidGamepad.cpp	Wed Dec 02 23:06:05 2020 +0000
+@@ -10,8 +10,11 @@
+ 
+ #include "mozilla/java/AndroidGamepadManagerNatives.h"
+ #include "mozilla/java/GeckoAppShellWrappers.h"
++#include "mozilla/dom/GamepadHandle.h"
+ #include "nsThreadUtils.h"
+ 
++using mozilla::dom::GamepadHandle;
++
+ namespace mozilla {
+ namespace dom {
+ 
+@@ -20,43 +23,49 @@
+   AndroidGamepadManager() = delete;
+ 
+  public:
+-  static int32_t NativeAddGamepad() {
++  static jni::ByteArray::LocalRef NativeAddGamepad() {
+     RefPtr<GamepadPlatformService> service =
+         GamepadPlatformService::GetParentService();
+     MOZ_RELEASE_ASSERT(service);
+ 
+-    const uint32_t gamepadId = service->AddGamepad(
++    const GamepadHandle gamepadHandle = service->AddGamepad(
+         "android", GamepadMappingType::Standard, GamepadHand::_empty,
+         kStandardGamepadButtons, kStandardGamepadAxes, 0, 0, 0);
+ 
+-    MOZ_RELEASE_ASSERT(gamepadId <= INT32_MAX);
+-
+-    return static_cast<int32_t>(gamepadId);
++    return mozilla::jni::ByteArray::New(
++        reinterpret_cast<const int8_t*>(&gamepadHandle), sizeof(gamepadHandle));
+   }
+ 
+-  static void NativeRemoveGamepad(int32_t aGamepadId) {
++  static void NativeRemoveGamepad(jni::ByteArray::Param aGamepadHandleBytes) {
++    GamepadHandle handle = JNIByteArrayToGamepadHandle(aGamepadHandleBytes);
++
+     RefPtr<GamepadPlatformService> service =
+         GamepadPlatformService::GetParentService();
+     if (!service) {
+       return;
+     }
+ 
+-    service->RemoveGamepad(aGamepadId);
++    service->RemoveGamepad(handle);
+   }
+ 
+-  static void OnButtonChange(int32_t aGamepadId, int32_t aButton, bool aPressed,
+-                             float aValue) {
++  static void OnButtonChange(jni::ByteArray::Param aGamepadHandleBytes,
++                             int32_t aButton, bool aPressed, float aValue) {
++    GamepadHandle handle = JNIByteArrayToGamepadHandle(aGamepadHandleBytes);
++
+     RefPtr<GamepadPlatformService> service =
+         GamepadPlatformService::GetParentService();
+     if (!service) {
+       return;
+     }
+ 
+-    service->NewButtonEvent(aGamepadId, aButton, aPressed, aValue);
++    service->NewButtonEvent(handle, aButton, aPressed, aValue);
+   }
+ 
+-  static void OnAxisChange(int32_t aGamepadId, jni::BooleanArray::Param aValid,
++  static void OnAxisChange(jni::ByteArray::Param aGamepadHandleBytes,
++                           jni::BooleanArray::Param aValid,
+                            jni::FloatArray::Param aValues) {
++    GamepadHandle handle = JNIByteArrayToGamepadHandle(aGamepadHandleBytes);
++
+     RefPtr<GamepadPlatformService> service =
+         GamepadPlatformService::GetParentService();
+     if (!service) {
+@@ -69,10 +78,22 @@
+ 
+     for (size_t i = 0; i < values.Length(); i++) {
+       if (valid[i]) {
+-        service->NewAxisMoveEvent(aGamepadId, i, values[i]);
++        service->NewAxisMoveEvent(handle, i, values[i]);
+       }
+     }
+   }
++
++ private:
++  static GamepadHandle JNIByteArrayToGamepadHandle(
++      jni::ByteArray::Param aGamepadHandleBytes) {
++    MOZ_ASSERT(aGamepadHandleBytes->Length() == sizeof(GamepadHandle));
++
++    GamepadHandle gamepadHandle;
++    aGamepadHandleBytes->CopyTo(reinterpret_cast<int8_t*>(&gamepadHandle),
++                                sizeof(gamepadHandle));
++
++    return gamepadHandle;
++  }
+ };
+ 
+ void StartGamepadMonitoring() {
+@@ -86,7 +107,7 @@
+       java::GeckoAppShell::GetApplicationContext());
+ }
+ 
+-void SetGamepadLightIndicatorColor(const Tainted<uint32_t>& aControllerIdx,
++void SetGamepadLightIndicatorColor(const Tainted<GamepadHandle>& aGamepadHandle,
+                                    const Tainted<uint32_t>& aLightColorIndex,
+                                    const Tainted<uint8_t>& aRed,
+                                    const Tainted<uint8_t>& aGreen,

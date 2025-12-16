@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/gamepad/linux/udev.h
+# Commit: ec6a64b639a8
+# Full Hash: ec6a64b639a82e957376c09a71aef7ce62b3a5aa
+# Author: Chris Martin <cmartin@mozilla.com>
+# Date: 2020-12-03 09:47:26
+# Regressor Bug: 1657404
+# File Overlap Count: 1
+# Description:
+#   Bug 1657404 - Implement a strongly-typed, service-dependent gamepad handle r=handyman,aklotz
+#   
+#   Currently, the gamepad code uses a uint32_t as a handle and does some trickery
+#   with it by trying to create a unique ID and adding an offset to it for VR code.
+#   
+# ==============================================================================
+
+diff -r 6792f28b99bd -r ec6a64b639a8 dom/gamepad/linux/udev.h
+--- a/dom/gamepad/linux/udev.h	Wed Dec 02 22:36:35 2020 +0000
++++ b/dom/gamepad/linux/udev.h	Wed Dec 02 23:06:05 2020 +0000
+@@ -67,13 +67,13 @@
+   explicit operator bool() { return udev; }
+ 
+  private:
+-  bool LoadSymbols() {
+ #define DLSYM(s)                       \
+   do {                                 \
+-    s = (__typeof__(s))dlsym(lib, #s); \
+-    if (!s) return false;              \
++    (s) = (decltype(s))dlsym(lib, #s); \
++    if (!(s)) return false;            \
+   } while (0)
+ 
++  bool LoadSymbols() {
+     DLSYM(udev_new);
+     DLSYM(udev_unref);
+     DLSYM(udev_device_unref);
+@@ -96,10 +96,12 @@
+     DLSYM(udev_monitor_get_fd);
+     DLSYM(udev_monitor_receive_device);
+     DLSYM(udev_monitor_unref);
+-#undef DLSYM
++
+     return true;
+   }
+ 
++#undef DLSYM
++
+   void* lib;
+ 
+  public:

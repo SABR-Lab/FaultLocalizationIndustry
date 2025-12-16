@@ -1,0 +1,70 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLExtensionInstancedArrays.cpp
+# Commit: ccfa767dba64
+# Full Hash: ccfa767dba644dc193e0246eb8e8ff3377e8b8a5
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Client-side bindings mirror for precise CC, and merge similar codepaths. r=handyman
+#   
+#   * Context loss using RAII
+#   * Move Program reflection Client-side
+#   
+# ==============================================================================
+
+diff -r 71c122ac0ca7 -r ccfa767dba64 dom/canvas/WebGLExtensionInstancedArrays.cpp
+--- a/dom/canvas/WebGLExtensionInstancedArrays.cpp	Wed Jan 08 22:19:14 2020 +0000
++++ b/dom/canvas/WebGLExtensionInstancedArrays.cpp	Wed Jan 08 22:19:16 2020 +0000
+@@ -17,48 +17,6 @@
+   MOZ_ASSERT(IsSupported(webgl), "Don't construct extension if unsupported.");
+ }
+ 
+-WebGLExtensionInstancedArrays::~WebGLExtensionInstancedArrays() {}
+-
+-void WebGLExtensionInstancedArrays::DrawArraysInstancedANGLE(
+-    GLenum mode, GLint first, GLsizei count, GLsizei primcount) {
+-  if (mIsLost) {
+-    if (mContext) {
+-      mContext->ErrorInvalidOperation("%s: Extension is lost.",
+-                                      "drawArraysInstancedANGLE");
+-    }
+-    return;
+-  }
+-
+-  mContext->DrawArraysInstanced(mode, first, count, primcount);
+-}
+-
+-void WebGLExtensionInstancedArrays::DrawElementsInstancedANGLE(
+-    GLenum mode, GLsizei count, GLenum type, WebGLintptr offset,
+-    GLsizei primcount) {
+-  if (mIsLost) {
+-    if (mContext) {
+-      mContext->ErrorInvalidOperation("%s: Extension is lost.",
+-                                      "drawElementsInstancedANGLE");
+-    }
+-    return;
+-  }
+-
+-  mContext->DrawElementsInstanced(mode, count, type, offset, primcount);
+-}
+-
+-void WebGLExtensionInstancedArrays::VertexAttribDivisorANGLE(GLuint index,
+-                                                             GLuint divisor) {
+-  if (mIsLost) {
+-    if (mContext) {
+-      mContext->ErrorInvalidOperation("%s: Extension is lost.",
+-                                      "vertexAttribDivisorANGLE");
+-    }
+-    return;
+-  }
+-
+-  mContext->VertexAttribDivisor(index, divisor);
+-}
+-
+ bool WebGLExtensionInstancedArrays::IsSupported(const WebGLContext* webgl) {
+   if (webgl->IsWebGL2()) return false;
+ 

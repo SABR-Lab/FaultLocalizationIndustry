@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsFrameLoader.h
+# Commit: 30d2bf04719b
+# Full Hash: 30d2bf04719bfb60095aaa7d679363e57d25ad92
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-06-13 03:21:52
+# Regressor Bug: 1640019
+# File Overlap Count: 1
+# Description:
+#   Bug 1640019 - Part 1: Support toplevel process switches outside of tabbrowser, r=mattwoodrow
+#   
+#   This new process switching behavior is only enabled for some browser elements,
+#   which have specified a specific attribute. Turning this on for all browsers with
+#   a `remote` attribute causes breakage in reftests.
+# ==============================================================================
+
+diff -r 3fefa1d023a6 -r 30d2bf04719b dom/base/nsFrameLoader.h
+--- a/dom/base/nsFrameLoader.h	Fri Jun 12 17:02:45 2020 +0000
++++ b/dom/base/nsFrameLoader.h	Fri Jun 12 16:52:00 2020 +0000
+@@ -110,7 +110,7 @@
+   // FrameLoaders.
+   static already_AddRefed<nsFrameLoader> Recreate(Element* aOwner,
+                                                   BrowsingContext* aContext,
+-                                                  const nsAString& aRemoteType,
++                                                  bool aIsRemote,
+                                                   bool aNetworkCreated,
+                                                   bool aPreserveContext);
+ 
+@@ -391,6 +391,14 @@
+ 
+   void SetWillChangeProcess();
+ 
++  // Configure which remote process should be used to host the remote browser
++  // created in `TryRemoteBrowser`. This method _must_ be called before
++  // `TryRemoteBrowser`, and a script blocker must be on the stack.
++  //
++  // |aContentParent|, if set, must have the remote type |aRemoteType|.
++  void ConfigRemoteProcess(const nsAString& aRemoteType,
++                           mozilla::dom::ContentParent* aContentParent);
++
+   void MaybeNotifyCrashed(mozilla::dom::BrowsingContext* aBrowsingContext,
+                           mozilla::ipc::MessageChannel* aChannel);
+ 
+@@ -398,8 +406,8 @@
+ 
+  private:
+   nsFrameLoader(mozilla::dom::Element* aOwner,
+-                mozilla::dom::BrowsingContext* aBrowsingContext,
+-                const nsAString& aRemoteType, bool aNetworkCreated);
++                mozilla::dom::BrowsingContext* aBrowsingContext, bool aIsRemote,
++                bool aNetworkCreated);
+   ~nsFrameLoader();
+ 
+   void SetOwnerContent(mozilla::dom::Element* aContent);

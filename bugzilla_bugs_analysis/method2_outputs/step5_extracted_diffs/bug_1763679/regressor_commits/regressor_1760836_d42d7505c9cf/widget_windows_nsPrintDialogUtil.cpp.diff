@@ -1,0 +1,37 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/windows/nsPrintDialogUtil.cpp
+# Commit: d42d7505c9cf
+# Full Hash: d42d7505c9cf4b0a2f3bae83a007928fee2b596d
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2022-03-30 03:54:32
+# Regressor Bug: 1760836
+# File Overlap Count: 1
+# Description:
+#   Bug 1760836 - Support printing to an nsIOutputStream. r=jfkthame,jrmuizel,webdriver-reviewers,geckoview-reviewers,agi
+#   
+#   The trickiest bits are the PrintTargetCG ones, the rest is just plumbing
+#   and cleanups and tests, but let me know if you want those to be split
+#   out, can do.
+# ==============================================================================
+
+diff -r 99efc2e54ea0 -r d42d7505c9cf widget/windows/nsPrintDialogUtil.cpp
+--- a/widget/windows/nsPrintDialogUtil.cpp	Tue Mar 29 17:24:11 2022 +0000
++++ b/widget/windows/nsPrintDialogUtil.cpp	Tue Mar 29 17:50:58 2022 +0000
+@@ -314,11 +314,13 @@
+   if (prntdlg.Flags & PD_PRINTTOFILE) {
+     char16ptr_t fileName = &(((wchar_t*)devnames)[devnames->wOutputOffset]);
+     NS_ASSERTION(wcscmp(fileName, L"FILE:") == 0, "FileName must be `FILE:`");
++    aPrintSettings->SetOutputDestination(
++        nsIPrintSettings::kOutputDestinationFile);
+     aPrintSettings->SetToFileName(nsDependentString(fileName));
+-    aPrintSettings->SetPrintToFile(true);
+   } else {
+     // clear "print to file" info
+-    aPrintSettings->SetPrintToFile(false);
++    aPrintSettings->SetOutputDestination(
++        nsIPrintSettings::kOutputDestinationPrinter);
+     aPrintSettings->SetToFileName(u""_ns);
+   }
+ 

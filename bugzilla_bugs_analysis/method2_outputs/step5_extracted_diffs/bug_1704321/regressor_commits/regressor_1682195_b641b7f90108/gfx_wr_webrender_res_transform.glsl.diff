@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/res/transform.glsl
+# Commit: b641b7f90108
+# Full Hash: b641b7f90108a2e6b57186139b450d9ccb80c96c
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2021-04-10 03:36:58
+# Regressor Bug: 1682195
+# File Overlap Count: 1
+# Description:
+#   Bug 1682195 - Use scissoring to restrict cs_clip_image rather than discard. r=gw
+#   
+#   cs_clip_image renders the entire target-space sub-rect, and then uses discard against
+#   the local-space bounds to ensure the primitive gets trimmed down to its actual footprint
+#   within the larger target-space sub-rect. This can be fairly wasteful and slow.
+# ==============================================================================
+
+diff -r 7534ee1e1078 -r b641b7f90108 gfx/wr/webrender/res/transform.glsl
+--- a/gfx/wr/webrender/res/transform.glsl	Fri Apr 09 22:40:49 2021 +0000
++++ b/gfx/wr/webrender/res/transform.glsl	Fri Apr 09 22:55:33 2021 +0000
+@@ -93,6 +93,11 @@
+ 
+ #ifdef WR_FRAGMENT_SHADER
+ 
++// Assume transform bounds are set to a large scale to signal they are invalid.
++bool has_valid_transform_bounds() {
++    return vTransformBounds.w < 1.0e15;
++}
++
+ float init_transform_fs(vec2 local_pos) {
+     // Get signed distance from local rect bounds.
+     float d = signed_distance_rect(

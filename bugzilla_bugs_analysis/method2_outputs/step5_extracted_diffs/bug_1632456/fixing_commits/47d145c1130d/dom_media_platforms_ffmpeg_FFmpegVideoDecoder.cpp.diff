@@ -1,0 +1,42 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/media/platforms/ffmpeg/FFmpegVideoDecoder.cpp
+# Commit: 47d145c1130d
+# Full Hash: 47d145c1130d318087d1a4d8438cbc1bc51d6b71
+# Author: Martin Stransky <stransky@redhat.com>
+# Date: 2020-05-27 16:14:31
+# Description:
+#   Bug 1632456 [Wayland] Release mVAAPIDeviceContext when FFmpegVideoDecoder::CreateVAAPIDeviceContext() fails, r=jya
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D76745
+# ==============================================================================
+
+diff -r b802b3353432 -r 47d145c1130d dom/media/platforms/ffmpeg/FFmpegVideoDecoder.cpp
+--- a/dom/media/platforms/ffmpeg/FFmpegVideoDecoder.cpp	Tue May 26 17:41:23 2020 +0000
++++ b/dom/media/platforms/ffmpeg/FFmpegVideoDecoder.cpp	Wed May 27 08:37:58 2020 +0000
+@@ -175,6 +175,10 @@
+   if (!mVAAPIDeviceContext) {
+     return false;
+   }
++
++  auto releaseVAAPIcontext =
++      MakeScopeExit([&] { mLib->av_buffer_unref(&mVAAPIDeviceContext); });
++
+   AVHWDeviceContext* hwctx = (AVHWDeviceContext*)mVAAPIDeviceContext->data;
+   AVVAAPIDeviceContext* vactx = (AVVAAPIDeviceContext*)hwctx->hwctx;
+ 
+@@ -195,12 +199,12 @@
+   }
+ 
+   vactx->display = mDisplay;
+-
+   if (mLib->av_hwdevice_ctx_init(mVAAPIDeviceContext) < 0) {
+     return false;
+   }
+ 
+   mCodecContext->hw_device_ctx = mLib->av_buffer_ref(mVAAPIDeviceContext);
++  releaseVAAPIcontext.release();
+   return true;
+ }
+ 

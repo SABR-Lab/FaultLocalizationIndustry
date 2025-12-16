@@ -1,0 +1,67 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/nsDragService.cpp
+# Commit: f78431f1b071
+# Full Hash: f78431f1b0712b491f165891d74cc1c6d1cfdc39
+# Author: stransky <stransky@redhat.com>
+# Date: 2024-12-07 09:10:49
+# Regressor Bug: 1913643
+# File Overlap Count: 1
+# Description:
+#   Bug 1913643 [Linux] Drag&Drop check received data r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D231376
+# ==============================================================================
+
+diff -r 3288c2058dd7 -r f78431f1b071 widget/gtk/nsDragService.cpp
+--- a/widget/gtk/nsDragService.cpp	Fri Dec 06 23:25:27 2024 +0000
++++ b/widget/gtk/nsDragService.cpp	Fri Dec 06 23:55:07 2024 +0000
+@@ -487,6 +487,22 @@
+ DragData::DragData(GdkAtom aDataFlavor, gchar** aDragUris)
+     : mDataFlavor(aDataFlavor), mAsURIData(true), mDragUris(aDragUris) {}
+ 
++bool DragData::IsDataValid() const {
++  if (mDragData) {
++    if (IsTextFlavor() || IsURIFlavor()) {
++      return mDragData.get() && mDragDataLen;
++    }
++    MOZ_DIAGNOSTIC_ASSERT(false, "DragData::IsDataValid(): Unknow MIME type.");
++    return false;
++  } else if (mDragUris) {
++    return !!(mDragUris.get()[0]);
++  } else if (mUris.Length()) {
++    return mUris.Length();
++  } else {
++    return false;
++  }
++}
++
+ #ifdef MOZ_LOGGING
+ void DragData::Print() const {
+   if (mDragData) {
+@@ -1486,7 +1502,11 @@
+ 
+   RefPtr<DragData> dragData;
+ 
+-  auto cacheClear = MakeScopeExit([&] {
++  auto saveData = MakeScopeExit([&] {
++    if (dragData && !dragData->IsDataValid()) {
++      dragData = nullptr;
++    }
++
+     if (!dragData) {
+       LOGDRAGSERVICE("  failed to get data, MIME %s",
+                      GUniquePtr<gchar>(gdk_atom_name(target)).get());
+@@ -1501,7 +1521,10 @@
+   if (target == sPortalFileAtom || target == sPortalFileTransferAtom) {
+     const guchar* data = gtk_selection_data_get_data(aSelectionData);
+     if (!data || data[0] == '\0') {
+-      LOGDRAGSERVICE(" TargetDataReceived() failed");
++      LOGDRAGSERVICE(
++          "nsDragSession::TargetDataReceived() failed to get file portal data "
++          "(%s)",
++          GUniquePtr<gchar>(gdk_atom_name(target)).get());
+       return;
+     }
+ 

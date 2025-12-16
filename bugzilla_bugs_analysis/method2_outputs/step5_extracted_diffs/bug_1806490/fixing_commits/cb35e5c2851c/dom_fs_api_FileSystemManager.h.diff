@@ -1,0 +1,69 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/fs/api/FileSystemManager.h
+# Commit: cb35e5c2851c
+# Full Hash: cb35e5c2851c84fb955b7c94ae209824a20b7d15
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2023-01-17 16:13:02
+# Description:
+#   Bug 1806490 - Make it possible to track all CreateFileSystemManagerChild requests in FileSystemManager; r=dom-storage-reviewers,jari
+#   
+#   It can happen that BeginRequest is called multiple times when the actor doesn't
+#   exist yet. Such situations can't be handled by a single MozPromiseRequestHolder.
+#   
+# ==============================================================================
+
+diff -r e939a80b5b75 -r cb35e5c2851c dom/fs/api/FileSystemManager.h
+--- a/dom/fs/api/FileSystemManager.h	Mon Jan 16 14:46:14 2023 +0000
++++ b/dom/fs/api/FileSystemManager.h	Mon Jan 16 14:46:20 2023 +0000
+@@ -16,6 +16,7 @@
+ #include "nsCOMPtr.h"
+ #include "nsCycleCollectionParticipant.h"
+ #include "nsISupports.h"
++#include "nsTObserverArray.h"
+ 
+ class nsIGlobalObject;
+ 
+@@ -31,6 +32,8 @@
+ 
+ namespace fs {
+ class FileSystemRequestHandler;
++template <typename Manager, typename PromiseType>
++class ManagedMozPromiseRequestHolder;
+ }  // namespace fs
+ 
+ // `FileSystemManager` is supposed to be held by `StorageManager` and thus
+@@ -47,6 +50,10 @@
+ // the whole chain of managed actors would be destroyed as well.
+ class FileSystemManager : public nsISupports {
+  public:
++  template <typename PromiseType>
++  using PromiseRequestHolder =
++      fs::ManagedMozPromiseRequestHolder<FileSystemManager, PromiseType>;
++
+   FileSystemManager(
+       nsIGlobalObject* aGlobal, RefPtr<StorageManager> aStorageManager,
+       RefPtr<FileSystemBackgroundRequestHandler> aBackgroundRequestHandler);
+@@ -61,6 +68,11 @@
+ 
+   void Shutdown();
+ 
++  void RegisterPromiseRequestHolder(PromiseRequestHolder<BoolPromise>* aHolder);
++
++  void UnregisterPromiseRequestHolder(
++      PromiseRequestHolder<BoolPromise>* aHolder);
++
+   void BeginRequest(
+       std::function<void(const RefPtr<FileSystemManagerChild>&)>&& aSuccess,
+       std::function<void(nsresult)>&& aFailure);
+@@ -77,8 +89,7 @@
+   const RefPtr<FileSystemBackgroundRequestHandler> mBackgroundRequestHandler;
+   const UniquePtr<fs::FileSystemRequestHandler> mRequestHandler;
+ 
+-  MozPromiseRequestHolder<BoolPromise>
+-      mCreateFileSystemManagerChildPromiseRequestHolder;
++  nsTObserverArray<PromiseRequestHolder<BoolPromise>*> mPromiseRequestHolders;
+ 
+   FlippedOnce<false> mShutdown;
+ };

@@ -1,0 +1,32 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/MediaTrackConstraints.h
+# Commit: c870f71ba8d9
+# Full Hash: c870f71ba8d9aef09f6bb9b3e4f5127058d8b465
+# Author: serge-sans-paille <sguelton@mozilla.com>
+# Date: 2024-11-25 09:40:45
+# Description:
+#   Bug 1930673 - Restore Clamp operation that works on empty Ranges
+#   
+#   Given that an empty ranges is any range where the upper bound is
+#   strictly lower than the lower bound, std::clamp is not a good candidate
+#   
+# ==============================================================================
+
+diff -r 2e7c6cb6c3ad -r c870f71ba8d9 dom/media/webrtc/MediaTrackConstraints.h
+--- a/dom/media/webrtc/MediaTrackConstraints.h	Mon Nov 25 02:44:50 2024 +0000
++++ b/dom/media/webrtc/MediaTrackConstraints.h	Mon Nov 25 07:01:27 2024 +0000
+@@ -63,7 +63,11 @@
+ 
+     template <class ConstrainRange>
+     void SetFrom(const ConstrainRange& aOther);
+-    ValueType Clamp(ValueType n) const { return std::clamp(n, mMin, mMax); }
++
++    /// Clamp n based on Range. If the Range is empty, mMin is returned.
++    ValueType Clamp(ValueType n) const {
++      return std::max(mMin, std::min(n, mMax));
++    }
+     ValueType Get(ValueType defaultValue) const {
+       return Clamp(mIdeal.valueOr(defaultValue));
+     }

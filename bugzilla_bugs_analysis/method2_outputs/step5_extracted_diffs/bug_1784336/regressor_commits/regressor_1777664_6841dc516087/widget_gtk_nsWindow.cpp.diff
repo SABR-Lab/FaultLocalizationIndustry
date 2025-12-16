@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/nsWindow.cpp
+# Commit: 6841dc516087
+# Full Hash: 6841dc516087239f3e48806a38356ad725c2c272
+# Author: stransky <stransky@redhat.com>
+# Date: 2022-09-21 21:43:38
+# Regressor Bug: 1777664
+# File Overlap Count: 1
+# Description:
+#   Bug 1645677 [Wayland] Update EGLSurface when wl_surface is deleted r=emilio,jgilbert
+#   
+#   When GtkWidget is hidden, underlying wl_surface is deleted. We need to also update EGLSurface of GtkWidget (GtkCompositorWidget)
+#   as EGLSurface is directly linked to wl_surface:
+#   
+# ==============================================================================
+
+diff -r 5ba3a56b3038 -r 6841dc516087 widget/gtk/nsWindow.cpp
+--- a/widget/gtk/nsWindow.cpp	Wed Sep 21 10:32:44 2022 +0000
++++ b/widget/gtk/nsWindow.cpp	Wed Sep 21 10:32:44 2022 +0000
+@@ -3442,6 +3442,10 @@
+ #endif
+ #ifdef MOZ_WAYLAND
+       if (GdkIsWaylandDisplay()) {
++        if (mCompositorWidgetDelegate) {
++          MOZ_DIAGNOSTIC_ASSERT(
++              !mCompositorWidgetDelegate->AsGtkCompositorWidget()->IsHidden());
++        }
+         eglWindow = moz_container_wayland_get_egl_window(
+             mContainer, FractionalScaleFactor());
+       }
+@@ -4060,6 +4064,26 @@
+ 
+ void nsWindow::OnUnmap() {
+   LOG("nsWindow::OnUnmap");
++
++  // wl_surface owned by mContainer is going to be deleted.
++  // Make sure we don't paint to it on Wayland.
++  if (GdkIsWaylandDisplay() && mCompositorWidgetDelegate) {
++    mCompositorWidgetDelegate->DisableRendering();
++  }
++#ifdef MOZ_WAYLAND
++  if (moz_container_wayland_has_egl_window(mContainer)) {
++    // Widget is backed by OpenGL EGLSurface created over wl_surface
++    // owned by mContainer.
++    // RenderCompositorEGL::Resume() deletes recent EGLSurface based on
++    // wl_surface owned by mContainer and creates a new fallback EGLSurface.
++    // Then we can delete wl_surface in moz_container_wayland_unmap().
++    // We don't want to pause compositor as it may lead to whole
++    // browser freeze (Bug 1777664).
++    if (CompositorBridgeChild* remoteRenderer = GetRemoteRenderer()) {
++      remoteRenderer->SendResume();
++    }
++  }
++#endif
+   moz_container_wayland_unmap(GTK_WIDGET(mContainer));
+ }
+ 

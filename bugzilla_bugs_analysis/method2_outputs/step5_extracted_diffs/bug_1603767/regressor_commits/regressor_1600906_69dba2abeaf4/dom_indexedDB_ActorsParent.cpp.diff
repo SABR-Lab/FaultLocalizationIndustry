@@ -1,0 +1,89 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/ActorsParent.cpp
+# Commit: 69dba2abeaf4
+# Full Hash: 69dba2abeaf43d48d51f497365ef9978b49983e6
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2019-12-05 04:11:08
+# Regressor Bug: 1600906
+# File Overlap Count: 1
+# Description:
+#   Bug 1600906 - Make use of FlippedOnce in Database. r=dom-workers-and-storage-reviewers,ytausky
+#   
+#   Depends on D55674
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D55675
+# ==============================================================================
+
+diff -r 195319ed0bb4 -r 69dba2abeaf4 dom/indexedDB/ActorsParent.cpp
+--- a/dom/indexedDB/ActorsParent.cpp	Wed Dec 04 15:39:41 2019 +0000
++++ b/dom/indexedDB/ActorsParent.cpp	Wed Dec 04 14:31:13 2019 +0000
+@@ -5803,10 +5803,10 @@
+   const PersistenceType mPersistenceType;
+   const bool mFileHandleDisabled;
+   const bool mChromeWriteAccessAllowed;
+-  bool mClosed;
+-  bool mInvalidated;
+-  bool mActorWasAlive;
+-  bool mActorDestroyed;
++  FlippedOnce<false> mClosed;
++  FlippedOnce<false> mInvalidated;
++  FlippedOnce<false> mActorWasAlive;
++  FlippedOnce<false> mActorDestroyed;
+   nsCOMPtr<nsIEventTarget> mBackgroundThread;
+ #ifdef DEBUG
+   bool mAllBlobsUnmapped;
+@@ -12871,10 +12871,6 @@
+       mPersistenceType(aMetadata->mCommonMetadata.persistenceType()),
+       mFileHandleDisabled(aFileHandleDisabled),
+       mChromeWriteAccessAllowed(aChromeWriteAccessAllowed),
+-      mClosed(false),
+-      mInvalidated(false),
+-      mActorWasAlive(false),
+-      mActorDestroyed(false),
+       mBackgroundThread(GetCurrentThreadEventTarget())
+ #ifdef DEBUG
+       ,
+@@ -12971,7 +12967,7 @@
+     return;
+   }
+ 
+-  mInvalidated = true;
++  mInvalidated.Flip();
+ 
+   if (mActorWasAlive && !mActorDestroyed) {
+     Unused << SendInvalidate();
+@@ -13082,10 +13078,9 @@
+ 
+ void Database::SetActorAlive() {
+   AssertIsOnBackgroundThread();
+-  MOZ_ASSERT(!mActorWasAlive);
+   MOZ_ASSERT(!mActorDestroyed);
+ 
+-  mActorWasAlive = true;
++  mActorWasAlive.Flip();
+ 
+   // This reference will be absorbed by IPDL and released when the actor is
+   // destroyed.
+@@ -13202,7 +13197,7 @@
+     return true;
+   }
+ 
+-  mClosed = true;
++  mClosed.Flip();
+ 
+   if (gConnectionPool) {
+     gConnectionPool->CloseDatabaseWhenIdle(Id());
+@@ -13305,9 +13300,8 @@
+ 
+ void Database::ActorDestroy(ActorDestroyReason aWhy) {
+   AssertIsOnBackgroundThread();
+-  MOZ_ASSERT(!mActorDestroyed);
+-
+-  mActorDestroyed = true;
++
++  mActorDestroyed.Flip();
+ 
+   if (!IsInvalidated()) {
+     Invalidate();

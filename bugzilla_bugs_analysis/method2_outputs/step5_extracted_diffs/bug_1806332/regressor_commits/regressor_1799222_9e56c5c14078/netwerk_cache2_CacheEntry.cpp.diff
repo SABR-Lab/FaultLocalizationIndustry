@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/cache2/CacheEntry.cpp
+# Commit: 9e56c5c14078
+# Full Hash: 9e56c5c140782e9b88bd226d63e9464669528709
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2022-12-17 21:17:45
+# Regressor Bug: 1799222
+# File Overlap Count: 1
+# Description:
+#   Bug 1799222 - Part 2: Dispatch background task for CacheOutputCloseListener::OnOutputClosed, r=necko-reviewers,kershaw
+#   
+#   Previously this would dispatch to the current thread, which could in
+#   some cases be a threadpool thread, meaning that the runnable would
+#   not run until the threadpool thread exits. This switches the code over
+# ==============================================================================
+
+diff -r 8949a4f0d6ea -r 9e56c5c14078 netwerk/cache2/CacheEntry.cpp
+--- a/netwerk/cache2/CacheEntry.cpp	Fri Dec 16 17:09:16 2022 +0000
++++ b/netwerk/cache2/CacheEntry.cpp	Fri Dec 16 17:09:17 2022 +0000
+@@ -24,6 +24,7 @@
+ #include "nsISeekableStream.h"
+ #include "nsISizeOf.h"
+ #include "nsIURI.h"
++#include "nsNetCID.h"
+ #include "nsProxyRelease.h"
+ #include "nsServiceManagerUtils.h"
+ #include "nsString.h"
+@@ -1887,7 +1888,10 @@
+   // We need this class and to redispatch since this callback is invoked
+   // under the file's lock and to do the job we need to enter the entry's
+   // lock too.  That would lead to potential deadlocks.
+-  NS_DispatchToCurrentThread(this);
++  nsCOMPtr<nsIEventTarget> sts =
++      do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
++  MOZ_DIAGNOSTIC_ASSERT(sts);
++  MOZ_ALWAYS_SUCCEEDS(sts->Dispatch(do_AddRef(this)));
+ }
+ 
+ NS_IMETHODIMP CacheOutputCloseListener::Run() {

@@ -1,0 +1,57 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/webrender_bindings/DCLayerTree.cpp
+# Commit: ff4747c84083
+# Full Hash: ff4747c8408348738e8985fd1839868bedf7b949
+# Author: Sotaro Ikeda <sotaro.ikeda.g@gmail.com>
+# Date: 2025-06-16 21:40:59
+# Description:
+#   Bug 1971661 - Ensure that DCLayerTree::CreateSwapChainSurface() always creates a DCSurface r=gfx-reviewers,lsalzman
+#   
+#   DCLayerTree expects that DCSurface always exists.
+#   
+#   Error handling is done via RenderThread::HandleWebRenderError() call.
+# ==============================================================================
+
+diff -r ba2a7f5e5535 -r ff4747c84083 gfx/webrender_bindings/DCLayerTree.cpp
+--- a/gfx/webrender_bindings/DCLayerTree.cpp	Mon Jun 16 04:08:38 2025 +0000
++++ b/gfx/webrender_bindings/DCLayerTree.cpp	Mon Jun 16 04:41:55 2025 +0000
+@@ -820,7 +820,6 @@
+       gfxCriticalNote << "Failed to initialize DCLayerSurface: "
+                       << wr::AsUint64(aId);
+       RenderThread::Get()->HandleWebRenderError(WebRenderError::NEW_SURFACE);
+-      return;
+     }
+   } else {
+     surface = MakeUnique<DCSwapChain>(aSize, aIsOpaque, this);
+@@ -828,7 +827,6 @@
+       gfxCriticalNote << "Failed to initialize DCSwapChain: "
+                       << wr::AsUint64(aId);
+       RenderThread::Get()->HandleWebRenderError(WebRenderError::NEW_SURFACE);
+-      return;
+     }
+   }
+ 
+@@ -843,7 +841,9 @@
+   MOZ_RELEASE_ASSERT(it != mDCSurfaces.end());
+   auto surface = it->second.get();
+ 
+-  surface->AsDCLayerSurface()->Resize(aSize);
++  if (!surface->AsDCLayerSurface()->Resize(aSize)) {
++    RenderThread::Get()->HandleWebRenderError(WebRenderError::NEW_SURFACE);
++  }
+ }
+ 
+ void DCLayerTree::CreateExternalSurface(wr::NativeSurfaceId aId,
+@@ -1831,6 +1831,10 @@
+   MOZ_ASSERT(mEGLSurface);
+   MOZ_ASSERT(mCompositionSurface);
+ 
++  if (!mCompositionSurface) {
++    return;
++  }
++
+   mCompositionSurface->EndDraw();
+ 
+   if (!mEGLSurface) {

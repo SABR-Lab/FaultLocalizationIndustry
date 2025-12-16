@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/CanvasRenderingContext2D.cpp
+# Commit: 2de2533b5e62
+# Full Hash: 2de2533b5e622f7f6f75e6ad9ec773b1cf997cc8
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2024-09-11 21:40:06
+# Regressor Bug: 1909625
+# File Overlap Count: 2
+# Description:
+#   Bug 1909625 - Ignore CSS zoom and text zoom for canvas. r=gfx-reviewers,lsalzman
+#   
+#   The spec doesn't mention anything about applying them, and other
+#   browsers don't, so let's just be consistent...
+#   
+# ==============================================================================
+
+diff -r c5bedc884f33 -r 2de2533b5e62 dom/canvas/CanvasRenderingContext2D.cpp
+--- a/dom/canvas/CanvasRenderingContext2D.cpp	Wed Sep 11 13:21:58 2024 +0000
++++ b/dom/canvas/CanvasRenderingContext2D.cpp	Wed Sep 11 13:46:45 2024 +0000
+@@ -6,6 +6,7 @@
+ #include "CanvasRenderingContext2D.h"
+ 
+ #include "mozilla/gfx/Helpers.h"
++#include "nsCSSValue.h"
+ #include "nsXULElement.h"
+ 
+ #include "nsMathUtils.h"
+@@ -2602,14 +2603,8 @@
+     return nullptr;
+   }
+ 
+-  // From canvas spec, force to set line-height property to 'normal' font
+-  // property.
+   if (aProperty == eCSSProperty_font) {
+-    const nsCString normalString = "normal"_ns;
+-    Servo_DeclarationBlock_SetPropertyById(
+-        servoDeclarations, eCSSProperty_line_height, &normalString, false,
+-        env.mUrlExtraData, StyleParsingMode::DEFAULT, env.mCompatMode,
+-        env.mLoader, env.mRuleType, {});
++    Servo_DeclarationBlock_SanitizeForCanvas(servoDeclarations);
+   }
+ 
+   return servoDeclarations.forget();
+@@ -2674,12 +2669,9 @@
+   // The font-size component must be converted to CSS px for reserialization,
+   // so we update the declarations with the value from the computed style.
+   if (!sc->StyleFont()->mFont.family.is_system_font) {
+-    nsAutoCString computedFontSize;
+-    sc->GetComputedPropertyValue(eCSSProperty_font_size, computedFontSize);
+-    Servo_DeclarationBlock_SetPropertyById(
+-        declarations, eCSSProperty_font_size, &computedFontSize, false, nullptr,
+-        StyleParsingMode::DEFAULT, eCompatibility_FullStandards, nullptr,
+-        StyleCssRuleType::Style, {});
++    float px = sc->StyleFont()->mFont.size.ToCSSPixels();
++    Servo_DeclarationBlock_SetLengthValue(declarations, eCSSProperty_font_size,
++                                          px, eCSSUnit_Pixel);
+   }
+ 
+   // The font getter is required to be reserialized based on what we

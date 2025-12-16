@@ -1,0 +1,79 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: intl/l10n/rust/localization-ffi/src/lib.rs
+# Commit: d88b294e0a5e
+# Full Hash: d88b294e0a5e00a0ca739037ffa1452e39879382
+# Author: Zibi Braniecki <zbraniecki@mozilla.com>
+# Date: 2021-08-03 22:01:19
+# Regressor Bug: 1613705
+# File Overlap Count: 1
+# Description:
+#   Bug 1613705 - [localization] part2: Switch Localization class to use localization-ffi. r=emilio,nika
+#   
+#   Depends on D104788
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D104789
+# ==============================================================================
+
+diff -r e6bebff87544 -r d88b294e0a5e intl/l10n/rust/localization-ffi/src/lib.rs
+--- a/intl/l10n/rust/localization-ffi/src/lib.rs	Tue Aug 03 05:52:00 2021 +0000
++++ b/intl/l10n/rust/localization-ffi/src/lib.rs	Tue Aug 03 05:52:00 2021 +0000
+@@ -301,7 +301,7 @@
+         &self,
+         keys: &ThinVec<L10nKey>,
+         promise: &xpcom::Promise,
+-        callback: extern "C" fn(&xpcom::Promise, Option<&ThinVec<nsCString>>),
++        callback: extern "C" fn(&xpcom::Promise, &ThinVec<nsCString>),
+     ) {
+         let bundles = self.inner.borrow().bundles().clone();
+ 
+@@ -326,7 +326,7 @@
+                 })
+                 .collect::<ThinVec<_>>();
+ 
+-            callback(&strong_promise, Some(&ret_val));
++            callback(&strong_promise, &ret_val);
+         })
+         .expect("Failed to spawn future");
+     }
+@@ -337,7 +337,7 @@
+         promise: &xpcom::Promise,
+         callback: extern "C" fn(
+             &xpcom::Promise,
+-            Option<&ThinVec<OptionalL10nMessage>>,
++            &ThinVec<OptionalL10nMessage>,
+             &ThinVec<nsCString>,
+         ),
+     ) {
+@@ -375,7 +375,7 @@
+                 .map(|err| err.to_string().into())
+                 .collect();
+ 
+-            callback(&strong_promise, Some(&ret_val), &errors);
++            callback(&strong_promise, &ret_val, &errors);
+         })
+         .expect("Failed to spawn future");
+     }
+@@ -483,7 +483,7 @@
+     loc: &LocalizationRc,
+     keys: &ThinVec<L10nKey>,
+     promise: &xpcom::Promise,
+-    callback: extern "C" fn(&xpcom::Promise, Option<&ThinVec<nsCString>>),
++    callback: extern "C" fn(&xpcom::Promise, &ThinVec<nsCString>),
+ ) {
+     loc.format_values(keys, promise, callback);
+ }
+@@ -493,11 +493,7 @@
+     loc: &LocalizationRc,
+     keys: &ThinVec<L10nKey>,
+     promise: &xpcom::Promise,
+-    callback: extern "C" fn(
+-        &xpcom::Promise,
+-        Option<&ThinVec<OptionalL10nMessage>>,
+-        &ThinVec<nsCString>,
+-    ),
++    callback: extern "C" fn(&xpcom::Promise, &ThinVec<OptionalL10nMessage>, &ThinVec<nsCString>),
+ ) {
+     loc.format_messages(keys, promise, callback);
+ }

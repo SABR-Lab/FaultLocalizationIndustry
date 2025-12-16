@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/BrowserChild.cpp
+# Commit: d6f212c67002
+# Full Hash: d6f212c670027f013f8453181d9b1cfc9b4816dd
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2021-03-31 21:54:44
+# Regressor Bug: 1699721
+# File Overlap Count: 1
+# Description:
+#   Bug 1699721 - Part 2: Track BrowserParent lifecycles during process switches, r=kmag
+#   
+#   This patch contains a large number of changes around the process switching
+#   mechanism in order to avoid issues which are caused by a mismatched
+#   understanding of the state of the process switch between processes in the
+# ==============================================================================
+
+diff -r ef06d9764cf1 -r d6f212c67002 dom/ipc/BrowserChild.cpp
+--- a/dom/ipc/BrowserChild.cpp	Wed Mar 31 15:37:48 2021 +0000
++++ b/dom/ipc/BrowserChild.cpp	Wed Mar 31 15:37:49 2021 +0000
+@@ -958,12 +958,10 @@
+   mozilla::DropJSObjects(this);
+ }
+ 
+-mozilla::ipc::IPCResult BrowserChild::RecvWillChangeProcess(
+-    WillChangeProcessResolver&& aResolve) {
++mozilla::ipc::IPCResult BrowserChild::RecvWillChangeProcess() {
+   if (mWebBrowser) {
+     mWebBrowser->SetWillChangeProcess();
+   }
+-  aResolve(true);
+   return IPC_OK();
+ }
+ 

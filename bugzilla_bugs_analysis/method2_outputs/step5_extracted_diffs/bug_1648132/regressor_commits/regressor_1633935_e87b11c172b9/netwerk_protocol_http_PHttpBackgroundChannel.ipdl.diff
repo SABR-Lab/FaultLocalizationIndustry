@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/PHttpBackgroundChannel.ipdl
+# Commit: e87b11c172b9
+# Full Hash: e87b11c172b91358388fe38edf7cb15b35ed13eb
+# Author: Junior Hsu <juhsu@mozilla.com>
+# Date: 2020-06-24 09:31:07
+# Regressor Bug: 1633935
+# File Overlap Count: 1
+# Description:
+#   Bug 1633935 - P11 Move classification IPC methods back to PHttpChannel. r=mayhemer,necko-reviewers
+#   
+#   Bug 1015466 move them from PContent to Pbg since it believes those events are fine
+#   to received before OnStopRequest. Bug 1588241 move it back to PContent since those
+#   events are before OnStartRequest.
+# ==============================================================================
+
+diff -r 709f8d50aa33 -r e87b11c172b9 netwerk/protocol/http/PHttpBackgroundChannel.ipdl
+--- a/netwerk/protocol/http/PHttpBackgroundChannel.ipdl	Tue Jun 23 16:58:36 2020 +0000
++++ b/netwerk/protocol/http/PHttpBackgroundChannel.ipdl	Tue Jun 23 16:58:38 2020 +0000
+@@ -8,9 +8,12 @@
+ include protocol PBackground;
+ include NeckoChannelParams;
+ include HttpChannelParams;
++include PURLClassifierInfo;
+ 
+ include "mozilla/net/NeckoMessageUtils.h";
+ 
++using nsIHttpChannel::FlashPluginState from "mozilla/net/NeckoMessageUtils.h";
++
+ namespace mozilla {
+ namespace net {
+ 
+@@ -57,6 +60,19 @@
+   // OnDataAvailable and OnStopRequest messages in the queue back to the parent.
+   async DivertMessages();
+ 
++  // Tell the child that the resource being loaded has been classified.
++  async NotifyClassificationFlags(uint32_t aClassificationFlags, bool aIsThirdParty);
++
++  // Tell the child that the current channel's document is not allowed to load
++  // flash content.
++  async NotifyFlashPluginStateChanged(FlashPluginState aState);
++
++  // Tell the child information of matched URL againts SafeBrowsing list
++  async SetClassifierMatchedInfo(ClassifierInfo info);
++
++  // Tell the child information of matched URL againts SafeBrowsing tracking list
++  async SetClassifierMatchedTrackingInfo(ClassifierInfo info);
++
+   async __delete__();
+ 
+ };

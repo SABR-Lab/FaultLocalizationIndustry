@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/ipc/DocAccessibleParent.cpp
+# Commit: e12dbde5824b
+# Full Hash: e12dbde5824b03fe31e2ce71d183edcc162cc2e9
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2022-05-03 09:42:08
+# Regressor Bug: 1766794
+# File Overlap Count: 2
+# Description:
+#   Bug 1766794: Lazily cache HyperText offsets for RemoteAccessibles.
+#   
+#   We already have a similar cache in local HyperTextAccessible.
+#   Unfortunately, we can't use common code here because we don't want to waste memory having a member variable on all RemoteAccessibles, but local HyperTextAccessibles don't have mCachedFields.
+#   This improves performance significantly when walking the text attributes of a container with a large number of text leaf children, such as is encountered when using view source.
+# ==============================================================================
+
+diff -r 6a2ad49b2630 -r e12dbde5824b accessible/ipc/DocAccessibleParent.cpp
+--- a/accessible/ipc/DocAccessibleParent.cpp	Mon May 02 22:38:07 2022 +0000
++++ b/accessible/ipc/DocAccessibleParent.cpp	Mon May 02 22:40:43 2022 +0000
+@@ -284,6 +284,10 @@
+   if (StaticPrefs::accessibility_cache_enabled_AtStartup()) {
+     if (aEventType == nsIAccessibleEvent::EVENT_REORDER ||
+         aEventType == nsIAccessibleEvent::EVENT_INNER_REORDER) {
++      if (proxy->IsHyperText()) {
++        // Invalidate the HyperText offset cache.
++        proxy->GetChildOffset(0, /* aInvalidateAfter */ true);
++      }
+       for (RemoteAccessible* child = proxy->RemoteFirstChild(); child;
+            child = child->RemoteNextSibling()) {
+         child->InvalidateGroupInfo();
+@@ -555,6 +559,13 @@
+     }
+ 
+     remote->ApplyCache(aUpdateType, entry.Fields());
++    if (aUpdateType == CacheUpdateType::Update && remote->IsTextLeaf()) {
++      // Invalidate the HyperText offset cache.
++      RemoteAccessible* parent = remote->RemoteParent();
++      if (parent && parent->IsHyperText()) {
++        parent->GetChildOffset(0, /* aInvalidateAfter */ true);
++      }
++    }
+   }
+ 
+   if (nsCOMPtr<nsIObserverService> obsService =

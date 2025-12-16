@@ -1,0 +1,107 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: xpcom/threads/TaskQueue.h
+# Commit: 33ae2aabdf22
+# Full Hash: 33ae2aabdf225a72dfceb09424e4e43ae9430e69
+# Author: Atila Butkovits <abutkovits@mozilla.com>
+# Date: 2025-06-12 16:31:09
+# Regressor Bug: 1968812
+# File Overlap Count: 1
+# Description:
+#   Revert "Bug 1968812 - Remove the CallWorker thread and use TaskQueue::Observer instead. r=bwc" for causing failures complaining about mutexLock.
+#   
+#   This reverts commit d53f26b530b4ad59aebe314c55a8af2c62a80fc3.
+#   
+#   Revert "Bug 1968812 - Copy WebrtcTaskQueueWrapper.h to WebrtcTaskQueueWrapper.cpp. r=bwc"
+# ==============================================================================
+
+diff -r ca232b0163c7 -r 33ae2aabdf22 xpcom/threads/TaskQueue.h
+--- a/xpcom/threads/TaskQueue.h	Wed Jun 11 22:34:11 2025 +0300
++++ b/xpcom/threads/TaskQueue.h	Wed Jun 11 23:24:24 2025 +0300
+@@ -127,25 +127,6 @@
+   bool IsCurrentThreadIn() const override;
+   using nsISerialEventTarget::IsOnCurrentThread;
+ 
+-  class Observer {
+-   public:
+-    NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
+-    // Called before an event is processed on the TaskQueue on its event target.
+-    virtual void WillProcessEvent(TaskQueue* aQueue) = 0;
+-    // Called after an event has been processed on the TaskQueue on its event
+-    // target.
+-    // Note that it is not safe to add direct tasks from DidProcessEvent().
+-    virtual void DidProcessEvent(TaskQueue* aQueue) = 0;
+-
+-   protected:
+-    virtual ~Observer() = default;
+-  };
+-
+-  // Set an observer to be notified as this TaskQueue processes events.
+-  // Callable from any thread. Transactional, i.e. WillProcess always comes
+-  // first and is always matched by DidProcess.
+-  void SetObserver(Observer* aObserver);
+-
+  private:
+   friend class SupportsThreadSafeWeakPtr<TaskQueue>;
+ 
+@@ -199,8 +180,8 @@
+   // RAII class that gets instantiated for each dispatched task.
+   class AutoTaskGuard {
+    public:
+-    AutoTaskGuard(TaskQueue* aQueue, TaskQueue::Observer* aObserver)
+-        : mQueue(aQueue), mObserver(aObserver), mLastCurrentThread(nullptr) {
++    explicit AutoTaskGuard(TaskQueue* aQueue)
++        : mQueue(aQueue), mLastCurrentThread(nullptr) {
+       // NB: We don't hold the lock to aQueue here. Don't do anything that
+       // might require it.
+       MOZ_ASSERT(!mQueue->mTailDispatcher);
+@@ -215,24 +196,11 @@
+       mQueue->mRunningThread = PR_GetCurrentThread();
+ 
+       mEventTargetGuard.emplace(mQueue);
+-
+-      if (mObserver) {
+-        mObserver->WillProcessEvent(mQueue);
+-      }
+     }
+ 
+     ~AutoTaskGuard() {
+       mTaskDispatcher->DrainDirectTasks();
+-
+-      if (mObserver) {
+-        mObserver->DidProcessEvent(mQueue);
+-        MOZ_ASSERT(!mTaskDispatcher->HaveDirectTasks(),
+-                   "TaskQueue::Observer instance in "
+-                   "DidProcessEvent(TaskQueue*) added direct tasks in error");
+-      }
+-
+       mTaskDispatcher.reset();
+-      mQueue->mTailDispatcher = nullptr;
+ 
+       mEventTargetGuard = Nothing();
+ 
+@@ -240,13 +208,13 @@
+       mQueue->mRunningThread = nullptr;
+ 
+       sCurrentThreadTLS.set(mLastCurrentThread);
++      mQueue->mTailDispatcher = nullptr;
+     }
+ 
+    private:
+     Maybe<AutoTaskDispatcher> mTaskDispatcher;
+     Maybe<SerialEventTargetGuard> mEventTargetGuard;
+     TaskQueue* mQueue;
+-    TaskQueue::Observer* mObserver;
+     AbstractThread* mLastCurrentThread;
+   };
+ 
+@@ -266,8 +234,6 @@
+ 
+   SimpleTaskQueue mDirectTasks;
+ 
+-  RefPtr<Observer> mObserver MOZ_GUARDED_BY(mQueueMonitor);
+-
+   class Runner : public Runnable {
+    public:
+     explicit Runner(TaskQueue* aQueue)

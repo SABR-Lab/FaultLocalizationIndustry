@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/Http2ConnectTransaction.cpp
+# Commit: 23b864e14db0
+# Full Hash: 23b864e14db0cf874d0e126b6299c8c44922dde3
+# Author: Dana Keeler <dkeeler@mozilla.com>
+# Date: 2022-11-16 09:31:06
+# Regressor Bug: 1791633
+# File Overlap Count: 1
+# Description:
+#   Bug 1791633 - separate nsITLSSocketControl from nsITransportSecurityInfo r=necko-reviewers,kershaw,jschanck
+#   
+#   Depends on D160311
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D160313
+# ==============================================================================
+
+diff -r 0bcba3375ec0 -r 23b864e14db0 netwerk/protocol/http/Http2ConnectTransaction.cpp
+--- a/netwerk/protocol/http/Http2ConnectTransaction.cpp	Tue Nov 15 20:03:29 2022 +0000
++++ b/netwerk/protocol/http/Http2ConnectTransaction.cpp	Tue Nov 15 20:03:29 2022 +0000
+@@ -30,7 +30,7 @@
+ #include "prio.h"
+ 
+ #if defined(FUZZING)
+-#  include "FuzzySecurityInfo.h"
++#  include "FuzzySocketControl.h"
+ #  include "mozilla/StaticPrefs_fuzzing.h"
+ #endif
+ 
+@@ -666,7 +666,7 @@
+     // target is on the socket thread. That's all we really care about.
+     nsCOMPtr<nsIEventTarget> sts =
+         do_GetService(NS_SOCKETTRANSPORTSERVICE_CONTRACTID);
+-    MOZ_ASSERT((!target && !callback) || (target == sts));
++    MOZ_ASSERT(!target || (target == sts));
+     if (target && (target != sts)) {
+       return NS_ERROR_FAILURE;
+     }
+@@ -891,7 +891,7 @@
+     // target is on the socket thread. That's all we really care about.
+     nsCOMPtr<nsIEventTarget> sts =
+         do_GetService(NS_SOCKETTRANSPORTSERVICE_CONTRACTID);
+-    MOZ_ASSERT((!target && !callback) || (target == sts));
++    MOZ_ASSERT(!target || (target == sts));
+     if (target && (target != sts)) {
+       return NS_ERROR_FAILURE;
+     }

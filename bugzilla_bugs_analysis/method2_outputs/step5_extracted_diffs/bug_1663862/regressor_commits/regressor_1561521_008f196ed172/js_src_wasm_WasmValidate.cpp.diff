@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmValidate.cpp
+# Commit: 008f196ed172
+# Full Hash: 008f196ed1720c98f2a1ce1ff442d5371ca33742
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2020-08-19 10:01:16
+# Regressor Bug: 1561521
+# File Overlap Count: 1
+# Description:
+#   Bug 1561521 - Refine ref.null decoding to decode heaptype instead of reftype. r=lth
+#   
+#   ref.null takes a heaptype immediate. This is backwards compatible for
+#   reference-types, but is a breaking change for the GC proposal. This commit
+#   implements decoding for this refinement.
+# ==============================================================================
+
+diff -r 546d74acfb81 -r 008f196ed172 js/src/wasm/WasmValidate.cpp
+--- a/js/src/wasm/WasmValidate.cpp	Tue Aug 18 16:58:59 2020 +0000
++++ b/js/src/wasm/WasmValidate.cpp	Tue Aug 18 16:59:06 2020 +0000
+@@ -2285,7 +2285,7 @@
+     case uint16_t(Op::RefNull): {
+       MOZ_ASSERT_IF(env->isStructType(expected), env->gcTypesEnabled());
+       RefType initType;
+-      if (!d.readRefType(env->types, env->gcTypesEnabled(), &initType)) {
++      if (!d.readHeapType(env->types, env->gcTypesEnabled(), true, &initType)) {
+         return false;
+       }
+       if (!expected.isReference() ||

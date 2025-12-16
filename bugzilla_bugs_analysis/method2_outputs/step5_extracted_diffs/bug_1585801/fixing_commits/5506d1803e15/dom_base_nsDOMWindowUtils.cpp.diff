@@ -1,0 +1,28 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsDOMWindowUtils.cpp
+# Commit: 5506d1803e15
+# Full Hash: 5506d1803e158df5504bc74a7818cb78dca6420c
+# Author: Kris Taeleman <ktaeleman@mozilla.com>
+# Date: 2019-10-16 05:20:00
+# Description:
+#   Bug 1585801 - Fixing crash when folder is not writable and refactored logic. r=jrmuizel
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D48999
+# ==============================================================================
+
+diff -r f24ddb55b48b -r 5506d1803e15 dom/base/nsDOMWindowUtils.cpp
+--- a/dom/base/nsDOMWindowUtils.cpp	Sat Oct 12 23:50:45 2019 +0000
++++ b/dom/base/nsDOMWindowUtils.cpp	Tue Oct 15 17:03:22 2019 +0000
+@@ -4066,7 +4066,9 @@
+ 
+ NS_IMETHODIMP
+ nsDOMWindowUtils::SetTransactionLogging(bool aValue) {
+-  Preferences::SetBool("gfx.webrender.debug.log-transactions", aValue);
++  if (WebRenderBridgeChild* wrbc = GetWebRenderBridge()) {
++    wrbc->SetTransactionLogging(aValue);
++  }
+   return NS_OK;
+ }
+ 

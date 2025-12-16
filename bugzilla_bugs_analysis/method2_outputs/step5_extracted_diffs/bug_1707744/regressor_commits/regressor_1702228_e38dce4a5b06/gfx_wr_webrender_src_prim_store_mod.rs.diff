@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/prim_store/mod.rs
+# Commit: e38dce4a5b06
+# Full Hash: e38dce4a5b06869dd4a4d753f41f7594a8cddfb6
+# Author: Nicolas Silva <nsilva@mozilla.com>
+# Date: 2021-04-22 21:31:57
+# Regressor Bug: 1702228
+# File Overlap Count: 2
+# Description:
+#   Bug 1702228 - Cache linear gradients by default. r=gw
+#   
+#   This patch breaks linear gradients into two primitives:
+#    - LinearGradient is always rendered via the brush shader. It is only used with SWGL.
+#    - CachedLinearGradient is always rendered via a cached render task and the brush image shader. Its implementation is very similar to conic and radial gradients, with the addition of a fast-path for axis aligned gradients with two stops.
+# ==============================================================================
+
+diff -r b3f8befa510f -r e38dce4a5b06 gfx/wr/webrender/src/prim_store/mod.rs
+--- a/gfx/wr/webrender/src/prim_store/mod.rs	Thu Apr 22 10:34:54 2021 +0000
++++ b/gfx/wr/webrender/src/prim_store/mod.rs	Thu Apr 22 10:34:54 2021 +0000
+@@ -1034,10 +1034,19 @@
+         image_instance_index: ImageInstanceIndex,
+         is_compositor_surface: bool,
+     },
++    /// Always rendered directly into the picture. This tends to be
++    /// faster with SWGL.
+     LinearGradient {
+         /// Handle to the common interned data for this primitive.
+         data_handle: LinearGradientDataHandle,
+-        gradient_index: LinearGradientIndex,
++        visible_tiles_range: GradientTileRange,
++    },
++    /// Always rendered via a cached render task. Usually faster with
++    /// a GPU.
++    CachedLinearGradient {
++        /// Handle to the common interned data for this primitive.
++        data_handle: LinearGradientDataHandle,
++        visible_tiles_range: GradientTileRange,
+     },
+     RadialGradient {
+         /// Handle to the common interned data for this primitive.
+@@ -1144,6 +1153,9 @@
+             PrimitiveInstanceKind::LinearGradient { data_handle, .. } => {
+                 data_handle.uid()
+             }
++            PrimitiveInstanceKind::CachedLinearGradient { data_handle, .. } => {
++                data_handle.uid()
++            }
+             PrimitiveInstanceKind::NormalBorder { data_handle, .. } => {
+                 data_handle.uid()
+             }
+@@ -1190,7 +1202,6 @@
+ pub type ImageInstanceIndex = storage::Index<ImageInstance>;
+ pub type GradientTileStorage = storage::Storage<VisibleGradientTile>;
+ pub type GradientTileRange = storage::Range<VisibleGradientTile>;
+-pub type LinearGradientIndex = storage::Index<LinearGradientPrimitive>;
+ pub type LinearGradientStorage = storage::Storage<LinearGradientPrimitive>;
+ 
+ /// Contains various vecs of data that is used only during frame building,

@@ -1,0 +1,34 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: editor/spellchecker/TextServicesDocument.h
+# Commit: 5a8a664696bb
+# Full Hash: 5a8a664696bb69d3f113ea7abd27f07c3a7686c3
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2021-08-04 15:37:19
+# Description:
+#   Bug 1722748 - Make `TextServicesDocument::OffsetEntryArray::RemoveInvalidElements()` adjust selection indexes when middle of the selection start and end entry is removed r=m_kato
+#   
+#   It handles selection indexes really roughly since it does it only when
+#   start index is same or greater then removing index.  So, only end index
+#   may be greater than the removing index, and if the start index is 0, it
+# ==============================================================================
+
+diff -r 5d3b6ace0a3b -r 5a8a664696bb editor/spellchecker/TextServicesDocument.h
+--- a/editor/spellchecker/TextServicesDocument.h	Wed Aug 04 09:20:31 2021 +0300
++++ b/editor/spellchecker/TextServicesDocument.h	Wed Aug 04 04:40:38 2021 +0000
+@@ -169,12 +169,14 @@
+             Some(aOffsetInTextInBlock);
+       }
+       void SetIndexes(size_t aStartIndex, size_t aEndIndex) {
++        MOZ_DIAGNOSTIC_ASSERT(aStartIndex <= aEndIndex);
+         mStartIndex = Some(aStartIndex);
+         mEndIndex = Some(aEndIndex);
+       }
+       void Set(size_t aStartIndex, size_t aEndIndex,
+                uint32_t aStartOffsetInTextInBlock,
+                uint32_t aEndOffsetInTextInBlock) {
++        MOZ_DIAGNOSTIC_ASSERT(aStartIndex <= aEndIndex);
+         mStartIndex = Some(aStartIndex);
+         mEndIndex = Some(aEndIndex);
+         mStartOffsetInTextInBlock = Some(aStartOffsetInTextInBlock);

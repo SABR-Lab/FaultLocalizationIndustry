@@ -1,0 +1,96 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/ash/src/extensions/mvk/ios_surface.rs
+# Commit: ef5dc3e04e5f
+# Full Hash: ef5dc3e04e5f271eea0636ab3a495e95cc912f1d
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-09-04 09:40:24
+# Regressor Bug: 1726626
+# File Overlap Count: 3
+# Description:
+#   Bug 1726626 - Move gfx/wgpu into a 3rd party dependency r=jgilbert,bholley
+#   
+#   This update makes wgpu a vendored dependency instead of having it in gfx/wgpu.
+#   
+#   ## Notes
+# ==============================================================================
+
+diff --git a/third_party/rust/ash/src/extensions/mvk/ios_surface.rs b/third_party/rust/ash/src/extensions/nn/vi_surface.rs
+old mode 100755
+new mode 100644
+copy from third_party/rust/ash/src/extensions/mvk/ios_surface.rs
+copy to third_party/rust/ash/src/extensions/nn/vi_surface.rs
+--- a/third_party/rust/ash/src/extensions/mvk/ios_surface.rs
++++ b/third_party/rust/ash/src/extensions/nn/vi_surface.rs
+@@ -1,54 +1,53 @@
+-#![allow(dead_code)]
+ use crate::prelude::*;
+-use crate::version::{EntryV1_0, InstanceV1_0};
+ use crate::vk;
+ use crate::RawPtr;
++use crate::{EntryCustom, Instance};
+ use std::ffi::CStr;
+ use std::mem;
+ 
+ #[derive(Clone)]
+-pub struct IOSSurface {
++pub struct ViSurface {
+     handle: vk::Instance,
+-    ios_surface_fn: vk::MvkIosSurfaceFn,
++    vi_surface_fn: vk::NnViSurfaceFn,
+ }
+ 
+-impl IOSSurface {
+-    pub fn new<E: EntryV1_0, I: InstanceV1_0>(entry: &E, instance: &I) -> IOSSurface {
+-        let surface_fn = vk::MvkIosSurfaceFn::load(|name| unsafe {
++impl ViSurface {
++    pub fn new<L>(entry: &EntryCustom<L>, instance: &Instance) -> Self {
++        let surface_fn = vk::NnViSurfaceFn::load(|name| unsafe {
+             mem::transmute(entry.get_instance_proc_addr(instance.handle(), name.as_ptr()))
+         });
+-        IOSSurface {
++        Self {
+             handle: instance.handle(),
+-            ios_surface_fn: surface_fn,
++            vi_surface_fn: surface_fn,
+         }
+     }
+ 
+     pub fn name() -> &'static CStr {
+-        vk::MvkIosSurfaceFn::name()
++        vk::NnViSurfaceFn::name()
+     }
+ 
+-    #[doc = "<https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/vkCreateIOSSurfaceMVK.html>"]
+-    pub unsafe fn create_ios_surface_mvk(
++    #[doc = "<https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/vkCreateViSurfaceNN.html>"]
++    pub unsafe fn create_vi_surface(
+         &self,
+-        create_info: &vk::IOSSurfaceCreateInfoMVK,
++        create_info: &vk::ViSurfaceCreateInfoNN,
+         allocation_callbacks: Option<&vk::AllocationCallbacks>,
+     ) -> VkResult<vk::SurfaceKHR> {
+         let mut surface = mem::zeroed();
+-        self.ios_surface_fn
+-            .create_ios_surface_mvk(
++        self.vi_surface_fn
++            .create_vi_surface_nn(
+                 self.handle,
+                 create_info,
+                 allocation_callbacks.as_raw_ptr(),
+                 &mut surface,
+             )
+             .result_with_success(surface)
+     }
+ 
+-    pub fn fp(&self) -> &vk::MvkIosSurfaceFn {
+-        &self.ios_surface_fn
++    pub fn fp(&self) -> &vk::NnViSurfaceFn {
++        &self.vi_surface_fn
+     }
+ 
+     pub fn instance(&self) -> vk::Instance {
+         self.handle
+     }
+ }

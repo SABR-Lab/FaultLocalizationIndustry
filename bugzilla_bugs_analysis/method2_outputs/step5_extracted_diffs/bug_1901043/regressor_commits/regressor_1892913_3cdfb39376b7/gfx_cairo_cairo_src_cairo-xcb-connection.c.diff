@@ -1,0 +1,142 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/cairo/cairo/src/cairo-xcb-connection.c
+# Commit: 3cdfb39376b7
+# Full Hash: 3cdfb39376b736597fe658a322389117686b7e82
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2024-05-07 09:13:07
+# Regressor Bug: 1892913
+# File Overlap Count: 3
+# Description:
+#   Bug 1892913 - patch 1 - Update cairo source to 1.18.0 r=gfx-reviewers,lsalzman
+#   
+#   Wholesale replacement of files in gfx/cairo/cairo with contents of the 1.18.0 release tarball,
+#   omitting subdirectories that are not part of the core library build.
+#   
+# ==============================================================================
+
+diff -r 9daa351f875b -r 3cdfb39376b7 gfx/cairo/cairo/src/cairo-xcb-connection.c
+--- a/gfx/cairo/cairo/src/cairo-xcb-connection.c	Mon May 06 19:22:35 2024 +0000
++++ b/gfx/cairo/cairo/src/cairo-xcb-connection.c	Mon May 06 19:25:12 2024 +0000
+@@ -255,7 +255,7 @@
+     cairo_bool_t success = TRUE;
+     int depth, i, j;
+ 
+-    pixmap = _cairo_xcb_connection_get_xid (connection);
++    pixmap = xcb_generate_id (connection->xcb_connection);
+ 
+     for (depth = 1, i = 0; depth <= 32; depth++) {
+ 	if (missing & DEPTH_MASK(depth)) {
+@@ -275,8 +275,6 @@
+ 	free (create_error);
+     }
+ 
+-    _cairo_xcb_connection_put_xid (connection, pixmap);
+-
+     return success;
+ }
+ 
+@@ -462,10 +460,9 @@
+ 	return FALSE;
+     }
+ 
+-    shmseg = _cairo_xcb_connection_get_xid (connection);
++    shmseg = xcb_generate_id (connection->xcb_connection);
+     cookie[0] = xcb_shm_attach_checked (c, shmseg, shmid, FALSE);
+     cookie[1] = xcb_shm_detach_checked (c, shmseg);
+-    _cairo_xcb_connection_put_xid (connection, shmseg);
+ 
+     error = xcb_request_check (c, cookie[0]);
+     if (error != NULL)
+@@ -586,8 +583,6 @@
+ #endif
+     _cairo_freepool_fini (&connection->shm_info_freelist);
+ 
+-    _cairo_freepool_fini (&connection->xid_pool);
+-
+     CAIRO_MUTEX_FINI (connection->shm_mutex);
+     CAIRO_MUTEX_FINI (connection->screens_mutex);
+ 
+@@ -662,10 +657,6 @@
+ 	goto unlock;
+     }
+ 
+-    cairo_list_init (&connection->free_xids);
+-    _cairo_freepool_init (&connection->xid_pool,
+-			  sizeof (cairo_xcb_xid_t));
+-
+     cairo_list_init (&connection->shm_pools);
+     cairo_list_init (&connection->shm_pending);
+     _cairo_freepool_init (&connection->shm_info_freelist,
+@@ -766,43 +757,6 @@
+     return format ? format->xrender_format : XCB_NONE;
+ }
+ 
+-void
+-_cairo_xcb_connection_put_xid (cairo_xcb_connection_t *connection,
+-			       uint32_t xid)
+-{
+-    cairo_xcb_xid_t *cache;
+-
+-    assert (CAIRO_MUTEX_IS_LOCKED (connection->device.mutex));
+-    cache = _cairo_freepool_alloc (&connection->xid_pool);
+-    if (likely (cache != NULL)) {
+-	cache->xid = xid;
+-	cairo_list_add (&cache->link, &connection->free_xids);
+-    }
+-}
+-
+-uint32_t
+-_cairo_xcb_connection_get_xid (cairo_xcb_connection_t *connection)
+-{
+-    uint32_t xid;
+-
+-    assert (CAIRO_MUTEX_IS_LOCKED (connection->device.mutex));
+-    if (! cairo_list_is_empty (&connection->free_xids)) {
+-	cairo_xcb_xid_t *cache;
+-
+-	cache = cairo_list_first_entry (&connection->free_xids,
+-					cairo_xcb_xid_t,
+-					link);
+-	xid = cache->xid;
+-
+-	cairo_list_del (&cache->link);
+-	_cairo_freepool_free (&connection->xid_pool, cache);
+-    } else {
+-	xid = xcb_generate_id (connection->xcb_connection);
+-    }
+-
+-    return xid;
+-}
+-
+ /**
+  * cairo_xcb_device_get_connection:
+  * @device: a #cairo_device_t for the XCB backend
+@@ -942,9 +896,6 @@
+ 	    connection->flags &= ~CAIRO_XCB_RENDER_HAS_GRADIENTS;
+     }
+ }
+-#if CAIRO_HAS_XLIB_XCB_FUNCTIONS
+-slim_hidden_def (cairo_xcb_device_debug_cap_xrender_version);
+-#endif
+ 
+ /**
+  * cairo_xcb_device_debug_set_precision:
+@@ -972,9 +923,6 @@
+ 
+     ((cairo_xcb_connection_t *) device)->force_precision = precision;
+ }
+-#if CAIRO_HAS_XLIB_XCB_FUNCTIONS
+-slim_hidden_def (cairo_xcb_device_debug_set_precision);
+-#endif
+ 
+ /**
+  * cairo_xcb_device_debug_get_precision:
+@@ -1001,6 +949,3 @@
+ 
+     return ((cairo_xcb_connection_t *) device)->force_precision;
+ }
+-#if CAIRO_HAS_XLIB_XCB_FUNCTIONS
+-slim_hidden_def (cairo_xcb_device_debug_get_precision);
+-#endif

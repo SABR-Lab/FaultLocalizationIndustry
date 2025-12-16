@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/x64/MacroAssembler-x64.h
+# Commit: 28feda14fdec
+# Full Hash: 28feda14fdec962ea68c26a0570ea69042a5ad27
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2023-08-05 09:19:01
+# Regressor Bug: 1692065
+# File Overlap Count: 3
+# Description:
+#   Bug 1692065 - wasm: Add tagging for JSString* in AnyRef. r=yury
+#   
+#   Before this commit we would need to box a JSString* in WasmValueBox
+#   when we received one from JS and converted to an AnyRef.
+#   
+# ==============================================================================
+
+diff -r 85605041672d -r 28feda14fdec js/src/jit/x64/MacroAssembler-x64.h
+--- a/js/src/jit/x64/MacroAssembler-x64.h	Fri Aug 04 14:06:50 2023 +0000
++++ b/js/src/jit/x64/MacroAssembler-x64.h	Fri Aug 04 14:06:50 2023 +0000
+@@ -907,6 +907,11 @@
+     andq(src.valueReg(), dest);
+   }
+ 
++  void unboxWasmAnyRefGCThingForGCBarrier(const Address& src, Register dest) {
++    movq(ImmWord(wasm::AnyRef::GCThingMask), dest);
++    andq(Operand(src), dest);
++  }
++
+   // Like unboxGCThingForGCBarrier, but loads the GC thing's chunk base.
+   void getGCThingValueChunk(const Address& src, Register dest) {
+     movq(ImmWord(JS::detail::ValueGCThingPayloadChunkMask), dest);
+@@ -918,6 +923,12 @@
+     andq(src.valueReg(), dest);
+   }
+ 
++  void getWasmAnyRefGCThingChunk(Register src, Register dest) {
++    MOZ_ASSERT(src != dest);
++    movq(ImmWord(wasm::AnyRef::GCThingChunkMask), dest);
++    andq(src, dest);
++  }
++
+   inline void fallibleUnboxPtrImpl(const Operand& src, Register dest,
+                                    JSValueType type, Label* fail);
+ 

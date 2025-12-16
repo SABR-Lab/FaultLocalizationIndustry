@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/windows/CompositorWidgetChild.cpp
+# Commit: 71e63781b38c
+# Full Hash: 71e63781b38cbde024a9057553cae96c98e5ecb2
+# Author: Chris Martin <cmartin@mozilla.com>
+# Date: 2020-02-13 18:21:33
+# Regressor Bug: 1604412
+# File Overlap Count: 2
+# Description:
+#   Bug 1604412 - Enable remote backbuffer GDI compositing r=jmathies,jld
+#   
+#   This change adds new "remote backbuffer" logic when compositing without
+#   HW acceleration on Windows (IE compositing through Cairo using the Win32
+#   GDI)
+# ==============================================================================
+
+diff -r f2088b5ae50d -r 71e63781b38c widget/windows/CompositorWidgetChild.cpp
+--- a/widget/windows/CompositorWidgetChild.cpp	Thu Feb 13 07:13:50 2020 +0200
++++ b/widget/windows/CompositorWidgetChild.cpp	Thu Feb 13 03:59:13 2020 +0000
+@@ -10,6 +10,7 @@
+ #include "nsBaseWidget.h"
+ #include "VsyncDispatcher.h"
+ #include "gfxPlatform.h"
++#include "RemoteBackbuffer.h"
+ 
+ namespace mozilla {
+ namespace widget {
+@@ -24,7 +25,8 @@
+       mWnd(reinterpret_cast<HWND>(
+           aInitData.get_WinCompositorWidgetInitData().hWnd())),
+       mTransparencyMode(
+-          aInitData.get_WinCompositorWidgetInitData().transparencyMode()) {
++          aInitData.get_WinCompositorWidgetInitData().transparencyMode()),
++      mRemoteBackbufferProvider() {
+   MOZ_ASSERT(XRE_IsParentProcess());
+   MOZ_ASSERT(!gfxPlatform::IsHeadless());
+   MOZ_ASSERT(mWnd && ::IsWindow(mWnd));
+@@ -32,7 +34,21 @@
+ 
+ CompositorWidgetChild::~CompositorWidgetChild() {}
+ 
+-bool CompositorWidgetChild::Initialize() { return true; }
++bool CompositorWidgetChild::Initialize() {
++  mRemoteBackbufferProvider = std::make_unique<remote_backbuffer::Provider>();
++  if (!mRemoteBackbufferProvider->Initialize(mWnd, OtherPid())) {
++    return false;
++  }
++
++  auto maybeRemoteHandles = mRemoteBackbufferProvider->CreateRemoteHandles();
++  if (!maybeRemoteHandles) {
++    return false;
++  }
++
++  Unused << SendInitialize(*maybeRemoteHandles);
++
++  return true;
++}
+ 
+ void CompositorWidgetChild::EnterPresentLock() {
+   Unused << SendEnterPresentLock();

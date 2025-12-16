@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/builtin/TestingFunctions.cpp
+# Commit: 410e13fdf4e5
+# Full Hash: 410e13fdf4e5927cf6ab312e77f00926a5669508
+# Author: Steve Fink <sfink@mozilla.com>
+# Date: 2021-08-13 09:27:46
+# Regressor Bug: 1720422
+# File Overlap Count: 2
+# Description:
+#   Bug 1720422 - Move typed array unwrap API to templatized version r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D119856
+# ==============================================================================
+
+diff -r 677e4aa42b4d -r 410e13fdf4e5 js/src/builtin/TestingFunctions.cpp
+--- a/js/src/builtin/TestingFunctions.cpp	Thu Aug 12 20:44:15 2021 +0000
++++ b/js/src/builtin/TestingFunctions.cpp	Thu Aug 12 20:44:15 2021 +0000
+@@ -7019,15 +7019,22 @@
+   }
+   array->ensureDenseInitializedLength(0, 2);
+ 
++  JSObject* obj = args[1].isObject() ? &args[1].toObject() : nullptr;
++  auto view = JS::TypedArray<Scalar::Uint8>::unwrap(obj);
++  if (!view) {
++    ReportUsageErrorASCII(cx, callee, "Second argument must be a Uint8Array");
++    return false;
++  }
+   size_t length;
+   bool isSharedMemory;
+-  uint8_t* data;
+-  if (!args[1].isObject() ||
+-      !JS_GetObjectAsUint8Array(&args[1].toObject(), &length, &isSharedMemory,
+-                                &data) ||
+-      isSharedMemory ||  // excluded views of SharedArrayBuffers
++  JS::AutoCheckCannotGC nogc(cx);
++  uint8_t* data = view.getLengthAndData(&length, &isSharedMemory, nogc);
++
++  if (isSharedMemory ||  // excluded views of SharedArrayBuffers
+       !data) {           // exclude views of detached ArrayBuffers
+-    ReportUsageErrorASCII(cx, callee, "Second argument must be a Uint8Array");
++    ReportUsageErrorASCII(
++        cx, callee,
++        "Second argument must be an unshared, non-detached Uint8Array");
+     return false;
+   }
+ 

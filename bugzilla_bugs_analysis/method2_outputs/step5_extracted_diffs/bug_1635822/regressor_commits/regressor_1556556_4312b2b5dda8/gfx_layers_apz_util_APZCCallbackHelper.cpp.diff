@@ -1,0 +1,68 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/apz/util/APZCCallbackHelper.cpp
+# Commit: 4312b2b5dda8
+# Full Hash: 4312b2b5dda8c1af7b56ac1c55ab762aff485a2c
+# Author: Botond Ballo <botond@mozilla.com>
+# Date: 2020-04-28 16:30:11
+# Regressor Bug: 1556556
+# File Overlap Count: 1
+# Description:
+#   Bug 1556556 - Move GetCallbackTransform() into a new ViewportUtils class. r=kats
+#   
+#   This function (and helper functions that wrap it) will be used extensively
+#   throughout layout code, so keeping it in APZCCallbackHelper seems awkward.
+#   
+# ==============================================================================
+
+diff -r d11dbf6403a5 -r 4312b2b5dda8 gfx/layers/apz/util/APZCCallbackHelper.cpp
+--- a/gfx/layers/apz/util/APZCCallbackHelper.cpp	Tue Apr 28 01:34:48 2020 +0000
++++ b/gfx/layers/apz/util/APZCCallbackHelper.cpp	Tue Apr 28 01:35:05 2020 +0000
+@@ -20,6 +20,7 @@
+ #include "mozilla/layers/WebRenderBridgeChild.h"
+ #include "mozilla/PresShell.h"
+ #include "mozilla/TouchEvents.h"
++#include "mozilla/ViewportUtils.h"
+ #include "nsContainerFrame.h"
+ #include "nsContentUtils.h"
+ #include "nsIContent.h"
+@@ -451,38 +452,6 @@
+   return context->PresShell();
+ }
+ 
+-mozilla::CSSToCSSMatrix4x4 APZCCallbackHelper::GetCallbackTransform(
+-    ScrollableLayerGuid::ViewID aScrollId) {
+-  if (aScrollId == ScrollableLayerGuid::NULL_SCROLL_ID) {
+-    return {};
+-  }
+-  nsCOMPtr<nsIContent> content = nsLayoutUtils::FindContentFor(aScrollId);
+-  if (!content) {
+-    return {};
+-  }
+-
+-  // First, scale inversely by the root content document's pres shell
+-  // resolution to cancel the scale-to-resolution transform that the
+-  // compositor adds to the layer with the pres shell resolution. The points
+-  // sent to Gecko by APZ don't have this transform unapplied (unlike other
+-  // compositor-side transforms) because Gecko needs it applied when hit
+-  // testing against content that's conceptually outside the resolution,
+-  // such as scrollbars.
+-  float resolution = 1.0f;
+-  if (PresShell* presShell =
+-          GetRootContentDocumentPresShellForContent(content)) {
+-    resolution = presShell->GetResolution();
+-  }
+-
+-  // Now apply the callback-transform. This is only approximately correct,
+-  // see the comment on GetCumulativeApzCallbackTransform for details.
+-  CSSPoint transform = nsLayoutUtils::GetCumulativeApzCallbackTransform(
+-      content->GetPrimaryFrame());
+-
+-  return mozilla::CSSToCSSMatrix4x4::Scaling(1 / resolution, 1 / resolution, 1)
+-      .PostTranslate(transform.x, transform.y, 0);
+-}
+-
+ nsEventStatus APZCCallbackHelper::DispatchWidgetEvent(WidgetGUIEvent& aEvent) {
+   nsEventStatus status = nsEventStatus_eConsumeNoDefault;
+   if (aEvent.mWidget) {

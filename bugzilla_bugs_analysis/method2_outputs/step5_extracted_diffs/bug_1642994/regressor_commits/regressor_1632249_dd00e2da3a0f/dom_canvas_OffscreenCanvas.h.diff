@@ -1,0 +1,66 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/OffscreenCanvas.h
+# Commit: dd00e2da3a0f
+# Full Hash: dd00e2da3a0f11a7cc0af9e5ece21a339f4393eb
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-06-11 04:04:33
+# Regressor Bug: 1632249
+# File Overlap Count: 3
+# Description:
+#   Bug 1632249 - Support compositing out-of-process WebGL. r=handyman,lsalzman,nical,geckoview-reviewers,agi,imanol
+#   
+#   * Majorly simplity CanvasRenderer
+#   * Replace GLScreenBuffer with trivial GLSwapChain
+#   * Use descriptor structs so that future SharedSurface changes aren't so painful
+# ==============================================================================
+
+diff -r 69cc1de6f754 -r dd00e2da3a0f dom/canvas/OffscreenCanvas.h
+--- a/dom/canvas/OffscreenCanvas.h	Wed Jun 10 21:57:19 2020 +0000
++++ b/dom/canvas/OffscreenCanvas.h	Wed Jun 10 22:21:02 2020 +0000
+@@ -21,8 +21,8 @@
+ class ErrorResult;
+ 
+ namespace layers {
+-class AsyncCanvasRenderer;
+ class CanvasClient;
++class CanvasRenderer;
+ class ImageContainer;
+ }  // namespace layers
+ 
+@@ -35,13 +35,13 @@
+ // Canvas to worker thread directly. Thus, we create this helper class and
+ // store necessary data in it then pass it to worker thread.
+ struct OffscreenCanvasCloneData final {
+-  OffscreenCanvasCloneData(layers::AsyncCanvasRenderer* aRenderer,
+-                           uint32_t aWidth, uint32_t aHeight,
++  OffscreenCanvasCloneData(layers::CanvasRenderer* aRenderer, uint32_t aWidth,
++                           uint32_t aHeight,
+                            layers::LayersBackend aCompositorBackend,
+                            bool aNeutered, bool aIsWriteOnly);
+   ~OffscreenCanvasCloneData();
+ 
+-  RefPtr<layers::AsyncCanvasRenderer> mRenderer;
++  RefPtr<layers::CanvasRenderer> mRenderer;
+   uint32_t mWidth;
+   uint32_t mHeight;
+   layers::LayersBackend mCompositorBackendType;
+@@ -58,7 +58,7 @@
+ 
+   OffscreenCanvas(nsIGlobalObject* aGlobal, uint32_t aWidth, uint32_t aHeight,
+                   layers::LayersBackend aCompositorBackend,
+-                  layers::AsyncCanvasRenderer* aRenderer);
++                  layers::CanvasRenderer* aRenderer);
+ 
+   nsCOMPtr<nsIGlobalObject> GetParentObject() const { return GetOwnerGlobal(); }
+ 
+@@ -170,7 +170,7 @@
+   layers::LayersBackend mCompositorBackendType;
+ 
+   RefPtr<layers::CanvasClient> mCanvasClient;
+-  RefPtr<layers::AsyncCanvasRenderer> mCanvasRenderer;
++  RefPtr<layers::CanvasRenderer> mCanvasRenderer;
+ };
+ 
+ }  // namespace dom

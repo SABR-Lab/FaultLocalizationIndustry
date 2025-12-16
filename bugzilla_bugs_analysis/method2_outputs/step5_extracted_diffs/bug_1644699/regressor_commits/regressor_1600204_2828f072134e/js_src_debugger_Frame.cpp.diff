@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/debugger/Frame.cpp
+# Commit: 2828f072134e
+# Full Hash: 2828f072134e0425521de5ad9d60ae880c57e944
+# Author: Logan Smyth <loganfsmyth@gmail.com>
+# Date: 2019-12-09 09:50:39
+# Regressor Bug: 1600204
+# File Overlap Count: 1
+# Description:
+#   Bug 1600204 - Part 3: Support .constructing on suspended generator frames. r=jimb
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D55233
+# ==============================================================================
+
+diff -r 73c33bf110d6 -r 2828f072134e js/src/debugger/Frame.cpp
+--- a/js/src/debugger/Frame.cpp	Fri Dec 06 02:57:20 2019 +0000
++++ b/js/src/debugger/Frame.cpp	Sun Dec 08 23:53:57 2019 +0000
+@@ -457,15 +457,20 @@
+ /* static */
+ bool DebuggerFrame::getIsConstructing(JSContext* cx, HandleDebuggerFrame frame,
+                                       bool& result) {
+-  MOZ_ASSERT(frame->isOnStack());
++  if (frame->isOnStack()) {
++    Maybe<FrameIter> maybeIter;
++    if (!DebuggerFrame::getFrameIter(cx, frame, maybeIter)) {
++      return false;
++    }
++    FrameIter& iter = *maybeIter;
+ 
+-  Maybe<FrameIter> maybeIter;
+-  if (!DebuggerFrame::getFrameIter(cx, frame, maybeIter)) {
+-    return false;
++    result = iter.isFunctionFrame() && iter.isConstructing();
++  } else {
++    MOZ_ASSERT(frame->hasGenerator());
++
++    // Generators and async functions can't be constructed.
++    result = false;
+   }
+-  FrameIter& iter = *maybeIter;
+-
+-  result = iter.isFunctionFrame() && iter.isConstructing();
+   return true;
+ }
+ 
+@@ -1409,7 +1414,7 @@
+ }
+ 
+ bool DebuggerFrame::CallData::constructingGetter() {
+-  if (!ensureOnStack()) {
++  if (!ensureOnStackOrSuspended()) {
+     return false;
+   }
+ 

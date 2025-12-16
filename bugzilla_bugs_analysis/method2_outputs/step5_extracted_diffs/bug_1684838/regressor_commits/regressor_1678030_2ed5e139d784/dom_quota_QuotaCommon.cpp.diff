@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/QuotaCommon.cpp
+# Commit: 2ed5e139d784
+# Full Hash: 2ed5e139d7840692dad5bcf39348e92bf3b05fdb
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2020-12-05 09:38:58
+# Regressor Bug: 1678030
+# File Overlap Count: 1
+# Description:
+#   Bug 1678030 - Move CreateAndExecuteSingleStepStatement to QuotaCommon and use in all quota clients. r=dom-workers-and-storage-reviewers,janv
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D97460
+# ==============================================================================
+
+diff -r 80442bbcf255 -r 2ed5e139d784 dom/quota/QuotaCommon.cpp
+--- a/dom/quota/QuotaCommon.cpp	Fri Dec 04 15:08:17 2020 +0000
++++ b/dom/quota/QuotaCommon.cpp	Fri Dec 04 14:56:18 2020 +0000
+@@ -6,6 +6,8 @@
+ 
+ #include "QuotaCommon.h"
+ 
++#include "mozIStorageConnection.h"
++#include "mozIStorageStatement.h"
+ #include "mozilla/Logging.h"
+ #include "mozilla/TextUtils.h"
+ #include "nsIConsoleService.h"
+@@ -155,6 +157,20 @@
+   return resultFile;
+ }
+ 
++Result<nsCOMPtr<mozIStorageStatement>, nsresult>
++CreateAndExecuteSingleStepStatement(mozIStorageConnection& aConnection,
++                                    const nsACString& aStatementString) {
++  QM_TRY_UNWRAP(auto stmt, MOZ_TO_RESULT_INVOKE_TYPED(
++                               nsCOMPtr<mozIStorageStatement>, aConnection,
++                               CreateStatement, aStatementString));
++
++  QM_TRY_UNWRAP(const DebugOnly<bool> hasResult,
++                MOZ_TO_RESULT_INVOKE(stmt, ExecuteStep));
++  MOZ_ASSERT(hasResult);
++
++  return stmt;
++}
++
+ #ifdef QM_ENABLE_SCOPED_LOG_EXTRA_INFO
+ MOZ_THREAD_LOCAL(const nsACString*) ScopedLogExtraInfo::sQueryValue;
+ 

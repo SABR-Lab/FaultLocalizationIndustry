@@ -1,0 +1,84 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLParent.h
+# Commit: 71c122ac0ca7
+# Full Hash: 71c122ac0ca73391866b1ef19f4f82bc2d28568b
+# Author: David Parks <davidp99@gmail.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Initial out-of-process WebGL implementation. r=mccr8,handyman
+#   
+#   Splits WebGLContext into ClientWebGLContext and HostWebGLContext.  The Client enables the JS-control of a WebGL context in a content procecss while the Host executes the WebGL graphics operations (via a WebGLContext that maintains much of the existing code) in the compositor process.  At this point, the cross-process behavior is disabled -- this series of patches is an incremental step toward that final goal.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D54018
+# ==============================================================================
+
+diff -r 5cbf5bb11c58 -r 71c122ac0ca7 dom/canvas/WebGLParent.h
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/dom/canvas/WebGLParent.h	Wed Jan 08 22:19:14 2020 +0000
+@@ -0,0 +1,62 @@
++/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++#ifndef WEBGLPARENT_H_
++#define WEBGLPARENT_H_
++
++#include "mozilla/GfxMessageUtils.h"
++#include "mozilla/dom/PWebGLParent.h"
++#include "mozilla/dom/WebGLCrossProcessCommandQueue.h"
++#include "mozilla/dom/WebGLErrorQueue.h"
++#include "mozilla/WeakPtr.h"
++
++namespace mozilla {
++
++class HostWebGLContext;
++
++namespace layers {
++class SharedSurfaceTextureClient;
++}
++
++namespace dom {
++
++class WebGLParent : public PWebGLParent, public SupportsWeakPtr<WebGLParent> {
++ public:
++  MOZ_DECLARE_WEAKREFERENCE_TYPENAME(WebGLParent)
++
++  static WebGLParent* Create(
++      WebGLVersion aVersion,
++      UniquePtr<mozilla::HostWebGLCommandSink>&& aCommandSink,
++      UniquePtr<mozilla::HostWebGLErrorSource>&& aErrorSource);
++
++  already_AddRefed<layers::SharedSurfaceTextureClient> GetVRFrame();
++
++ protected:
++  friend PWebGLParent;
++
++  WebGLParent(UniquePtr<HostWebGLContext>&& aHost);
++
++  bool BeginCommandQueueDrain();
++  static bool MaybeRunCommandQueue(const WeakPtr<WebGLParent>& weakWebGLParent);
++  bool RunCommandQueue();
++
++  mozilla::ipc::IPCResult RecvUpdateCompositableHandle(
++      layers::PLayerTransactionParent* aLayerTransaction,
++      const CompositableHandle& aHandle);
++
++  mozilla::ipc::IPCResult Recv__delete__() override;
++
++  void ActorDestroy(ActorDestroyReason aWhy) override;
++
++  UniquePtr<HostWebGLContext> mHost;
++
++  // Runnable that repeatedly processes our WebGL command queue
++  RefPtr<Runnable> mRunCommandsRunnable;
++};
++
++}  // namespace dom
++}  // namespace mozilla
++
++#endif  // WEBGLPARENT_H_

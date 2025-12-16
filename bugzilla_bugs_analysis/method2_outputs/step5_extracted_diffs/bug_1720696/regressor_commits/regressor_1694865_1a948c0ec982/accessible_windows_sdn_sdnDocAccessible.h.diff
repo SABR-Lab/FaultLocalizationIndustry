@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/windows/sdn/sdnDocAccessible.h
+# Commit: 1a948c0ec982
+# Full Hash: 1a948c0ec9826d73bba860699f540cbb25f34e34
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2021-04-29 21:42:31
+# Regressor Bug: 1694865
+# File Overlap Count: 1
+# Description:
+#   Bug 1694865 part 18: Make EnumVariant, GeckoCustom and sdn*Accessible classes aggregate MsaaAccessible/MsaaDocAccessible instead of AccessibleWrap/DocAccessibleWrap. r=morgan
+#   
+#   These objects need to aggregate the primary COM object (MsaaAccessible).
+#   Once the IUnknown implementation moves out of AccessibleWrap, it won't be possible to aggregate *AccessibleWrap any more.
+#   
+# ==============================================================================
+
+diff -r 3ea7b46bb4f8 -r 1a948c0ec982 accessible/windows/sdn/sdnDocAccessible.h
+--- a/accessible/windows/sdn/sdnDocAccessible.h	Thu Apr 29 10:20:56 2021 +0000
++++ b/accessible/windows/sdn/sdnDocAccessible.h	Thu Apr 29 10:20:57 2021 +0000
+@@ -10,15 +10,14 @@
+ #include "ISimpleDOM.h"
+ #include "IUnknownImpl.h"
+ 
+-#include "DocAccessibleWrap.h"
++#include "MsaaDocAccessible.h"
+ 
+ namespace mozilla {
+ namespace a11y {
+ 
+ class sdnDocAccessible final : public ISimpleDOMDocument {
+  public:
+-  explicit sdnDocAccessible(DocAccessibleWrap* aAccessible)
+-      : mAccessible(aAccessible){};
++  explicit sdnDocAccessible(MsaaDocAccessible* aMsaa) : mMsaa(aMsaa){};
+   ~sdnDocAccessible(){};
+ 
+   DECL_IUNKNOWN
+@@ -44,7 +43,7 @@
+       /* [in] */ BSTR __RPC_FAR* commaSeparatedMediaTypes);
+ 
+  protected:
+-  RefPtr<DocAccessibleWrap> mAccessible;
++  RefPtr<MsaaDocAccessible> mMsaa;
+ };
+ 
+ }  // namespace a11y

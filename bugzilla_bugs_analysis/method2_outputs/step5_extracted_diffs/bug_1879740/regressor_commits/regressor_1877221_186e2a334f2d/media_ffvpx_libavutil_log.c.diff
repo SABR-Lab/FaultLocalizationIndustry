@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/ffvpx/libavutil/log.c
+# Commit: 186e2a334f2d
+# Full Hash: 186e2a334f2deb37b29f44b28bc8c83babeeb9a4
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2024-02-09 09:37:17
+# Regressor Bug: 1877221
+# File Overlap Count: 1
+# Description:
+#   Bug 1877221 - Pull in new ffmpeg code, reapply patch. r=media-playback-reviewers,chunmin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D199909
+# ==============================================================================
+
+diff -r c5920de78d16 -r 186e2a334f2d media/ffvpx/libavutil/log.c
+--- a/media/ffvpx/libavutil/log.c	Thu Feb 08 10:39:53 2024 +0000
++++ b/media/ffvpx/libavutil/log.c	Thu Feb 08 10:39:54 2024 +0000
+@@ -47,7 +47,7 @@
+ 
+ #define LINE_SZ 1024
+ 
+-#if HAVE_VALGRIND_VALGRIND_H
++#if HAVE_VALGRIND_VALGRIND_H && CONFIG_VALGRIND_BACKTRACE
+ #include <valgrind/valgrind.h>
+ /* this is the log level at which valgrind will output a full backtrace */
+ #define BACKTRACE_LOGLEVEL AV_LOG_ERROR
+@@ -291,6 +291,11 @@
+     }
+ }
+ 
++static const char *item_name(void *obj, const AVClass *cls)
++{
++    return (cls->item_name ? cls->item_name : av_default_item_name)(obj);
++}
++
+ static void format_line(void *avcl, int level, const char *fmt, va_list vl,
+                         AVBPrint part[4], int *print_prefix, int type[2])
+ {
+@@ -307,12 +312,12 @@
+                                    avc->parent_log_context_offset);
+             if (parent && *parent) {
+                 av_bprintf(part+0, "[%s @ %p] ",
+-                         (*parent)->item_name(parent), parent);
++                           item_name(parent, *parent), parent);
+                 if(type) type[0] = get_category(parent);
+             }
+         }
+         av_bprintf(part+1, "[%s @ %p] ",
+-                 avc->item_name(avcl), avcl);
++                   item_name(avcl, avc), avcl);
+         if(type) type[1] = get_category(avcl);
+     }
+ 

@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/Document.cpp
+# Commit: 6d063a63bece
+# Full Hash: 6d063a63bece58fc08ea417c7f00524de57ab59d
+# Author: Brendan Dahl <bdahl@mozilla.com>
+# Date: 2019-05-23 15:52:15
+# Regressor Bug: 1551320
+# File Overlap Count: 1
+# Description:
+#   Bug 1551320 - Don't allow CreateElement in XUL documents. r=bzbarsky
+#   
+#   Soon XUL documents will be loaded as XHTML and createElement will create HTML
+#   elements instead of XUL element by default. This restriction can be removed
+#   once we migrate everything.
+# ==============================================================================
+
+diff -r 7a5f5a8174f7 -r 6d063a63bece dom/base/Document.cpp
+--- a/dom/base/Document.cpp	Wed May 22 12:59:01 2019 +0000
++++ b/dom/base/Document.cpp	Wed May 22 20:18:03 2019 +0000
+@@ -5523,6 +5523,17 @@
+     return nullptr;
+   }
+ 
++  // Temporary check until XULDocument has been removed.
++  if (IsXULDocument()) {
++#if DEBUG
++    xpc_DumpJSStack(true, true, false);
++#endif
++    MOZ_DIAGNOSTIC_ASSERT(false,
++                          "CreateElement() not allowed in XUL document.");
++    rv.Throw(NS_ERROR_FAILURE);
++    return nullptr;
++  }
++
+   bool needsLowercase = IsHTMLDocument() && !IsLowercaseASCII(aTagName);
+   nsAutoString lcTagName;
+   if (needsLowercase) {

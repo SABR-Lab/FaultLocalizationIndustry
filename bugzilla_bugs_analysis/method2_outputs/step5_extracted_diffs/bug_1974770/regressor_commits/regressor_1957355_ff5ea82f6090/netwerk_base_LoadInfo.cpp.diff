@@ -1,0 +1,121 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/base/LoadInfo.cpp
+# Commit: ff5ea82f6090
+# Full Hash: ff5ea82f6090a4a1645a1a32749a4ae9102f015b
+# Author: Andrea Marchesini <amarchesini@mozilla.com>
+# Date: 2025-04-17 16:30:04
+# Regressor Bug: 1957355
+# File Overlap Count: 1
+# Description:
+#   Bug 1957355 - No storage access for resources injected by content-scripts, r=timhuang,necko-reviewers,devtools-reviewers,anti-tracking-reviewers,nchevobbe,kershaw
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D244204
+# ==============================================================================
+
+diff -r 04eed8759454 -r ff5ea82f6090 netwerk/base/LoadInfo.cpp
+--- a/netwerk/base/LoadInfo.cpp	Thu Apr 17 10:56:59 2025 +0000
++++ b/netwerk/base/LoadInfo.cpp	Thu Apr 17 10:56:59 2025 +0000
+@@ -514,16 +514,35 @@
+ 
+   mBrowsingContextID = parentBC->Id();
+ 
+-  // Let's inherit the cookie behavior and permission from the embedder
+-  // document.
+-  mCookieJarSettings = aParentWGP->CookieJarSettings();
+-  if (topLevelWGP->BrowsingContext()->IsTop()) {
+-    if (mCookieJarSettings) {
+-      bool stopAtOurLevel = mCookieJarSettings->GetCookieBehavior() ==
+-                            nsICookieService::BEHAVIOR_REJECT_TRACKER;
+-      if (!stopAtOurLevel ||
+-          topLevelWGP->OuterWindowId() != aParentWGP->OuterWindowId()) {
+-        mTopLevelPrincipal = topLevelWGP->DocumentPrincipal();
++  // Special treatment for resources injected by add-ons.
++  if (aTriggeringPrincipal &&
++      StaticPrefs::privacy_antitracking_isolateContentScriptResources() &&
++      nsContentUtils::IsExpandedPrincipal(aTriggeringPrincipal)) {
++    bool shouldResistFingerprinting =
++        nsContentUtils::ShouldResistFingerprinting_dangerous(
++            mLoadingPrincipal,
++            "CookieJarSettings can't exist yet, we're creating it",
++            RFPTarget::IsAlwaysEnabledForPrecompute);
++    mCookieJarSettings = CookieJarSettings::Create(
++        nsICookieService::BEHAVIOR_REJECT,
++        StoragePrincipalHelper::PartitionKeyForExpandedPrincipal(
++            aTriggeringPrincipal),
++        OriginAttributes::IsFirstPartyEnabled(), false,
++        shouldResistFingerprinting);
++  }
++
++  if (!mCookieJarSettings) {
++    // Let's inherit the cookie behavior and permission from the embedder
++    // document.
++    mCookieJarSettings = aParentWGP->CookieJarSettings();
++    if (topLevelWGP->BrowsingContext()->IsTop()) {
++      if (mCookieJarSettings) {
++        bool stopAtOurLevel = mCookieJarSettings->GetCookieBehavior() ==
++                              nsICookieService::BEHAVIOR_REJECT_TRACKER;
++        if (!stopAtOurLevel ||
++            topLevelWGP->OuterWindowId() != aParentWGP->OuterWindowId()) {
++          mTopLevelPrincipal = topLevelWGP->DocumentPrincipal();
++        }
+       }
+     }
+   }
+@@ -1160,13 +1179,25 @@
+ namespace {
+ 
+ already_AddRefed<nsICookieJarSettings> CreateCookieJarSettings(
+-    nsContentPolicyType aContentPolicyType, bool aIsPrivate,
+-    bool shouldResistFingerprinting) {
++    nsIPrincipal* aTriggeringPrincipal, nsContentPolicyType aContentPolicyType,
++    bool aIsPrivate, bool aShouldResistFingerprinting) {
++  // Special treatment for resources injected by add-ons.
++  if (aTriggeringPrincipal &&
++      StaticPrefs::privacy_antitracking_isolateContentScriptResources() &&
++      nsContentUtils::IsExpandedPrincipal(aTriggeringPrincipal)) {
++    return CookieJarSettings::Create(
++        nsICookieService::BEHAVIOR_REJECT,
++        StoragePrincipalHelper::PartitionKeyForExpandedPrincipal(
++            aTriggeringPrincipal),
++        OriginAttributes::IsFirstPartyEnabled(), false,
++        aShouldResistFingerprinting);
++  }
++
+   if (StaticPrefs::network_cookieJarSettings_unblocked_for_testing()) {
+     return aIsPrivate ? CookieJarSettings::Create(CookieJarSettings::ePrivate,
+-                                                  shouldResistFingerprinting)
++                                                  aShouldResistFingerprinting)
+                       : CookieJarSettings::Create(CookieJarSettings::eRegular,
+-                                                  shouldResistFingerprinting);
++                                                  aShouldResistFingerprinting);
+   }
+ 
+   // These contentPolictTypes require a real CookieJarSettings because favicon
+@@ -1175,12 +1206,12 @@
+   if (aContentPolicyType == nsIContentPolicy::TYPE_INTERNAL_IMAGE_FAVICON ||
+       aContentPolicyType == nsIContentPolicy::TYPE_SAVEAS_DOWNLOAD) {
+     return aIsPrivate ? CookieJarSettings::Create(CookieJarSettings::ePrivate,
+-                                                  shouldResistFingerprinting)
++                                                  aShouldResistFingerprinting)
+                       : CookieJarSettings::Create(CookieJarSettings::eRegular,
+-                                                  shouldResistFingerprinting);
++                                                  aShouldResistFingerprinting);
+   }
+ 
+-  return CookieJarSettings::GetBlockingAll(shouldResistFingerprinting);
++  return CookieJarSettings::GetBlockingAll(aShouldResistFingerprinting);
+ }
+ 
+ }  // namespace
+@@ -1197,7 +1228,8 @@
+             "CookieJarSettings can't exist yet, we're creating it",
+             RFPTarget::IsAlwaysEnabledForPrecompute);
+     mCookieJarSettings = CreateCookieJarSettings(
+-        mInternalContentPolicyType, isPrivate, shouldResistFingerprinting);
++        mTriggeringPrincipal, mInternalContentPolicyType, isPrivate,
++        shouldResistFingerprinting);
+   }
+ 
+   nsCOMPtr<nsICookieJarSettings> cookieJarSettings = mCookieJarSettings;

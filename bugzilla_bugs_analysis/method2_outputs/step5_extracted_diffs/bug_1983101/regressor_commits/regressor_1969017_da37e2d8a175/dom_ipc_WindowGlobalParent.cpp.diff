@@ -1,0 +1,115 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/WindowGlobalParent.cpp
+# Commit: da37e2d8a175
+# Full Hash: da37e2d8a175fda08a98920d820dda0899b6aedf
+# Author: Benjamin VanderSloot <bvandersloot@mozilla.com>
+# Date: 2025-06-13 09:36:48
+# Regressor Bug: 1969017
+# File Overlap Count: 2
+# Description:
+#   Bug 1969017 - Refactor FedCM to use a managed actor rather than tagging onto WindowGlobalParent - r=anti-tracking-reviewers,emz
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D251617
+# ==============================================================================
+
+diff -r 15b92f98f62c -r da37e2d8a175 dom/ipc/WindowGlobalParent.cpp
+--- a/dom/ipc/WindowGlobalParent.cpp	Thu Jun 12 18:16:52 2025 +0000
++++ b/dom/ipc/WindowGlobalParent.cpp	Thu Jun 12 18:16:53 2025 +0000
+@@ -28,6 +28,7 @@
+ #include "mozilla/dom/MediaController.h"
+ #include "mozilla/dom/NavigatorLogin.h"
+ #include "mozilla/dom/WebAuthnTransactionParent.h"
++#include "mozilla/dom/WebIdentityParent.h"
+ #include "mozilla/dom/WindowGlobalChild.h"
+ #include "mozilla/dom/ChromeUtils.h"
+ #include "mozilla/dom/UseCounterMetrics.h"
+@@ -1447,65 +1448,6 @@
+   return IPC_OK();
+ }
+ 
+-IPCResult WindowGlobalParent::RecvGetIdentityCredential(
+-    IdentityCredentialRequestOptions&& aOptions,
+-    const CredentialMediationRequirement& aMediationRequirement,
+-    bool aHasUserActivation, const GetIdentityCredentialResolver& aResolver) {
+-  IdentityCredential::GetCredentialInMainProcess(
+-      DocumentPrincipal(), this->BrowsingContext(), std::move(aOptions),
+-      aMediationRequirement, aHasUserActivation)
+-      ->Then(
+-          GetCurrentSerialEventTarget(), __func__,
+-          [aResolver](const IPCIdentityCredential& aResult) {
+-            return aResolver({Some(aResult), NS_OK});
+-          },
+-          [aResolver](nsresult aErr) {
+-            aResolver({Maybe<IPCIdentityCredential>(Nothing()), aErr});
+-          });
+-  return IPC_OK();
+-}
+-
+-IPCResult WindowGlobalParent::RecvDisconnectIdentityCredential(
+-    const IdentityCredentialDisconnectOptions& aOptions,
+-    const DisconnectIdentityCredentialResolver& aResolver) {
+-  IdentityCredential::DisconnectInMainProcess(DocumentPrincipal(), aOptions)
+-      ->Then(
+-          GetCurrentSerialEventTarget(), __func__,
+-          [aResolver](const bool& aResult) { aResolver(NS_OK); },
+-          [aResolver](nsresult aErr) { aResolver(aErr); });
+-  return IPC_OK();
+-}
+-
+-IPCResult WindowGlobalParent::RecvPreventSilentAccess(
+-    const PreventSilentAccessResolver& aResolver) {
+-  nsIPrincipal* principal = DocumentPrincipal();
+-  if (principal) {
+-    nsCOMPtr<nsIPermissionManager> permissionManager =
+-        components::PermissionManager::Service();
+-    if (permissionManager) {
+-      permissionManager->RemoveFromPrincipal(
+-          principal, "credential-allow-silent-access"_ns);
+-      aResolver(NS_OK);
+-      return IPC_OK();
+-    }
+-  }
+-
+-  aResolver(NS_ERROR_NOT_AVAILABLE);
+-  return IPC_OK();
+-}
+-
+-mozilla::ipc::IPCResult WindowGlobalParent::RecvSetLoginStatus(
+-    LoginStatus aStatus, const SetLoginStatusResolver& aResolver) {
+-  nsIPrincipal* principal = DocumentPrincipal();
+-  if (!principal) {
+-    aResolver(NS_ERROR_DOM_NOT_ALLOWED_ERR);
+-    return IPC_OK();
+-  }
+-  nsresult rv = NavigatorLogin::SetLoginStatus(principal, aStatus);
+-  aResolver(rv);
+-  return IPC_OK();
+-}
+-
+ IPCResult WindowGlobalParent::RecvGetStorageAccessPermission(
+     bool aIncludeIdentityCredential,
+     GetStorageAccessPermissionResolver&& aResolve) {
+@@ -1529,8 +1471,7 @@
+ 
+   if (aIncludeIdentityCredential) {
+     bool canCollect;
+-    rv = IdentityCredential::CanSilentlyCollect(topPrincipal, principal,
+-                                                &canCollect);
++    rv = identity::CanSilentlyCollect(topPrincipal, principal, &canCollect);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       aResolve(nsIPermissionManager::UNKNOWN_ACTION);
+       return IPC_OK();
+@@ -1813,6 +1754,11 @@
+   return MakeAndAddRef<WebAuthnTransactionParent>();
+ }
+ 
++already_AddRefed<PWebIdentityParent>
++WindowGlobalParent::AllocPWebIdentityParent() {
++  return MakeAndAddRef<WebIdentityParent>();
++}
++
+ NS_IMPL_CYCLE_COLLECTION_CLASS(WindowGlobalParent)
+ 
+ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(WindowGlobalParent,

@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jsapi.h
+# Commit: e862899dca3f
+# Full Hash: e862899dca3f252a8fe3c7be10d83d79dad328c5
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2018-05-16 18:32:17
+# Regressor Bug: 1461751
+# File Overlap Count: 2
+# Description:
+#   Bug 1461751 - Simplify module resolve hook to be a function pointer r=luke r=baku
+# ==============================================================================
+
+diff -r 1076e77e7b5c -r e862899dca3f js/src/jsapi.h
+--- a/js/src/jsapi.h	Tue Apr 24 16:19:51 2018 +0200
++++ b/js/src/jsapi.h	Wed May 16 11:59:09 2018 +0100
+@@ -4141,17 +4141,19 @@
+ Evaluate(JSContext* cx, const ReadOnlyCompileOptions& options,
+          const char* filename, JS::MutableHandleValue rval);
+ 
+-/**
+- * Get the HostResolveImportedModule hook for a global.
+- */
+-extern JS_PUBLIC_API(JSFunction*)
+-GetModuleResolveHook(JSContext* cx);
+-
+-/**
+- * Set the HostResolveImportedModule hook for a global to the given function.
++using ModuleResolveHook = JSObject* (*)(JSContext*, HandleObject, HandleString);
++
++/**
++ * Get the HostResolveImportedModule hook for the runtime.
++ */
++extern JS_PUBLIC_API(ModuleResolveHook)
++GetModuleResolveHook(JSRuntime* rt);
++
++/**
++ * Set the HostResolveImportedModule hook for the runtime to the given function.
+  */
+ extern JS_PUBLIC_API(void)
+-SetModuleResolveHook(JSContext* cx, JS::HandleFunction func);
++SetModuleResolveHook(JSRuntime* rt, ModuleResolveHook func);
+ 
+ /**
+  * Parse the given source buffer as a module in the scope of the current global

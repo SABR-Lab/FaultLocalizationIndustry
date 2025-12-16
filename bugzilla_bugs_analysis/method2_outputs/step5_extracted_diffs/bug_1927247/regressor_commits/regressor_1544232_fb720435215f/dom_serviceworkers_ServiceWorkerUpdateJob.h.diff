@@ -1,0 +1,69 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/serviceworkers/ServiceWorkerUpdateJob.h
+# Commit: fb720435215f
+# Full Hash: fb720435215fa5be3b2bd2101f3a54382954b70c
+# Author: Andrew Sutherland <asutherland@asutherland.org>
+# Date: 2024-10-24 09:44:34
+# Regressor Bug: 1544232
+# File Overlap Count: 4
+# Description:
+#   Bug 1544232 - Limit lifetime extension of SWs by SWs to the sender's lifetime. r=edenchuang
+#   
+#   This patch introduces an explicit concept of lifetimes with mechanisms
+#   in place so that actions taken by Clients (windows or non-ServiceWorker
+#   orkers) will extend the lifetime of a ServiceWorker, but a ServiceWorker
+# ==============================================================================
+
+diff -r 25452f6623a0 -r fb720435215f dom/serviceworkers/ServiceWorkerUpdateJob.h
+--- a/dom/serviceworkers/ServiceWorkerUpdateJob.h	Thu Oct 24 03:02:41 2024 +0000
++++ b/dom/serviceworkers/ServiceWorkerUpdateJob.h	Thu Oct 24 03:02:42 2024 +0000
+@@ -7,6 +7,7 @@
+ #ifndef mozilla_dom_serviceworkerupdatejob_h
+ #define mozilla_dom_serviceworkerupdatejob_h
+ 
++#include "mozilla/dom/ServiceWorkerLifetimeExtension.h"
+ #include "ServiceWorkerJob.h"
+ #include "ServiceWorkerRegistration.h"
+ 
+@@ -29,17 +30,19 @@
+ class ServiceWorkerUpdateJob : public ServiceWorkerJob {
+  public:
+   // Construct an update job to be used only for updates.
+-  ServiceWorkerUpdateJob(nsIPrincipal* aPrincipal, const nsACString& aScope,
+-                         nsCString aScriptSpec,
+-                         ServiceWorkerUpdateViaCache aUpdateViaCache);
++  ServiceWorkerUpdateJob(
++      nsIPrincipal* aPrincipal, const nsACString& aScope, nsCString aScriptSpec,
++      ServiceWorkerUpdateViaCache aUpdateViaCache,
++      const ServiceWorkerLifetimeExtension& aLifetimeExtension);
+ 
+   already_AddRefed<ServiceWorkerRegistrationInfo> GetRegistration() const;
+ 
+  protected:
+   // Construct an update job that is overriden as another job type.
+-  ServiceWorkerUpdateJob(Type aType, nsIPrincipal* aPrincipal,
+-                         const nsACString& aScope, nsCString aScriptSpec,
+-                         ServiceWorkerUpdateViaCache aUpdateViaCache);
++  ServiceWorkerUpdateJob(
++      Type aType, nsIPrincipal* aPrincipal, const nsACString& aScope,
++      nsCString aScriptSpec, ServiceWorkerUpdateViaCache aUpdateViaCache,
++      const ServiceWorkerLifetimeExtension& aLifetimeExtension);
+ 
+   virtual ~ServiceWorkerUpdateJob();
+ 
+@@ -89,6 +92,13 @@
+ 
+   RefPtr<ServiceWorkerRegistrationInfo> mRegistration;
+   ServiceWorkerUpdateViaCache mUpdateViaCache;
++  // The lifetime extension to be applied each time we interact with the
++  // potentially new installing ServiceWorker.  A `FullLifetimeExtension` value
++  // here (as used by/on behalf of window clients) means a fresh extension will
++  // be granted with every lifecycle event, whereas a
++  // `PropagatedLifetimeExtension` for updates initiated via ServiceWorkers will
++  // have the same deadline applied each time.
++  ServiceWorkerLifetimeExtension mLifetimeExtension;
+   serviceWorkerScriptCache::OnFailure mOnFailure;
+ };
+ 

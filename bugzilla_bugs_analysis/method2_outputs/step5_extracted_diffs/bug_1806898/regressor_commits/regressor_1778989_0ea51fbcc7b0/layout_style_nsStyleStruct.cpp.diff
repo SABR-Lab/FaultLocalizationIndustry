@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/style/nsStyleStruct.cpp
+# Commit: 0ea51fbcc7b0
+# Full Hash: 0ea51fbcc7b0c3b09e25a5933bbe9f4f10cc3ae4
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2022-08-10 15:45:33
+# Regressor Bug: 1778989
+# File Overlap Count: 1
+# Description:
+#   Bug 1778989 - Add some basic container query interleaving. r=dholbert
+#   
+#   This is far from fully perfect (specially when dealing with nested
+#   containers, we need to be smarter when updating there), but it's
+#   incremental progress.
+# ==============================================================================
+
+diff -r 7c95dc77a749 -r 0ea51fbcc7b0 layout/style/nsStyleStruct.cpp
+--- a/layout/style/nsStyleStruct.cpp	Wed Aug 10 14:34:51 2022 +0300
++++ b/layout/style/nsStyleStruct.cpp	Wed Aug 10 11:28:08 2022 +0000
+@@ -2404,6 +2404,11 @@
+     return nsChangeHint_ReconstructFrame;
+   }
+ 
++  // Same issue as above for now.
++  if (mContainerType != aNewData.mContainerType) {
++    return nsChangeHint_ReconstructFrame;
++  }
++
+   auto oldAppearance = EffectiveAppearance();
+   auto newAppearance = aNewData.EffectiveAppearance();
+   if (oldAppearance != newAppearance) {
+@@ -2645,11 +2650,12 @@
+   // But we still need to return nsChangeHint_NeutralChange for these
+   // properties, since some data did change in the style struct.
+ 
+-  // TODO(emilio): Figure out change hints for container-type/name.
++  // TODO(emilio): Figure out change hints for container-name, maybe it needs to
++  // be handled by the style system as a special-case (since it changes
++  // container-query selection on descendants).
+   if (!hint && (mWillChange != aNewData.mWillChange ||
+                 mOverflowAnchor != aNewData.mOverflowAnchor ||
+-                mContainerName != aNewData.mContainerName ||
+-                mContainerType != aNewData.mContainerType)) {
++                mContainerName != aNewData.mContainerName)) {
+     hint |= nsChangeHint_NeutralChange;
+   }
+ 

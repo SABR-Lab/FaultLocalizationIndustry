@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/jsapi/RTCRtpReceiver.h
+# Commit: d0b311007c03
+# Full Hash: d0b311007c033e83824f5f6996a70ab9e870f31f
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 5
+# Description:
+#   Bug 1654112 - Get RTCP BYE and RTP timeout handling working again (from Bug 1595479) r=mjf,dminor
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D106145
+# ==============================================================================
+
+diff -r daa9eac709dc -r d0b311007c03 dom/media/webrtc/jsapi/RTCRtpReceiver.h
+--- a/dom/media/webrtc/jsapi/RTCRtpReceiver.h	Fri Feb 19 16:20:38 2021 +0000
++++ b/dom/media/webrtc/jsapi/RTCRtpReceiver.h	Fri Feb 19 15:56:41 2021 -0600
+@@ -13,6 +13,7 @@
+ #include "nsTArray.h"
+ #include "mozilla/dom/RTCStatsReportBinding.h"
+ #include "RTCStatsReport.h"
++#include "libwebrtcglue/RtcpEventObserver.h"
+ #include <vector>
+ 
+ class nsPIDOMWindowInner;
+@@ -31,7 +32,9 @@
+ struct RTCRtpContributingSource;
+ struct RTCRtpSynchronizationSource;
+ 
+-class RTCRtpReceiver : public nsISupports, public nsWrapperCache {
++class RTCRtpReceiver : public nsISupports,
++                       public nsWrapperCache,
++                       public RtcpEventObserver {
+  public:
+   explicit RTCRtpReceiver(nsPIDOMWindowInner* aWindow, bool aPrivacyNeeded,
+                           const std::string& aPCHandle,
+@@ -94,6 +97,10 @@
+   // This is called when we set a remote description; may be an offer or answer.
+   void UpdateStreams(StreamAssociationChanges* aChanges);
+ 
++  void OnRtcpBye() override;
++
++  void OnRtcpTimeout() override;
++
+   void SetReceiveTrackMuted(bool aMuted);
+ 
+  private:

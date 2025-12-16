@@ -1,0 +1,75 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: xpcom/build/Omnijar.cpp
+# Commit: 333d035afe92
+# Full Hash: 333d035afe9299dee842ad1e6aab558d8fd13845
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2020-07-08 09:42:17
+# Regressor Bug: 1627075
+# File Overlap Count: 1
+# Description:
+#   Bug 1627075 - Build Omnijar file list from startup cache r=froydnj
+#   
+#   We would like to be able to defer opening the omnijar files until after startup
+#   if the StartupCache has already been populated. Opening the omnijar files takes
+#   a nontrivial time, at least on Windows, and almost everything in the omnijar
+# ==============================================================================
+
+diff -r 078f263b3757 -r 333d035afe92 xpcom/build/Omnijar.cpp
+--- a/xpcom/build/Omnijar.cpp	Tue Jul 07 21:47:40 2020 +0300
++++ b/xpcom/build/Omnijar.cpp	Tue Jul 07 17:02:30 2020 +0000
+@@ -11,6 +11,7 @@
+ #include "nsIFile.h"
+ #include "nsZipArchive.h"
+ #include "nsNetUtil.h"
++#include "mozilla/scache/StartupCache.h"
+ 
+ namespace mozilla {
+ 
+@@ -21,6 +22,7 @@
+ bool Omnijar::sIsUnified = false;
+ 
+ static const char* sProp[2] = {NS_GRE_DIR, NS_XPCOM_CURRENT_PROCESS_DIR};
++static const char* sCachePrefixes[2] = {"GreOmnijar:", "AppOmnijar:"};
+ 
+ #define SPROP(Type) ((Type == mozilla::Omnijar::GRE) ? sProp[GRE] : sProp[APP])
+ 
+@@ -78,10 +80,36 @@
+   }
+ 
+   RefPtr<nsZipArchive> zipReader = new nsZipArchive();
+-  if (NS_FAILED(zipReader->OpenArchive(file))) {
++  auto* cache = scache::StartupCache::GetSingleton();
++  const uint8_t* centralBuf = nullptr;
++  uint32_t centralBufLength = 0;
++  nsPrintfCString startupCacheKey("::%s:OmnijarCentral", sCachePrefixes[aType]);
++  if (cache) {
++    nsresult rv = cache->GetBuffer(startupCacheKey.get(),
++                                   reinterpret_cast<const char**>(&centralBuf),
++                                   &centralBufLength);
++    if (NS_FAILED(rv)) {
++      centralBuf = nullptr;
++      centralBufLength = 0;
++    }
++  }
++  if (NS_FAILED(zipReader->OpenArchive(file, centralBuf, centralBufLength))) {
+     return;
+   }
+ 
++  if (cache && !centralBuf) {
++    size_t bufSize;
++
++    // Annoyingly, nsZipArchive and the startupcache use different types to
++    // represent bytes (uint8_t vs char), so we have to do a little dance to
++    // convert the UniquePtr over.
++    UniquePtr<char[]> centralBuf(reinterpret_cast<char*>(
++        zipReader->CopyCentralDirectoryBuffer(&bufSize).release()));
++    if (centralBuf) {
++      cache->PutBuffer(startupCacheKey.get(), std::move(centralBuf), bufSize);
++    }
++  }
++
+   RefPtr<nsZipArchive> outerReader;
+   RefPtr<nsZipHandle> handle;
+   if (NS_SUCCEEDED(nsZipHandle::Init(zipReader, MOZ_STRINGIFY(OMNIJAR_NAME),

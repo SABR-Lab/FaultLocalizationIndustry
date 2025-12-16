@@ -1,0 +1,36 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webaudio/AudioContext.cpp
+# Commit: 8d554870dce8
+# Full Hash: 8d554870dce84fbcfefd842c235efcaa5aae23db
+# Author: Tom Tung <ttung@mozilla.com>
+# Date: 2020-04-07 21:44:02
+# Regressor Bug: 1586761
+# File Overlap Count: 1
+# Description:
+#   Bug 1586761 - P5 - Use new methods in media r=tjr,baku
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D63906
+# ==============================================================================
+
+diff -r f185ed882616 -r 8d554870dce8 dom/media/webaudio/AudioContext.cpp
+--- a/dom/media/webaudio/AudioContext.cpp	Wed Mar 25 14:14:37 2020 +0000
++++ b/dom/media/webaudio/AudioContext.cpp	Wed Mar 25 14:16:15 2020 +0000
+@@ -721,11 +721,14 @@
+     return rawTime;
+   }
+ 
++  MOZ_ASSERT(GetParentObject()->AsGlobal());
+   // The value of a MediaTrack's CurrentTime will always advance forward; it
+   // will never reset (even if one rewinds a video.) Therefore we can use a
+   // single Random Seed initialized at the same time as the object.
+-  return nsRFPService::ReduceTimePrecisionAsSecs(rawTime,
+-                                                 GetRandomTimelineSeed());
++  return nsRFPService::ReduceTimePrecisionAsSecs(
++      rawTime, GetRandomTimelineSeed(),
++      /* aIsSystemPrincipal */ false,
++      GetParentObject()->AsGlobal()->CrossOriginIsolated());
+ }
+ 
+ nsISerialEventTarget* AudioContext::GetMainThread() const {

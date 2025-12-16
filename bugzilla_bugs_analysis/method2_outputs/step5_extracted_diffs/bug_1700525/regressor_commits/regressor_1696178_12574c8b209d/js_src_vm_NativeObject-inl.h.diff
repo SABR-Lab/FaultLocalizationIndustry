@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/NativeObject-inl.h
+# Commit: 12574c8b209d
+# Full Hash: 12574c8b209d51965201890abdcbd40b553e1190
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2021-03-23 21:43:59
+# Regressor Bug: 1696178
+# File Overlap Count: 1
+# Description:
+#   Bug 1696178 part 4 - Add NativeObject::setLastPropertyForNewDataProperty. r=jonco
+#   
+#   NativeObject::addEnumerableDataProperty is very hot and this is a measurable speedup
+#   because it's not as branchy as setLastProperty.
+#   
+# ==============================================================================
+
+diff -r aa7ea7bda43e -r 12574c8b209d js/src/vm/NativeObject-inl.h
+--- a/js/src/vm/NativeObject-inl.h	Tue Mar 23 12:43:56 2021 +0000
++++ b/js/src/vm/NativeObject-inl.h	Tue Mar 23 12:43:56 2021 +0000
+@@ -573,6 +573,29 @@
+   return true;
+ }
+ 
++MOZ_ALWAYS_INLINE bool NativeObject::setLastPropertyForNewDataProperty(
++    JSContext* cx, Shape* shape) {
++  MOZ_ASSERT(!inDictionaryMode());
++  MOZ_ASSERT(!shape->inDictionary());
++  MOZ_ASSERT(shape->zone() == zone());
++  MOZ_ASSERT(shape->numFixedSlots() == numFixedSlots());
++
++  MOZ_ASSERT(shape->previous() == lastProperty());
++  MOZ_ASSERT(shape->base() == lastProperty()->base());
++  MOZ_ASSERT(shape->isDataProperty());
++  MOZ_ASSERT(shape->slotSpan() == lastProperty()->slotSpan() + 1);
++
++  size_t slot = shape->slot();
++  MOZ_ASSERT(slot == lastProperty()->slotSpan());
++
++  if (MOZ_UNLIKELY(!updateSlotsForSpan(cx, slot, slot + 1))) {
++    return false;
++  }
++
++  setShape(shape);
++  return true;
++}
++
+ inline js::gc::AllocKind NativeObject::allocKindForTenure() const {
+   using namespace js::gc;
+   AllocKind kind = GetGCObjectFixedSlotsKind(numFixedSlots());

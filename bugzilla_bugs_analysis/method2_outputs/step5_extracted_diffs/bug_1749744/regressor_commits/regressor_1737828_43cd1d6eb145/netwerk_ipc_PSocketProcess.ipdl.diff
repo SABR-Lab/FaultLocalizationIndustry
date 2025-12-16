@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/ipc/PSocketProcess.ipdl
+# Commit: 43cd1d6eb145
+# Full Hash: 43cd1d6eb1459ae16207f4c9396cf5113a7b034a
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2022-01-11 03:49:34
+# Regressor Bug: 1737828
+# File Overlap Count: 2
+# Description:
+#   Bug 1737828 - Avoid the main thread when starting PBackground, r=asuth,ipc-reviewers,necko-reviewers,kershaw,handyman
+#   
+#   This patch avoids requiring the main thread to create PBackground instances by
+#   instead using a background starter TaskQueue, and sending messages from a
+#   PBackgroundStarter actor hosted on that thread to the target background thread
+# ==============================================================================
+
+diff -r 400d19ddbff7 -r 43cd1d6eb145 netwerk/ipc/PSocketProcess.ipdl
+--- a/netwerk/ipc/PSocketProcess.ipdl	Mon Jan 10 19:44:23 2022 +0000
++++ b/netwerk/ipc/PSocketProcess.ipdl	Mon Jan 10 20:09:14 2022 +0000
+@@ -13,7 +13,7 @@
+ include protocol PChildToParentStream;
+ include protocol PParentToChildStream;
+ include protocol PInputChannelThrottleQueue;
+-include protocol PBackground;
++include protocol PBackgroundStarter;
+ include protocol PAltService;
+ include protocol PAltSvcTransaction;
+ include protocol PTRRService;
+@@ -126,7 +126,7 @@
+                             PRTime   aTimestamp,
+                             uint64_t aExtraSizeData,
+                             nsCString aExtraStringData);
+-  async InitBackground(Endpoint<PBackgroundParent> aEndpoint);
++  async InitBackground(Endpoint<PBackgroundStarterParent> aEndpoint);
+   async PAltService();
+   sync GetTLSClientCert(nsCString aHostName,
+                         OriginAttributes aOriginAttributes,

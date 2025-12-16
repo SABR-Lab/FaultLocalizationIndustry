@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/MediaDecoder.h
+# Commit: b91bd828c657
+# Full Hash: b91bd828c657d85120fe02e57410a0b82ec0acd3
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2019-11-14 21:46:28
+# Regressor Bug: 1172394
+# File Overlap Count: 1
+# Description:
+#   Bug 1172394 - Simplify MediaSink somewhat. r=padenot
+#   
+#   This patches does several minor things:
+#   - Moves SetSink (from setSinkid) to automatic coalescing of multiple calls
+#     through a Canonical/Mirror setup instead of a manual atomic counter.
+# ==============================================================================
+
+diff -r fdf5dd8ff807 -r b91bd828c657 dom/media/MediaDecoder.h
+--- a/dom/media/MediaDecoder.h	Wed Nov 13 22:40:07 2019 +0000
++++ b/dom/media/MediaDecoder.h	Wed Nov 13 22:40:05 2019 +0000
+@@ -155,7 +155,7 @@
+   void SetLooping(bool aLooping);
+ 
+   // Set the given device as the output device.
+-  RefPtr<GenericPromise> SetSink(AudioDeviceInfo* aSink);
++  RefPtr<GenericPromise> SetSink(AudioDeviceInfo* aSinkDevice);
+ 
+   bool GetMinimizePreroll() const { return mMinimizePreroll; }
+ 
+@@ -614,6 +614,10 @@
+ 
+   Canonical<bool> mLooping;
+ 
++  // The device used with SetSink, or nullptr if no explicit device has been
++  // set.
++  Canonical<RefPtr<AudioDeviceInfo>> mSinkDevice;
++
+   // Whether this MediaDecoder's output is captured. When captured, all decoded
+   // data must be played out through mOutputTracks.
+   Canonical<bool> mOutputCaptured;
+@@ -656,6 +660,9 @@
+     return &mPreservesPitch;
+   }
+   AbstractCanonical<bool>* CanonicalLooping() { return &mLooping; }
++  AbstractCanonical<RefPtr<AudioDeviceInfo>>* CanonicalSinkDevice() {
++    return &mSinkDevice;
++  }
+   AbstractCanonical<bool>* CanonicalOutputCaptured() {
+     return &mOutputCaptured;
+   }

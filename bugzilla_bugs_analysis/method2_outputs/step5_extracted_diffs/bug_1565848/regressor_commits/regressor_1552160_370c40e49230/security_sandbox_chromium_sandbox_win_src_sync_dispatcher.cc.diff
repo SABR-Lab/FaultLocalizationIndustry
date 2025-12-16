@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/sandbox/win/src/sync_dispatcher.cc
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 3
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/sandbox/win/src/sync_dispatcher.cc
+--- a/security/sandbox/chromium/sandbox/win/src/sync_dispatcher.cc	Wed Jun 12 21:55:59 2019 +1200
++++ b/security/sandbox/chromium/sandbox/win/src/sync_dispatcher.cc	Wed Jun 12 11:10:48 2019 +0100
+@@ -33,13 +33,12 @@
+   ipc_calls_.push_back(open_params);
+ }
+ 
+-bool SyncDispatcher::SetupService(InterceptionManager* manager,
+-                                  int service) {
++bool SyncDispatcher::SetupService(InterceptionManager* manager, int service) {
+   if (service == IPC_CREATEEVENT_TAG) {
+     return INTERCEPT_NT(manager, NtCreateEvent, CREATE_EVENT_ID, 24);
+   }
+   return (service == IPC_OPENEVENT_TAG) &&
+-      INTERCEPT_NT(manager, NtOpenEvent, OPEN_EVENT_ID, 16);
++         INTERCEPT_NT(manager, NtOpenEvent, OPEN_EVENT_ID, 16);
+ }
+ 
+ bool SyncDispatcher::CreateEvent(IPCInfo* ipc,
+@@ -50,9 +49,9 @@
+   CountedParameterSet<NameBased> params;
+   params[NameBased::NAME] = ParamPickerMake(event_name);
+ 
+-  EvalResult result = policy_base_->EvalPolicy(IPC_CREATEEVENT_TAG,
+-                                               params.GetBase());
+-  HANDLE handle = NULL;
++  EvalResult result =
++      policy_base_->EvalPolicy(IPC_CREATEEVENT_TAG, params.GetBase());
++  HANDLE handle = nullptr;
+   // Return operation status on the IPC.
+   ipc->return_info.nt_status = SyncPolicy::CreateEventAction(
+       result, *ipc->client_info, *name, event_type, initial_state, &handle);
+@@ -69,9 +68,9 @@
+   params[OpenEventParams::NAME] = ParamPickerMake(event_name);
+   params[OpenEventParams::ACCESS] = ParamPickerMake(desired_access);
+ 
+-  EvalResult result = policy_base_->EvalPolicy(IPC_OPENEVENT_TAG,
+-                                               params.GetBase());
+-  HANDLE handle = NULL;
++  EvalResult result =
++      policy_base_->EvalPolicy(IPC_OPENEVENT_TAG, params.GetBase());
++  HANDLE handle = nullptr;
+   // Return operation status on the IPC.
+   ipc->return_info.nt_status = SyncPolicy::OpenEventAction(
+       result, *ipc->client_info, *name, desired_access, &handle);

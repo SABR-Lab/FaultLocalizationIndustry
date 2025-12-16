@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/SharedSurfacesChild.cpp
+# Commit: dab6b48a2a59
+# Full Hash: dab6b48a2a592a441229e88c88b1aa2570f2171d
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2023-12-12 04:37:49
+# Regressor Bug: 1869346
+# File Overlap Count: 5
+# Description:
+#   Bug 1869346 - Rework how canvas accesses shared surfaces in the compositor process. r=gfx-reviewers,lsalzman
+#   
+#   This patch adds plumbing to allow sharing ExternalImageId via
+#   SurfaceDescriptor. This will be used in a future patch by WebGL and
+#   WebGPU to avoid extra copies. It also refactors how CanvasTranslator
+# ==============================================================================
+
+diff -r af13afc7d44f -r dab6b48a2a59 gfx/layers/ipc/SharedSurfacesChild.cpp
+--- a/gfx/layers/ipc/SharedSurfacesChild.cpp	Mon Dec 11 20:19:47 2023 +0000
++++ b/gfx/layers/ipc/SharedSurfacesChild.cpp	Mon Dec 11 20:44:44 2023 +0000
+@@ -350,6 +350,30 @@
+   return rv;
+ }
+ 
++/* static */ nsresult SharedSurfacesChild::Share(
++    gfx::SourceSurface* aSurface, Maybe<SurfaceDescriptor>& aDesc) {
++  if (!aSurface) {
++    return NS_ERROR_INVALID_ARG;
++  }
++
++  // TODO(aosmond): With a refactor of how we store the external image ID, we
++  // could probably make it safe to access off the main thread. This would be
++  // useful for OffscreenCanvas on DOM workers.
++  if (!NS_IsMainThread()) {
++    return NS_ERROR_UNEXPECTED;
++  }
++
++  wr::ExternalImageId extId{};
++  nsresult rv = Share(aSurface, extId);
++  if (NS_FAILED(rv)) {
++    return rv;
++  }
++
++  aDesc = Some(SurfaceDescriptorExternalImage(
++      wr::ExternalImageSource::SharedSurfaces, extId));
++  return NS_OK;
++}
++
+ /* static */
+ void SharedSurfacesChild::Unshare(const wr::ExternalImageId& aId,
+                                   bool aReleaseId,

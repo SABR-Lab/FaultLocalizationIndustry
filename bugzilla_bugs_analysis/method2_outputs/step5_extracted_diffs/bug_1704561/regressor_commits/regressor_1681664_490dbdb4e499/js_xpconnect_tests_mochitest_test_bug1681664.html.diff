@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/xpconnect/tests/mochitest/test_bug1681664.html
+# Commit: 490dbdb4e499
+# Full Hash: 490dbdb4e4996b91ab7aa8b4dd70de4029602c73
+# Author: yulia <ystartsev@mozilla.com>
+# Date: 2021-01-12 04:33:40
+# Regressor Bug: 1681664
+# File Overlap Count: 2
+# Description:
+#   Bug 1681664 - Allow Top-level await modules which fail to evaluate due to user action to fail without crashing. r=jonco,mconley
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D99809
+# ==============================================================================
+
+diff -r 53327022537a -r 490dbdb4e499 js/xpconnect/tests/mochitest/test_bug1681664.html
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/js/xpconnect/tests/mochitest/test_bug1681664.html	Mon Jan 11 17:08:59 2021 +0000
+@@ -0,0 +1,42 @@
++<!DOCTYPE html>
++<html lang="en" dir="ltr">
++  <head>
++    <title>Test page for bug 1681664</title>
++    <script src="/tests/SimpleTest/SimpleTest.js"></script>
++    <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
++    <script>
++      SimpleTest.waitForExplicitFinish()
++      async function init() {
++        var Services = SpecialPowers.Services;
++        var observer = {
++          observe(subject, topic, data) {
++            if (topic === "process-hang-report") {
++              var report = subject.QueryInterface(Ci.nsIHangReport);
++              report.terminateScript();
++              Services.obs.removeObserver(observer, "process-hang-report");
++            }
++          }
++        }
++
++        Services.obs.addObserver(observer, "process-hang-report");
++        try {
++          await import("test_bug1681664.js");
++          result.textContent = "FAIL";
++        } catch (ex) {
++          result.textContent = "PASS";
++        }
++      }
++    </script>
++  </head>
++  <body>
++    <p id="result"></p>
++    <script>
++      (async function() {
++        await init();
++        is(result.textContent, "PASS", "Infinite loop script should not cause browser crash");
++        SimpleTest.finish()
++      })();
++    </script>
++  </body>
++</html>
++

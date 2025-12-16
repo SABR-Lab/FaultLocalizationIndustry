@@ -1,0 +1,136 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/sync15/src/clients_engine/engine.rs
+# Commit: 3326192e8db6
+# Full Hash: 3326192e8db60772cb3d6a0f7987dc093c8ef35a
+# Author: Sammy Khamis <skhamis@mozilla.com>
+# Date: 2023-03-07 16:07:33
+# Regressor Bug: 1818349
+# File Overlap Count: 23
+# Overlapping Files: third_party/rust/sync15/src/client/coll_update.rs, third_party/rust/sync15/src/client/mod.rs, third_party/rust/sync15/.cargo-checksum.json, third_party/rust/sync15/src/client/sync.rs, Cargo.toml
+# Description:
+#   Bug 1818349 Part 1: Vendor new version of application-services r=markh
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D171181
+# ==============================================================================
+
+diff -r d7be17cdae33 -r 3326192e8db6 third_party/rust/sync15/src/clients_engine/engine.rs
+--- a/third_party/rust/sync15/src/clients_engine/engine.rs	Tue Mar 07 06:59:50 2023 +0000
++++ b/third_party/rust/sync15/src/clients_engine/engine.rs	Tue Mar 07 07:42:14 2023 +0000
+@@ -54,13 +54,11 @@
+         inbound: IncomingChangeset,
+         should_refresh_client: bool,
+     ) -> Result<OutgoingChangeset> {
+-        let mut outgoing = OutgoingChangeset::new(COLLECTION_NAME, inbound.timestamp);
+-        outgoing.timestamp = inbound.timestamp;
+-
+         self.interruptee.err_if_interrupted()?;
+         let outgoing_commands = self.command_processor.fetch_outgoing_commands()?;
+ 
+         let mut has_own_client_record = false;
++        let mut changes = Vec::new();
+ 
+         for bso in inbound.changes {
+             self.interruptee.err_if_interrupted()?;
+@@ -128,9 +126,7 @@
+                         ttl: Some(CLIENTS_TTL),
+                         ..Default::default()
+                     };
+-                    outgoing
+-                        .changes
+-                        .push(OutgoingBso::from_content(envelope, current_client_record)?);
++                    changes.push(OutgoingBso::from_content(envelope, current_client_record)?);
+                 }
+             } else {
+                 // Add the other client to our map of recently synced clients.
+@@ -176,9 +172,7 @@
+                     ttl: Some(CLIENTS_TTL),
+                     ..Default::default()
+                 };
+-                outgoing
+-                    .changes
+-                    .push(OutgoingBso::from_content(envelope, new_client)?);
++                changes.push(OutgoingBso::from_content(envelope, new_client)?);
+             }
+         }
+ 
+@@ -191,12 +185,10 @@
+                 ttl: Some(CLIENTS_TTL),
+                 ..Default::default()
+             };
+-            outgoing
+-                .changes
+-                .push(OutgoingBso::from_content(envelope, current_client_record)?);
++            changes.push(OutgoingBso::from_content(envelope, current_client_record)?);
+         }
+ 
+-        Ok(outgoing)
++        Ok(OutgoingChangeset::new(COLLECTION_NAME.into(), changes))
+     }
+ 
+     /// Builds a fresh client record for this device.
+@@ -291,7 +283,7 @@
+             global_state.keys_timestamp,
+             root_sync_key,
+         )?;
+-        let mut coll_state = CollState {
++        let coll_state = CollState {
+             config: global_state.config.clone(),
+             last_modified: global_state
+                 .collections
+@@ -301,7 +293,7 @@
+             key: coll_keys.key_for_collection(COLLECTION_NAME).clone(),
+         };
+ 
+-        let inbound = self.fetch_incoming(storage_client, &mut coll_state)?;
++        let inbound = self.fetch_incoming(storage_client, &coll_state)?;
+ 
+         let mut driver = Driver::new(
+             self.command_processor,
+@@ -312,8 +304,6 @@
+         let outgoing = driver.sync(inbound, should_refresh_client)?;
+         self.recent_clients = driver.recent_clients;
+ 
+-        coll_state.last_modified = outgoing.timestamp;
+-
+         self.interruptee.err_if_interrupted()?;
+         let upload_info =
+             CollectionUpdate::new_from_changeset(storage_client, &coll_state, outgoing, true)?
+@@ -332,15 +322,15 @@
+     fn fetch_incoming(
+         &self,
+         storage_client: &Sync15StorageClient,
+-        coll_state: &mut CollState,
++        coll_state: &CollState,
+     ) -> Result<IncomingChangeset> {
+         // Note that, unlike other stores, we always fetch the full collection
+         // on every sync, so `inbound` will return all clients, not just the
+         // ones that changed since the last sync.
+-        let coll_request = CollectionRequest::new(COLLECTION_NAME).full();
++        let coll_request = CollectionRequest::new(COLLECTION_NAME.into()).full();
+ 
+         self.interruptee.err_if_interrupted()?;
+-        let inbound = crate::client::fetch_incoming(storage_client, coll_state, &coll_request)?;
++        let inbound = crate::client::fetch_incoming(storage_client, coll_state, coll_request)?;
+ 
+         Ok(inbound)
+     }
+@@ -560,7 +550,7 @@
+                 .into_iter()
+                 .map(|c| OutgoingBso::to_test_incoming(&c))
+                 .collect(),
+-            timestamp: outgoing.timestamp,
++            timestamp: ServerTimestamp::default(),
+             collection: outgoing.collection,
+         };
+         if let Value::Array(expected) = expected {
+@@ -799,7 +789,7 @@
+                     .into_iter()
+                     .map(|c| OutgoingBso::to_test_incoming(&c))
+                     .collect(),
+-                timestamp: outgoing.timestamp,
++                timestamp: ServerTimestamp::default(),
+                 collection: outgoing.collection,
+             };
+             for (incoming_cleartext, record) in zip(incoming.changes, expected) {

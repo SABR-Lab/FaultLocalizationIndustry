@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/WindowGlobalParent.cpp
+# Commit: 405100db6c45
+# Full Hash: 405100db6c45f0463286067df5b491f74790d9aa
+# Author: Kashav Madan <kmadan@mozilla.com>
+# Date: 2019-07-11 09:51:12
+# Regressor Bug: 1543251
+# File Overlap Count: 1
+# Description:
+#   Bug 1543251 - Move hasBeforeUnload from PBrowser to PWindowGlobal, r=nika
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D37003
+# ==============================================================================
+
+diff -r 0c408343080d -r 405100db6c45 dom/ipc/WindowGlobalParent.cpp
+--- a/dom/ipc/WindowGlobalParent.cpp	Thu Jul 04 07:41:57 2019 +0000
++++ b/dom/ipc/WindowGlobalParent.cpp	Wed Jul 10 21:13:44 2019 +0000
+@@ -53,7 +53,8 @@
+       mOuterWindowId(aInit.outerWindowId()),
+       mInProcess(aInProcess),
+       mIPCClosed(true),  // Closed until WGP::Init
+-      mIsInitialDocument(false) {
++      mIsInitialDocument(false),
++      mHasBeforeUnload(false) {
+   MOZ_DIAGNOSTIC_ASSERT(XRE_IsParentProcess(), "Parent process only");
+   MOZ_RELEASE_ASSERT(mDocumentPrincipal, "Must have a valid principal");
+ 
+@@ -184,6 +185,11 @@
+   return IPC_OK();
+ }
+ 
++IPCResult WindowGlobalParent::RecvSetHasBeforeUnload(bool aHasBeforeUnload) {
++  mHasBeforeUnload = aHasBeforeUnload;
++  return IPC_OK();
++}
++
+ IPCResult WindowGlobalParent::RecvBecomeCurrentWindowGlobal() {
+   mBrowsingContext->SetCurrentWindowGlobal(this);
+   return IPC_OK();

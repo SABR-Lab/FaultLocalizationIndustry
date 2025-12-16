@@ -1,0 +1,31 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/HTMLEditorDataTransfer.cpp
+# Commit: 96e1597780fa
+# Full Hash: 96e1597780facb27a866e1f3bb4f3011e907a26f
+# Author: Tom Schuster <evilpies@gmail.com>
+# Date: 2023-01-04 16:37:52
+# Description:
+#   Bug 1808177 - mPointToInsert.GetContainer() in BlobReader::OnError could be nullptr. r=masayuki
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D165858
+# ==============================================================================
+
+diff -r 8736d1d3b897 -r 96e1597780fa editor/libeditor/HTMLEditorDataTransfer.cpp
+--- a/editor/libeditor/HTMLEditorDataTransfer.cpp	Thu Dec 22 10:12:39 2022 +0000
++++ b/editor/libeditor/HTMLEditorDataTransfer.cpp	Wed Jan 04 12:46:27 2023 +0000
+@@ -1723,10 +1723,9 @@
+ nsresult HTMLEditor::BlobReader::OnError(const nsAString& aError) {
+   AutoTArray<nsString, 1> error;
+   error.AppendElement(aError);
+-  nsContentUtils::ReportToConsole(nsIScriptError::warningFlag, "Editor"_ns,
+-                                  mPointToInsert.GetContainer()->OwnerDoc(),
+-                                  nsContentUtils::eDOM_PROPERTIES,
+-                                  "EditorFileDropFailed", error);
++  nsContentUtils::ReportToConsole(
++      nsIScriptError::warningFlag, "Editor"_ns, mHTMLEditor->GetDocument(),
++      nsContentUtils::eDOM_PROPERTIES, "EditorFileDropFailed", error);
+   return NS_OK;
+ }
+ 

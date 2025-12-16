@@ -1,0 +1,118 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/CanvasDrawEventRecorder.h
+# Commit: 57fc38773fe3
+# Full Hash: 57fc38773fe37f21748092e3e58fdf5265e85c0d
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2023-08-30 04:26:43
+# Regressor Bug: 1841891
+# File Overlap Count: 3
+# Description:
+#   Bug 1841891: Only use a larger canvas ring buffer when in the foreground. r=jrmuizel
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D186544
+# ==============================================================================
+
+diff -r 082442e3b925 -r 57fc38773fe3 gfx/layers/CanvasDrawEventRecorder.h
+--- a/gfx/layers/CanvasDrawEventRecorder.h	Tue Aug 29 19:15:34 2023 +0000
++++ b/gfx/layers/CanvasDrawEventRecorder.h	Tue Aug 29 19:17:45 2023 +0000
+@@ -14,6 +14,9 @@
+ namespace mozilla {
+ namespace layers {
+ 
++static const uint8_t kCheckpointEventType = -1;
++static const uint8_t kDropBufferEventType = -2;
++
+ class CanvasEventRingBuffer final : public gfx::EventRingBuffer {
+  public:
+   /**
+@@ -56,6 +59,14 @@
+   CanvasEventRingBuffer() {}
+ 
+   /**
++   * Initializes the shared memory used for the ringbuffer and footers.
++   * @param aOtherPid process ID to share the handles to
++   * @param aReadHandle handle to the shared memory for the buffer
++   */
++  bool InitBuffer(base::ProcessId aOtherPid,
++                  ipc::SharedMemoryBasic::Handle* aReadHandle);
++
++  /**
+    * Initialize the write side of a CanvasEventRingBuffer returning handles to
+    * the shared memory for the buffer and the two semaphores for waiting in the
+    * reader and the writer.
+@@ -87,9 +98,19 @@
+                   CrossProcessSemaphoreHandle aWriterSem,
+                   UniquePtr<ReaderServices> aReaderServices);
+ 
++  /**
++   * Set a new buffer to resume after we have been stopped by the writer.
++   *
++   * @param aReadHandle handle to the shared memory for the buffer
++   * @returns true if initialization succeeds
++   */
++  bool SetNewBuffer(ipc::SharedMemoryBasic::Handle aReadHandle);
++
++  bool IsValid() const { return mSharedMemory; }
++
+   bool good() const final { return mGood; }
+ 
+-  bool WriterFailed() const { return mWrite->state == State::Failed; }
++  bool WriterFailed() const { return mWrite && mWrite->state == State::Failed; }
+ 
+   void SetIsBad() final {
+     mGood = false;
+@@ -143,6 +164,12 @@
+   bool WaitForCheckpoint(uint32_t aCheckpoint);
+ 
+   /**
++   * Switch to a different sized buffer.
++   */
++  bool SwitchBuffer(base::ProcessId aOtherPid,
++                    ipc::SharedMemoryBasic::Handle* aHandle);
++
++  /**
+    * Used to send data back to the writer. This is done through the same shared
+    * memory so the writer must wait and read the response after it has submitted
+    * the event that uses this.
+@@ -162,6 +189,8 @@
+    */
+   void ReturnRead(char* aOut, size_t aSize);
+ 
++  bool UsingLargeStream() { return mLargeStream; }
++
+  protected:
+   bool WaitForAndRecalculateAvailableSpace() final;
+   void UpdateWriteTotalsBy(uint32_t aCount) final;
+@@ -220,6 +249,8 @@
+ 
+   uint32_t WaitForBytesToRead();
+ 
++  uint32_t StreamSize();
++
+   RefPtr<ipc::SharedMemoryBasic> mSharedMemory;
+   UniquePtr<CrossProcessSemaphore> mReaderSemaphore;
+   UniquePtr<CrossProcessSemaphore> mWriterSemaphore;
+@@ -230,6 +261,7 @@
+   WriteFooter* mWrite = nullptr;
+   ReadFooter* mRead = nullptr;
+   bool mGood = false;
++  bool mLargeStream = true;
+ };
+ 
+ class CanvasDrawEventRecorder final : public gfx::DrawEventRecorderPrivate {
+@@ -275,6 +307,13 @@
+     return mOutputStream.WaitForCheckpoint(aCheckpoint);
+   }
+ 
++  bool UsingLargeStream() { return mOutputStream.UsingLargeStream(); }
++
++  bool SwitchBuffer(base::ProcessId aOtherPid,
++                    ipc::SharedMemoryBasic::Handle* aHandle) {
++    return mOutputStream.SwitchBuffer(aOtherPid, aHandle);
++  }
++
+  private:
+   CanvasEventRingBuffer mOutputStream;
+ };

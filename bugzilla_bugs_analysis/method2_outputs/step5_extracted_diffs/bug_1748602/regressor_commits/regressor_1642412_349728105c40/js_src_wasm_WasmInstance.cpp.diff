@@ -1,0 +1,127 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmInstance.cpp
+# Commit: 349728105c40
+# Full Hash: 349728105c40993896170f4c2f43e152a3466706
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2022-01-08 09:40:24
+# Regressor Bug: 1642412
+# File Overlap Count: 19
+# Description:
+#   Bug 1748602 - Backout bug 1642412. r=lth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D135346
+# ==============================================================================
+
+diff -r 32873022d2ed -r 349728105c40 js/src/wasm/WasmInstance.cpp
+--- a/js/src/wasm/WasmInstance.cpp	Fri Jan 07 20:35:15 2022 +0000
++++ b/js/src/wasm/WasmInstance.cpp	Fri Jan 07 20:43:16 2022 +0000
+@@ -1159,9 +1159,9 @@
+   return 0;
+ }
+ 
+-/* static */ void* Instance::tableGetFunc(Instance* instance, uint32_t index,
+-                                          uint32_t tableIndex) {
+-  MOZ_ASSERT(SASigTableGetFunc.failureMode == FailureMode::FailOnInvalidRef);
++/* static */ void* Instance::tableGet(Instance* instance, uint32_t index,
++                                      uint32_t tableIndex) {
++  MOZ_ASSERT(SASigTableGet.failureMode == FailureMode::FailOnInvalidRef);
+ 
+   JSContext* cx = instance->tlsData()->cx;
+   const Table& table = *instance->tables()[tableIndex];
+@@ -1171,13 +1171,20 @@
+     return AnyRef::invalid().forCompiledCode();
+   }
+ 
+-  MOZ_RELEASE_ASSERT(table.repr() == TableRepr::Func);
+-  MOZ_RELEASE_ASSERT(!table.isAsmJS());
+-  RootedFunction fun(cx);
+-  if (!table.getFuncRef(cx, index, &fun)) {
+-    return AnyRef::invalid().forCompiledCode();
++  switch (table.repr()) {
++    case TableRepr::Ref:
++      return table.getAnyRef(index).forCompiledCode();
++    case TableRepr::Func: {
++      MOZ_RELEASE_ASSERT(!table.isAsmJS());
++      RootedFunction fun(cx);
++      if (!table.getFuncRef(cx, index, &fun)) {
++        return AnyRef::invalid().forCompiledCode();
++      }
++      return FuncRef::fromJSFunction(fun).forCompiledCode();
++    }
+   }
+-  return FuncRef::fromJSFunction(fun).forCompiledCode();
++
++  MOZ_CRASH("Should not happen");
+ }
+ 
+ /* static */ uint32_t Instance::tableGrow(Instance* instance, void* initValue,
+@@ -1224,9 +1231,9 @@
+   MOZ_CRASH("Should not happen");
+ }
+ 
+-/* static */ int32_t Instance::tableSetFunc(Instance* instance, uint32_t index,
+-                                            void* value, uint32_t tableIndex) {
+-  MOZ_ASSERT(SASigTableSetFunc.failureMode == FailureMode::FailOnNegI32);
++/* static */ int32_t Instance::tableSet(Instance* instance, uint32_t index,
++                                        void* value, uint32_t tableIndex) {
++  MOZ_ASSERT(SASigTableSet.failureMode == FailureMode::FailOnNegI32);
+ 
+   JSContext* cx = instance->tlsData()->cx;
+   Table& table = *instance->tables()[tableIndex];
+@@ -1236,17 +1243,30 @@
+     return -1;
+   }
+ 
+-  MOZ_RELEASE_ASSERT(table.repr() == TableRepr::Func);
+-  MOZ_RELEASE_ASSERT(!table.isAsmJS());
+-  if (!table.fillFuncRef(Nothing(), index, 1, FuncRef::fromCompiledCode(value),
+-                         cx)) {
+-    ReportOutOfMemory(cx);
+-    return -1;
++  switch (table.repr()) {
++    case TableRepr::Ref:
++      table.fillAnyRef(index, 1, AnyRef::fromCompiledCode(value));
++      break;
++    case TableRepr::Func:
++      MOZ_RELEASE_ASSERT(!table.isAsmJS());
++      if (!table.fillFuncRef(Nothing(), index, 1,
++                             FuncRef::fromCompiledCode(value), cx)) {
++        ReportOutOfMemory(cx);
++        return -1;
++      }
++      break;
+   }
+ 
+   return 0;
+ }
+ 
++/* static */ uint32_t Instance::tableSize(Instance* instance,
++                                          uint32_t tableIndex) {
++  MOZ_ASSERT(SASigTableSize.failureMode == FailureMode::Infallible);
++  Table& table = *instance->tables()[tableIndex];
++  return table.length();
++}
++
+ /* static */ void* Instance::refFunc(Instance* instance, uint32_t funcIndex) {
+   MOZ_ASSERT(SASigRefFunc.failureMode == FailureMode::FailOnInvalidRef);
+   JSContext* cx = instance->tlsData()->cx;
+@@ -1693,7 +1713,7 @@
+     const TableDesc& td = metadata().tables[i];
+     TableTls& table = tableTls(td);
+     table.length = tables_[i]->length();
+-    table.elements = tables_[i]->tlsElements();
++    table.functionBase = tables_[i]->functionBase();
+   }
+ 
+   // Add observer if our memory base may grow
+@@ -2562,7 +2582,7 @@
+     if (tables_[i] == theTable) {
+       TableTls& table = tableTls(metadata().tables[i]);
+       table.length = tables_[i]->length();
+-      table.elements = tables_[i]->tlsElements();
++      table.functionBase = tables_[i]->functionBase();
+     }
+   }
+ }

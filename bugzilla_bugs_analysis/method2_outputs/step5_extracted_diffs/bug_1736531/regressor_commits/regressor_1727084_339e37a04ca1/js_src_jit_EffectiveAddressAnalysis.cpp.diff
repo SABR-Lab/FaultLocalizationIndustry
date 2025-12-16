@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/EffectiveAddressAnalysis.cpp
+# Commit: 339e37a04ca1
+# Full Hash: 339e37a04ca17a209114f9d346751e6d05f6a37d
+# Author: Lars T Hansen <lhansen@mozilla.com>
+# Date: 2021-10-18 16:09:29
+# Regressor Bug: 1727084
+# File Overlap Count: 1
+# Description:
+#   Bug 1727084 - Memory64 - Preliminaries. r=yury
+#   
+#   Scaffolding: Add assertions everywhere execution currently depends on
+#   a memory being a memory32.  These assertions will disappear by and by.
+#   
+# ==============================================================================
+
+diff -r 83e52246d0ea -r 339e37a04ca1 js/src/jit/EffectiveAddressAnalysis.cpp
+--- a/js/src/jit/EffectiveAddressAnalysis.cpp	Mon Oct 18 09:58:13 2021 +0000
++++ b/js/src/jit/EffectiveAddressAnalysis.cpp	Mon Oct 18 09:58:13 2021 +0000
+@@ -199,8 +199,9 @@
+   MDefinition* base = ins->base();
+ 
+   if (base->isConstant()) {
+-    // If the index is within the minimum heap length, we can optimize
+-    // away the bounds check.
++    // If the index is within the minimum heap length, we can optimize away the
++    // bounds check.  Asm.js accesses always have an int32 base, the memory is
++    // always a memory32.
+     int32_t imm = base->toConstant()->toInt32();
+     if (imm >= 0) {
+       int32_t end = (uint32_t)imm + ins->byteSize();

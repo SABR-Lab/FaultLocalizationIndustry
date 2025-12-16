@@ -1,0 +1,82 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/HttpChannelChild.cpp
+# Commit: 2289e685031e
+# Full Hash: 2289e685031e878fee593b86cea90025b43d1fe9
+# Author: Junior Hsu <juhsu@mozilla.com>
+# Date: 2020-06-30 10:00:42
+# Regressor Bug: 1633935
+# File Overlap Count: 1
+# Description:
+#   Bug 1633935 - P10 wait PHttpChannel::OnStartRequestSent for permission/cookie update from parent, r=mayhemer,necko-reviewers
+#   
+#   Depends on D77751
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D77752
+# ==============================================================================
+
+diff -r 673030046319 -r 2289e685031e netwerk/protocol/http/HttpChannelChild.cpp
+--- a/netwerk/protocol/http/HttpChannelChild.cpp	Tue Jun 30 00:33:54 2020 +0000
++++ b/netwerk/protocol/http/HttpChannelChild.cpp	Tue Jun 30 00:34:06 2020 +0000
+@@ -192,7 +192,9 @@
+       mShouldParentIntercept(false),
+       mSuspendParentAfterSynthesizeResponse(false),
+       mIsLastPartOfMultiPart(false),
+-      mSuspendForWaitCompleteRedirectSetup(false) {
++      mSuspendForWaitCompleteRedirectSetup(false),
++      mRecvOnStartRequestSentCalled(false),
++      mSuspendedByWaitingForPermissionAndCookie(false) {
+   LOG(("Creating HttpChannelChild @%p\n", this));
+ 
+   mChannelCreationTime = PR_Now();
+@@ -397,6 +399,20 @@
+   mApplicationCache->InitAsHandle(aGroupID, aClientID);
+ }
+ 
++mozilla::ipc::IPCResult HttpChannelChild::RecvOnStartRequestSent() {
++  LOG(("HttpChannelChild::RecvOnStartRequestSent [this=%p]\n", this));
++  MOZ_ASSERT(NS_IsMainThread());
++  MOZ_ASSERT(!mRecvOnStartRequestSentCalled);
++
++  mRecvOnStartRequestSentCalled = true;
++
++  if (mSuspendedByWaitingForPermissionAndCookie) {
++    mSuspendedByWaitingForPermissionAndCookie = false;
++    mEventQ->Resume();
++  }
++  return IPC_OK();
++}
++
+ void HttpChannelChild::ProcessOnStartRequest(
+     const nsHttpResponseHead& aResponseHead, const bool& aUseResponseHead,
+     const nsHttpHeaderArray& aRequestHeaders,
+@@ -413,6 +429,7 @@
+                              aArgs);
+       }));
+ }
++
+ static void ResourceTimingStructArgsToTimingsStruct(
+     const ResourceTimingStructArgs& aArgs, TimingStruct& aTimings) {
+   aTimings.domainLookupStart = aArgs.domainLookupStart();
+@@ -528,6 +545,20 @@
+                                       false);
+   }
+ 
++  if (aArgs.shouldWaitForOnStartRequestSent() &&
++      !mRecvOnStartRequestSentCalled) {
++    LOG(("  > pending DoOnStartRequest until RecvOnStartRequestSent\n"));
++    MOZ_ASSERT(NS_IsMainThread());
++
++    mEventQ->Suspend();
++    mSuspendedByWaitingForPermissionAndCookie = true;
++    mEventQ->PrependEvent(MakeUnique<NeckoTargetChannelFunctionEvent>(
++        this, [self = UnsafePtr<HttpChannelChild>(this)]() {
++          self->DoOnStartRequest(self, nullptr);
++        }));
++    return;
++  }
++
+   DoOnStartRequest(this, nullptr);
+ }
+ 

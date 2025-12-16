@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/LayersSurfaces.ipdlh
+# Commit: dab6b48a2a59
+# Full Hash: dab6b48a2a592a441229e88c88b1aa2570f2171d
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2023-12-12 04:37:49
+# Regressor Bug: 1869346
+# File Overlap Count: 5
+# Description:
+#   Bug 1869346 - Rework how canvas accesses shared surfaces in the compositor process. r=gfx-reviewers,lsalzman
+#   
+#   This patch adds plumbing to allow sharing ExternalImageId via
+#   SurfaceDescriptor. This will be used in a future patch by WebGL and
+#   WebGPU to avoid extra copies. It also refactors how CanvasTranslator
+# ==============================================================================
+
+diff -r af13afc7d44f -r dab6b48a2a59 gfx/layers/ipc/LayersSurfaces.ipdlh
+--- a/gfx/layers/ipc/LayersSurfaces.ipdlh	Mon Dec 11 20:19:47 2023 +0000
++++ b/gfx/layers/ipc/LayersSurfaces.ipdlh	Mon Dec 11 20:44:44 2023 +0000
+@@ -5,6 +5,7 @@
+ include "gfxipc/ShadowLayerUtils.h";
+ include "mozilla/GfxMessageUtils.h";
+ include "mozilla/layers/LayersMessageUtils.h";
++include "mozilla/layers/WebRenderMessageUtils.h";
+ 
+ using gfxPoint from "gfxPoint.h";
+ using nsIntRegion from "nsRegion.h";
+@@ -27,6 +28,8 @@
+ using mozilla::layers::RemoteTextureId from "mozilla/layers/LayersTypes.h";
+ using mozilla::layers::RemoteTextureOwnerId from "mozilla/layers/LayersTypes.h";
+ using mozilla::layers::GpuProcessTextureId from "mozilla/layers/LayersTypes.h";
++using mozilla::wr::ExternalImageSource from "mozilla/webrender/WebRenderTypes.h";
++using mozilla::wr::ExternalImageId from "mozilla/webrender/WebRenderTypes.h";
+ 
+ namespace mozilla {
+ namespace layers {
+@@ -178,6 +181,12 @@
+   Handle handle;
+ };
+ 
++[Comparable] struct SurfaceDescriptorExternalImage
++{
++  ExternalImageSource source;
++  ExternalImageId id;
++};
++
+ [Comparable] struct SurfaceDescriptorRecorded {
+   int64_t textureId;
+ };
+@@ -201,6 +210,7 @@
+   SurfaceDescriptorRecorded;
+   SurfaceDescriptorRemoteTexture;
+   SurfaceDescriptorDcompSurface;
++  SurfaceDescriptorExternalImage;
+   null_t;
+ };
+ 

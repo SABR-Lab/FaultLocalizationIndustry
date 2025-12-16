@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/HttpBackgroundChannelChild.cpp
+# Commit: 19dcca77a1cf
+# Full Hash: 19dcca77a1cf1c590dfda293418aec84cce701de
+# Author: Junior Hsu <juhsu@mozilla.com>
+# Date: 2020-06-24 09:31:07
+# Regressor Bug: 1633935
+# File Overlap Count: 1
+# Description:
+#   Bug 1633935 - P1 allow OnStartRequest go thru pBg IPC, r=mayhemer
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D73529
+# ==============================================================================
+
+diff -r 91c26c5b1e33 -r 19dcca77a1cf netwerk/protocol/http/HttpBackgroundChannelChild.cpp
+--- a/netwerk/protocol/http/HttpBackgroundChannelChild.cpp	Tue Jun 23 18:34:42 2020 +0000
++++ b/netwerk/protocol/http/HttpBackgroundChannelChild.cpp	Tue Jun 23 16:56:15 2020 +0000
+@@ -151,6 +151,32 @@
+   return IPC_OK();
+ }
+ 
++IPCResult HttpBackgroundChannelChild::RecvOnStartRequest(
++    const nsHttpResponseHead& aResponseHead, const bool& aUseResponseHead,
++    const nsHttpHeaderArray& aRequestHeaders,
++    const HttpChannelOnStartRequestArgs& aArgs) {
++  LOG(("HttpBackgroundChannelChild::RecvOnStartRequest [this=%p]\n", this));
++  MOZ_ASSERT(OnSocketThread());
++
++  MOZ_ASSERT(mChannelChild, "no channel child in RecvOnStartRequest");
++  if (NS_WARN_IF(!mChannelChild)) {
++    return IPC_OK();
++  }
++
++  // TODO: OnStartRequest is off-main-thread so it's unnecessary to dispatch
++  // another IPC message for sync reason. Directly call here to behave the same
++  // as before. This is no longer needed and removed in the next patches.
++  RecvOnStartRequestSent();
++
++  mChannelChild->ProcessOnStartRequest(aResponseHead, aUseResponseHead,
++                                       aRequestHeaders, aArgs);
++  // Allow to queue other runnable since OnStartRequest Event already hits the
++  // child's mEventQ.
++  OnStartRequestReceived();
++
++  return IPC_OK();
++}
++
+ IPCResult HttpBackgroundChannelChild::RecvOnTransportAndData(
+     const nsresult& aChannelStatus, const nsresult& aTransportStatus,
+     const uint64_t& aOffset, const uint32_t& aCount, const nsCString& aData,

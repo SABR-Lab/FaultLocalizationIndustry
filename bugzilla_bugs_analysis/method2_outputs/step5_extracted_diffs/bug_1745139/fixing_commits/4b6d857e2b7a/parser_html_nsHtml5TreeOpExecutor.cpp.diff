@@ -1,0 +1,37 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: parser/html/nsHtml5TreeOpExecutor.cpp
+# Commit: 4b6d857e2b7a
+# Full Hash: 4b6d857e2b7a174a580ff4a8c81b0b5f4c94a7f8
+# Author: Henri Sivonen <hsivonen@hsivonen.fi>
+# Date: 2021-12-10 05:31:59
+# Description:
+#   Bug 1745139 - Check for termination even after the first flush loop in CommitToInternalEncoding. r=smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D133342
+# ==============================================================================
+
+diff -r d60a17f4f7bf -r 4b6d857e2b7a parser/html/nsHtml5TreeOpExecutor.cpp
+--- a/parser/html/nsHtml5TreeOpExecutor.cpp	Thu Dec 09 12:58:50 2021 +0000
++++ b/parser/html/nsHtml5TreeOpExecutor.cpp	Thu Dec 09 12:59:04 2021 +0000
+@@ -829,10 +829,15 @@
+   }
+   mPendingEncodingCommitment = false;
+   RunFlushLoop();
+-  // The above loop relates to plain text and View Source only. As such,
+-  // it never runs content scripts. Unfortunately, the loop may be interrupted
+-  // by timer and by extension-injected scripts. In that case, we repost the
+-  // runnable and return early. :-(
++  if (MOZ_UNLIKELY(!mParser || !mStreamParser)) {
++    // The parser got terminated somehow. Perhaps by an extension?
++    ClearOpQueue();  // clear in order to be able to assert in destructor
++    return;
++  }
++  // The above loop is supposed to relate to plain text and View Source only.
++  // As such, it never supposed to runs content scripts. Unfortunately, the
++  // loop may be interrupted by timer and by extension-injected scripts. In
++  // that case, we repost the runnable and return early. :-(
+   if (!mParser->IsParserEnabled()) {
+     mPendingEncodingCommitment = true;
+     return;

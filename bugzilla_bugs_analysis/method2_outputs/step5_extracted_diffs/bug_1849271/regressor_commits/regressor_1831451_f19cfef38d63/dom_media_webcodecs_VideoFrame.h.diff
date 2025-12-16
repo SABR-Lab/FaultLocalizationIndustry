@@ -1,0 +1,75 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webcodecs/VideoFrame.h
+# Commit: f19cfef38d63
+# Full Hash: f19cfef38d63df3cd02b0413e2eea2f81075e649
+# Author: Chun-Min Chang <chun.m.chang@gmail.com>
+# Date: 2023-06-29 15:31:45
+# Regressor Bug: 1831451
+# File Overlap Count: 1
+# Description:
+#   Bug 1831451 - Allow constructing VideoFrame without pixel format r=padenot
+#   
+#   Depends on D171166
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D171518
+# ==============================================================================
+
+diff -r 1cf50ce36a73 -r f19cfef38d63 dom/media/webcodecs/VideoFrame.h
+--- a/dom/media/webcodecs/VideoFrame.h	Thu Jun 29 04:15:03 2023 +0000
++++ b/dom/media/webcodecs/VideoFrame.h	Thu Jun 29 04:15:03 2023 +0000
+@@ -55,13 +55,13 @@
+ namespace mozilla::dom {
+ 
+ struct VideoFrameData {
+-  VideoFrameData(layers::Image* aImage, const VideoPixelFormat& aFormat,
++  VideoFrameData(layers::Image* aImage, const Maybe<VideoPixelFormat>& aFormat,
+                  gfx::IntRect aVisibleRect, gfx::IntSize aDisplaySize,
+                  Maybe<uint64_t> aDuration, int64_t aTimestamp,
+                  const VideoColorSpaceInit& aColorSpace);
+ 
+   const RefPtr<layers::Image> mImage;
+-  const VideoPixelFormat mFormat;
++  const Maybe<VideoPixelFormat> mFormat;
+   const gfx::IntRect mVisibleRect;
+   const gfx::IntSize mDisplaySize;
+   const Maybe<uint64_t> mDuration;
+@@ -71,7 +71,7 @@
+ 
+ struct VideoFrameSerializedData : VideoFrameData {
+   VideoFrameSerializedData(layers::Image* aImage,
+-                           const VideoPixelFormat& aFormat,
++                           const Maybe<VideoPixelFormat>& aFormat,
+                            gfx::IntSize aCodedSize, gfx::IntRect aVisibleRect,
+                            gfx::IntSize aDisplaySize, Maybe<uint64_t> aDuration,
+                            int64_t aTimestamp,
+@@ -89,7 +89,7 @@
+ 
+  public:
+   VideoFrame(nsIGlobalObject* aParent, const RefPtr<layers::Image>& aImage,
+-             const VideoPixelFormat& aFormat, gfx::IntSize aCodedSize,
++             const Maybe<VideoPixelFormat>& aFormat, gfx::IntSize aCodedSize,
+              gfx::IntRect aVisibleRect, gfx::IntSize aDisplaySize,
+              const Maybe<uint64_t>& aDuration, int64_t aTimestamp,
+              const VideoColorSpaceInit& aColorSpace);
+@@ -216,15 +216,17 @@
+   // A class representing the VideoFrame's data.
+   class Resource final {
+    public:
+-    Resource(const RefPtr<layers::Image>& aImage, const Format& aFormat);
++    Resource(const RefPtr<layers::Image>& aImage, Maybe<Format>&& aFormat);
+     Resource(const Resource& aOther);
+     ~Resource() = default;
++    Maybe<VideoPixelFormat> TryPixelFormat() const;
+     uint32_t Stride(const Format::Plane& aPlane) const;
+     bool CopyTo(const Format::Plane& aPlane, const gfx::IntRect& aRect,
+                 Span<uint8_t>&& aPlaneDest, size_t aDestinationStride) const;
+ 
+     const RefPtr<layers::Image> mImage;
+-    const Format mFormat;
++    // Nothing() if mImage is not in VideoPixelFormat
++    const Maybe<Format> mFormat;
+   };
+ 
+   nsCOMPtr<nsIGlobalObject> mParent;

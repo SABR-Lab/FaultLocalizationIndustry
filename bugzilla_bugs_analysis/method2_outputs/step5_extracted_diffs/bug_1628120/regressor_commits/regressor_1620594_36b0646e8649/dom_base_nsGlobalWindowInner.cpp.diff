@@ -1,0 +1,91 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsGlobalWindowInner.cpp
+# Commit: 36b0646e8649
+# Full Hash: 36b0646e86498662e770756ad54b1fd648a82184
+# Author: Andreas Farre <farre@mozilla.com>
+# Date: 2020-04-07 21:44:02
+# Regressor Bug: 1620594
+# File Overlap Count: 1
+# Description:
+#   Bug 1620594 - Part 7: Remove TabGroup and SystemGroup. r=nika,bas
+#   
+#   TabGroup never really made any difference in which thread something go
+#   dispatched to. This was the intended use, but development of TabGroups
+#   with abstract main threads never made it that far. The good thing is
+# ==============================================================================
+
+diff -r a5ad3b179c92 -r 36b0646e8649 dom/base/nsGlobalWindowInner.cpp
+--- a/dom/base/nsGlobalWindowInner.cpp	Tue Apr 07 15:17:14 2020 +0000
++++ b/dom/base/nsGlobalWindowInner.cpp	Tue Apr 07 15:17:47 2020 +0000
+@@ -111,7 +111,6 @@
+ #include "nsCharTraits.h"  // NS_IS_HIGH/LOW_SURROGATE
+ #include "PostMessageEvent.h"
+ #include "mozilla/dom/DocGroup.h"
+-#include "mozilla/dom/TabGroup.h"
+ #include "mozilla/StaticPrefs_dom.h"
+ #include "PaintWorkletImpl.h"
+ 
+@@ -7089,46 +7088,6 @@
+                              Some(gfx::IntRect(aSx, aSy, aSw, aSh)), aRv);
+ }
+ 
+-mozilla::dom::TabGroup* nsGlobalWindowInner::MaybeTabGroupInner() {
+-  // If we don't have a TabGroup yet, try to get it from the outer window and
+-  // cache it.
+-  if (!mTabGroup) {
+-    nsGlobalWindowOuter* outer = GetOuterWindowInternal();
+-    if (!outer) {
+-      return nullptr;
+-    }
+-    mTabGroup = outer->MaybeTabGroup();
+-    if (!mTabGroup) {
+-      return nullptr;
+-    }
+-  }
+-
+-#ifdef DEBUG
+-  nsGlobalWindowOuter* outer = GetOuterWindowInternal();
+-  MOZ_ASSERT_IF(outer, outer->TabGroup() == mTabGroup);
+-#endif
+-
+-  return mTabGroup;
+-}
+-
+-mozilla::dom::TabGroup* nsGlobalWindowInner::TabGroupInner() {
+-  // This will never be called without either an outer window, or a cached tab
+-  // group. This is because of the following:
+-  // * This method is only called on inner windows
+-  // * This method is called as a document is attached to its script global
+-  //   by the document
+-  // * Inner windows are created in nsGlobalWindowInner::SetNewDocument, which
+-  //   immediately sets a document, which will call this method, causing
+-  //   the TabGroup to be cached.
+-  MOZ_RELEASE_ASSERT(
+-      mTabGroup || GetOuterWindowInternal(),
+-      "Inner window without outer window has no cached tab group!");
+-
+-  mozilla::dom::TabGroup* tabGroup = MaybeTabGroupInner();
+-  MOZ_RELEASE_ASSERT(tabGroup);
+-  return tabGroup;
+-}
+-
+ nsresult nsGlobalWindowInner::Dispatch(
+     TaskCategory aCategory, already_AddRefed<nsIRunnable>&& aRunnable) {
+   MOZ_RELEASE_ASSERT(NS_IsMainThread());
+@@ -7252,14 +7211,6 @@
+   }
+ }
+ 
+-mozilla::dom::TabGroup* nsPIDOMWindowInner::TabGroup() {
+-  return nsGlobalWindowInner::Cast(this)->TabGroupInner();
+-}
+-
+-mozilla::dom::TabGroup* nsPIDOMWindowInner::MaybeTabGroup() {
+-  return nsGlobalWindowInner::Cast(this)->MaybeTabGroupInner();
+-}
+-
+ /* static */
+ already_AddRefed<nsGlobalWindowInner> nsGlobalWindowInner::Create(
+     nsGlobalWindowOuter* aOuterWindow, bool aIsChrome,

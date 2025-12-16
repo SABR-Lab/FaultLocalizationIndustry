@@ -1,0 +1,84 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/test/xpcshell/test_persist.js
+# Commit: 2fd502bdc2d9
+# Full Hash: 2fd502bdc2d921b888fc6597b6b3d3514226e8a2
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-10-12 20:37:56
+# Regressor Bug: 1866402
+# File Overlap Count: 1
+# Description:
+#   Bug 1866402 - Update the cached value in PersistOp::DoDirectoryWork only after successful creation of the metadata file; r=dom-storage-reviewers,jari
+#   
+#   Currently, the cached value is updated before creation of the metadata file
+#   which can lead to a mismatch between the metadata file and the cached value if
+#   creation of the metadata file fails. It will be safer to update the cached
+# ==============================================================================
+
+diff -r 8b98c798b362 -r 2fd502bdc2d9 dom/quota/test/xpcshell/test_persist.js
+--- a/dom/quota/test/xpcshell/test_persist.js	Sat Oct 12 10:00:14 2024 +0000
++++ b/dom/quota/test/xpcshell/test_persist.js	Sat Oct 12 10:00:14 2024 +0000
+@@ -129,5 +129,62 @@
+     "Persisted() concurs with metadata"
+   );
+ 
++  info("Clearing the origin");
++
++  // Clear the origin since we'll test the same directory again under different
++  // circumstances.
++  clearOrigin(principal, origin.persistence, continueToNextStepSync);
++  yield undefined;
++
++  info(
++    "Persisting an uninitialized origin when temporary storage is already initialized"
++  );
++
++  initTemporaryStorage(continueToNextStepSync);
++  yield undefined;
++
++  exists = originDir.exists();
++  ok(!exists, "Origin directory does not exist");
++
++  exists = metadataFile.exists();
++  ok(!exists, "Metadata file does not exist");
++
++  info("Verifying persisted()");
++
++  request = persisted(principal, continueToNextStepSync);
++  yield undefined;
++
++  Assert.strictEqual(request.resultCode, NS_OK, "Persisted() succeeded");
++  ok(!request.result, "Persisted() concurs with metadata");
++
++  info("Verifying persist() does update the metadata");
++
++  request = persist(principal, continueToNextStepSync);
++  yield undefined;
++
++  Assert.strictEqual(request.resultCode, NS_OK, "Persist() succeeded");
++
++  info("Reading out contents of metadata file");
++
++  fileReader = new FileReader();
++  fileReader.onload = continueToNextStepSync;
++  fileReader.readAsArrayBuffer(file);
++  yield undefined;
++
++  originPersisted = getPersistedFromMetadata(fileReader.result);
++  ok(originPersisted, "The origin is persisted");
++
++  info("Verifying persisted()");
++
++  request = persisted(principal, continueToNextStepSync);
++  yield undefined;
++
++  Assert.strictEqual(request.resultCode, NS_OK, "Persisted() succeeded");
++  Assert.strictEqual(
++    request.result,
++    originPersisted,
++    "Persisted() concurs with metadata"
++  );
++
+   finishTest();
+ }

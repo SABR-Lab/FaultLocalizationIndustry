@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/JitScript.cpp
+# Commit: dab916754456
+# Full Hash: dab916754456373246c85d658fde0520c7246865
+# Author: Iain Ireland <iireland@mozilla.com>
+# Date: 2020-07-23 03:20:25
+# Regressor Bug: 1646378
+# File Overlap Count: 1
+# Description:
+#   Bug 1646378: Invalidate the root script in MaybeInvalidateWarp r=jandem
+#   
+#   When we replace a stub in an inlined ICScript, we want to invalidate the script into which it was inlined, rather than the original copy of the inlined script.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D84431
+# ==============================================================================
+
+diff -r 86db033f2b35 -r dab916754456 js/src/jit/JitScript.cpp
+--- a/js/src/jit/JitScript.cpp	Wed Jul 22 11:31:25 2020 +0000
++++ b/js/src/jit/JitScript.cpp	Wed Jul 22 21:57:45 2020 +0000
+@@ -269,6 +269,8 @@
+   }
+ }
+ 
++bool ICScript::isInlined() const { return jitScript()->icScript() != this; }
++
+ bool ICScript::addInlinedChild(JSContext* cx, UniquePtr<ICScript> child,
+                                uint32_t pcOffset) {
+   if (!inlinedChildren_) {
+@@ -849,9 +851,14 @@
+   MOZ_ASSERT(typeMapIndex == script->numBytecodeTypeSets());
+ }
+ 
+-InliningRoot* JitScript::getOrCreateInliningRoot(JSContext* cx) {
++InliningRoot* JitScript::getOrCreateInliningRoot(JSContext* cx,
++                                                 JSScript* script) {
+   if (!inliningRoot_) {
+-    inliningRoot_ = js::MakeUnique<InliningRoot>(cx);
++    inliningRoot_ = js::MakeUnique<InliningRoot>(cx, script);
++    if (!inliningRoot_) {
++      ReportOutOfMemory(cx);
++      return nullptr;
++    }
+     icScript_.inliningRoot_ = inliningRoot_.get();
+   }
+   return inliningRoot_.get();

@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmBaselineCompile.cpp
+# Commit: 662cb63c42d7
+# Full Hash: 662cb63c42d7874a79256a6edf1a03d83e43a014
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2023-08-05 09:19:01
+# Regressor Bug: 1692065
+# File Overlap Count: 2
+# Description:
+#   Bug 1692065 - wasm: Create a unique wasm::AnyRef type. r=yury,jonco
+#   
+#   Right now wasm references area represented as a JSObject*. This is assumed in
+#   many places in SpiderMonkey, most prominently in our GC integration
+#   around tracing, the store buffer, and write barriers. This will cause issues
+# ==============================================================================
+
+diff -r 8b506ab41451 -r 662cb63c42d7 js/src/wasm/WasmBaselineCompile.cpp
+--- a/js/src/wasm/WasmBaselineCompile.cpp	Fri Aug 04 13:54:57 2023 +0000
++++ b/js/src/wasm/WasmBaselineCompile.cpp	Fri Aug 04 14:06:49 2023 +0000
+@@ -4154,9 +4154,6 @@
+ #endif
+       }
+       case ValType::Ref: {
+-        // TODO/AnyRef-boxing: With boxed immediates and strings, this may need
+-        // to handle other kinds of values.
+-        ASSERT_ANYREF_IS_JSOBJECT;
+         RegRef reg = needRef();
+         masm.loadPtr(Address(data, offset), reg);
+         pushRef(reg);
+@@ -6558,15 +6555,11 @@
+ }
+ 
+ void BaseCompiler::emitBarrieredClear(RegPtr valueAddr) {
+-  // TODO/AnyRef-boxing: With boxed immediates and strings, the write
+-  // barrier is going to have to be more complicated.
+-  ASSERT_ANYREF_IS_JSOBJECT;
+-
+   // The pre-barrier preserves all allocated registers.
+   emitPreBarrier(valueAddr);
+ 
+   // Store null
+-  masm.storePtr(ImmWord(0), Address(valueAddr, 0));
++  masm.storePtr(ImmWord(NULLREF_VALUE), Address(valueAddr, 0));
+ 
+   // No post-barrier is needed, as null does not require a store buffer entry
+ }

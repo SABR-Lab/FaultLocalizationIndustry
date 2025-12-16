@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/ScriptLoader.cpp
+# Commit: 9153182c650d
+# Full Hash: 9153182c650d0455a6376e071bc230d8803fd4ea
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-12-21 21:21:23
+# Regressor Bug: 1247687
+# File Overlap Count: 1
+# Description:
+#   Bug 1247687 - Handle cancellation of long running modules; r=jonco
+#   
+#   This is a slightly annoying thing that can happen. When we abruptly cancel (such as an infinitely
+#   running script being forcibly terminated) we will be in a state where the EvaluateModule call will
+#   finish _after_ the loader is destroyed. So, instead we track if there has been a forcible
+# ==============================================================================
+
+diff -r 45de9ffeec19 -r 9153182c650d dom/workers/ScriptLoader.cpp
+--- a/dom/workers/ScriptLoader.cpp	Tue Dec 20 20:56:14 2022 +0000
++++ b/dom/workers/ScriptLoader.cpp	Tue Dec 20 20:56:14 2022 +0000
+@@ -755,7 +755,9 @@
+   MOZ_ASSERT(global);
+ 
+   while (!mLoadedRequests.isEmpty()) {
+-    RefPtr<ScriptLoadRequest> req = mLoadedRequests.StealFirst();
++    // Take a reference, but do not remove it from the list yet. There is a
++    // possibility that this will need to be cancelled.
++    RefPtr<ScriptLoadRequest> req = mLoadedRequests.getFirst();
+     // We don't have a ProcessRequest method (like we do on the DOM), as there
+     // isn't much processing that we need to do per request that isn't related
+     // to evaluation (the processsing done for the DOM is handled in
+@@ -769,6 +771,8 @@
+       mLoadedRequests.CancelRequestsAndClear();
+       break;
+     }
++    // remove the element from the list.
++    mLoadedRequests.Remove(req);
+   }
+ 
+   TryShutdown();
+@@ -1073,6 +1077,9 @@
+           : EvaluateSourceBuffer(aCx, options,
+                                  maybeSource.ref<JS::SourceText<char16_t>>());
+ 
++  if (aRequest->IsCanceled()) {
++    return false;
++  }
+   if (!successfullyEvaluated) {
+     mRv.StealExceptionFromJSContext(aCx);
+     return false;

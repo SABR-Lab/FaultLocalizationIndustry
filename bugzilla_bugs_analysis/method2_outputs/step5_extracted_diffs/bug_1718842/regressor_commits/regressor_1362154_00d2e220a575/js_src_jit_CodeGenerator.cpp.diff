@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/CodeGenerator.cpp
+# Commit: 00d2e220a575
+# Full Hash: 00d2e220a57535825b59e92df5201119109f55e4
+# Author: Iain Ireland <iireland@mozilla.com>
+# Date: 2020-05-22 21:38:53
+# Regressor Bug: 1362154
+# File Overlap Count: 1
+# Description:
+#   Bug 1362154: Part 5: Create groups property on result object r=mgaudet
+#   
+#   When a regexp has named captures, the result object has an extra `groups` property, which is an object that in turn has a string property per named capture. This patch creates the `groups` object and attaches it to the result object.
+#   
+#   The changes here correspond to this section of the spec proposal, which conveniently highlights the changes: https://tc39.es/proposal-regexp-named-groups/#sec-regexpbuiltinexec
+# ==============================================================================
+
+diff -r 1322042730b6 -r 00d2e220a575 js/src/jit/CodeGenerator.cpp
+--- a/js/src/jit/CodeGenerator.cpp	Wed May 20 21:04:01 2020 +0000
++++ b/js/src/jit/CodeGenerator.cpp	Wed May 20 21:04:47 2020 +0000
+@@ -2885,13 +2885,23 @@
+                       &matchResultFallback);
+   masm.bind(&matchResultJoin);
+ 
+-  // Initialize slots of result object.
++#ifdef ENABLE_NEW_REGEXP
++  MOZ_ASSERT(nativeTemplateObj.numFixedSlots() == 0);
++  MOZ_ASSERT(nativeTemplateObj.numDynamicSlots() == 3);
++  static_assert(RegExpRealm::MatchResultObjectIndexSlot == 0,
++                "First slot holds the 'index' property");
++  static_assert(RegExpRealm::MatchResultObjectInputSlot == 1,
++                "Second slot holds the 'input' property");
++  static_assert(RegExpRealm::MatchResultObjectGroupsSlot == 2,
++                "Third slot holds the 'groups' property");
++#else
+   MOZ_ASSERT(nativeTemplateObj.numFixedSlots() == 0);
+   MOZ_ASSERT(nativeTemplateObj.numDynamicSlots() == 2);
+   static_assert(RegExpRealm::MatchResultObjectIndexSlot == 0,
+                 "First slot holds the 'index' property");
+   static_assert(RegExpRealm::MatchResultObjectInputSlot == 1,
+                 "Second slot holds the 'input' property");
++#endif
+ 
+   masm.loadPtr(Address(object, NativeObject::offsetOfSlots()), temp2);
+   masm.storeValue(

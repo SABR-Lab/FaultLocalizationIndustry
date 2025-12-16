@@ -1,0 +1,182 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/HTMLEditHelpers.cpp
+# Commit: a43e95a534eb
+# Full Hash: a43e95a534eb5c13883cc2a61fb64c15fe29e674
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-10-05 03:40:21
+# Regressor Bug: 1792654
+# File Overlap Count: 1
+# Description:
+#   Bug 1792654 - Make `CreateNodeResultBase`, `MoveNodeResult`, `SplitNodeResult` and `SplitRangeOffResult` handle caret point with a common base class r=m_kato
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D158335
+# ==============================================================================
+
+diff -r 18196c5fab62 -r a43e95a534eb editor/libeditor/HTMLEditHelpers.cpp
+--- a/editor/libeditor/HTMLEditHelpers.cpp	Tue Oct 04 21:13:53 2022 +0000
++++ b/editor/libeditor/HTMLEditHelpers.cpp	Tue Oct 04 21:36:57 2022 +0000
+@@ -85,162 +85,4 @@
+   return mIter->Init(&aRange);
+ }
+ 
+-/******************************************************************************
+- * mozilla::MoveNodeResult
+- *****************************************************************************/
+-
+-nsresult MoveNodeResult::SuggestCaretPointTo(
+-    const HTMLEditor& aHTMLEditor, const SuggestCaretOptions& aOptions) const {
+-  mHandledCaretPoint = true;
+-  if (!mCaretPoint.IsSet()) {
+-    if (aOptions.contains(SuggestCaret::OnlyIfHasSuggestion)) {
+-      return NS_OK;
+-    }
+-    NS_WARNING("There was no suggestion to put caret");
+-    return NS_ERROR_FAILURE;
+-  }
+-  if (aOptions.contains(SuggestCaret::OnlyIfTransactionsAllowedToDoIt) &&
+-      !aHTMLEditor.AllowsTransactionsToChangeSelection()) {
+-    return NS_OK;
+-  }
+-  nsresult rv = aHTMLEditor.CollapseSelectionTo(mCaretPoint);
+-  if (MOZ_UNLIKELY(rv == NS_ERROR_EDITOR_DESTROYED)) {
+-    NS_WARNING(
+-        "EditorBase::CollapseSelectionTo() caused destroying the editor");
+-    return NS_ERROR_EDITOR_DESTROYED;
+-  }
+-  return aOptions.contains(SuggestCaret::AndIgnoreTrivialError) &&
+-                 MOZ_UNLIKELY(NS_FAILED(rv))
+-             ? NS_SUCCESS_EDITOR_BUT_IGNORED_TRIVIAL_ERROR
+-             : rv;
+-}
+-
+-bool MoveNodeResult::MoveCaretPointTo(EditorDOMPoint& aPointToPutCaret,
+-                                      const HTMLEditor& aHTMLEditor,
+-                                      const SuggestCaretOptions& aOptions) {
+-  MOZ_ASSERT(!aOptions.contains(SuggestCaret::AndIgnoreTrivialError));
+-  mHandledCaretPoint = true;
+-  if (aOptions.contains(SuggestCaret::OnlyIfHasSuggestion) &&
+-      !mCaretPoint.IsSet()) {
+-    return false;
+-  }
+-  if (aOptions.contains(SuggestCaret::OnlyIfTransactionsAllowedToDoIt) &&
+-      !aHTMLEditor.AllowsTransactionsToChangeSelection()) {
+-    return false;
+-  }
+-  aPointToPutCaret = UnwrapCaretPoint();
+-  return true;
+-}
+-
+-/******************************************************************************
+- * mozilla::SplitNodeResult
+- *****************************************************************************/
+-
+-nsresult SplitNodeResult::SuggestCaretPointTo(
+-    const HTMLEditor& aHTMLEditor, const SuggestCaretOptions& aOptions) const {
+-  mHandledCaretPoint = true;
+-  if (!mCaretPoint.IsSet()) {
+-    if (aOptions.contains(SuggestCaret::OnlyIfHasSuggestion)) {
+-      return NS_OK;
+-    }
+-    NS_WARNING("There was no suggestion to put caret");
+-    return NS_ERROR_FAILURE;
+-  }
+-  if (aOptions.contains(SuggestCaret::OnlyIfTransactionsAllowedToDoIt) &&
+-      !aHTMLEditor.AllowsTransactionsToChangeSelection()) {
+-    return NS_OK;
+-  }
+-  nsresult rv = aHTMLEditor.CollapseSelectionTo(mCaretPoint);
+-  if (MOZ_UNLIKELY(rv == NS_ERROR_EDITOR_DESTROYED)) {
+-    NS_WARNING(
+-        "EditorBase::CollapseSelectionTo() caused destroying the editor");
+-    return NS_ERROR_EDITOR_DESTROYED;
+-  }
+-  return aOptions.contains(SuggestCaret::AndIgnoreTrivialError) &&
+-                 MOZ_UNLIKELY(NS_FAILED(rv))
+-             ? NS_SUCCESS_EDITOR_BUT_IGNORED_TRIVIAL_ERROR
+-             : rv;
+-}
+-
+-bool SplitNodeResult::CopyCaretPointTo(
+-    EditorDOMPoint& aPointToPutCaret, const HTMLEditor& aHTMLEditor,
+-    const SuggestCaretOptions& aOptions) const {
+-  MOZ_ASSERT(!aOptions.contains(SuggestCaret::AndIgnoreTrivialError));
+-  mHandledCaretPoint = true;
+-  if (aOptions.contains(SuggestCaret::OnlyIfHasSuggestion) &&
+-      !mCaretPoint.IsSet()) {
+-    return false;
+-  }
+-  if (aOptions.contains(SuggestCaret::OnlyIfTransactionsAllowedToDoIt) &&
+-      !aHTMLEditor.AllowsTransactionsToChangeSelection()) {
+-    return false;
+-  }
+-  aPointToPutCaret = mCaretPoint;
+-  return true;
+-}
+-
+-bool SplitNodeResult::MoveCaretPointTo(EditorDOMPoint& aPointToPutCaret,
+-                                       const HTMLEditor& aHTMLEditor,
+-                                       const SuggestCaretOptions& aOptions) {
+-  MOZ_ASSERT(!aOptions.contains(SuggestCaret::AndIgnoreTrivialError));
+-  mHandledCaretPoint = true;
+-  if (aOptions.contains(SuggestCaret::OnlyIfHasSuggestion) &&
+-      !mCaretPoint.IsSet()) {
+-    return false;
+-  }
+-  if (aOptions.contains(SuggestCaret::OnlyIfTransactionsAllowedToDoIt) &&
+-      !aHTMLEditor.AllowsTransactionsToChangeSelection()) {
+-    return false;
+-  }
+-  aPointToPutCaret = UnwrapCaretPoint();
+-  return true;
+-}
+-
+-/******************************************************************************
+- * mozilla::SplitRangeOffFromNodeResult
+- *****************************************************************************/
+-
+-nsresult SplitRangeOffFromNodeResult::SuggestCaretPointTo(
+-    const HTMLEditor& aHTMLEditor, const SuggestCaretOptions& aOptions) const {
+-  mHandledCaretPoint = true;
+-  if (!mCaretPoint.IsSet()) {
+-    if (aOptions.contains(SuggestCaret::OnlyIfHasSuggestion)) {
+-      return NS_OK;
+-    }
+-    NS_WARNING("There was no suggestion to put caret");
+-    return NS_ERROR_FAILURE;
+-  }
+-  if (aOptions.contains(SuggestCaret::OnlyIfTransactionsAllowedToDoIt) &&
+-      !aHTMLEditor.AllowsTransactionsToChangeSelection()) {
+-    return NS_OK;
+-  }
+-  nsresult rv = aHTMLEditor.CollapseSelectionTo(mCaretPoint);
+-  if (MOZ_UNLIKELY(rv == NS_ERROR_EDITOR_DESTROYED)) {
+-    NS_WARNING(
+-        "EditorBase::CollapseSelectionTo() caused destroying the editor");
+-    return NS_ERROR_EDITOR_DESTROYED;
+-  }
+-  return aOptions.contains(SuggestCaret::AndIgnoreTrivialError) &&
+-                 MOZ_UNLIKELY(NS_FAILED(rv))
+-             ? NS_SUCCESS_EDITOR_BUT_IGNORED_TRIVIAL_ERROR
+-             : rv;
+-}
+-
+-bool SplitRangeOffFromNodeResult::MoveCaretPointTo(
+-    EditorDOMPoint& aPointToPutCaret, const HTMLEditor& aHTMLEditor,
+-    const SuggestCaretOptions& aOptions) {
+-  MOZ_ASSERT(!aOptions.contains(SuggestCaret::AndIgnoreTrivialError));
+-  mHandledCaretPoint = true;
+-  if (aOptions.contains(SuggestCaret::OnlyIfHasSuggestion) &&
+-      !mCaretPoint.IsSet()) {
+-    return false;
+-  }
+-  if (aOptions.contains(SuggestCaret::OnlyIfTransactionsAllowedToDoIt) &&
+-      !aHTMLEditor.AllowsTransactionsToChangeSelection()) {
+-    return false;
+-  }
+-  aPointToPutCaret = UnwrapCaretPoint();
+-  return true;
+-}
+-
+ }  // namespace mozilla

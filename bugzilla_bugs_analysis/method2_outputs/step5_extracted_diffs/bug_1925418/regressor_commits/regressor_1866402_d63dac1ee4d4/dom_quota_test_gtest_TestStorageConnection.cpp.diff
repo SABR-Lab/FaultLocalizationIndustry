@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/test/gtest/TestStorageConnection.cpp
+# Commit: d63dac1ee4d4
+# Full Hash: d63dac1ee4d471defff484dae5a3535e1f8ba072
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-10-10 22:03:45
+# Regressor Bug: 1866402
+# File Overlap Count: 1
+# Description:
+#   Bug 1866402 - Make it possible to initialize temporary origins without ensuring origin directories; r=dom-storage-reviewers,jari
+#   
+#   LSNG already uses some QuotaManager APIs to achieve that origin directories are
+#   not created if they don't exist during datastore preparation, but the feature
+#   is not easy to use and it's also not generalized enough for use in other quota
+# ==============================================================================
+
+diff -r 2ab08c49f2b1 -r d63dac1ee4d4 dom/quota/test/gtest/TestStorageConnection.cpp
+--- a/dom/quota/test/gtest/TestStorageConnection.cpp	Thu Oct 10 12:22:54 2024 +0000
++++ b/dom/quota/test/gtest/TestStorageConnection.cpp	Thu Oct 10 12:22:55 2024 +0000
+@@ -32,11 +32,12 @@
+ void InitializeClientDirectory(const ClientMetadata& aClientMetadata) {
+   QuotaManager* quotaManager = QuotaManager::Get();
+ 
+-  QM_TRY_INSPECT(
+-      const auto& directory,
+-      quotaManager->EnsureTemporaryOriginIsInitializedInternal(aClientMetadata)
+-          .map([](const auto& aPair) { return aPair.first; }),
+-      QM_TEST_FAIL);
++  QM_TRY_INSPECT(const auto& directory,
++                 quotaManager
++                     ->EnsureTemporaryOriginIsInitializedInternal(
++                         aClientMetadata, /* aCreateIfNonExistent */ true)
++                     .map([](const auto& aPair) { return aPair.first; }),
++                 QM_TEST_FAIL);
+ 
+   QM_TRY(MOZ_TO_RESULT(directory->Append(
+              Client::TypeToString(aClientMetadata.mClientType))),

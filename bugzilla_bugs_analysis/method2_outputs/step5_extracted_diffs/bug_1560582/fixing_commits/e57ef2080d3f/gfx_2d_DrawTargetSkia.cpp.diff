@@ -1,0 +1,47 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/2d/DrawTargetSkia.cpp
+# Commit: e57ef2080d3f
+# Full Hash: e57ef2080d3fe256ed188285f178ab97729af28d
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2019-06-27 09:34:48
+# Description:
+#   Bug 1560582 - limit Skia glyph batch sizes. r=jrmuizel
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D36148
+# ==============================================================================
+
+diff -r 40986c1d78aa -r e57ef2080d3f gfx/2d/DrawTargetSkia.cpp
+--- a/gfx/2d/DrawTargetSkia.cpp	Tue Jun 25 20:09:03 2019 +0000
++++ b/gfx/2d/DrawTargetSkia.cpp	Thu Jun 27 02:42:24 2019 +0000
+@@ -1374,14 +1374,22 @@
+ 
+   font.setSubpixel(useSubpixelText);
+ 
+-  SkTextBlobBuilder builder;
+-  auto runBuffer = builder.allocRunPos(font, aBuffer.mNumGlyphs);
+-  for (uint32_t i = 0; i < aBuffer.mNumGlyphs; i++) {
+-    runBuffer.glyphs[i] = aBuffer.mGlyphs[i].mIndex;
+-    runBuffer.points()[i] = PointToSkPoint(aBuffer.mGlyphs[i].mPosition);
++  // Limit the amount of internal batch allocations Skia does.
++  const uint32_t kMaxGlyphBatchSize = 8192;
++
++  for (uint32_t offset = 0; offset < aBuffer.mNumGlyphs;) {
++    uint32_t batchSize =
++        std::min(aBuffer.mNumGlyphs - offset, kMaxGlyphBatchSize);
++    SkTextBlobBuilder builder;
++    auto runBuffer = builder.allocRunPos(font, batchSize);
++    for (uint32_t i = 0; i < batchSize; i++, offset++) {
++      runBuffer.glyphs[i] = aBuffer.mGlyphs[offset].mIndex;
++      runBuffer.points()[i] = PointToSkPoint(aBuffer.mGlyphs[offset].mPosition);
++    }
++
++    sk_sp<SkTextBlob> text = builder.make();
++    mCanvas->drawTextBlob(text, 0, 0, paint.mPaint);
+   }
+-  sk_sp<SkTextBlob> text = builder.make();
+-  mCanvas->drawTextBlob(text, 0, 0, paint.mPaint);
+ }
+ 
+ void DrawTargetSkia::FillGlyphs(ScaledFont* aFont, const GlyphBuffer& aBuffer,

@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/svg/SVGAnimatedLength.cpp
+# Commit: 9525c5d9a710
+# Full Hash: 9525c5d9a710cd1a2c960389c03a31aba9e02003
+# Author: Robert Longson <longsonr@gmail.com>
+# Date: 2023-09-13 09:25:56
+# Regressor Bug: 1287054
+# File Overlap Count: 1
+# Description:
+#   Bug 1287054 part 2 - support vw, vh, vmin and vmax units for non-CSS lengths r=emilio,jgilbert
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D180619
+# ==============================================================================
+
+diff -r a16d763f2866 -r 9525c5d9a710 dom/svg/SVGAnimatedLength.cpp
+--- a/dom/svg/SVGAnimatedLength.cpp	Tue Sep 12 21:10:54 2023 +0000
++++ b/dom/svg/SVGAnimatedLength.cpp	Tue Sep 12 21:10:55 2023 +0000
+@@ -178,6 +178,11 @@
+   return GetEmLength(aType);
+ }
+ 
++CSSSize UserSpaceMetrics::GetCSSViewportSizeFromContext(
++    const nsPresContext* aContext) {
++  return CSSPixel::FromAppUnits(aContext->GetSizeForViewportUnits());
++}
++
+ SVGElementMetrics::SVGElementMetrics(const SVGElement* aSVGElement,
+                                      const SVGViewportElement* aCtx)
+     : mSVGElement(aSVGElement), mCtx(aCtx) {}
+@@ -210,6 +215,17 @@
+   return FixAxisLength(mCtx->GetLength(aCtxType));
+ }
+ 
++CSSSize SVGElementMetrics::GetCSSViewportSize() const {
++  if (!mSVGElement) {
++    return {0.0f, 0.0f};
++  }
++  nsPresContext* context = nsContentUtils::GetContextForContent(mSVGElement);
++  if (!context) {
++    return {0.0f, 0.0f};
++  }
++  return GetCSSViewportSizeFromContext(context);
++}
++
+ bool SVGElementMetrics::EnsureCtx() const {
+   if (!mCtx && mSVGElement) {
+     mCtx = mSVGElement->GetCtx();
+@@ -279,6 +295,10 @@
+   return SVGIntegrationUtils::GetSVGCoordContextForNonSVGFrame(mFrame);
+ }
+ 
++CSSSize NonSVGFrameUserSpaceMetrics::GetCSSViewportSize() const {
++  return GetCSSViewportSizeFromContext(mFrame->PresContext());
++}
++
+ float UserSpaceMetricsWithSize::GetAxisLength(uint8_t aCtxType) const {
+   gfx::Size size = GetSize();
+   float length;

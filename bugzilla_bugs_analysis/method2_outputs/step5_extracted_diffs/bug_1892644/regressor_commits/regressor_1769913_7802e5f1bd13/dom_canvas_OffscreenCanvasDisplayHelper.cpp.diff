@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/OffscreenCanvasDisplayHelper.cpp
+# Commit: 7802e5f1bd13
+# Full Hash: 7802e5f1bd1395f19f2d78636787c41f64192bd7
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2024-04-19 15:22:44
+# Regressor Bug: 1769913
+# File Overlap Count: 3
+# Description:
+#   Bug 1769913 - P3 Remove WorkerRunnable::mWorkerPrivate. r=dom-worker-reviewers,asuth
+#   
+#   WorkerRunnable no longer keeps a raw pointer(mWorkerPrivate) for the associated WorkerPrivate in this patch.
+#   Removing the WorkerRunnable::mWorkerPrivate needs to fix the following problems.
+#   
+# ==============================================================================
+
+diff -r ffc69aa8f2c3 -r 7802e5f1bd13 dom/canvas/OffscreenCanvasDisplayHelper.cpp
+--- a/dom/canvas/OffscreenCanvasDisplayHelper.cpp	Fri Apr 19 09:41:57 2024 +0000
++++ b/dom/canvas/OffscreenCanvasDisplayHelper.cpp	Fri Apr 19 09:41:58 2024 +0000
+@@ -136,7 +136,7 @@
+    public:
+     FlushWorkerRunnable(WorkerPrivate* aWorkerPrivate,
+                         OffscreenCanvasDisplayHelper* aDisplayHelper)
+-        : WorkerThreadRunnable(aWorkerPrivate, "FlushWorkerRunnable"),
++        : WorkerThreadRunnable("FlushWorkerRunnable"),
+           mDisplayHelper(aDisplayHelper) {}
+ 
+     bool WorkerRun(JSContext*, WorkerPrivate*) override {
+@@ -164,7 +164,7 @@
+   // Otherwise we are calling from the main thread during painting to a canvas
+   // on a worker thread.
+   auto task = MakeRefPtr<FlushWorkerRunnable>(mWorkerRef->Private(), this);
+-  task->Dispatch();
++  task->Dispatch(mWorkerRef->Private());
+ }
+ 
+ bool OffscreenCanvasDisplayHelper::CommitFrameToCompositor(
+@@ -434,7 +434,7 @@
+    public:
+     SnapshotWorkerRunnable(WorkerPrivate* aWorkerPrivate,
+                            OffscreenCanvasDisplayHelper* aDisplayHelper)
+-        : MainThreadWorkerRunnable(aWorkerPrivate, "SnapshotWorkerRunnable"),
++        : MainThreadWorkerRunnable("SnapshotWorkerRunnable"),
+           mMonitor("SnapshotWorkerRunnable::mMonitor"),
+           mDisplayHelper(aDisplayHelper) {}
+ 
+@@ -514,7 +514,7 @@
+     if (mWorkerRef) {
+       workerRunnable =
+           MakeRefPtr<SnapshotWorkerRunnable>(mWorkerRef->Private(), this);
+-      workerRunnable->Dispatch();
++      workerRunnable->Dispatch(mWorkerRef->Private());
+     }
+   }
+ 

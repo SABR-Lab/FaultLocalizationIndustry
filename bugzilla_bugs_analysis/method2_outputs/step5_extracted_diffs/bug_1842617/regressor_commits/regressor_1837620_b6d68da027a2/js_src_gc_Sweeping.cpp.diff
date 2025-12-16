@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/Sweeping.cpp
+# Commit: b6d68da027a2
+# Full Hash: b6d68da027a23da0a86fd73efc2fc004a2e763ba
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2023-07-04 21:49:05
+# Regressor Bug: 1837620
+# File Overlap Count: 1
+# Description:
+#   Bug 1837620 - Part 6: Make edges for multiple shape guard weak too r=sfink
+#   
+#   To make the edges for the multiple shape guard weak we need a way to find and
+#   update the objects used to hold these edges. The simplest way to do this is to
+#   add a vector in the zone.  I don't believe that there are not huge numbers of
+# ==============================================================================
+
+diff -r 318af9553464 -r b6d68da027a2 js/src/gc/Sweeping.cpp
+--- a/js/src/gc/Sweeping.cpp	Tue Jul 04 13:58:57 2023 +0000
++++ b/js/src/gc/Sweeping.cpp	Tue Jul 04 13:58:57 2023 +0000
+@@ -1389,6 +1389,29 @@
+   }
+ }
+ 
++void GCRuntime::sweepObjectsWithWeakPointers() {
++  SweepingTracer trc(rt);
++  for (SweepGroupZonesIter zone(this); !zone.done(); zone.next()) {
++    AutoSetThreadIsSweeping threadIsSweeping(zone);
++    zone->sweepObjectsWithWeakPointers(&trc);
++  }
++}
++
++void JS::Zone::sweepObjectsWithWeakPointers(JSTracer* trc) {
++  MOZ_ASSERT(trc->traceWeakEdges());
++
++  objectsWithWeakPointers.ref().mutableEraseIf([&](JSObject*& obj) {
++    if (!TraceManuallyBarrieredWeakEdge(trc, &obj, "objectsWithWeakPointers")) {
++      // Object itself is dead.
++      return true;
++    }
++
++    // Call trace hook to sweep weak pointers.
++    obj->getClass()->doTrace(trc, obj);
++    return false;
++  });
++}
++
+ using WeakCacheTaskVector =
+     mozilla::Vector<ImmediateSweepWeakCacheTask, 0, SystemAllocPolicy>;
+ 
+@@ -1563,6 +1586,9 @@
+     AutoRunParallelTask sweepUniqueIds(this, &GCRuntime::sweepUniqueIds,
+                                        PhaseKind::SWEEP_UNIQUEIDS,
+                                        GCUse::Sweeping, lock);
++    AutoRunParallelTask sweepWeakPointers(
++        this, &GCRuntime::sweepObjectsWithWeakPointers,
++        PhaseKind::SWEEP_WEAK_POINTERS, GCUse::Sweeping, lock);
+ 
+     WeakCacheTaskVector sweepCacheTasks;
+     bool canSweepWeakCachesOffThread =

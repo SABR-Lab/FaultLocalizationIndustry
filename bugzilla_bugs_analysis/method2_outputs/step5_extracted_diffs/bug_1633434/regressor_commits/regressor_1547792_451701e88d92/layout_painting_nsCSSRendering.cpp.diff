@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/painting/nsCSSRendering.cpp
+# Commit: 451701e88d92
+# Full Hash: 451701e88d92935b77385235832865dabe8c2942
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2019-05-03 12:59:14
+# Regressor Bug: 1547792
+# File Overlap Count: 1
+# Description:
+#   Bug 1547792 - AspectRatio should be a single ratio, not a size. r=dholbert
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D29244
+# ==============================================================================
+
+diff -r 020e530d49b3 -r 451701e88d92 layout/painting/nsCSSRendering.cpp
+--- a/layout/painting/nsCSSRendering.cpp	Wed Apr 24 19:36:17 2019 +0000
++++ b/layout/painting/nsCSSRendering.cpp	Thu May 02 23:28:21 2019 +0000
+@@ -2888,12 +2888,10 @@
+         imageSize.width, aBgPositioningArea.width);
+     if (!isRepeatRoundInBothDimensions && aLayerSize.IsExplicitSize() &&
+         aLayerSize.explicit_size.height.IsAuto()) {
+-      // Restore intrinsic rato
+-      if (aIntrinsicSize.mRatio.width) {
+-        float scale =
+-            float(aIntrinsicSize.mRatio.height) / aIntrinsicSize.mRatio.width;
++      // Restore intrinsic ratio
++      if (aIntrinsicSize.mRatio) {
+         imageSize.height =
+-            NSCoordSaturatingNonnegativeMultiply(imageSize.width, scale);
++            aIntrinsicSize.mRatio.Inverted().ApplyTo(imageSize.width);
+       }
+     }
+   }
+@@ -2905,12 +2903,9 @@
+         imageSize.height, aBgPositioningArea.height);
+     if (!isRepeatRoundInBothDimensions && aLayerSize.IsExplicitSize() &&
+         aLayerSize.explicit_size.width.IsAuto()) {
+-      // Restore intrinsic rato
+-      if (aIntrinsicSize.mRatio.height) {
+-        float scale =
+-            float(aIntrinsicSize.mRatio.width) / aIntrinsicSize.mRatio.height;
+-        imageSize.width =
+-            NSCoordSaturatingNonnegativeMultiply(imageSize.height, scale);
++      // Restore intrinsic ratio
++      if (aIntrinsicSize.mRatio) {
++        imageSize.width = aIntrinsicSize.mRatio.ApplyTo(imageSize.height);
+       }
+     }
+   }

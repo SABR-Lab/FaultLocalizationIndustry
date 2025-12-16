@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmValidate.cpp
+# Commit: 455f2bae38f3
+# Full Hash: 455f2bae38f3dec9d30a1aa9025de7b7199f39f7
+# Author: Andy Wingo <wingo@igalia.com>
+# Date: 2020-03-09 21:52:54
+# Regressor Bug: 1620197
+# File Overlap Count: 1
+# Description:
+#   Bug 1620197 - Enable multiple results from WebAssembly functions r=lth
+#   
+#   This patch enables multi-value calls and returns, adding some tests, and
+#   conditionally disabling a couple expect-fail reftests that now pass.
+#   
+# ==============================================================================
+
+diff -r 6cafdb82131f -r 455f2bae38f3 js/src/wasm/WasmValidate.cpp
+--- a/js/src/wasm/WasmValidate.cpp	Mon Mar 09 11:54:27 2020 +0000
++++ b/js/src/wasm/WasmValidate.cpp	Mon Mar 09 11:30:43 2020 +0000
+@@ -1214,8 +1214,6 @@
+ bool wasm::ValidateFunctionBody(const ModuleEnvironment& env,
+                                 uint32_t funcIndex, uint32_t bodySize,
+                                 Decoder& d) {
+-  MOZ_ASSERT(env.funcTypes[funcIndex]->results().length() <= MaxFuncResults);
+-
+   ValTypeVector locals;
+   if (!locals.appendAll(env.funcTypes[funcIndex]->args())) {
+     return false;
+@@ -1590,12 +1588,6 @@
+     return d.fail("signature index references non-signature");
+   }
+ 
+-  // FIXME: Remove this check when full multi-value function returns land.
+-  // Bug 1585909.
+-  if (def.funcType().results().length() > MaxFuncResults) {
+-    return d.fail("too many returns in signature");
+-  }
+-
+   return true;
+ }
+ 

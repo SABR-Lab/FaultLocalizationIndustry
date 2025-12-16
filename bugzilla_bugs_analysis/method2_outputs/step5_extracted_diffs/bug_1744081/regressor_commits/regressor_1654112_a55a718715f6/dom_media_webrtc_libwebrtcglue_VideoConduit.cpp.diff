@@ -1,0 +1,103 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/VideoConduit.cpp
+# Commit: a55a718715f6
+# Full Hash: a55a718715f69cba1ff9fbae4787881b4d930907
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 3
+# Description:
+#   Bug 1654112 - Report video frame-/bitrate telemetry once per call instead of every second. r=ng
+#   
+#   This is similar to the behavior prior to bug 1532898, which introduced telemetry
+#   reporting every second. There's a bit of a difference in that we now only report
+#   data if we had collected some through the 1 second interval telemetry timer in
+# ==============================================================================
+
+diff -r 069c5baf6d32 -r a55a718715f6 dom/media/webrtc/libwebrtcglue/VideoConduit.cpp
+--- a/dom/media/webrtc/libwebrtcglue/VideoConduit.cpp	Thu Jan 28 10:54:32 2021 +0100
++++ b/dom/media/webrtc/libwebrtcglue/VideoConduit.cpp	Mon Jan 25 16:54:14 2021 +0100
+@@ -967,9 +967,39 @@
+ void WebrtcVideoConduit::DeleteStreams() {
+   MOZ_ASSERT(NS_IsMainThread());
+ 
++  using namespace Telemetry;
++  if (mSendBitrate.NumDataValues() > 0) {
++    Accumulate(WEBRTC_VIDEO_ENCODER_BITRATE_AVG_PER_CALL_KBPS,
++               mSendBitrate.Mean() / 1000);
++    Accumulate(WEBRTC_VIDEO_ENCODER_BITRATE_STD_DEV_PER_CALL_KBPS,
++               mSendBitrate.StandardDeviation() / 1000);
++    mSendBitrate.Clear();
++  }
++  if (mSendFramerate.NumDataValues() > 0) {
++    Accumulate(WEBRTC_VIDEO_ENCODER_FRAMERATE_AVG_PER_CALL,
++               mSendFramerate.Mean());
++    Accumulate(WEBRTC_VIDEO_ENCODER_FRAMERATE_10X_STD_DEV_PER_CALL,
++               mSendFramerate.StandardDeviation() * 10);
++    mSendFramerate.Clear();
++  }
++
++  if (mRecvBitrate.NumDataValues() > 0) {
++    Accumulate(WEBRTC_VIDEO_DECODER_BITRATE_AVG_PER_CALL_KBPS,
++               mRecvBitrate.Mean() / 1000);
++    Accumulate(WEBRTC_VIDEO_DECODER_BITRATE_STD_DEV_PER_CALL_KBPS,
++               mRecvBitrate.StandardDeviation() / 1000);
++    mRecvBitrate.Clear();
++  }
++  if (mRecvFramerate.NumDataValues() > 0) {
++    Accumulate(WEBRTC_VIDEO_DECODER_FRAMERATE_AVG_PER_CALL,
++               mRecvFramerate.Mean());
++    Accumulate(WEBRTC_VIDEO_DECODER_FRAMERATE_10X_STD_DEV_PER_CALL,
++               mRecvFramerate.StandardDeviation() * 10);
++    mRecvFramerate.Clear();
++  }
++
+   // We can't delete the VideoEngine until all these are released!
+   // And we can't use a Scoped ptr, since the order is arbitrary
+-
+   MutexAutoLock lock(mMutex);
+   DeleteSendStream();
+   DeleteRecvStream();
+@@ -1946,38 +1976,18 @@
+   return mVideoLatencyAvg / sRoundingPadding;
+ }
+ 
+-void WebrtcVideoConduit::RecordTelemetry() {
+-  ASSERT_ON_THREAD(mStsThread);
++void WebrtcVideoConduit::CollectTelemetryData() {
++  MOZ_ASSERT(NS_IsMainThread());
+ 
+-  using namespace Telemetry;
+   if (mEngineTransmitting) {
+     webrtc::VideoSendStream::Stats stats = mSendStream->GetStats();
+     mSendBitrate.Push(stats.media_bitrate_bps);
+     mSendFramerate.Push(stats.encode_frame_rate);
+-
+-    Accumulate(WEBRTC_VIDEO_ENCODER_BITRATE_AVG_PER_CALL_KBPS,
+-               mSendBitrate.Mean() / 1000);
+-    Accumulate(WEBRTC_VIDEO_ENCODER_BITRATE_STD_DEV_PER_CALL_KBPS,
+-               mSendBitrate.StandardDeviation() / 1000);
+-    Accumulate(WEBRTC_VIDEO_ENCODER_FRAMERATE_AVG_PER_CALL,
+-               mSendFramerate.Mean());
+-    Accumulate(WEBRTC_VIDEO_ENCODER_FRAMERATE_10X_STD_DEV_PER_CALL,
+-               mSendFramerate.StandardDeviation() * 10);
+   }
+-
+   if (mEngineReceiving) {
+     webrtc::VideoReceiveStream::Stats stats = mRecvStream->GetStats();
+     mRecvBitrate.Push(stats.total_bitrate_bps);
+     mRecvFramerate.Push(stats.decode_frame_rate);
+-
+-    Accumulate(WEBRTC_VIDEO_DECODER_BITRATE_AVG_PER_CALL_KBPS,
+-               mRecvBitrate.Mean() / 1000);
+-    Accumulate(WEBRTC_VIDEO_DECODER_BITRATE_STD_DEV_PER_CALL_KBPS,
+-               mRecvBitrate.StandardDeviation() / 1000);
+-    Accumulate(WEBRTC_VIDEO_DECODER_FRAMERATE_AVG_PER_CALL,
+-               mRecvFramerate.Mean());
+-    Accumulate(WEBRTC_VIDEO_DECODER_FRAMERATE_10X_STD_DEV_PER_CALL,
+-               mRecvFramerate.StandardDeviation() * 10);
+   }
+ }
+ 

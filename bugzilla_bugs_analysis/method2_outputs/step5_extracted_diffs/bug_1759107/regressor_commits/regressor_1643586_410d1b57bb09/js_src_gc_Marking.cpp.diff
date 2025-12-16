@@ -1,0 +1,31 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/Marking.cpp
+# Commit: 410d1b57bb09
+# Full Hash: 410d1b57bb0955e0fe2f47b95ffa5ee1005e6791
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2022-03-09 21:37:17
+# Regressor Bug: 1643586
+# File Overlap Count: 1
+# Description:
+#   Bug 1643586 - Part 5: Replace heap state checks that rely on there being a JSContext for the thread r=jandem
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D140192
+# ==============================================================================
+
+diff -r f78d139e1d0e -r 410d1b57bb09 js/src/gc/Marking.cpp
+--- a/js/src/gc/Marking.cpp	Wed Mar 09 10:17:07 2022 +0000
++++ b/js/src/gc/Marking.cpp	Wed Mar 09 10:17:07 2022 +0000
+@@ -259,8 +259,9 @@
+    * thread during compacting GC and reading the contents of the thing by
+    * IsThingPoisoned would be racy in this case.
+    */
+-  MOZ_ASSERT_IF(JS::RuntimeHeapIsBusy() && !zone->isGCSweeping() &&
+-                    !zone->isGCFinished() && !zone->isGCCompacting(),
++  MOZ_ASSERT_IF(rt->heapState() != JS::HeapState::Idle &&
++                    !zone->isGCSweeping() && !zone->isGCFinished() &&
++                    !zone->isGCCompacting(),
+                 !IsThingPoisoned(thing) ||
+                     !InFreeList(thing->asTenured().arena(), thing));
+ }

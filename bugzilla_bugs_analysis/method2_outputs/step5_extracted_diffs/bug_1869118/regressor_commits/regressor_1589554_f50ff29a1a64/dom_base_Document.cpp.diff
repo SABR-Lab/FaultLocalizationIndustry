@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/Document.cpp
+# Commit: f50ff29a1a64
+# Full Hash: f50ff29a1a649e3aad723b592bdd2c3c325b3d99
+# Author: Vincent Hilla <vhilla@mozilla.com>
+# Date: 2023-12-06 05:18:37
+# Regressor Bug: 1589554
+# File Overlap Count: 1
+# Description:
+#   Bug 1589554 - Part 1: Screen Wake Lock boilerplate. r=dom-core,smaug,emilio,edgar
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D189508
+# ==============================================================================
+
+diff -r 00afe2e46b1b -r f50ff29a1a64 dom/base/Document.cpp
+--- a/dom/base/Document.cpp	Tue Dec 05 23:29:16 2023 +0000
++++ b/dom/base/Document.cpp	Tue Dec 05 23:58:06 2023 +0000
+@@ -233,6 +233,7 @@
+ #include "mozilla/dom/URL.h"
+ #include "mozilla/dom/UseCounterMetrics.h"
+ #include "mozilla/dom/UserActivation.h"
++#include "mozilla/dom/WakeLockSentinel.h"
+ #include "mozilla/dom/WindowBinding.h"
+ #include "mozilla/dom/WindowContext.h"
+ #include "mozilla/dom/WindowGlobalChild.h"
+@@ -2592,6 +2593,11 @@
+     NS_IMPL_CYCLE_COLLECTION_TRAVERSE(
+         mPendingFrameStaticClones[i].mStaticCloneOf);
+   }
++
++  for (auto& tableEntry : tmp->mActiveLocks) {
++    ImplCycleCollectionTraverse(cb, *tableEntry.GetModifiableData(),
++                                "mActiveLocks entry", 0);
++  }
+ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
+ 
+ NS_IMPL_CYCLE_COLLECTION_CLASS(Document)
+@@ -2737,6 +2743,8 @@
+ 
+   tmp->mPendingFrameStaticClones.Clear();
+ 
++  tmp->mActiveLocks.Clear();
++
+   tmp->mInUnlinkOrDeletion = false;
+ 
+   tmp->UnregisterFromMemoryReportingForDataDocument();
+@@ -18247,6 +18255,11 @@
+   return promise.forget();
+ }
+ 
++nsTHashSet<RefPtr<WakeLockSentinel>>& Document::ActiveWakeLocks(
++    WakeLockType aType) {
++  return mActiveLocks.LookupOrInsert(aType);
++}
++
+ RefPtr<Document::AutomaticStorageAccessPermissionGrantPromise>
+ Document::AutomaticStorageAccessPermissionCanBeGranted(bool hasUserActivation) {
+   // requestStorageAccessForOrigin may not require user activation. If we don't

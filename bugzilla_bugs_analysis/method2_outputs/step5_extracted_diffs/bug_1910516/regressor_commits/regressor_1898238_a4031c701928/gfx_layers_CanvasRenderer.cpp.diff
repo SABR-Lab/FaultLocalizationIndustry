@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/CanvasRenderer.cpp
+# Commit: a4031c701928
+# Full Hash: a4031c7019280da3be78ab791aa7bbb123ec8c02
+# Author: Jamie Nicol <jnicol@mozilla.com>
+# Date: 2024-07-23 09:34:47
+# Regressor Bug: 1898238
+# File Overlap Count: 1
+# Description:
+#   Bug 1898238 - Use SharedSurface_EGLImage for out-of-process webgl and accelerated canvas on Android. r=sotaro,jgilbert
+#   
+#   Adds a pref wegb.enable-egl-image which is true by default. When
+#   enabled, we use EGL images as the preferred texture type for
+#   out-of-process webgl and accelerated canvas on Android. In-process
+# ==============================================================================
+
+diff -r 7e0171e88041 -r a4031c701928 gfx/layers/CanvasRenderer.cpp
+--- a/gfx/layers/CanvasRenderer.cpp	Mon Jul 22 20:23:38 2024 +0000
++++ b/gfx/layers/CanvasRenderer.cpp	Mon Jul 22 20:23:39 2024 +0000
+@@ -87,7 +87,8 @@
+   context->OnDidPaintTransaction();
+ }
+ 
+-TextureType TexTypeForWebgl(KnowsCompositor* const knowsCompositor) {
++TextureType TexTypeForWebgl(KnowsCompositor* const knowsCompositor,
++                            bool aIsWebglOop) {
+   if (!knowsCompositor) return TextureType::Unknown;
+   const auto layersBackend = knowsCompositor->GetCompositorBackendType();
+ 
+@@ -121,6 +122,11 @@
+ #endif
+ 
+   if (kIsAndroid) {
++    // EGLimages cannot be shared cross-process, so only use if webgl is
++    // out-of-process.
++    if (aIsWebglOop && StaticPrefs::webgl_enable_egl_image()) {
++      return TextureType::EGLImage;
++    }
+     if (gfx::gfxVars::UseAHardwareBufferSharedSurfaceWebglOop()) {
+       return TextureType::AndroidHardwareBuffer;
+     }

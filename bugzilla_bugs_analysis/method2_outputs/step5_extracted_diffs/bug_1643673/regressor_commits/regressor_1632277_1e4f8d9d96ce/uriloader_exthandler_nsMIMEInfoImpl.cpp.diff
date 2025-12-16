@@ -1,0 +1,72 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: uriloader/exthandler/nsMIMEInfoImpl.cpp
+# Commit: 1e4f8d9d96ce
+# Full Hash: 1e4f8d9d96ce1ccb79c154416b119907f9479294
+# Author: Mark Striemer <mstriemer@mozilla.com>
+# Date: 2020-06-04 09:29:07
+# Regressor Bug: 1632277
+# File Overlap Count: 1
+# Description:
+#   Bug 1632277 - Part 1: Launch PDFs in app mode when default r=jaws,tkikuchi
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D73774
+# ==============================================================================
+
+diff -r 04d728d14947 -r 1e4f8d9d96ce uriloader/exthandler/nsMIMEInfoImpl.cpp
+--- a/uriloader/exthandler/nsMIMEInfoImpl.cpp	Wed Jun 03 23:41:48 2020 +0000
++++ b/uriloader/exthandler/nsMIMEInfoImpl.cpp	Wed Jun 03 18:21:32 2020 +0000
+@@ -14,6 +14,7 @@
+ #include "nsCURILoader.h"
+ #include "nsCExternalHandlerService.h"
+ #include "nsIExternalProtocolService.h"
++#include "nsMimeTypes.h"
+ #include "mozilla/StaticPtr.h"
+ 
+ static bool sInitializedOurData = false;
+@@ -257,6 +258,25 @@
+   return NS_OK;
+ }
+ 
++NS_IMETHODIMP
++nsMIMEInfoBase::IsPdf(bool* isPdf) {
++  if (mSchemeOrType == APPLICATION_PDF) {
++    *isPdf = true;
++    return NS_OK;
++  }
++
++  nsAutoCString fileExt;
++  nsresult rv = GetPrimaryExtension(fileExt);
++
++  if (NS_FAILED(rv)) {
++    return rv;
++  }
++
++  *isPdf = fileExt.LowerCaseEqualsASCII("pdf") ||
++           fileExt.LowerCaseEqualsASCII(".pdf");
++  return NS_OK;
++}
++
+ /* static */
+ nsresult nsMIMEInfoBase::GetLocalFileFromURI(nsIURI* aURI, nsIFile** aFile) {
+   nsresult rv;
+@@ -403,6 +423,18 @@
+   return process->Runw(false, &string, 1);
+ }
+ 
++/* static */
++nsresult nsMIMEInfoBase::LaunchWithIProcess(nsIFile* aApp, const int aArgc,
++                                            const char16_t** aArgv) {
++  nsresult rv;
++  nsCOMPtr<nsIProcess> process = InitProcess(aApp, &rv);
++  if (NS_FAILED(rv)) {
++    return rv;
++  }
++
++  return process->Runw(false, aArgv, aArgc);
++}
++
+ // nsMIMEInfoImpl implementation
+ NS_IMETHODIMP
+ nsMIMEInfoImpl::GetDefaultDescription(nsAString& aDefaultDescription) {

@@ -1,0 +1,34 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/ipc/CanvasManagerChild.cpp
+# Commit: 2b56c2b2837a
+# Full Hash: 2b56c2b2837adfd7c49b599771cfea2d9e3d687b
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2023-11-22 21:50:37
+# Regressor Bug: 1863914
+# File Overlap Count: 1
+# Description:
+#   Bug 1863914: Use multiple shmem buffers for remote canvas recording. r=aosmond
+#   
+#   This replaces the use of a single large ring buffer.
+#   The buffers are still processed in parallel and are recycled to reduce
+#   allocation. Events that do not fit in the default sized buffer have a separate
+# ==============================================================================
+
+diff -r ed311995cd70 -r 2b56c2b2837a gfx/ipc/CanvasManagerChild.cpp
+--- a/gfx/ipc/CanvasManagerChild.cpp	Wed Nov 22 14:06:43 2023 +0200
++++ b/gfx/ipc/CanvasManagerChild.cpp	Wed Nov 22 11:52:08 2023 +0000
+@@ -151,6 +151,12 @@
+   }
+ }
+ 
++void CanvasManagerChild::ClearCachedResources() {
++  if (mCanvasChild) {
++    mCanvasChild->ClearCachedResources();
++  }
++}
++
+ void CanvasManagerChild::DeactivateCanvas() {
+   mActive = false;
+   if (mCanvasChild) {

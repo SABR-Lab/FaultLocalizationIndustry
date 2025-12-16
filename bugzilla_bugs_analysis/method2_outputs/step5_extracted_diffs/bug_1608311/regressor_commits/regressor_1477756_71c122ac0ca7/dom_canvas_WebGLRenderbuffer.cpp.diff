@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLRenderbuffer.cpp
+# Commit: 71c122ac0ca7
+# Full Hash: 71c122ac0ca73391866b1ef19f4f82bc2d28568b
+# Author: David Parks <davidp99@gmail.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Initial out-of-process WebGL implementation. r=mccr8,handyman
+#   
+#   Splits WebGLContext into ClientWebGLContext and HostWebGLContext.  The Client enables the JS-control of a WebGL context in a content procecss while the Host executes the WebGL graphics operations (via a WebGLContext that maintains much of the existing code) in the compositor process.  At this point, the cross-process behavior is disabled -- this series of patches is an incremental step toward that final goal.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D54018
+# ==============================================================================
+
+diff -r 5cbf5bb11c58 -r 71c122ac0ca7 dom/canvas/WebGLRenderbuffer.cpp
+--- a/dom/canvas/WebGLRenderbuffer.cpp	Wed Jan 08 21:52:03 2020 +0000
++++ b/dom/canvas/WebGLRenderbuffer.cpp	Wed Jan 08 22:19:14 2020 +0000
+@@ -23,11 +23,6 @@
+   return LOCAL_GL_DEPTH_COMPONENT24;
+ }
+ 
+-JSObject* WebGLRenderbuffer::WrapObject(JSContext* cx,
+-                                        JS::Handle<JSObject*> givenProto) {
+-  return dom::WebGLRenderbuffer_Binding::Wrap(cx, this, givenProto);
+-}
+-
+ static GLuint DoCreateRenderbuffer(gl::GLContext* gl) {
+   MOZ_ASSERT(gl->IsCurrent());
+ 
+@@ -261,9 +256,4 @@
+   return 0;
+ }
+ 
+-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_0(WebGLRenderbuffer)
+-
+-NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(WebGLRenderbuffer, AddRef)
+-NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(WebGLRenderbuffer, Release)
+-
+ }  // namespace mozilla

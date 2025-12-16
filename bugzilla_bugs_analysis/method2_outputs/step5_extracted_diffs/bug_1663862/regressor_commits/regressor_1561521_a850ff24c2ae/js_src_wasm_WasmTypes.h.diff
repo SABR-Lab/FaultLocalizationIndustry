@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmTypes.h
+# Commit: a850ff24c2ae
+# Full Hash: a850ff24c2aeaefac447d9e501f6e443f395f844
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2020-08-18 09:24:52
+# Regressor Bug: 1561521
+# File Overlap Count: 1
+# Description:
+#   Bug 1561521 - Clean up wasm::ToString and drop wasm::ToCString. r=lth
+#   
+#   wasm::ToCString is losing relevance as we have more constructed types. This
+#   commit removes ToCString and replaces all uses with wasm::ToString.
+#   
+# ==============================================================================
+
+diff -r 3d1a8283d2f8 -r a850ff24c2ae js/src/wasm/WasmTypes.h
+--- a/js/src/wasm/WasmTypes.h	Tue Aug 18 00:07:29 2020 +0000
++++ b/js/src/wasm/WasmTypes.h	Tue Aug 18 00:45:24 2020 +0000
+@@ -748,34 +748,7 @@
+ 
+ extern UniqueChars ToString(ValType type);
+ 
+-static inline const char* ToCString(ValType type) {
+-  switch (type.kind()) {
+-    case ValType::I32:
+-      return "i32";
+-    case ValType::I64:
+-      return "i64";
+-    case ValType::V128:
+-      return "v128";
+-    case ValType::F32:
+-      return "f32";
+-    case ValType::F64:
+-      return "f64";
+-    case ValType::Ref:
+-      switch (type.refTypeKind()) {
+-        case RefType::Extern:
+-          return "externref";
+-        case RefType::Func:
+-          return "funcref";
+-        case RefType::TypeIndex:
+-          return "optref";
+-      }
+-  }
+-  MOZ_CRASH("bad value type");
+-}
+-
+-static inline const char* ToCString(const Maybe<ValType>& type) {
+-  return type ? ToCString(type.ref()) : "void";
+-}
++extern UniqueChars ToString(const Maybe<ValType>& type);
+ 
+ // An AnyRef is a boxed value that can represent any wasm reference type and any
+ // host type that the host system allows to flow into and out of wasm

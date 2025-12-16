@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/WarpBuilder.cpp
+# Commit: f5e7bea40350
+# Full Hash: f5e7bea40350979b1009753828e77b25e94b43e1
+# Author: Iain Ireland <iireland@mozilla.com>
+# Date: 2022-03-31 09:35:41
+# Regressor Bug: 885514
+# File Overlap Count: 1
+# Description:
+#   Bug 885514: Support finally in Warp r=jandem
+#   
+#   This supports any try-finally that doesn't emit a `JSOp::Retsub`. Currently that means that we don't support break, continue, or return inside the try block, but there's room to fix that in the future.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D142119
+# ==============================================================================
+
+diff -r 7f75f8b705e7 -r f5e7bea40350 js/src/jit/WarpBuilder.cpp
+--- a/js/src/jit/WarpBuilder.cpp	Wed Mar 30 23:19:47 2022 +0000
++++ b/js/src/jit/WarpBuilder.cpp	Wed Mar 30 23:19:48 2022 +0000
+@@ -905,7 +905,6 @@
+ 
+ bool WarpBuilder::build_SetRval(BytecodeLocation) {
+   MOZ_ASSERT(!script_->noScriptRval());
+-
+   MDefinition* rval = current->pop();
+   current->setSlot(info().returnValueSlot(), rval);
+   return true;
+@@ -3034,9 +3033,6 @@
+ }
+ 
+ bool WarpBuilder::build_Try(BytecodeLocation loc) {
+-  // Note: WarpOracle aborts compilation for try-statements with a 'finally'
+-  // block.
+-
+   graph().setHasTryBlock();
+ 
+   MBasicBlock* pred = current;
+@@ -3048,6 +3044,11 @@
+   return true;
+ }
+ 
++bool WarpBuilder::build_Finally(BytecodeLocation loc) {
++  MOZ_ASSERT(graph().hasTryBlock());
++  return true;
++}
++
+ bool WarpBuilder::build_Exception(BytecodeLocation) {
+   MOZ_CRASH("Unreachable because we skip catch-blocks");
+ }

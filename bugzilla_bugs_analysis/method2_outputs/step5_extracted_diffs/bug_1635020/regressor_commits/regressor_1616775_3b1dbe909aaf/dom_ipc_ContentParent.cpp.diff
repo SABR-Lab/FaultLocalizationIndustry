@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentParent.cpp
+# Commit: 3b1dbe909aaf
+# Full Hash: 3b1dbe909aaf1982c72db1e5bc8cb35208ae6c77
+# Author: Dimi Lee <dlee@mozilla.com>
+# Date: 2020-04-23 21:43:09
+# Regressor Bug: 1616775
+# File Overlap Count: 1
+# Description:
+#   Bug 1616775 - P4. Add CompleteAllowAccessFor IPDL r=timhuang,baku
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D71013
+# ==============================================================================
+
+diff -r 123b6c3a0ede -r 3b1dbe909aaf dom/ipc/ContentParent.cpp
+--- a/dom/ipc/ContentParent.cpp	Thu Apr 23 14:28:41 2020 +0000
++++ b/dom/ipc/ContentParent.cpp	Thu Apr 23 14:25:16 2020 +0000
+@@ -5759,6 +5759,34 @@
+   return IPC_OK();
+ }
+ 
++mozilla::ipc::IPCResult ContentParent::RecvCompleteAllowAccessFor(
++    const MaybeDiscarded<BrowsingContext>& aParentContext,
++    uint64_t aTopLevelWindowId, const Principal& aTrackingPrincipal,
++    const nsCString& aTrackingOrigin, uint32_t aCookieBehavior,
++    const ContentBlockingNotifier::StorageAccessGrantedReason& aReason,
++    CompleteAllowAccessForResolver&& aResolver) {
++  if (aParentContext.IsNullOrDiscarded()) {
++    return IPC_OK();
++  }
++
++  ContentBlocking::CompleteAllowAccessFor(
++      aParentContext.get_canonical(), aTopLevelWindowId, aTrackingPrincipal,
++      aTrackingOrigin, aCookieBehavior, aReason, nullptr)
++      ->Then(
++          GetCurrentThreadSerialEventTarget(), __func__,
++          [aResolver = std::move(aResolver)](
++              ContentBlocking::StorageAccessGrantPromise::ResolveOrRejectValue&&
++                  aValue) {
++            Maybe<StorageAccessPromptChoices> choice;
++            if (aValue.IsResolve()) {
++              choice.emplace(static_cast<StorageAccessPromptChoices>(
++                  aValue.ResolveValue()));
++            }
++            aResolver(choice);
++          });
++  return IPC_OK();
++}
++
+ mozilla::ipc::IPCResult ContentParent::RecvStoreUserInteractionAsPermission(
+     const Principal& aPrincipal) {
+   ContentBlockingUserInteraction::Observe(aPrincipal);

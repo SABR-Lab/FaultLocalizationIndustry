@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/nsHttpConnection.cpp
+# Commit: 521c9e019678
+# Full Hash: 521c9e019678f584590f63473416d40e03f33342
+# Author: Valentin Gosu <valentin.gosu@gmail.com>
+# Date: 2023-03-15 04:10:55
+# Regressor Bug: 1805372
+# File Overlap Count: 1
+# Description:
+#   Bug 1805372 - Pass effectiveTRRMode to nsHttpChannel from socketTransport/DnsAndConnectSocket r=necko-reviewers,kershaw
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D164539
+# ==============================================================================
+
+diff -r dfb39ca05529 -r 521c9e019678 netwerk/protocol/http/nsHttpConnection.cpp
+--- a/netwerk/protocol/http/nsHttpConnection.cpp	Tue Mar 14 15:29:49 2023 +0200
++++ b/netwerk/protocol/http/nsHttpConnection.cpp	Tue Mar 14 12:59:40 2023 +0000
+@@ -2326,6 +2326,22 @@
+   return val;
+ }
+ 
++nsIRequest::TRRMode nsHttpConnection::EffectiveTRRMode() {
++  nsIRequest::TRRMode mode = nsIRequest::TRR_DEFAULT_MODE;
++  if (mSocketTransport) {
++    mSocketTransport->GetEffectiveTRRMode(&mode);
++  }
++  return mode;
++}
++
++TRRSkippedReason nsHttpConnection::TRRSkipReason() {
++  TRRSkippedReason reason = nsITRRSkipReason::TRR_UNSET;
++  if (mSocketTransport) {
++    mSocketTransport->GetTrrSkipReason(&reason);
++  }
++  return reason;
++}
++
+ bool nsHttpConnection::GetEchConfigUsed() {
+   bool val = false;
+   if (mSocketTransport) {

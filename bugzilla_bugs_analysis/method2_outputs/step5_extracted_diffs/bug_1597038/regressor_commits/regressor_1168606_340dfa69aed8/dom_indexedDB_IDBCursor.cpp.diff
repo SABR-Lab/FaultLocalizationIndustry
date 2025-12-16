@@ -1,0 +1,147 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/IDBCursor.cpp
+# Commit: 340dfa69aed8
+# Full Hash: 340dfa69aed87f29b9fdeef59a650ad5eb8c1b7b
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2019-09-30 16:21:37
+# Regressor Bug: 1168606
+# File Overlap Count: 1
+# Description:
+#   Bug 1168606 - Remove duplication in uses of IDB_LOG_MARK. r=ttung,asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D46576
+# ==============================================================================
+
+diff -r a864ed2ae59a -r 340dfa69aed8 dom/indexedDB/IDBCursor.cpp
+--- a/dom/indexedDB/IDBCursor.cpp	Mon Sep 30 08:54:17 2019 +0000
++++ b/dom/indexedDB/IDBCursor.cpp	Fri Sep 27 10:11:45 2019 +0000
+@@ -430,22 +430,18 @@
+   mRequest->SetLoggingSerialNumber(requestSerialNumber);
+ 
+   if (mType == Type_ObjectStore || mType == Type_ObjectStoreKey) {
+-    IDB_LOG_MARK(
+-        "IndexedDB %s: Child  Transaction[%lld] Request[%llu]: "
++    IDB_LOG_MARK_CHILD_TRANSACTION_REQUEST(
+         "database(%s).transaction(%s).objectStore(%s)."
+         "cursor(%s).continue(%s)",
+-        "IndexedDB %s: C T[%lld] R[%llu]: IDBCursor.continue()",
+-        IDB_LOG_ID_STRING(), mTransaction->LoggingSerialNumber(),
++        "IDBCursor.continue()", mTransaction->LoggingSerialNumber(),
+         requestSerialNumber, IDB_LOG_STRINGIFY(mTransaction->Database()),
+         IDB_LOG_STRINGIFY(mTransaction), IDB_LOG_STRINGIFY(mSourceObjectStore),
+         IDB_LOG_STRINGIFY(mDirection), IDB_LOG_STRINGIFY(key));
+   } else {
+-    IDB_LOG_MARK(
+-        "IndexedDB %s: Child  Transaction[%lld] Request[%llu]: "
++    IDB_LOG_MARK_CHILD_TRANSACTION_REQUEST(
+         "database(%s).transaction(%s).objectStore(%s)."
+         "index(%s).cursor(%s).continue(%s)",
+-        "IndexedDB %s: C T[%lld] R[%llu]: IDBCursor.continue()",
+-        IDB_LOG_ID_STRING(), mTransaction->LoggingSerialNumber(),
++        "IDBCursor.continue()", mTransaction->LoggingSerialNumber(),
+         requestSerialNumber, IDB_LOG_STRINGIFY(mTransaction->Database()),
+         IDB_LOG_STRINGIFY(mTransaction),
+         IDB_LOG_STRINGIFY(mSourceIndex->ObjectStore()),
+@@ -548,12 +544,10 @@
+   const uint64_t requestSerialNumber = IDBRequest::NextSerialNumber();
+   mRequest->SetLoggingSerialNumber(requestSerialNumber);
+ 
+-  IDB_LOG_MARK(
+-      "IndexedDB %s: Child  Transaction[%lld] Request[%llu]: "
++  IDB_LOG_MARK_CHILD_TRANSACTION_REQUEST(
+       "database(%s).transaction(%s).objectStore(%s)."
+       "index(%s).cursor(%s).continuePrimaryKey(%s, %s)",
+-      "IndexedDB %s: C T[%lld] R[%llu]: IDBCursor.continuePrimaryKey()",
+-      IDB_LOG_ID_STRING(), mTransaction->LoggingSerialNumber(),
++      "IDBCursor.continuePrimaryKey()", mTransaction->LoggingSerialNumber(),
+       requestSerialNumber, IDB_LOG_STRINGIFY(mTransaction->Database()),
+       IDB_LOG_STRINGIFY(mTransaction),
+       IDB_LOG_STRINGIFY(mSourceIndex->ObjectStore()),
+@@ -588,22 +582,18 @@
+   mRequest->SetLoggingSerialNumber(requestSerialNumber);
+ 
+   if (mType == Type_ObjectStore || mType == Type_ObjectStoreKey) {
+-    IDB_LOG_MARK(
+-        "IndexedDB %s: Child  Transaction[%lld] Request[%llu]: "
++    IDB_LOG_MARK_CHILD_TRANSACTION_REQUEST(
+         "database(%s).transaction(%s).objectStore(%s)."
+         "cursor(%s).advance(%ld)",
+-        "IndexedDB %s: C T[%lld] R[%llu]: IDBCursor.advance()",
+-        IDB_LOG_ID_STRING(), mTransaction->LoggingSerialNumber(),
++        "IDBCursor.advance()", mTransaction->LoggingSerialNumber(),
+         requestSerialNumber, IDB_LOG_STRINGIFY(mTransaction->Database()),
+         IDB_LOG_STRINGIFY(mTransaction), IDB_LOG_STRINGIFY(mSourceObjectStore),
+         IDB_LOG_STRINGIFY(mDirection), aCount);
+   } else {
+-    IDB_LOG_MARK(
+-        "IndexedDB %s: Child  Transaction[%lld] Request[%llu]: "
++    IDB_LOG_MARK_CHILD_TRANSACTION_REQUEST(
+         "database(%s).transaction(%s).objectStore(%s)."
+         "index(%s).cursor(%s).advance(%ld)",
+-        "IndexedDB %s: C T[%lld] R[%llu]: IDBCursor.advance()",
+-        IDB_LOG_ID_STRING(), mTransaction->LoggingSerialNumber(),
++        "IDBCursor.advance()", mTransaction->LoggingSerialNumber(),
+         requestSerialNumber, IDB_LOG_STRINGIFY(mTransaction->Database()),
+         IDB_LOG_STRINGIFY(mTransaction),
+         IDB_LOG_STRINGIFY(mSourceIndex->ObjectStore()),
+@@ -701,24 +691,21 @@
+   request->SetSource(this);
+ 
+   if (mType == Type_ObjectStore) {
+-    IDB_LOG_MARK(
+-        "IndexedDB %s: Child  Transaction[%lld] Request[%llu]: "
++    IDB_LOG_MARK_CHILD_TRANSACTION_REQUEST(
++        " %s: Child  Transaction[%lld] Request[%llu]: "
+         "database(%s).transaction(%s).objectStore(%s)."
+         "cursor(%s).update(%s)",
+-        "IndexedDB %s: C T[%lld] R[%llu]: IDBCursor.update()",
+-        IDB_LOG_ID_STRING(), mTransaction->LoggingSerialNumber(),
++        "IDBCursor.update()", mTransaction->LoggingSerialNumber(),
+         request->LoggingSerialNumber(),
+         IDB_LOG_STRINGIFY(mTransaction->Database()),
+         IDB_LOG_STRINGIFY(mTransaction), IDB_LOG_STRINGIFY(objectStore),
+         IDB_LOG_STRINGIFY(mDirection),
+         IDB_LOG_STRINGIFY(objectStore, primaryKey));
+   } else {
+-    IDB_LOG_MARK(
+-        "IndexedDB %s: Child  Transaction[%lld] Request[%llu]: "
++    IDB_LOG_MARK_CHILD_TRANSACTION_REQUEST(
+         "database(%s).transaction(%s).objectStore(%s)."
+         "index(%s).cursor(%s).update(%s)",
+-        "IndexedDB %s: C T[%lld] R[%llu]: IDBCursor.update()",
+-        IDB_LOG_ID_STRING(), mTransaction->LoggingSerialNumber(),
++        "IDBCursor.update()", mTransaction->LoggingSerialNumber(),
+         request->LoggingSerialNumber(),
+         IDB_LOG_STRINGIFY(mTransaction->Database()),
+         IDB_LOG_STRINGIFY(mTransaction), IDB_LOG_STRINGIFY(objectStore),
+@@ -778,24 +765,20 @@
+   request->SetSource(this);
+ 
+   if (mType == Type_ObjectStore) {
+-    IDB_LOG_MARK(
+-        "IndexedDB %s: Child  Transaction[%lld] Request[%llu]: "
++    IDB_LOG_MARK_CHILD_TRANSACTION_REQUEST(
+         "database(%s).transaction(%s).objectStore(%s)."
+         "cursor(%s).delete(%s)",
+-        "IndexedDB %s: C T[%lld] R[%llu]: IDBCursor.delete()",
+-        IDB_LOG_ID_STRING(), mTransaction->LoggingSerialNumber(),
++        "IDBCursor.delete()", mTransaction->LoggingSerialNumber(),
+         request->LoggingSerialNumber(),
+         IDB_LOG_STRINGIFY(mTransaction->Database()),
+         IDB_LOG_STRINGIFY(mTransaction), IDB_LOG_STRINGIFY(objectStore),
+         IDB_LOG_STRINGIFY(mDirection),
+         IDB_LOG_STRINGIFY(objectStore, primaryKey));
+   } else {
+-    IDB_LOG_MARK(
+-        "IndexedDB %s: Child  Transaction[%lld] Request[%llu]: "
++    IDB_LOG_MARK_CHILD_TRANSACTION_REQUEST(
+         "database(%s).transaction(%s).objectStore(%s)."
+         "index(%s).cursor(%s).delete(%s)",
+-        "IndexedDB %s: C T[%lld] R[%llu]: IDBCursor.delete()",
+-        IDB_LOG_ID_STRING(), mTransaction->LoggingSerialNumber(),
++        "IDBCursor.delete()", mTransaction->LoggingSerialNumber(),
+         request->LoggingSerialNumber(),
+         IDB_LOG_STRINGIFY(mTransaction->Database()),
+         IDB_LOG_STRINGIFY(mTransaction), IDB_LOG_STRINGIFY(objectStore),

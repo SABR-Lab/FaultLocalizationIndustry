@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/gl/SharedSurface.cpp
+# Commit: ae8e94c8f819
+# Full Hash: ae8e94c8f819bd46c31b6fbee1f2cdb5580c9e1f
+# Author: Jamie Nicol <jnicol@mozilla.com>
+# Date: 2024-07-23 09:34:47
+# Regressor Bug: 1898238
+# File Overlap Count: 1
+# Description:
+#   Bug 1898238 - Use SharedSurface_EGLImage for out-of-process webgl and accelerated canvas on Android. r=sotaro,jgilbert
+#   
+#   Adds a pref wegb.enable-egl-image which is true by default. When
+#   enabled, we use EGL images as the preferred texture type for
+#   out-of-process webgl and accelerated canvas on Android. In-process
+# ==============================================================================
+
+diff -r 549abd685d11 -r ae8e94c8f819 gfx/gl/SharedSurface.cpp
+--- a/gfx/gl/SharedSurface.cpp	Mon Jul 22 16:02:34 2024 +0000
++++ b/gfx/gl/SharedSurface.cpp	Mon Jul 22 16:02:34 2024 +0000
+@@ -14,6 +14,7 @@
+ #include "ScopedGLHelpers.h"
+ #include "SharedSurfaceGL.h"
+ #include "SharedSurfaceEGL.h"
++#include "mozilla/gfx/gfxVars.h"
+ #include "mozilla/gfx/Logging.h"
+ #include "mozilla/layers/CompositorTypes.h"
+ #include "mozilla/layers/TextureClientSharedSurface.h"
+@@ -125,7 +126,10 @@
+ 
+     case layers::TextureType::EGLImage:
+ #ifdef MOZ_WIDGET_ANDROID
+-      if (XRE_IsParentProcess()) {
++      // EGLImages cannot be shared cross-process, so only create them if we are
++      // in the process that will consume them.
++      if ((XRE_IsParentProcess() && !gfx::gfxVars::GPUProcessEnabled()) ||
++          XRE_IsGPUProcess()) {
+         return SurfaceFactory_EGLImage::Create(gl);
+       }
+ #endif

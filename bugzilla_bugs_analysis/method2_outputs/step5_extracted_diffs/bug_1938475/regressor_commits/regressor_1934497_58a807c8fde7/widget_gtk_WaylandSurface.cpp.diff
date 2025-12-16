@@ -1,0 +1,34 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/WaylandSurface.cpp
+# Commit: 58a807c8fde7
+# Full Hash: 58a807c8fde7e7ba5c47850f564087cb50c4b51a
+# Author: stransky <stransky@redhat.com>
+# Date: 2024-12-17 17:00:49
+# Regressor Bug: 1934497
+# File Overlap Count: 1
+# Description:
+#   Bug 1934497 [Wayland] Fix build bustage on release r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D232318
+# ==============================================================================
+
+diff -r 111724736849 -r 58a807c8fde7 widget/gtk/WaylandSurface.cpp
+--- a/widget/gtk/WaylandSurface.cpp	Tue Dec 17 07:04:07 2024 +0000
++++ b/widget/gtk/WaylandSurface.cpp	Tue Dec 17 08:03:59 2024 +0000
+@@ -1045,9 +1045,11 @@
+              aWaylandBuffer.get());
+   MOZ_DIAGNOSTIC_ASSERT(&aProofOfLock == mSurfaceLock);
+ 
+-  bool removed =
+-      CheckAndRemoveWaylandBuffer(aWaylandBuffer, /* aRemove */ true);
+-  MOZ_DIAGNOSTIC_ASSERT(removed, "Wayland buffer is not attached?");
++  if (!CheckAndRemoveWaylandBuffer(aWaylandBuffer, /* aRemove */ true)) {
++    MOZ_DIAGNOSTIC_ASSERT(false, "Wayland buffer is not attached?");
++    NS_WARNING(
++        "WaylandSurface::DetachedLocked(): Wayland buffer is not attached?");
++  }
+ }
+ 
+ // Place this WaylandSurface above aLowerSurface

@@ -1,0 +1,72 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit-test/tests/ion/depended-on-bit-1.js
+# Commit: ae6126131b6d
+# Full Hash: ae6126131b6dfa18981f25c6986200c14e63e5f2
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2024-04-11 04:26:26
+# Regressor Bug: 1881995
+# File Overlap Count: 1
+# Description:
+#   Bug 1881995 - Implement ForwardedAtoms and create them during atomization r=iain,sfink
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D202690
+# ==============================================================================
+
+diff -r 4e5967329fdd -r ae6126131b6d js/src/jit-test/tests/ion/depended-on-bit-1.js
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/js/src/jit-test/tests/ion/depended-on-bit-1.js	Wed Apr 10 16:32:23 2024 +0000
+@@ -0,0 +1,52 @@
++var dependedOnStrings = [];
++
++var length = 50;
++
++function getSubstr(src, i) {
++  return src.substring(i, i + 50);
++}
++
++function checkProp(o, prop) {
++  return o[prop];
++}
++
++var substrs = [];
++var objs = [];
++
++with({})
++for (var i = 0; i < 1000; i++) {
++  var pieces = [];
++  for (var j = 0; j < 99; j++) {
++    pieces.push("a");
++    pieces.push(Math.floor(Math.random() * 10));
++  }
++  dependedOnStrings.push(pieces.join(""));
++}
++
++for (var i = 0; i < 1000; i++) {
++  // Create a bunch of substrings depending on strings in dependedOnStrings
++  substrs.push(getSubstr(dependedOnStrings[i], (i * 2) % 50));
++  objs.push({});
++}
++
++for (var i = 0; i < 1000; i++) {
++  // Use the depended on strings as keys to get them replaced with
++  // JSAtomRefStrings
++  checkProp(objs[i], dependedOnStrings[i]);
++}
++
++// Use a bunch of memory to try to ensure that we overwrite the buffers
++// that could have erroneously been freed
++for (var i = 0; i < 1000; i++) {
++  var pieces = [];
++  for (var j = 0; j < 99; j++) {
++    pieces.push("b");
++    pieces.push(Math.floor(Math.random() * 10));
++  }
++  dependedOnStrings.push(pieces.join(""));
++}
++
++// Ensure the buffers were not in fact freed
++for (var i = 0; i < 1000; i++) {
++  assertEq(substrs[i].startsWith("a"), true);
++}

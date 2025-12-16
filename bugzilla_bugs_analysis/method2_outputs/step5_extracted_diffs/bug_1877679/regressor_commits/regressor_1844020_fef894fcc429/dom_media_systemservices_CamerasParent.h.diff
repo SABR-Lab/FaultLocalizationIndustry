@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/systemservices/CamerasParent.h
+# Commit: fef894fcc429
+# Full Hash: fef894fcc4294027fdfb62af3997b87411bef554
+# Author: Jan Grulich <jgrulich@redhat.com>
+# Date: 2023-11-30 17:23:44
+# Regressor Bug: 1844020
+# File Overlap Count: 1
+# Description:
+#   Bug 1844020 - Add a camera device placeholder in case PipeWire is not initialized yet r=pehrsons
+#   
+#   Implement DeviceInfoPipeWire with option to add a device placeholder
+#   when there is a camera device, but we don't have access to PipeWire yet.
+#   We ask the Camera portal whether there is a camera device present.
+# ==============================================================================
+
+diff -r ed31b2acb5fb -r fef894fcc429 dom/media/systemservices/CamerasParent.h
+--- a/dom/media/systemservices/CamerasParent.h	Thu Nov 30 11:49:35 2023 +0000
++++ b/dom/media/systemservices/CamerasParent.h	Thu Nov 30 11:49:36 2023 +0000
+@@ -56,8 +56,9 @@
+                             private webrtc::VideoInputFeedBack {
+  public:
+   using ShutdownMozPromise = media::ShutdownBlockingTicket::ShutdownMozPromise;
+-  using CameraAccessRequestPromise =
+-      MozPromise<nsresult, nsresult, /* IsExclusive = */ false>;
++
++  using CameraAccessRequestPromise = MozPromise<CamerasAccessStatus, void_t,
++                                                /* IsExclusive = */ false>;
+ 
+   NS_INLINE_DECL_THREADSAFE_REFCOUNTING_WITH_DELETE_ON_EVENT_TARGET(
+       CamerasParent, mPBackgroundEventTarget)
+@@ -69,16 +70,17 @@
+ 
+   /**
+    * Request camera access
+-   *   Currently used only on desktop. This will make an xdg-desktop-portal
+-   *   call to request access to camera when PipeWire is used, otherwise it
+-   *   automatically grants access for other implementations.
+-   *
+-   *    1) NS_ERROR_DOM_MEDIA_NOT_ALLOWED_ERR - access to camera has been
+-   *       rejected by the user.
+-   *    2) NS_ERROR_FAILURE - generic error, for instance with pipewire most
+-   *       likely the xdg-desktop-portal request failed.
++   *   Currently only used on desktop. If @value
++   *   aAllowPermissionRequest is true, a request for full camera access may be
++   *   made and the returned promise may be blocked on user input on a modal
++   *   dialog. If @value aAllowPermissionRequest is false, only a request to
++   *   check camera device presence will be made. If any camera device is
++   *   present, we will enumerate a single placeholder device until a successful
++   *   RequestCameraAccess with a true aAllowPermissionRequest.
++   *   The returned promise will never be rejected.
+    */
+-  static RefPtr<CameraAccessRequestPromise> RequestCameraAccess();
++  static RefPtr<CameraAccessRequestPromise> RequestCameraAccess(
++      bool aAllowPermissionRequest);
+ 
+   // Messages received from the child. These run on the IPC/PBackground thread.
+   mozilla::ipc::IPCResult RecvPCamerasConstructor();

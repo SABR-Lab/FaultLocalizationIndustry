@@ -1,0 +1,87 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/GraphDriver.cpp
+# Commit: a00ad7266f54
+# Full Hash: a00ad7266f54820d7a3ff1233fa156f63190a3a3
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2020-11-06 04:14:34
+# Regressor Bug: 1651745
+# File Overlap Count: 1
+# Description:
+#   Bug 1651745 - Signal AudioInputProcessing on input stream stop instead of driver start. r=padenot
+#   
+#   Without this patch, AudioInputProcessing wouldn't be aware of an audio driver
+#   changing to another driver, be it a system driver or an audio driver that starts
+#   on its fallback.
+# ==============================================================================
+
+diff -r a76d9158cdfd -r a00ad7266f54 dom/media/GraphDriver.cpp
+--- a/dom/media/GraphDriver.cpp	Thu Nov 05 16:42:41 2020 +0000
++++ b/dom/media/GraphDriver.cpp	Thu Nov 05 16:43:24 2020 +0000
+@@ -387,8 +387,8 @@
+                         TrackRate aRate, uint32_t aChannels) override {
+     MOZ_CRASH("Unexpected NotifyOutputData from fallback SystemClockDriver");
+   }
+-  void NotifyStarted() override {
+-    MOZ_CRASH("Unexpected NotifyStarted from fallback SystemClockDriver");
++  void NotifyInputStopped() override {
++    MOZ_CRASH("Unexpected NotifyInputStopped from fallback SystemClockDriver");
+   }
+   void NotifyInputData(const AudioDataValue* aBuffer, size_t aFrames,
+                        TrackRate aRate, uint32_t aChannels) override {
+@@ -730,7 +730,6 @@
+   MOZ_ASSERT(mAudioStreamState == AudioStreamState::None);
+   MOZ_ASSERT_IF(PreviousDriver(), PreviousDriver()->InIteration());
+   mAudioStreamState = AudioStreamState::Pending;
+-  mRanFirstIteration = false;
+ 
+   if (mFallbackDriverState == FallbackDriverState::None) {
+     // Starting an audio driver could take a while. We start a system driver in
+@@ -893,11 +892,6 @@
+   AutoInCallback aic(this);
+ #endif
+ 
+-  if (!mRanFirstIteration) {
+-    Graph()->NotifyStarted();
+-    mRanFirstIteration = true;
+-  }
+-
+   uint32_t durationMS = aFrames * 1000 / mSampleRate;
+ 
+   // For now, simply average the duration with the previous
+@@ -1008,6 +1002,9 @@
+                           aFrames * mOutputChannelCount);
+ 
+   if (result.IsStop()) {
++    if (mInputDeviceID) {
++      mGraphInterface->NotifyInputStopped();
++    }
+     // Signal that we have stopped.
+     result.Stopped();
+     // Update the flag before handing over the graph and going to drain.
+@@ -1022,6 +1019,9 @@
+     LOG(LogLevel::Debug,
+         ("%p: Switching to %s driver.", Graph(),
+          nextDriver->AsAudioCallbackDriver() ? "audio" : "system"));
++    if (mInputDeviceID) {
++      mGraphInterface->NotifyInputStopped();
++    }
+     result.Switched();
+     mAudioStreamState = AudioStreamState::Stopping;
+     nextDriver->SetState(mIterationStart, mIterationEnd, mStateComputedTime);
+@@ -1075,6 +1075,14 @@
+         // Only switch to fallback if it's not already running. It could be
+         // running with the callback driver having started but not seen a single
+         // callback yet. I.e., handover from fallback to callback is not done.
++        if (mInputDeviceID) {
++#ifdef DEBUG
++          // No audio callback after an error. We're calling into the graph here
++          // so we need to be regarded as "in iteration".
++          AutoInCallback aic(this);
++#endif
++          mGraphInterface->NotifyInputStopped();
++        }
+         FallbackToSystemClockDriver();
+       }
+     }

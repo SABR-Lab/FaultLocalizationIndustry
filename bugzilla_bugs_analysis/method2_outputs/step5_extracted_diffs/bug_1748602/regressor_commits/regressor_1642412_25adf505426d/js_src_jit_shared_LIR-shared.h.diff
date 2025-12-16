@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/shared/LIR-shared.h
+# Commit: 25adf505426d
+# Full Hash: 25adf505426d21f67e15d146f879b0ea53d343a7
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2022-03-23 04:09:13
+# Regressor Bug: 1642412
+# File Overlap Count: 19
+# Description:
+#   Bug 1642412 - wasm: Rollup of inline table.get/set for anyref. r=lth
+#   
+#   Rollup of the previous inline table.get/set patches.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D141024
+# ==============================================================================
+
+diff -r 43f7556db2e1 -r 25adf505426d js/src/jit/shared/LIR-shared.h
+--- a/js/src/jit/shared/LIR-shared.h	Tue Mar 22 19:44:13 2022 +0000
++++ b/js/src/jit/shared/LIR-shared.h	Tue Mar 22 19:59:05 2022 +0000
+@@ -3157,6 +3157,20 @@
+   size_t offset() { return mirRaw()->toWasmDerivedPointer()->offset(); }
+ };
+ 
++class LWasmDerivedIndexPointer : public LInstructionHelper<1, 2, 0> {
++ public:
++  LIR_HEADER(WasmDerivedIndexPointer);
++  explicit LWasmDerivedIndexPointer(const LAllocation& base,
++                                    const LAllocation& index)
++      : LInstructionHelper(classOpcode) {
++    setOperand(0, base);
++    setOperand(1, index);
++  }
++  const LAllocation* base() { return getOperand(0); }
++  const LAllocation* index() { return getOperand(1); }
++  Scale scale() { return mirRaw()->toWasmDerivedIndexPointer()->scale(); }
++};
++
+ class LWasmParameterI64 : public LInstructionHelper<INT64_PIECES, 0, 0> {
+  public:
+   LIR_HEADER(WasmParameterI64);

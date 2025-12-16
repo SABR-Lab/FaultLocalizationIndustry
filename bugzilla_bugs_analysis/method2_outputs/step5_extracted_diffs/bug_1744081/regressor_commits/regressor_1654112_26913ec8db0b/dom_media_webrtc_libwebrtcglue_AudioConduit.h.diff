@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/AudioConduit.h
+# Commit: 26913ec8db0b
+# Full Hash: 26913ec8db0b350b29145e9502136b29efdeccbc
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 5
+# Description:
+#   Bug 1654112 - Reimplement ssrc/csrc stats cache. r=ng
+#   
+#   The cache can be a lot simpler than the old one, since libwebrtc handles
+#   pruning old entries for us, and since we're now telling libwebrtc when we
+#   render frames (so we don't have to make our own stats with guesses of when
+# ==============================================================================
+
+diff -r 18d3bc91b71e -r 26913ec8db0b dom/media/webrtc/libwebrtcglue/AudioConduit.h
+--- a/dom/media/webrtc/libwebrtcglue/AudioConduit.h	Thu Feb 25 13:07:39 2021 -0600
++++ b/dom/media/webrtc/libwebrtcglue/AudioConduit.h	Mon Mar 15 12:19:57 2021 -0500
+@@ -8,7 +8,6 @@
+ #include "mozilla/Attributes.h"
+ #include "mozilla/ReentrantMonitor.h"
+ #include "mozilla/TimeStamp.h"
+-#include "nsTArray.h"
+ 
+ #include "MediaConduitInterface.h"
+ #include "common/MediaEngineWrapper.h"
+@@ -190,15 +189,6 @@
+   bool InsertDTMFTone(int channel, int eventCode, bool outOfBand, int lengthMs,
+                       int attenuationDb) override;
+ 
+-  void GetRtpSources(nsTArray<dom::RTCRtpSourceEntry>& outSources) override;
+-
+-  // test-only: inserts fake CSRCs and audio level data
+-  void InsertAudioLevelForContributingSource(const uint32_t aCsrcSource,
+-                                             const int64_t aTimestamp,
+-                                             const uint32_t aRtpTimestamp,
+-                                             const bool aHasAudioLevel,
+-                                             const uint8_t aAudioLevel);
+-
+   bool IsSamplingFreqSupported(int freq) const override;
+ 
+  private:

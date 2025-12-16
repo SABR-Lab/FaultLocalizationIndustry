@@ -1,0 +1,72 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/base/nsNetUtil.cpp
+# Commit: ff5ea82f6090
+# Full Hash: ff5ea82f6090a4a1645a1a32749a4ae9102f015b
+# Author: Andrea Marchesini <amarchesini@mozilla.com>
+# Date: 2025-04-17 16:30:04
+# Regressor Bug: 1957355
+# File Overlap Count: 1
+# Description:
+#   Bug 1957355 - No storage access for resources injected by content-scripts, r=timhuang,necko-reviewers,devtools-reviewers,anti-tracking-reviewers,nchevobbe,kershaw
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D244204
+# ==============================================================================
+
+diff -r 04eed8759454 -r ff5ea82f6090 netwerk/base/nsNetUtil.cpp
+--- a/netwerk/base/nsNetUtil.cpp	Thu Apr 17 10:56:59 2025 +0000
++++ b/netwerk/base/nsNetUtil.cpp	Thu Apr 17 10:56:59 2025 +0000
+@@ -101,11 +101,13 @@
+ #endif
+ #include "nsAboutProtocolHandler.h"
+ #include "nsResProtocolHandler.h"
++#include "mozilla/net/CookieJarSettings.h"
+ #include "mozilla/net/MozSrcProtocolHandler.h"
+ #include "mozilla/net/ExtensionProtocolHandler.h"
+ #include "mozilla/net/PageThumbProtocolHandler.h"
+ #include "mozilla/net/SFVService.h"
+ #include <limits>
++#include "nsICookieService.h"
+ #include "nsIXPConnect.h"
+ #include "nsParserConstants.h"
+ #include "nsCRT.h"
+@@ -506,12 +508,36 @@
+   MOZ_ASSERT(aLoadingNode);
+   NS_ASSERTION(aTriggeringPrincipal,
+                "Can not create channel without a triggering Principal!");
++
++  nsCOMPtr<nsICookieJarSettings> cookieJarSettings;
++
++  // Special treatment for resources injected by add-ons.
++  if (aTriggeringPrincipal &&
++      StaticPrefs::privacy_antitracking_isolateContentScriptResources() &&
++      nsContentUtils::IsExpandedPrincipal(aTriggeringPrincipal)) {
++    bool shouldResistFingerprinting =
++        nsContentUtils::ShouldResistFingerprinting_dangerous(
++            aLoadingNode->NodePrincipal(),
++            "CookieJarSettings can't exist yet, we're creating it",
++            RFPTarget::IsAlwaysEnabledForPrecompute);
++    cookieJarSettings = CookieJarSettings::Create(
++        nsICookieService::BEHAVIOR_REJECT,
++        StoragePrincipalHelper::PartitionKeyForExpandedPrincipal(
++            aTriggeringPrincipal),
++        OriginAttributes::IsFirstPartyEnabled(), false,
++        shouldResistFingerprinting);
++  } else {
++    // Let's inherit the cookie behavior and permission from the parent
++    // document.
++    cookieJarSettings = aLoadingNode->OwnerDoc()->CookieJarSettings();
++  }
++
+   return NS_NewChannelInternal(
+       outChannel, aUri, aLoadingNode, aLoadingNode->NodePrincipal(),
+       aTriggeringPrincipal, Maybe<ClientInfo>(),
+       Maybe<ServiceWorkerDescriptor>(), aSecurityFlags, aContentPolicyType,
+-      aLoadingNode->OwnerDoc()->CookieJarSettings(), aPerformanceStorage,
+-      aLoadGroup, aCallbacks, aLoadFlags, aIoService);
++      cookieJarSettings, aPerformanceStorage, aLoadGroup, aCallbacks,
++      aLoadFlags, aIoService);
+ }
+ 
+ // See NS_NewChannelInternal for usage and argument description

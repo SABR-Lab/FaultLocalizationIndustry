@@ -1,0 +1,44 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/WaylandSurface.cpp
+# Commit: 3927f21c92c9
+# Full Hash: 3927f21c92c941c9efd0b00b0dc4cfc2b905452f
+# Author: stransky <stransky@redhat.com>
+# Date: 2025-09-08 08:22:14
+# Description:
+#   Bug 1979106 [Wayland] Don't recycle buffer transactions across WaylandSurfaces r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D263545
+# ==============================================================================
+
+diff -r 2a24e5601893 -r 3927f21c92c9 widget/gtk/WaylandSurface.cpp
+--- a/widget/gtk/WaylandSurface.cpp	Mon Sep 08 02:52:34 2025 +0000
++++ b/widget/gtk/WaylandSurface.cpp	Mon Sep 08 04:20:40 2025 +0000
+@@ -1154,12 +1154,15 @@
+ }
+ 
+ BufferTransaction* WaylandSurface::GetNextTransactionLocked(
+-    const WaylandSurfaceLock& aProofOfLock, WaylandBuffer* aBuffer) {
+-  auto* nextTransaction = aBuffer->GetTransaction();
++    const WaylandSurfaceLock& aSurfaceLock, WaylandBuffer* aBuffer) {
++  auto* nextTransaction = aBuffer->GetTransaction(aSurfaceLock);
+   if (!nextTransaction) {
+     return nullptr;
+   }
+ 
++  // Iterate through transactions attached to this WaylandSurface
++  // and delete detached transactions which belongs to old (previously attached)
++  // WaylandBuffer.
+   auto transactions = std::move(mBufferTransactions);
+   bool addedNext = false;
+   // DeleteTransactionLocked() may delete BufferTransaction so
+@@ -1177,7 +1180,7 @@
+     MOZ_DIAGNOSTIC_ASSERT(!t->IsDeleted());
+     // Remove detached transactions from unused buffers.
+     if (t->IsDetached() && !t->MatchesBuffer(mLatestAttachedBuffer)) {
+-      t->DeleteTransactionLocked(aProofOfLock);
++      t->DeleteTransactionLocked(aSurfaceLock);
+     } else {
+       mBufferTransactions.AppendElement(t);
+     }

@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/TabChild.cpp
+# Commit: 97c2ee22169c
+# Full Hash: 97c2ee22169c641e88278fd0801abfc18db6c43f
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2019-03-15 03:42:43
+# Regressor Bug: 1532661
+# File Overlap Count: 1
+# Description:
+#   Bug 1532661 - Part 6: Clean up BrowsingContext references more reliably, r=farre
+#   
+#   Depends on D23047
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D23048
+# ==============================================================================
+
+diff -r 856a3d16a4ca -r 97c2ee22169c dom/ipc/TabChild.cpp
+--- a/dom/ipc/TabChild.cpp	Thu Mar 14 18:51:11 2019 +0000
++++ b/dom/ipc/TabChild.cpp	Thu Mar 14 18:51:13 2019 +0000
+@@ -635,10 +635,12 @@
+ 
+ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(TabChild, TabChildBase)
+   NS_IMPL_CYCLE_COLLECTION_UNLINK(mWebNav)
++  NS_IMPL_CYCLE_COLLECTION_UNLINK(mBrowsingContext)
+ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
+ 
+ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(TabChild, TabChildBase)
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWebNav)
++  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBrowsingContext)
+ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
+ 
+ NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(TabChild, TabChildBase)
+@@ -924,6 +926,10 @@
+ }
+ 
+ void TabChild::DestroyWindow() {
++  if (mBrowsingContext) {
++    mBrowsingContext = nullptr;
++  }
++
+   if (mCoalescedMouseEventFlusher) {
+     mCoalescedMouseEventFlusher->RemoveObserver();
+     mCoalescedMouseEventFlusher = nullptr;

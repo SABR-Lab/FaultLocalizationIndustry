@@ -1,0 +1,68 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/antitracking/AntiTrackingUtils.cpp
+# Commit: 518cc5289f58
+# Full Hash: 518cc5289f58447ec9ab4d8373c749c15dc9fb90
+# Author: Tim Huang <tihuang@mozilla.com>
+# Date: 2021-10-28 03:37:11
+# Regressor Bug: 1725996
+# File Overlap Count: 1
+# Description:
+#   Bug 1725996 - Part 2: Implement AntiTrackingUtils::IsThirdPartyContext(). r=dimi
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D127627
+# ==============================================================================
+
+diff -r f41b0cceba4e -r 518cc5289f58 toolkit/components/antitracking/AntiTrackingUtils.cpp
+--- a/toolkit/components/antitracking/AntiTrackingUtils.cpp	Wed Oct 27 22:56:51 2021 +0000
++++ b/toolkit/components/antitracking/AntiTrackingUtils.cpp	Wed Oct 27 22:56:51 2021 +0000
+@@ -668,6 +668,48 @@
+ }
+ 
+ /* static */
++bool AntiTrackingUtils::IsThirdPartyContext(BrowsingContext* aBrowsingContext) {
++  MOZ_ASSERT(aBrowsingContext);
++  MOZ_ASSERT(aBrowsingContext->IsInProcess());
++
++  if (aBrowsingContext->IsTopContent()) {
++    return false;
++  }
++
++  // If the top browsing context is not in the same process, it's cross-origin.
++  if (!aBrowsingContext->Top()->IsInProcess()) {
++    return true;
++  }
++
++  nsIDocShell* docShell = aBrowsingContext->GetDocShell();
++  if (!docShell) {
++    return true;
++  }
++  Document* doc = docShell->GetExtantDocument();
++  if (!doc) {
++    return true;
++  }
++  nsIPrincipal* principal = doc->NodePrincipal();
++
++  nsIDocShell* topDocShell = aBrowsingContext->Top()->GetDocShell();
++  if (!topDocShell) {
++    return true;
++  }
++  Document* topDoc = topDocShell->GetDocument();
++  if (!topDoc) {
++    return true;
++  }
++  nsIPrincipal* topPrincipal = topDoc->NodePrincipal();
++
++  auto* topBasePrin = BasePrincipal::Cast(topPrincipal);
++  bool isThirdParty = true;
++
++  topBasePrin->IsThirdPartyPrincipal(principal, &isThirdParty);
++
++  return isThirdParty;
++}
++
++/* static */
+ nsCString AntiTrackingUtils::GrantedReasonToString(
+     ContentBlockingNotifier::StorageAccessPermissionGrantedReason aReason) {
+   switch (aReason) {

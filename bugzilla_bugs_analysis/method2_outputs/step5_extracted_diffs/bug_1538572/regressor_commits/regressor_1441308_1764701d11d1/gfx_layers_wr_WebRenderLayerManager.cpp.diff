@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/wr/WebRenderLayerManager.cpp
+# Commit: 1764701d11d1
+# Full Hash: 1764701d11d103a2ac02f8cfa5ff4511b8f5dd70
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2019-03-22 16:44:08
+# Regressor Bug: 1441308
+# File Overlap Count: 2
+# Description:
+#   Bug 1441308 - Always send parent commands when sending mDestroyedActors r=kats,sotaro
+#   
+#   If we try to send them separately as we were before, we can run into
+#   cases where we try to destroy the actors and then send the OpRemoveTexture,
+#   which crashes.
+# ==============================================================================
+
+diff -r 32f7793dfd1a -r 1764701d11d1 gfx/layers/wr/WebRenderLayerManager.cpp
+--- a/gfx/layers/wr/WebRenderLayerManager.cpp	Thu Mar 21 23:15:32 2019 +0000
++++ b/gfx/layers/wr/WebRenderLayerManager.cpp	Thu Mar 21 23:15:42 2019 +0000
+@@ -238,7 +238,8 @@
+   for (auto& stateManager : mStateManagers) {
+     auto renderRoot = stateManager.GetRenderRoot();
+     if (stateManager.mAsyncResourceUpdates ||
+-        !mPendingScrollUpdates[renderRoot].empty()) {
++        !mPendingScrollUpdates[renderRoot].empty() ||
++        WrBridge()->HasWebRenderParentCommands(renderRoot)) {
+       auto updates = renderRootUpdates.AppendElement();
+       updates->mRenderRoot = renderRoot;
+       if (stateManager.mAsyncResourceUpdates) {
+@@ -418,12 +419,15 @@
+         auto renderRootDL = renderRootDLs.AppendElement();
+         renderRootDL->mRenderRoot = renderRoot;
+         builder.Finalize(*renderRootDL);
+-        mLastDisplayListSizes[renderRoot] = renderRootDL->mDL.mCapacity;
++        mLastDisplayListSizes[renderRoot] = renderRootDL->mDL->mCapacity;
+         resourceUpdates.SubQueue(renderRoot)
+             .Flush(renderRootDL->mResourceUpdates, renderRootDL->mSmallShmems,
+                    renderRootDL->mLargeShmems);
+         renderRootDL->mRect = RoundedToInt(rects[renderRoot]).ToUnknownRect();
+-        renderRootDL->mScrollData = std::move(mScrollDatas[renderRoot]);
++        renderRootDL->mScrollData.emplace(std::move(mScrollDatas[renderRoot]));
++      } else if (WrBridge()->HasWebRenderParentCommands(renderRoot)) {
++        auto renderRootDL = renderRootDLs.AppendElement();
++        renderRootDL->mRenderRoot = renderRoot;
+       }
+     }
+ 

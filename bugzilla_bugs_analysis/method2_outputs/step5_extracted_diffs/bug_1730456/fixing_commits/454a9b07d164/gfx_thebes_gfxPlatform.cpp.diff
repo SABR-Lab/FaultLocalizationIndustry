@@ -1,0 +1,39 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxPlatform.cpp
+# Commit: 454a9b07d164
+# Full Hash: 454a9b07d164c2824388c758ded0036a76c56287
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2021-09-23 21:45:25
+# Description:
+#   Bug 1730456 - InitPlatformFontList should reframe. r=jfkthame
+#   
+#   I don't know why it didn't broadcast the reflow request to child
+#   processes... Perhaps it doesn't have to?
+#   
+# ==============================================================================
+
+diff -r c6819fdea3a5 -r 454a9b07d164 gfx/thebes/gfxPlatform.cpp
+--- a/gfx/thebes/gfxPlatform.cpp	Thu Sep 23 16:28:23 2021 +0000
++++ b/gfx/thebes/gfxPlatform.cpp	Thu Sep 23 16:35:32 2021 +0000
+@@ -2215,7 +2215,8 @@
+ }
+ 
+ /* static */
+-void gfxPlatform::ForceGlobalReflow(NeedsReframe aNeedsReframe) {
++void gfxPlatform::ForceGlobalReflow(NeedsReframe aNeedsReframe,
++                                    BroadcastToChildren aBroadcastToChildren) {
+   MOZ_ASSERT(NS_IsMainThread());
+   const bool reframe = aNeedsReframe == NeedsReframe::Yes;
+   // Send a notification that will be observed by PresShells in this process
+@@ -2224,7 +2225,8 @@
+     char16_t needsReframe[] = {char16_t(reframe), 0};
+     obs->NotifyObservers(nullptr, "font-info-updated", needsReframe);
+   }
+-  if (XRE_IsParentProcess()) {
++  if (XRE_IsParentProcess() &&
++      aBroadcastToChildren == BroadcastToChildren::Yes) {
+     // Propagate the change to child processes.
+     for (auto* process :
+          dom::ContentParent::AllProcesses(dom::ContentParent::eLive)) {

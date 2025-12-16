@@ -1,0 +1,48 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/fs/parent/FileSystemManagerParent.cpp
+# Commit: 75dd8ef65751
+# Full Hash: 75dd8ef6575143b27c8479af06c86bbe4610e0df
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2022-09-05 21:43:29
+# Description:
+#   Bug 1789075 - Call RequestAllowToClose on correct thread; r=dom-storage-reviewers,jari
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D156394
+# ==============================================================================
+
+diff -r db3dfa11a0ec -r 75dd8ef65751 dom/fs/parent/FileSystemManagerParent.cpp
+--- a/dom/fs/parent/FileSystemManagerParent.cpp	Mon Sep 05 11:58:59 2022 +0000
++++ b/dom/fs/parent/FileSystemManagerParent.cpp	Mon Sep 05 12:01:25 2022 +0000
+@@ -14,6 +14,7 @@
+ #include "mozilla/dom/quota/ForwardDecls.h"
+ #include "mozilla/dom/quota/QuotaCommon.h"
+ #include "mozilla/dom/quota/ResultExtensions.h"
++#include "mozilla/ipc/BackgroundParent.h"
+ #include "nsString.h"
+ #include "nsTArray.h"
+ 
+@@ -218,6 +219,8 @@
+ }
+ 
+ void FileSystemManagerParent::RequestAllowToClose() {
++  ::mozilla::ipc::AssertIsOnBackgroundThread();
++
+   if (mRequestedAllowToClose) {
+     return;
+   }
+@@ -226,7 +229,12 @@
+ 
+   // XXX Send a message to the child and wait for a response before closing!
+ 
+-  Close();
++  InvokeAsync(mDataManager->MutableIOTargetPtr(), __func__,
++              [self = RefPtr<FileSystemManagerParent>(this)]() {
++                self->Close();
++
++                return BoolPromise::CreateAndResolve(true, __func__);
++              });
+ }
+ 
+ void FileSystemManagerParent::OnChannelClose() {

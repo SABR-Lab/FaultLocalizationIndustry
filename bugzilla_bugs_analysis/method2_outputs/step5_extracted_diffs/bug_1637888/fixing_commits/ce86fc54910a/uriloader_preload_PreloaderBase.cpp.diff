@@ -1,0 +1,29 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: uriloader/preload/PreloaderBase.cpp
+# Commit: ce86fc54910a
+# Full Hash: ce86fc54910a501d9d6f961eb4467decb297e5d9
+# Author: Honza Bambas <honzab.moz@firemni.cz>
+# Date: 2020-05-14 16:15:31
+# Description:
+#   Bug 1637888 - Add a null-check for Document passed to `PreloaderBase::NotifyRestart` as it is a valid case to happen, r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D75282
+# ==============================================================================
+
+diff -r 5889105bd089 -r ce86fc54910a uriloader/preload/PreloaderBase.cpp
+--- a/uriloader/preload/PreloaderBase.cpp	Thu May 14 10:05:55 2020 +0000
++++ b/uriloader/preload/PreloaderBase.cpp	Thu May 14 11:24:03 2020 +0000
+@@ -146,7 +146,10 @@
+ 
+ void PreloaderBase::NotifyRestart(dom::Document* aDocument,
+                                   PreloaderBase* aNewPreloader) {
+-  aDocument->Preloads().DeregisterPreload(&mKey);
++  if (aDocument) {
++    aDocument->Preloads().DeregisterPreload(&mKey);
++  }
++
+   mKey = PreloadHashKey();
+ 
+   if (aNewPreloader) {

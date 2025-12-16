@@ -1,0 +1,41 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/Debugger.cpp
+# Commit: c3ea428d6b2a
+# Full Hash: c3ea428d6b2a4ab026fea0e1dc5c0776720d1b2d
+# Author: André Bargull <andre.bargull@gmail.com>
+# Date: 2019-05-08 03:38:51
+# Description:
+#   Bug 1547039: Adjust async-generator state when manually closing an async-generator. r=arai
+#   
+#   Similar to AutoSetGeneratorRunning, AdjustGeneratorResumptionValue also needs to modify the
+#   async-generator state in addition to the shared generator state.
+#   
+# ==============================================================================
+
+diff -r 723587a2ae49 -r c3ea428d6b2a js/src/vm/Debugger.cpp
+--- a/js/src/vm/Debugger.cpp	Tue May 07 17:57:33 2019 +0000
++++ b/js/src/vm/Debugger.cpp	Tue May 07 04:11:58 2019 +0000
+@@ -1668,7 +1668,7 @@
+     // bytecode, so we have to simulate that here. For async generators, our
+     // C++ implementation of AsyncGeneratorResolve will do this. So don't do it
+     // twice:
+-    if (!frame.callee()->isAsync()) {
++    if (!genObj->is<AsyncGeneratorObject>()) {
+       JSObject* pair = CreateIterResultObject(cx, vp, true);
+       if (!pair) {
+         getAndClearExceptionThenThrow();
+@@ -1679,6 +1679,12 @@
+ 
+     // 2.  The generator must be closed.
+     genObj->setClosed();
++
++    // Async generators have additionally bookkeeping which must be adjusted
++    // when switching over to the closed state.
++    if (genObj->is<AsyncGeneratorObject>()) {
++      genObj->as<AsyncGeneratorObject>().setCompleted();
++    }
+   } else if (frame.callee()->isAsync()) {
+     if (AbstractGeneratorObject* genObj =
+             GetGeneratorObjectForFrame(cx, frame)) {

@@ -1,0 +1,39 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: browser/components/BrowserGlue.jsm
+# Commit: f64c8c158e52
+# Full Hash: f64c8c158e52c96705cf1d507b9b30fe31305bd8
+# Author: Mike Conley <mconley@mozilla.com>
+# Date: 2020-04-23 09:52:48
+# Description:
+#   Bug 1631611 - Use a JSWindowActorChild to load about:newtab scripts from the ScriptPreloader rather than an observer. r=pdahiya
+#   
+#   This shifts the responsibility for ensuring that an about:home, about:welcome
+#   or about:newtab page is where we inject the scripts to the JSWindowActor system,
+#   rather than using the observer service on document creation and checking the
+# ==============================================================================
+
+diff -r af6964d3761b -r f64c8c158e52 browser/components/BrowserGlue.jsm
+--- a/browser/components/BrowserGlue.jsm	Wed Apr 22 18:05:44 2020 +0000
++++ b/browser/components/BrowserGlue.jsm	Wed Apr 22 21:33:12 2020 +0000
+@@ -94,6 +94,19 @@
+     matches: ["about:logins", "about:logins?*"],
+   },
+ 
++  AboutNewTab: {
++    child: {
++      moduleURI: "resource:///actors/AboutNewTabChild.jsm",
++      events: {
++        DOMContentLoaded: {},
++      },
++    },
++    // The wildcard on about:newtab is for the ?endpoint query parameter
++    // that is used for snippets debugging.
++    matches: ["about:home", "about:welcome", "about:newtab*"],
++    remoteTypes: ["privilegedabout"],
++  },
++
+   AboutWelcome: {
+     parent: {
+       moduleURI: "resource:///actors/AboutWelcomeParent.jsm",

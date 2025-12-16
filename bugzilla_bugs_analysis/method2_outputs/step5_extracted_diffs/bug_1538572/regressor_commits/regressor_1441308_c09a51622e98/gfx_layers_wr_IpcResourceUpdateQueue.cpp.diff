@@ -1,0 +1,81 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/wr/IpcResourceUpdateQueue.cpp
+# Commit: c09a51622e98
+# Full Hash: c09a51622e988e81077c75e3aaa5a49df66284b3
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2019-03-22 16:44:08
+# Regressor Bug: 1441308
+# File Overlap Count: 2
+# Description:
+#   Bug 1441308 - Core renderroot splitting changes r=kats,sotaro
+#   
+#   This is a large patch that contains all of the core changes for
+#   renderroot splitting.
+#   
+# ==============================================================================
+
+diff -r 737807563dd5 -r c09a51622e98 gfx/layers/wr/IpcResourceUpdateQueue.cpp
+--- a/gfx/layers/wr/IpcResourceUpdateQueue.cpp	Thu Mar 21 23:14:26 2019 +0000
++++ b/gfx/layers/wr/IpcResourceUpdateQueue.cpp	Fri Mar 22 03:15:14 2019 +0000
+@@ -249,22 +249,43 @@
+ }
+ 
+ IpcResourceUpdateQueue::IpcResourceUpdateQueue(
+-    layers::WebRenderBridgeChild* aAllocator, size_t aChunkSize)
+-    : mWriter(aAllocator, aChunkSize) {}
++    layers::WebRenderBridgeChild* aAllocator,
++    wr::RenderRoot aRenderRoot,
++    size_t aChunkSize)
++    : mWriter(aAllocator, aChunkSize), mRenderRoot(aRenderRoot) {}
+ 
+ IpcResourceUpdateQueue::IpcResourceUpdateQueue(
+     IpcResourceUpdateQueue&& aOther) noexcept
+     : mWriter(std::move(aOther.mWriter)),
+-      mUpdates(std::move(aOther.mUpdates)) {}
++      mUpdates(std::move(aOther.mUpdates)),
++      mRenderRoot(aOther.mRenderRoot) {
++  for (auto renderRoot : wr::kNonDefaultRenderRoots) {
++    mSubQueues[renderRoot] = std::move(aOther.mSubQueues[renderRoot]);
++  }
++}
+ 
+ IpcResourceUpdateQueue& IpcResourceUpdateQueue::operator=(
+     IpcResourceUpdateQueue&& aOther) noexcept {
+   MOZ_ASSERT(IsEmpty(), "Will forget existing updates!");
+   mWriter = std::move(aOther.mWriter);
+   mUpdates = std::move(aOther.mUpdates);
++  mRenderRoot = aOther.mRenderRoot;
++  for (auto renderRoot : wr::kNonDefaultRenderRoots) {
++    mSubQueues[renderRoot] = std::move(aOther.mSubQueues[renderRoot]);
++  }
+   return *this;
+ }
+ 
++void IpcResourceUpdateQueue::ReplaceResources(
++    IpcResourceUpdateQueue&& aOther) {
++  MOZ_ASSERT(IsEmpty(), "Will forget existing updates!");
++  MOZ_ASSERT(!aOther.HasAnySubQueue(), "Subqueues will be lost!");
++  MOZ_ASSERT(mRenderRoot == aOther.mRenderRoot);
++  mWriter = std::move(aOther.mWriter);
++  mUpdates = std::move(aOther.mUpdates);
++  mRenderRoot = aOther.mRenderRoot;
++}
++
+ bool IpcResourceUpdateQueue::AddImage(ImageKey key,
+                                       const ImageDescriptor& aDescriptor,
+                                       Range<uint8_t> aBytes) {
+@@ -408,6 +429,12 @@
+ void IpcResourceUpdateQueue::Clear() {
+   mWriter.Clear();
+   mUpdates.Clear();
++
++  for (auto& subQueue : mSubQueues) {
++    if (subQueue) {
++      subQueue->Clear();
++    }
++  }
+ }
+ 
+ // static

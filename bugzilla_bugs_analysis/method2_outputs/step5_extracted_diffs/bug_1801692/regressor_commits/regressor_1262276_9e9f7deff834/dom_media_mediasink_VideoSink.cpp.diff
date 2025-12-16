@@ -1,0 +1,34 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasink/VideoSink.cpp
+# Commit: 9e9f7deff834
+# Full Hash: 9e9f7deff8344b9f7dea8f09d302034ccda8bc7a
+# Author: alwu <alwu@mozilla.com>
+# Date: 2022-11-05 21:53:50
+# Regressor Bug: 1262276
+# File Overlap Count: 1
+# Description:
+#   Bug 1262276 - part14 : video-only seek should use original time as a seek target. r=padenot
+#   
+#   When requesting data from demuxer, it should always use normalized data,
+#   which is within [0, original-track-duration]. So we need to adjust seek
+#   target time in order not to use clock time which has grown over the
+# ==============================================================================
+
+diff -r 12aaeb776da1 -r 9e9f7deff834 dom/media/mediasink/VideoSink.cpp
+--- a/dom/media/mediasink/VideoSink.cpp	Sat Nov 05 02:23:33 2022 +0000
++++ b/dom/media/mediasink/VideoSink.cpp	Sat Nov 05 02:23:34 2022 +0000
+@@ -472,9 +472,10 @@
+     img->mFrameID = frame->mFrameID;
+     img->mProducerID = mProducerID;
+ 
+-    VSINK_LOG_V("playing video frame %" PRId64 " (id=%x) (vq-queued=%zu)",
++    VSINK_LOG_V("playing video frame %" PRId64
++                " (id=%x, vq-queued=%zu, clock=%" PRId64 ")",
+                 frame->mTime.ToMicroseconds(), frame->mFrameID,
+-                VideoQueue().GetSize());
++                VideoQueue().GetSize(), aClockTime);
+     if (!wasSent) {
+       PROFILER_MARKER("PlayVideo", MEDIA_PLAYBACK, {}, MediaSampleMarker,
+                       frame->mTime.ToMicroseconds(),

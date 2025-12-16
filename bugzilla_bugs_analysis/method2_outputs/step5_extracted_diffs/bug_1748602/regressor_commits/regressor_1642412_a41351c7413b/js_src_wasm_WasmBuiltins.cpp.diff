@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmBuiltins.cpp
+# Commit: a41351c7413b
+# Full Hash: a41351c7413bfac7319da4af8d7437d620f71da8
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2022-03-23 04:09:13
+# Regressor Bug: 1642412
+# File Overlap Count: 7
+# Description:
+#   Bug 1642412 - wasm: Implement a 'precise' post-write barrier in baseline. r=jseward
+#   
+#   Add a post-write barrier which will remove a previous store buffer entry if the
+#   new value stored in the field would not require it. This requires the previous
+#   value to be loaded before the store and propagated to the post-write barrier
+# ==============================================================================
+
+diff -r d190ffcf25bf -r a41351c7413b js/src/wasm/WasmBuiltins.cpp
+--- a/js/src/wasm/WasmBuiltins.cpp	Tue Mar 22 19:59:06 2022 +0000
++++ b/js/src/wasm/WasmBuiltins.cpp	Tue Mar 22 19:59:06 2022 +0000
+@@ -262,6 +262,12 @@
+     {_PTR, _PTR, _END}};
+ const SymbolicAddressSignature SASigPostBarrier = {
+     SymbolicAddress::PostBarrier, _VOID, _Infallible, 2, {_PTR, _PTR, _END}};
++const SymbolicAddressSignature SASigPostBarrierPrecise = {
++    SymbolicAddress::PostBarrierPrecise,
++    _VOID,
++    _Infallible,
++    3,
++    {_PTR, _PTR, _RoN, _END}};
+ const SymbolicAddressSignature SASigPostBarrierFiltering = {
+     SymbolicAddress::PostBarrierFiltering,
+     _VOID,
+@@ -1241,6 +1247,10 @@
+       *abiType = Args_Int32_GeneralGeneral;
+       MOZ_ASSERT(*abiType == ToABIType(SASigPostBarrier));
+       return FuncCast(Instance::postBarrier, *abiType);
++    case SymbolicAddress::PostBarrierPrecise:
++      *abiType = Args_Int32_GeneralGeneralGeneral;
++      MOZ_ASSERT(*abiType == ToABIType(SASigPostBarrierPrecise));
++      return FuncCast(Instance::postBarrierPrecise, *abiType);
+     case SymbolicAddress::PreBarrierFiltering:
+       *abiType = Args_Int32_GeneralGeneral;
+       MOZ_ASSERT(*abiType == ToABIType(SASigPreBarrierFiltering));
+@@ -1441,6 +1451,7 @@
+     case SymbolicAddress::RefFunc:
+     case SymbolicAddress::PreBarrierFiltering:
+     case SymbolicAddress::PostBarrier:
++    case SymbolicAddress::PostBarrierPrecise:
+     case SymbolicAddress::PostBarrierFiltering:
+     case SymbolicAddress::StructNew:
+ #ifdef ENABLE_WASM_EXCEPTIONS

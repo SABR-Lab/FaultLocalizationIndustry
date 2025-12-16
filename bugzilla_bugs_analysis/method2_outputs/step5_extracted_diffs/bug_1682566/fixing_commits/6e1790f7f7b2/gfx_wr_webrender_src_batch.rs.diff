@@ -1,0 +1,31 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/batch.rs
+# Commit: 6e1790f7f7b2
+# Full Hash: 6e1790f7f7b220f03d02e9fb3b7402dc8ef2a817
+# Author: Mike Hommey <mh+mozilla@glandium.org>
+# Date: 2020-12-17 21:49:27
+# Description:
+#   Bug 1682566 - Work around rust miscompilation in webrender on arm64 mac with bug 1682365. r=gw
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D99986
+# ==============================================================================
+
+diff -r 1e7cd648ecd5 -r 6e1790f7f7b2 gfx/wr/webrender/src/batch.rs
+--- a/gfx/wr/webrender/src/batch.rs	Thu Dec 17 10:09:15 2020 +0000
++++ b/gfx/wr/webrender/src/batch.rs	Thu Dec 17 10:04:18 2020 +0000
+@@ -1212,8 +1212,12 @@
+                     render_tasks,
+                 ).unwrap();
+ 
++                // The run.used_font.clone() is here instead of instead of inline in the `fetch_glyph`
++                // function call to work around a miscompilation.
++                // https://github.com/rust-lang/rust/issues/80111
++                let font = run.used_font.clone();
+                 ctx.resource_cache.fetch_glyphs(
+-                    run.used_font.clone(),
++                    font,
+                     &glyph_keys,
+                     &mut self.glyph_fetch_buffer,
+                     gpu_cache,

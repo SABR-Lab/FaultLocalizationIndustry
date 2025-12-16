@@ -1,0 +1,43 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit-test/tests/gc/bug-1600238.js
+# Commit: de01e89b8da0
+# Full Hash: de01e89b8da048e07de8fc47434ea0c4829337b2
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2019-12-03 16:06:17
+# Description:
+#   Bug 1600238 - Finalize FinalizationGroup objects in the foreground to avoid depdendency on when holdings objects are finalized r=sfink
+#   
+#   The holdings objects can be foreground or background finalized, but HeapPtr's destructor depends on the referent's arena to have not been released. Making FinalizationGroups foreground finalized achieves this.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D55302
+# ==============================================================================
+
+diff -r 492e2599e9ed -r de01e89b8da0 js/src/jit-test/tests/gc/bug-1600238.js
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/js/src/jit-test/tests/gc/bug-1600238.js	Mon Dec 02 22:33:45 2019 +0000
+@@ -0,0 +1,23 @@
++// |jit-test| --enable-weak-refs
++
++gczeal(0);
++newGlobal();
++nukeAllCCWs();
++function f() {
++    global = newGlobal({
++        newCompartment: true
++    });
++    try {
++        return global.eval("new FinalizationGroup(function(){})");
++    } catch (e) {
++        if (e instanceof TypeError && e.message.includes('dead')) {
++            // Creating a new CCW to the global fails with
++            // --more-compartments option.
++            quit();
++        }
++        throw e;
++    }
++}
++g = f();
++g.register({}, {}, {});
++startgc();

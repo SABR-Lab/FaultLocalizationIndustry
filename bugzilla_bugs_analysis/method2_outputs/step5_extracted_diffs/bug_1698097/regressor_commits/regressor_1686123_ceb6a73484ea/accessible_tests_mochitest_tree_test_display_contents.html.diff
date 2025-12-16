@@ -1,0 +1,66 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/tests/mochitest/tree/test_display_contents.html
+# Commit: ceb6a73484ea
+# Full Hash: ceb6a73484eada2cb70ca5255f5c9ce37ed73eae
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2021-03-09 09:49:21
+# Regressor Bug: 1686123
+# File Overlap Count: 1
+# Description:
+#   Bug 1686123: Fall back to ARIAGrid*Accessible for HTML table/tbody/thead/tr/td/th elements with no frame. r=morgan
+#   
+#   display: contents means there is no frame, which means we can't use HTMLTable*Accessible.
+#   However, we can (and should) use ARIAGrid*Accessible in this case.
+#   
+# ==============================================================================
+
+diff -r e682f4655ac9 -r ceb6a73484ea accessible/tests/mochitest/tree/test_display_contents.html
+--- a/accessible/tests/mochitest/tree/test_display_contents.html	Tue Mar 09 03:10:19 2021 +0200
++++ b/accessible/tests/mochitest/tree/test_display_contents.html	Tue Mar 09 00:27:44 2021 +0000
+@@ -28,6 +28,18 @@
+     ] };
+   testAccessibleTree("ul", tree);
+ 
++  tree =
++    { TABLE: [
++      { ROW: [
++        { CELL: [{ TEXT_LEAF: [] } ] },
++        { CELL: [{ TEXT_LEAF: [] } ] },
++      ]},
++    ] };
++  testAccessibleTree("tableTableContents", tree);
++  testAccessibleTree("tableTbodyContents", tree);
++  testAccessibleTree("tableTrContents", tree);
++  testAccessibleTree("tableTdContents", tree);
++
+   SimpleTest.finish();
+ }
+ 
+@@ -45,5 +57,25 @@
+     <li>Supermarket 1</li>
+     <li>Supermarket 2</li>
+   </ul>
++
++  <!-- The summary attribute in these tables ensures they are treated as data
++    tables. -->
++  <table id="tableTableContents" summary="summary" style="display: contents;">
++    <tr><td>a</td><td>b</td></tr>
++  </table>
++  <table id="tableTbodyContents" summary="summary" style="display: block;">
++    <tbody style="display: contents;">
++      <tr><td>a</td><td>b</td></tr>
++    </tbody>
++  </table>
++  <table id="tableTrContents" summary="table" style="display: block;">
++    <tr style="display: contents;"><td>a</td><td>b</td></tr>
++  </table>
++  <table id="tableTdContents" summary="summary">
++    <tr>
++      <td style="display: contents;">a</td>
++      <td style="display: contents;">b</td>
++    </tr>
++  </table>
+ </body>
+ </html>

@@ -1,0 +1,77 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/gl/GLContextProviderX11.cpp
+# Commit: fe7075f48cf0
+# Full Hash: fe7075f48cf031d5686b3268a0e738581721b386
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2020-07-23 03:20:25
+# Description:
+#   Bug 1650748 - Prevent DMABUF usage with GLX. r=nical
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D84256
+# ==============================================================================
+
+diff -r 36b357364a21 -r fe7075f48cf0 gfx/gl/GLContextProviderX11.cpp
+--- a/gfx/gl/GLContextProviderX11.cpp	Wed Jul 22 21:00:42 2020 +0000
++++ b/gfx/gl/GLContextProviderX11.cpp	Wed Jul 22 18:58:11 2020 +0000
+@@ -6,6 +6,7 @@
+ #include "prenv.h"
+ 
+ #include "GLContextProvider.h"
++#include "mozilla/gfx/gfxVars.h"
+ 
+ namespace mozilla::gl {
+ 
+@@ -15,14 +16,9 @@
+ static class GLContextProviderGLX sGLContextProviderGLX;
+ static class GLContextProviderEGL sGLContextProviderEGL;
+ 
+-static bool UseGLX() {
+-  static bool useGLX = !PR_GetEnv("MOZ_X11_EGL");
+-  return useGLX;
+-}
+-
+ already_AddRefed<GLContext> GLContextProviderX11::CreateWrappingExisting(
+     void* aContext, void* aSurface) {
+-  if (UseGLX()) {
++  if (!gfxVars::UseEGL()) {
+     return sGLContextProviderGLX.CreateWrappingExisting(aContext, aSurface);
+   } else {
+     return sGLContextProviderEGL.CreateWrappingExisting(aContext, aSurface);
+@@ -32,7 +28,7 @@
+ already_AddRefed<GLContext> GLContextProviderX11::CreateForCompositorWidget(
+     CompositorWidget* aCompositorWidget, bool aWebRender,
+     bool aForceAccelerated) {
+-  if (UseGLX()) {
++  if (!gfxVars::UseEGL()) {
+     return sGLContextProviderGLX.CreateForCompositorWidget(
+         aCompositorWidget, aWebRender, aForceAccelerated);
+   } else {
+@@ -44,7 +40,7 @@
+ /*static*/
+ already_AddRefed<GLContext> GLContextProviderX11::CreateHeadless(
+     const GLContextCreateDesc& desc, nsACString* const out_failureId) {
+-  if (UseGLX()) {
++  if (!gfxVars::UseEGL()) {
+     return sGLContextProviderGLX.CreateHeadless(desc, out_failureId);
+   } else {
+     return sGLContextProviderEGL.CreateHeadless(desc, out_failureId);
+@@ -53,7 +49,7 @@
+ 
+ /*static*/
+ GLContext* GLContextProviderX11::GetGlobalContext() {
+-  if (UseGLX()) {
++  if (!gfxVars::UseEGL()) {
+     return sGLContextProviderGLX.GetGlobalContext();
+   } else {
+     return sGLContextProviderEGL.GetGlobalContext();
+@@ -62,7 +58,7 @@
+ 
+ /*static*/
+ void GLContextProviderX11::Shutdown() {
+-  if (UseGLX()) {
++  if (!gfxVars::UseEGL()) {
+     sGLContextProviderGLX.Shutdown();
+   } else {
+     sGLContextProviderEGL.Shutdown();

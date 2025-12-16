@@ -1,0 +1,32 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmSignalHandlers.cpp
+# Commit: a072d5ee2511
+# Full Hash: a072d5ee251135b81716432bed6f5a7e185ad3c3
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-10-20 14:55:47
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 3: Implement the algorithm for obtaining tls and use it for wasm signal handling. r=lth
+#   
+#   This is the third part of series of patches to Frame without tls pointer.
+#   Here we preserve initial tls in all entry stubs and then use it to find a proper tls instance for a given frame.
+#   
+# ==============================================================================
+
+diff -r e8164759f391 -r a072d5ee2511 js/src/wasm/WasmSignalHandlers.cpp
+--- a/js/src/wasm/WasmSignalHandlers.cpp	Tue Oct 20 10:24:19 2020 +0000
++++ b/js/src/wasm/WasmSignalHandlers.cpp	Tue Oct 20 10:24:32 2020 +0000
+@@ -717,7 +717,9 @@
+   // due to this trap occurring in the indirect call prologue, while fp points
+   // to the caller's Frame which can be in a different Module. In any case,
+   // though, the containing JSContext is the same.
+-  Instance* instance = ((Frame*)ContextToFP(context))->instance();
++
++  auto* frame = reinterpret_cast<Frame*>(ContextToFP(context));
++  Instance* instance = GetNearestEffectiveTls(frame)->instance;
+   MOZ_RELEASE_ASSERT(&instance->code() == &segment.code() ||
+                      trap == Trap::IndirectCallBadSig);
+ 

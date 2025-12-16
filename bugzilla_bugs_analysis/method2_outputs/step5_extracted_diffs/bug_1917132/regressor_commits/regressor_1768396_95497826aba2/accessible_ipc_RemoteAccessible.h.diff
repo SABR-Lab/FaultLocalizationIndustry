@@ -1,0 +1,83 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/ipc/RemoteAccessible.h
+# Commit: 95497826aba2
+# Full Hash: 95497826aba24fdf743d0926c26e074a3ec11f40
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2024-09-04 09:55:13
+# Regressor Bug: 1768396
+# File Overlap Count: 2
+# Description:
+#   Bug 1768396: Cache IndexInParent on RemoteAccessible. r=nlapre
+#   
+#   Similar to LocalAccessible, IndexInParent is kept in an instance variable.
+#   Upon insertion or removal, the index is updated on all impacted children.
+#   
+# ==============================================================================
+
+diff -r 3138300cf7c8 -r 95497826aba2 accessible/ipc/RemoteAccessible.h
+--- a/accessible/ipc/RemoteAccessible.h	Wed Sep 04 01:57:51 2024 +0000
++++ b/accessible/ipc/RemoteAccessible.h	Wed Sep 04 02:22:43 2024 +0000
+@@ -41,6 +41,7 @@
+ 
+   void AddChildAt(uint32_t aIdx, RemoteAccessible* aChild) {
+     mChildren.InsertElementAt(aIdx, aChild);
++    UpdateChildIndexCache(static_cast<int32_t>(aIdx));
+     if (IsHyperText()) {
+       InvalidateCachedHyperTextOffsets();
+     }
+@@ -106,15 +107,8 @@
+     return RemotePrevSibling();
+   }
+ 
+-  // XXX evaluate if this is fast enough.
+-  virtual int32_t IndexInParent() const override {
+-    RemoteAccessible* parent = RemoteParent();
+-    if (!parent) {
+-      return -1;
+-    }
+-    return parent->mChildren.IndexOf(
+-        static_cast<const RemoteAccessible*>(this));
+-  }
++  virtual int32_t IndexInParent() const override { return mIndexInParent; }
++
+   virtual uint32_t EmbeddedChildCount() override;
+   virtual int32_t IndexOfEmbeddedChild(Accessible* aChild) override;
+   virtual Accessible* EmbeddedChildAt(uint32_t aChildIdx) override;
+@@ -129,6 +123,9 @@
+    */
+   void RemoveChild(RemoteAccessible* aChild) {
+     mChildren.RemoveElement(aChild);
++    MOZ_ASSERT(aChild->mIndexInParent != -1);
++    UpdateChildIndexCache(aChild->mIndexInParent);
++    aChild->mIndexInParent = -1;
+     if (IsHyperText()) {
+       InvalidateCachedHyperTextOffsets();
+     }
+@@ -479,6 +476,17 @@
+   virtual nsTArray<int32_t>& GetCachedHyperTextOffsets() override;
+ 
+  private:
++  /**
++   * Update mIndexInParent on each child starting at aStartIdx up to the last
++   * child. This should be called when a child is added or removed.
++   */
++  void UpdateChildIndexCache(int32_t aStartIdx) {
++    int32_t count = static_cast<int32_t>(mChildren.Length());
++    for (int32_t idx = aStartIdx; idx < count; ++idx) {
++      mChildren[idx]->mIndexInParent = idx;
++    }
++  }
++
+   RemoteAccessible* mParent;
+ 
+   friend DocAccessibleParent;
+@@ -494,6 +502,7 @@
+   DocAccessibleParent* mDoc;
+   uintptr_t mWrapper;
+   uint64_t mID;
++  int32_t mIndexInParent = -1;
+ 
+  protected:
+   virtual const Accessible* Acc() const override { return this; }

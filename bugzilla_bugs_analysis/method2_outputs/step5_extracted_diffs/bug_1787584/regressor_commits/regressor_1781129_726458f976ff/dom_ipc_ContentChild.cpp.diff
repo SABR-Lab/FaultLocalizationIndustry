@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentChild.cpp
+# Commit: 726458f976ff
+# Full Hash: 726458f976fff2b05bb0eaf7e940cd7be06d75f5
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2022-08-03 03:42:48
+# Regressor Bug: 1781129
+# File Overlap Count: 1
+# Description:
+#   Bug 1781129 - Part 1: Use BigBuffer for IPCDataTransfer, r=edgar
+#   
+#   The IPCDataTransfer type is used to transfer Clipboard/Drag & Drop payloads
+#   over IPC to allow them to be written to or read from the relevant system
+#   interfaces. Previously, the system which was used was somewhat complex, and
+# ==============================================================================
+
+diff -r 1aa5ec22f47a -r 726458f976ff dom/ipc/ContentChild.cpp
+--- a/dom/ipc/ContentChild.cpp	Tue Aug 02 17:08:59 2022 +0000
++++ b/dom/ipc/ContentChild.cpp	Tue Aug 02 17:15:41 2022 +0000
+@@ -3156,7 +3156,7 @@
+       for (uint32_t i = 0; i < aTransfers.Length() && !hasFiles; ++i) {
+         auto& items = aTransfers[i].items();
+         for (uint32_t j = 0; j < items.Length() && !hasFiles; ++j) {
+-          if (items[j].data().type() == IPCDataTransferData::TIPCBlob) {
++          if (items[j].data().type() == IPCDataTransferData::TIPCDataTransferBlob) {
+             hasFiles = true;
+           }
+         }
+@@ -3179,7 +3179,7 @@
+           // We should hide this data from content if we have a file, and we
+           // aren't a file.
+           bool hidden =
+-              hasFiles && item.data().type() != IPCDataTransferData::TIPCBlob;
++              hasFiles && item.data().type() != IPCDataTransferData::TIPCDataTransferBlob;
+           dataTransfer->SetDataWithPrincipalFromOtherProcess(
+               NS_ConvertUTF8toUTF16(item.flavor()), variant, i,
+               nsContentUtils::GetSystemPrincipal(), hidden);

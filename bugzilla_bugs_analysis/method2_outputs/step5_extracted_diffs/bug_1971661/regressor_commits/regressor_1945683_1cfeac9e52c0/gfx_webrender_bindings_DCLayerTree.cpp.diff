@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/webrender_bindings/DCLayerTree.cpp
+# Commit: 1cfeac9e52c0
+# Full Hash: 1cfeac9e52c09a98fb1a38c4b381c49aeded2ac3
+# Author: Atila Butkovits <abutkovits@mozilla.com>
+# Date: 2025-06-16 21:40:59
+# Regressor Bug: 1945683
+# File Overlap Count: 1
+# Description:
+#   Revert "Bug 1945683 - Enable layer compositor on Windows in Nightly r=gfx-reviewers,lsalzman" for causing performance regression in a critical test (speedometer3).
+#   
+#   This reverts commit 585b6fd1d4d2c46be6cba8c2efea6200be8bc70d.
+# ==============================================================================
+
+diff -r da09dea47f05 -r 1cfeac9e52c0 gfx/webrender_bindings/DCLayerTree.cpp
+--- a/gfx/webrender_bindings/DCLayerTree.cpp	Mon Jun 16 10:05:03 2025 +0000
++++ b/gfx/webrender_bindings/DCLayerTree.cpp	Mon Jun 16 15:21:05 2025 +0300
+@@ -547,8 +547,13 @@
+ }
+ 
+ bool DCLayerTree::UseLayerCompositor() const {
++// Only allow the layer compositor in nightly builds, for now.
++#ifdef NIGHTLY_BUILD
+   return UseNativeCompositor() &&
+          StaticPrefs::gfx_webrender_layer_compositor_AtStartup();
++#else
++  return false;
++#endif
+ }
+ 
+ void DCLayerTree::DisableNativeCompositor() {

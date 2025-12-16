@@ -1,0 +1,37 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/GC.cpp
+# Commit: 5fa2ef9fb2f6
+# Full Hash: 5fa2ef9fb2f60fb8370a3b210e6f3d585c65b107
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2022-10-29 09:50:10
+# Regressor Bug: 1797755
+# File Overlap Count: 1
+# Description:
+#   Bug 1797755 - Part 5: Use a single initial mark stack size regardless of whether incremental GC is enabled r=sfink
+#   
+#   Currently we initialize the mark stack to a different size depending on whether
+#   or not incremental GC is enable. However, after the first GC we always shrink
+#   it to the initial size when it is disabled.
+# ==============================================================================
+
+diff -r 453aa2faad97 -r 5fa2ef9fb2f6 js/src/gc/GC.cpp
+--- a/js/src/gc/GC.cpp	Fri Oct 28 15:17:43 2022 +0000
++++ b/js/src/gc/GC.cpp	Fri Oct 28 15:17:43 2022 +0000
+@@ -465,7 +465,6 @@
+       nursery_(this),
+       storeBuffer_(rt, nursery()),
+       lastAllocRateUpdateTime(TimeStamp::Now()) {
+-  marker.setIncrementalGCEnabled(incrementalGCEnabled);
+ }
+ 
+ using CharRange = mozilla::Range<const char>;
+@@ -1231,7 +1230,6 @@
+ 
+ void GCRuntime::setIncrementalGCEnabled(bool enabled) {
+   incrementalGCEnabled = enabled;
+-  marker.setIncrementalGCEnabled(enabled);
+ }
+ 
+ void GCRuntime::updateHelperThreadCount() {

@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/ipc/DocumentChannelParent.cpp
+# Commit: fbf55a44d7fb
+# Full Hash: fbf55a44d7fb72908eeb5d041b70ce2c503a2532
+# Author: Anny Gakhokidze <agakhokidze@mozilla.com>
+# Date: 2020-04-15 04:09:17
+# Regressor Bug: 1594529
+# File Overlap Count: 1
+# Description:
+#   Bug 1594529 - Create LoadInfo for subdocuments directly in parent process with DocumentChannel. r=mattwoodrow,nika
+#   
+#   Currently, with Fission enabled we are not able to create a proper LoadInfo
+#   object when doing a subdocument load because we do not have access to a loading
+#   context if the load is happening inside of an OOP frame. To solve this problem,
+# ==============================================================================
+
+diff -r 4ba9a230586a -r fbf55a44d7fb netwerk/ipc/DocumentChannelParent.cpp
+--- a/netwerk/ipc/DocumentChannelParent.cpp	Mon Apr 13 22:41:37 2020 +0000
++++ b/netwerk/ipc/DocumentChannelParent.cpp	Mon Apr 13 23:00:43 2020 +0000
+@@ -39,19 +39,13 @@
+   LOG(("DocumentChannelParent Init [this=%p, uri=%s]", this,
+        loadState->URI()->GetSpecOrDefault().get()));
+ 
+-  RefPtr<class LoadInfo> loadInfo;
+-  nsresult rv = mozilla::ipc::LoadInfoArgsToLoadInfo(Some(aArgs.loadInfo()),
+-                                                     getter_AddRefs(loadInfo));
+-
+   Maybe<ClientInfo> clientInfo;
+   if (aArgs.initialClientInfo().isSome()) {
+     clientInfo.emplace(ClientInfo(aArgs.initialClientInfo().ref()));
+   }
+ 
+-  MOZ_ASSERT(NS_SUCCEEDED(rv));
+-
+-  rv = NS_ERROR_UNEXPECTED;
+-  if (!mParent->Open(loadState, loadInfo, aArgs.loadFlags(), aArgs.cacheKey(),
++  nsresult rv = NS_ERROR_UNEXPECTED;
++  if (!mParent->Open(loadState, aArgs.loadFlags(), aArgs.cacheKey(),
+                      aArgs.channelId(), aArgs.asyncOpenTime(),
+                      aArgs.timing().refOr(nullptr), std::move(clientInfo),
+                      aArgs.outerWindowId(), aArgs.hasValidTransientUserAction(),

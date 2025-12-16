@@ -1,0 +1,31 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender_api/src/image.rs
+# Commit: bd37586e34ed
+# Full Hash: bd37586e34edc0cbed96810cfb3ca4cc26a5beca
+# Author: Nicolas Silva <nsilva@mozilla.com>
+# Date: 2024-08-07 16:09:36
+# Regressor Bug: 1903977
+# File Overlap Count: 1
+# Description:
+#   Bug 1903977 - Add a blob tile pool. r=gfx-reviewers,gw
+#   
+#   The tile pool keeps a strong reference to all of its allocations and reuses them when their reference count gets down to one.
+#   Jemalloc only uses thread-local arenas for small allocations (<496 bytes) so it does not matter what thread the blob tiles which are typically much larger, are deallocated in.
+#   
+# ==============================================================================
+
+diff -r b5fdb1567624 -r bd37586e34ed gfx/wr/webrender_api/src/image.rs
+--- a/gfx/wr/webrender_api/src/image.rs	Wed Aug 07 07:13:59 2024 +0000
++++ b/gfx/wr/webrender_api/src/image.rs	Wed Aug 07 07:17:19 2024 +0000
+@@ -421,7 +421,8 @@
+     fn rasterize(
+         &mut self,
+         requests: &[BlobImageParams],
+-        low_priority: bool
++        low_priority: bool,
++        tile_pool: &mut crate::BlobTilePool,
+     ) -> Vec<(BlobImageRequest, BlobImageResult)>;
+ }
+ 

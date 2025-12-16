@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/test/browser_language_override.js
+# Commit: 33dcf5c2e643
+# Full Hash: 33dcf5c2e643b94e90a0a197c99112a080501a12
+# Author: Alexandra Borovova <aborovova@mozilla.com>
+# Date: 2025-08-20 09:57:21
+# Regressor Bug: 1980211
+# File Overlap Count: 2
+# Description:
+#   Bug 1980211 - Attach locale override to Realm instead of setting it in the process. r=dom-core,smaug,tschuster
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D260169
+# ==============================================================================
+
+diff -r 2cb7ca176216 -r 33dcf5c2e643 dom/base/test/browser_language_override.js
+--- a/dom/base/test/browser_language_override.js	Tue Aug 19 16:57:59 2025 +0000
++++ b/dom/base/test/browser_language_override.js	Tue Aug 19 17:01:50 2025 +0000
+@@ -41,6 +41,33 @@
+   BrowserTestUtils.removeTab(tab);
+ });
+ 
++add_task(async function test_set_language_override_and_navigate() {
++  const tab = BrowserTestUtils.addTab(gBrowser, PAGE_URL);
++  const browser = gBrowser.getBrowserForTab(tab);
++
++  await BrowserTestUtils.browserLoaded(browser);
++
++  info("Get default language");
++  const defaultLanguage = await getIntlLanguage(browser);
++
++  const browsingContext = browser.browsingContext;
++
++  const languageOverride = getLanguageToOverride(defaultLanguage);
++
++  info("Set language override");
++  browsingContext.languageOverride = languageOverride;
++  await assertLanguageOverridden(browser, languageOverride);
++
++  info("Navigate browsing context");
++  const url = "https://example.com/chrome/dom/base/test/dummy.html";
++  const loaded = BrowserTestUtils.browserLoaded(browser, false, url, false);
++  BrowserTestUtils.startLoadingURIString(browser, url);
++  await loaded;
++  await assertLanguageOverridden(browser, languageOverride);
++
++  BrowserTestUtils.removeTab(tab);
++});
++
+ add_task(async function test_set_language_override_in_different_contexts() {
+   const tab1 = BrowserTestUtils.addTab(gBrowser, PAGE_URL);
+   const browser1 = gBrowser.getBrowserForTab(tab1);
+@@ -89,7 +116,7 @@
+ 
+ async function getIntlLanguage(browser) {
+   return SpecialPowers.spawn(browser, [], () => {
+-    return new Intl.DateTimeFormat().resolvedOptions().locale;
++    return content.eval(`Intl.DateTimeFormat().resolvedOptions().locale`);
+   });
+ }
+ 

@@ -1,0 +1,96 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/RangeUtils.cpp
+# Commit: 15ccf86bce5a
+# Full Hash: 15ccf86bce5a786e4cbda785e186a2efd342b293
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2025-05-08 04:32:48
+# Regressor Bug: 1932150
+# File Overlap Count: 2
+# Description:
+#   Bug 1932150 - Fix some inconsistency about indicating whether the selection is allowed to cross the shadow boundary r=jjaschke,dom-core
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D246949
+# ==============================================================================
+
+diff -r 40f9fe959b19 -r 15ccf86bce5a dom/base/RangeUtils.cpp
+--- a/dom/base/RangeUtils.cpp	Wed May 07 15:04:40 2025 +0000
++++ b/dom/base/RangeUtils.cpp	Wed May 07 15:05:08 2025 +0000
+@@ -266,47 +266,52 @@
+ 
+ // static
+ nsINode* ShadowDOMSelectionHelpers::GetStartContainer(
+-    const AbstractRange* aRange, bool aAllowCrossShadowBoundary) {
++    const AbstractRange* aRange,
++    AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary) {
+   MOZ_ASSERT(aRange);
+   return (StaticPrefs::dom_shadowdom_selection_across_boundary_enabled() &&
+-          aAllowCrossShadowBoundary)
++          aAllowCrossShadowBoundary == AllowRangeCrossShadowBoundary::Yes)
+              ? aRange->GetMayCrossShadowBoundaryStartContainer()
+              : aRange->GetStartContainer();
+ }
+ 
+ // static
+ uint32_t ShadowDOMSelectionHelpers::StartOffset(
+-    const AbstractRange* aRange, bool aAllowCrossShadowBoundary) {
++    const AbstractRange* aRange,
++    AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary) {
+   MOZ_ASSERT(aRange);
+   return (StaticPrefs::dom_shadowdom_selection_across_boundary_enabled() &&
+-          aAllowCrossShadowBoundary)
++          aAllowCrossShadowBoundary == AllowRangeCrossShadowBoundary::Yes)
+              ? aRange->MayCrossShadowBoundaryStartOffset()
+              : aRange->StartOffset();
+ }
+ 
+ // static
+ nsINode* ShadowDOMSelectionHelpers::GetEndContainer(
+-    const AbstractRange* aRange, bool aAllowCrossShadowBoundary) {
++    const AbstractRange* aRange,
++    AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary) {
+   MOZ_ASSERT(aRange);
+   return (StaticPrefs::dom_shadowdom_selection_across_boundary_enabled() &&
+-          aAllowCrossShadowBoundary)
++          aAllowCrossShadowBoundary == AllowRangeCrossShadowBoundary::Yes)
+              ? aRange->GetMayCrossShadowBoundaryEndContainer()
+              : aRange->GetEndContainer();
+ }
+ 
+ // static
+-uint32_t ShadowDOMSelectionHelpers::EndOffset(const AbstractRange* aRange,
+-                                              bool aAllowCrossShadowBoundary) {
++uint32_t ShadowDOMSelectionHelpers::EndOffset(
++    const AbstractRange* aRange,
++    AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary) {
+   MOZ_ASSERT(aRange);
+   return (StaticPrefs::dom_shadowdom_selection_across_boundary_enabled() &&
+-          aAllowCrossShadowBoundary)
++          aAllowCrossShadowBoundary == AllowRangeCrossShadowBoundary::Yes)
+              ? aRange->MayCrossShadowBoundaryEndOffset()
+              : aRange->EndOffset();
+ }
+ 
+ // static
+ nsINode* ShadowDOMSelectionHelpers::GetParentNodeInSameSelection(
+-    nsINode& aNode, bool aAllowCrossShadowBoundary) {
++    const nsINode& aNode,
++    AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary) {
+   if (!ParentNodeIsInSameSelection(aNode)) {
+     return nullptr;
+   }
+@@ -318,10 +323,11 @@
+ 
+ // static
+ ShadowRoot* ShadowDOMSelectionHelpers::GetShadowRoot(
+-    const nsINode* aNode, bool aAllowCrossShadowBoundary) {
++    const nsINode* aNode,
++    AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary) {
+   MOZ_ASSERT(aNode);
+   return (StaticPrefs::dom_shadowdom_selection_across_boundary_enabled() &&
+-          aAllowCrossShadowBoundary)
++          aAllowCrossShadowBoundary == AllowRangeCrossShadowBoundary::Yes)
+              ? aNode->GetShadowRootForSelection()
+              : nullptr;
+ }  // namespace dom

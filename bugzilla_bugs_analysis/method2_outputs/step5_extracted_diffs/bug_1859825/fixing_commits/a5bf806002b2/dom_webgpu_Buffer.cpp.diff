@@ -1,0 +1,49 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/webgpu/Buffer.cpp
+# Commit: a5bf806002b2
+# Full Hash: a5bf806002b2602576d298b336972bb453d55f4d
+# Author: Brad Werth <bwerth@mozilla.com>
+# Date: 2023-10-23 21:53:18
+# Description:
+#   Bug 1859825: Ensure that WebGPU Buffers are only dropped once. r=webgpu-reviewers,nical
+#   
+#   In addition to moving the valid check earlier in Buffer::Drop, this
+#   patch also ensures that Device clears the tracked buffers set after they
+#   have been unmapped, and cleans up the error handling in Device::GetLost.
+# ==============================================================================
+
+diff -r f222bdcd6517 -r a5bf806002b2 dom/webgpu/Buffer.cpp
+--- a/dom/webgpu/Buffer.cpp	Mon Oct 23 15:45:23 2023 +0000
++++ b/dom/webgpu/Buffer.cpp	Mon Oct 23 15:48:55 2023 +0000
+@@ -133,6 +133,12 @@
+ }
+ 
+ void Buffer::Drop() {
++  if (!mValid) {
++    return;
++  }
++
++  mValid = false;
++
+   AbortMapRequest();
+ 
+   if (mMapped && !mMapped->mArrayBuffers.IsEmpty()) {
+@@ -146,13 +152,11 @@
+   }
+   mMapped.reset();
+ 
+-  if (mValid && GetDevice().IsBridgeAlive()) {
++  GetDevice().UntrackBuffer(this);
++
++  if (GetDevice().IsBridgeAlive()) {
+     GetDevice().GetBridge()->SendBufferDrop(mId);
+   }
+-
+-  GetDevice().UntrackBuffer(this);
+-
+-  mValid = false;
+ }
+ 
+ void Buffer::SetMapped(BufferAddress aOffset, BufferAddress aSize,

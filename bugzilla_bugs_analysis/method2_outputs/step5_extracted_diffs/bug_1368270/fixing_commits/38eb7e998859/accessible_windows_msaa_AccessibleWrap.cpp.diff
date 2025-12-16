@@ -1,0 +1,32 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: accessible/windows/msaa/AccessibleWrap.cpp
+# Commit: 38eb7e998859
+# Full Hash: 38eb7e99885965254de8ab4540713961780ff1a5
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2020-07-23 16:21:22
+# Description:
+#   Bug 1368270: When shutting down Windows AccessibleWraps, don't clear the id. r=MarcoZ
+#   
+#   When an Accessible is shut down, there might still be external references to it, so we keep the instance alive.
+#   We don't want to reuse the id until all references are released, so we only release the id in the destructor (which runs when all references are released).
+#   Previously, we were clearing the id variable in Shutdown, which meant we couldn't release the id in the destructor!
+# ==============================================================================
+
+diff -r 1e65b41655c4 -r 38eb7e998859 accessible/windows/msaa/AccessibleWrap.cpp
+--- a/accessible/windows/msaa/AccessibleWrap.cpp	Thu Jul 23 12:57:50 2020 +0000
++++ b/accessible/windows/msaa/AccessibleWrap.cpp	Thu Jul 23 11:18:57 2020 +0000
+@@ -91,10 +91,10 @@
+ void AccessibleWrap::Shutdown() {
+   if (mID != kNoID) {
+     auto doc = static_cast<DocAccessibleWrap*>(mDoc.get());
+-    MOZ_ASSERT(doc);
++    // Accessibles can be shut down twice in some cases. When this happens,
++    // doc will be null.
+     if (doc) {
+       doc->RemoveID(mID);
+-      mID = kNoID;
+     }
+   }
+ 

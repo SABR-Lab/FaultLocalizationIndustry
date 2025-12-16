@@ -1,0 +1,90 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/WorkerPrivate.h
+# Commit: 7802e5f1bd13
+# Full Hash: 7802e5f1bd1395f19f2d78636787c41f64192bd7
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2024-04-19 15:22:44
+# Regressor Bug: 1769913
+# File Overlap Count: 3
+# Description:
+#   Bug 1769913 - P3 Remove WorkerRunnable::mWorkerPrivate. r=dom-worker-reviewers,asuth
+#   
+#   WorkerRunnable no longer keeps a raw pointer(mWorkerPrivate) for the associated WorkerPrivate in this patch.
+#   Removing the WorkerRunnable::mWorkerPrivate needs to fix the following problems.
+#   
+# ==============================================================================
+
+diff -r ffc69aa8f2c3 -r 7802e5f1bd13 dom/workers/WorkerPrivate.h
+--- a/dom/workers/WorkerPrivate.h	Fri Apr 19 09:41:57 2024 +0000
++++ b/dom/workers/WorkerPrivate.h	Fri Apr 19 09:41:58 2024 +0000
+@@ -85,6 +85,7 @@
+ class WorkerErrorReport;
+ class WorkerEventTarget;
+ class WorkerGlobalScope;
++class WorkerParentRef;
+ class WorkerRef;
+ class WorkerRunnable;
+ class WorkerDebuggeeRunnable;
+@@ -1173,6 +1174,8 @@
+   // Worker thread only.
+   void AdjustNonblockingCCBackgroundActorCount(int32_t aCount);
+ 
++  RefPtr<WorkerParentRef> GetWorkerParentRef() const;
++
+  private:
+   WorkerPrivate(
+       WorkerPrivate* aParent, const nsAString& aScriptURL, bool aIsChromeWorker,
+@@ -1626,6 +1629,8 @@
+   // This flag is used to ensure we only call NotifyStorageKeyUsed once per
+   // global.
+   bool hasNotifiedStorageKeyUsed{false};
++
++  RefPtr<WorkerParentRef> mParentRef;
+ };
+ 
+ class AutoSyncLoopHolder {
+@@ -1666,6 +1671,42 @@
+   }
+ };
+ 
++/**
++ * WorkerParentRef is a RefPtr<WorkerPrivate> wrapper for cross-thread access.
++ * WorkerPrivate needs to be accessed in multiple threads; for example,
++ * in WorkerParentThreadRunnable, the associated WorkerPrivate must be accessed
++ * in the worker thread when creating/dispatching and in the parent thread when
++ * executing. Unfortunately, RefPtr can not be used on this WorkerPrivate since
++ * it is not a thread-safe ref-counted object.
++ *
++ * Instead of using a raw pointer and a complicated mechanism to ensure the
++ * WorkerPrivate's accessibility. WorkerParentRef is used to resolve the
++ * problem. WorkerParentRef has a RefPtr<WorkerPrivate> mWorkerPrivate
++ * initialized on the parent thread when WorkerPrivate::Constructor().
++ * WorkerParentRef is a thread-safe ref-counted object that can be copied at
++ * any thread by WorkerPrivate::GetWorkerParentRef() and propagated to other
++ * threads. In the target thread, call WorkerParentRef::Private() to get the
++ * reference for WorkerPrivate or get a nullptr if the Worker has shut down.
++ *
++ * Since currently usage cases, WorkerParentRef::Private() will assert to be on
++ * the parent thread.
++ */
++class WorkerParentRef final {
++ public:
++  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(WorkerParentRef);
++
++  explicit WorkerParentRef(RefPtr<WorkerPrivate>& aWorkerPrivate);
++
++  const RefPtr<WorkerPrivate>& Private() const;
++
++  void DropWorkerPrivate();
++
++ private:
++  ~WorkerParentRef();
++
++  RefPtr<WorkerPrivate> mWorkerPrivate;
++};
++
+ }  // namespace dom
+ }  // namespace mozilla
+ 

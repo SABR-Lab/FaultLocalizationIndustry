@@ -1,0 +1,69 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/ActorsChild.cpp
+# Commit: 6efa98635cf4
+# Full Hash: 6efa98635cf43505a16b8996280cf6e6014498cf
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2020-05-06 16:28:18
+# Regressor Bug: 1623278
+# File Overlap Count: 1
+# Description:
+#   Bug 1623278 - Make transaction actors refcounted. r=dom-workers-and-storage-reviewers,nika,janv
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D71933
+# ==============================================================================
+
+diff -r 1d3ade580cab -r 6efa98635cf4 dom/indexedDB/ActorsChild.cpp
+--- a/dom/indexedDB/ActorsChild.cpp	Wed May 06 12:08:51 2020 +0000
++++ b/dom/indexedDB/ActorsChild.cpp	Wed May 06 12:20:32 2020 +0000
+@@ -1919,23 +1919,7 @@
+   return true;
+ }
+ 
+-PBackgroundIDBTransactionChild*
+-BackgroundDatabaseChild::AllocPBackgroundIDBTransactionChild(
+-    const nsTArray<nsString>& aObjectStoreNames, const Mode& aMode) {
+-  MOZ_CRASH(
+-      "PBackgroundIDBTransactionChild actors should be manually "
+-      "constructed!");
+-}
+-
+-bool BackgroundDatabaseChild::DeallocPBackgroundIDBTransactionChild(
+-    PBackgroundIDBTransactionChild* aActor) {
+-  MOZ_ASSERT(aActor);
+-
+-  delete static_cast<BackgroundTransactionChild*>(aActor);
+-  return true;
+-}
+-
+-PBackgroundIDBVersionChangeTransactionChild*
++already_AddRefed<PBackgroundIDBVersionChangeTransactionChild>
+ BackgroundDatabaseChild::AllocPBackgroundIDBVersionChangeTransactionChild(
+     const uint64_t aCurrentVersion, const uint64_t aRequestedVersion,
+     const int64_t aNextObjectStoreId, const int64_t aNextIndexId) {
+@@ -1944,7 +1928,7 @@
+   IDBOpenDBRequest* request = mOpenRequestActor->GetOpenDBRequest();
+   MOZ_ASSERT(request);
+ 
+-  return new BackgroundVersionChangeTransactionChild(request);
++  return RefPtr{new BackgroundVersionChangeTransactionChild(request)}.forget();
+ }
+ 
+ mozilla::ipc::IPCResult
+@@ -1991,15 +1975,6 @@
+   return IPC_OK();
+ }
+ 
+-bool BackgroundDatabaseChild::
+-    DeallocPBackgroundIDBVersionChangeTransactionChild(
+-        PBackgroundIDBVersionChangeTransactionChild* aActor) {
+-  MOZ_ASSERT(aActor);
+-
+-  delete static_cast<BackgroundVersionChangeTransactionChild*>(aActor);
+-  return true;
+-}
+-
+ PBackgroundMutableFileChild*
+ BackgroundDatabaseChild::AllocPBackgroundMutableFileChild(
+     const nsString& aName, const nsString& aType) {

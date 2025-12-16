@@ -1,0 +1,40 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsRange.cpp
+# Commit: a6c95ed12e51
+# Full Hash: a6c95ed12e514ccf3e43f7cf11dfa317ab376543
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2024-04-11 21:36:48
+# Description:
+#   Bug 1890888 - Fix a crash where mCrossShadowBoundaryRange is not clear when the shadow host is removed r=smaug
+#   
+#   If the end point is at a shadow root, and the corresponding host node is
+#   removed from DOM, we should clear this mCrossShadowBoundaryRange for it.
+#   
+# ==============================================================================
+
+diff -r 86827dc0b95b -r a6c95ed12e51 dom/base/nsRange.cpp
+--- a/dom/base/nsRange.cpp	Thu Apr 11 12:10:52 2024 -0400
++++ b/dom/base/nsRange.cpp	Thu Apr 11 16:21:19 2024 +0000
+@@ -696,10 +696,16 @@
+   // FIXME(sefeng): Temporary Solution for ContentRemoved
+   // editing/crashtests/removeformat-from-DOMNodeRemoved.html can be used to
+   // verify this.
+-  if (mCrossShadowBoundaryRange &&
+-      (mCrossShadowBoundaryRange->GetStartContainer() == aChild ||
+-       mCrossShadowBoundaryRange->GetEndContainer() == aChild)) {
+-    ResetCrossShadowBoundaryRange();
++  if (mCrossShadowBoundaryRange) {
++    if (mCrossShadowBoundaryRange->GetStartContainer() == aChild ||
++        mCrossShadowBoundaryRange->GetEndContainer() == aChild) {
++      ResetCrossShadowBoundaryRange();
++    } else if (ShadowRoot* shadowRoot = aChild->GetShadowRoot()) {
++      if (mCrossShadowBoundaryRange->GetStartContainer() == shadowRoot ||
++          mCrossShadowBoundaryRange->GetEndContainer() == shadowRoot) {
++        ResetCrossShadowBoundaryRange();
++      }
++    }
+   }
+ 
+   RawRangeBoundary newStart;

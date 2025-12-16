@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/GlobalObject.h
+# Commit: cab0e02d59e1
+# Full Hash: cab0e02d59e1b9b8ebff156bb63128aa4e8d8c5c
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2021-09-15 15:26:38
+# Regressor Bug: 1730699
+# File Overlap Count: 1
+# Description:
+#   Bug 1730699 part 2 - Cache empty iterator on the global. r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D125552
+# ==============================================================================
+
+diff -r c7eae2ddd714 -r cab0e02d59e1 js/src/vm/GlobalObject.h
+--- a/js/src/vm/GlobalObject.h	Wed Sep 15 09:20:44 2021 +0000
++++ b/js/src/vm/GlobalObject.h	Wed Sep 15 09:20:45 2021 +0000
+@@ -55,6 +55,7 @@
+ class GlobalScope;
+ class GlobalLexicalEnvironmentObject;
+ class PlainObject;
++class PropertyIteratorObject;
+ class RegExpStatics;
+ 
+ // Fixed slot capacities for PlainObjects. The global has a cached Shape for
+@@ -183,6 +184,9 @@
+   // The unique %eval% function (for indirect eval) for this global.
+   HeapPtr<JSFunction*> eval;
+ 
++  // Empty iterator object used for for-in with null/undefined.
++  HeapPtr<PropertyIteratorObject*> emptyIterator;
++
+   // Cached shape for new arrays with Array.prototype as prototype.
+   HeapPtr<Shape*> arrayShapeWithDefaultProto;
+ 
+@@ -1085,6 +1089,8 @@
+   static Shape* createFunctionShapeWithDefaultProto(JSContext* cx,
+                                                     bool extended);
+ 
++  static PropertyIteratorObject* getOrCreateEmptyIterator(JSContext* cx);
++
+   // Returns an object that represents the realm, used by embedder.
+   static JSObject* getOrCreateRealmKeyObject(JSContext* cx,
+                                              Handle<GlobalObject*> global);

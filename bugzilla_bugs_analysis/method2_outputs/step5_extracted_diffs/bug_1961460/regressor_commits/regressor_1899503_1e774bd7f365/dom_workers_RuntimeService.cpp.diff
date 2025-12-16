@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/RuntimeService.cpp
+# Commit: 1e774bd7f365
+# Full Hash: 1e774bd7f36525a03b6260b1cd7741bcf4e5f622
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2025-04-09 04:12:49
+# Regressor Bug: 1899503
+# File Overlap Count: 4
+# Description:
+#   Bug 1899503 - P3 PRemoteWorkerDebugger binding implementation. r=asuth
+#   
+#   This patch implements the PRemoteWorkerDebugger binding.
+#   
+#   We are trying to keep the same logic debugger registration/unregistration to minimize the difference between the local debugger(the debugger on the content process main thread)
+# ==============================================================================
+
+diff -r b003e26209cf -r 1e774bd7f365 dom/workers/RuntimeService.cpp
+--- a/dom/workers/RuntimeService.cpp	Tue Apr 08 09:43:33 2025 +0000
++++ b/dom/workers/RuntimeService.cpp	Tue Apr 08 09:43:33 2025 +0000
+@@ -1195,6 +1195,8 @@
+     }
+   }
+ 
++  aWorkerPrivate.SetIsQueued(queued);
++
+   // From here on out we must call UnregisterWorker if something fails!
+   if (parent) {
+     if (!parent->AddChildWorker(aWorkerPrivate)) {
+@@ -1362,6 +1364,7 @@
+ 
+   aWorkerPrivate.SetThread(thread.unsafeGetRawPtr());
+   JSContext* cx = CycleCollectedJSContext::Get()->Context();
++
+   nsCOMPtr<nsIRunnable> runnable = new WorkerThreadPrimaryRunnable(
+       &aWorkerPrivate, thread.clonePtr(), JS_GetParentRuntime(cx));
+   if (NS_FAILED(
+@@ -1370,6 +1373,12 @@
+     return false;
+   }
+ 
++  // The worker was queued when creating, so enable remote debugger now.
++  if (aWorkerPrivate.IsQueued()) {
++    aWorkerPrivate.SetIsQueued(false);
++    aWorkerPrivate.EnableRemoteDebugger();
++  }
++
+   return true;
+ }
+ 
+@@ -2162,6 +2171,11 @@
+       }
+ 
+       failureCleanup.release();
++
++      // Binding the RemoteWorkerDebugger child endpoint after initailzation
++      // successfully.
++      // mWorkerPrivate->BindRemoteWorkerDebuggerChild();
++
+       runLoopRan = true;
+ 
+       {

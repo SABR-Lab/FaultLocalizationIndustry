@@ -1,0 +1,36 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/xpconnect/src/XPCJSContext.cpp
+# Commit: 5c5cf716aa0b
+# Full Hash: 5c5cf716aa0b01aecd8702254427825c9de1b8fa
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2023-06-08 03:42:08
+# Regressor Bug: 1835876
+# File Overlap Count: 1
+# Description:
+#   Bug 1835876 part 2 - Disable code write protection in content processes. r=nbp
+#   
+#   We've worked with the security and performance teams to re-evaluate the W^X policy
+#   we have in place to mark JIT code memory pages as either writable or executable
+#   (but not both).
+# ==============================================================================
+
+diff -r 028f981600d7 -r 5c5cf716aa0b js/xpconnect/src/XPCJSContext.cpp
+--- a/js/xpconnect/src/XPCJSContext.cpp	Wed Jun 07 16:34:51 2023 +0000
++++ b/js/xpconnect/src/XPCJSContext.cpp	Wed Jun 07 16:34:51 2023 +0000
+@@ -969,6 +969,14 @@
+           javascript_options_spectre_jit_to_cxx_calls_DoNotUseDirectly());
+ #endif
+ 
++  bool writeProtectCode = true;
++  if (XRE_IsContentProcess()) {
++    writeProtectCode =
++        StaticPrefs::javascript_options_content_process_write_protect_code();
++  }
++  JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_WRITE_PROTECT_CODE,
++                                writeProtectCode);
++
+   JS_SetGlobalJitCompilerOption(
+       cx, JSJITCOMPILER_WATCHTOWER_MEGAMORPHIC,
+       StaticPrefs::

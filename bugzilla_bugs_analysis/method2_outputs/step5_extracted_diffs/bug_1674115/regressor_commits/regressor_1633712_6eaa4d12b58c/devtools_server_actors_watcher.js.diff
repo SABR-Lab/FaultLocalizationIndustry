@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: devtools/server/actors/watcher.js
+# Commit: 6eaa4d12b58c
+# Full Hash: 6eaa4d12b58cb4762729fdf53511450926383db8
+# Author: Nicolas Chevobbe <nchevobbe@mozilla.com>
+# Date: 2020-10-15 09:40:06
+# Regressor Bug: 1633712
+# File Overlap Count: 1
+# Description:
+#   Bug 1633712 - [devtools] Create WorkerTargets as soon as possible. r=ochameau,devtools-backward-compat-reviewers.
+#   
+#   This patch adds support for dedicated worker targets in the Watcher actor.
+#   Shared and Service workers are not handled yet.
+#   
+# ==============================================================================
+
+diff -r 10f97f47c883 -r 6eaa4d12b58c devtools/server/actors/watcher.js
+--- a/devtools/server/actors/watcher.js	Thu Oct 15 05:11:58 2020 +0000
++++ b/devtools/server/actors/watcher.js	Thu Oct 15 05:17:52 2020 +0000
+@@ -22,6 +22,11 @@
+   Targets.TYPES.FRAME,
+   "devtools/server/actors/watcher/target-helpers/frame-helper"
+ );
++loader.lazyRequireGetter(
++  TARGET_HELPERS,
++  Targets.TYPES.WORKER,
++  "devtools/server/actors/watcher/target-helpers/worker-helper"
++);
+ 
+ exports.WatcherActor = protocol.ActorClassWithSpec(watcherSpec, {
+   /**
+@@ -93,7 +98,9 @@
+       actor: this.actorID,
+       traits: {
+         // FF77+ supports frames in Watcher actor
+-        frame: true,
++        [Targets.TYPES.FRAME]: true,
++        // FF83+ supports workers in Watcher actor for content toolbox.
++        [Targets.TYPES.WORKER]: hasBrowserElement,
+         resources: {
+           // FF81+ (bug 1642295) added support for:
+           // - CONSOLE_MESSAGE

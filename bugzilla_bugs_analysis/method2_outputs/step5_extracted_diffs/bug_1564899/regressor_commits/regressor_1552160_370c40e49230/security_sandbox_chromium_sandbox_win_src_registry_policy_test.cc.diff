@@ -1,0 +1,297 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/sandbox/win/src/registry_policy_test.cc
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 2
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/sandbox/win/src/registry_policy_test.cc
+--- a/security/sandbox/chromium/sandbox/win/src/registry_policy_test.cc	Wed Jun 12 21:55:59 2019 +1200
++++ b/security/sandbox/chromium/sandbox/win/src/registry_policy_test.cc	Wed Jun 12 11:10:48 2019 +0100
+@@ -4,14 +4,14 @@
+ 
+ #include <shlobj.h>
+ 
+-#include "testing/gtest/include/gtest/gtest.h"
++#include "sandbox/win/src/nt_internals.h"
+ #include "sandbox/win/src/registry_policy.h"
+ #include "sandbox/win/src/sandbox.h"
++#include "sandbox/win/src/sandbox_factory.h"
+ #include "sandbox/win/src/sandbox_policy.h"
+-#include "sandbox/win/src/sandbox_factory.h"
+-#include "sandbox/win/src/nt_internals.h"
+ #include "sandbox/win/src/win_utils.h"
+ #include "sandbox/win/tests/common/controller.h"
++#include "testing/gtest/include/gtest/gtest.h"
+ 
+ namespace {
+ 
+@@ -19,16 +19,16 @@
+                                       KEY_NOTIFY | KEY_READ | GENERIC_READ |
+                                       GENERIC_EXECUTE | READ_CONTROL;
+ 
+-#define BINDNTDLL(name) \
+-  name ## Function name = reinterpret_cast<name ## Function>( \
+-    ::GetProcAddress(::GetModuleHandle(L"ntdll.dll"), #name))
++#define BINDNTDLL(name)                                   \
++  name##Function name = reinterpret_cast<name##Function>( \
++      ::GetProcAddress(::GetModuleHandle(L"ntdll.dll"), #name))
+ 
+ bool IsKeyOpenForRead(HKEY handle) {
+   BINDNTDLL(NtQueryObject);
+ 
+   OBJECT_BASIC_INFORMATION info = {0};
+   NTSTATUS status = NtQueryObject(handle, ObjectBasicInformation, &info,
+-                                  sizeof(info), NULL);
++                                  sizeof(info), nullptr);
+ 
+   if (!NT_SUCCESS(status))
+     return false;
+@@ -38,11 +38,11 @@
+   return true;
+ }
+ 
+-}
++}  // namespace
+ 
+ namespace sandbox {
+ 
+-SBOX_TESTS_COMMAND int Reg_OpenKey(int argc, wchar_t **argv) {
++SBOX_TESTS_COMMAND int Reg_OpenKey(int argc, wchar_t** argv) {
+   if (argc != 4)
+     return SBOX_TEST_FAILED_TO_EXECUTE_COMMAND;
+ 
+@@ -64,8 +64,8 @@
+   LRESULT result = 0;
+ 
+   if (wcscmp(argv[0], L"create") == 0)
+-    result = ::RegCreateKeyEx(root, argv[3], 0, NULL, options, desired_access,
+-                              NULL, &key, NULL);
++    result = ::RegCreateKeyEx(root, argv[3], 0, nullptr, options,
++                              desired_access, nullptr, &key, nullptr);
+   else
+     result = ::RegOpenKeyEx(root, argv[3], 0, desired_access, &key);
+ 
+@@ -96,42 +96,57 @@
+                              L"HKEY_LOCAL_MACHINE\\Software\\Microsoft"));
+ 
+   // Tests read access on key allowed for read-write.
+-  EXPECT_EQ(SBOX_TEST_SUCCEEDED, runner.RunTest(
+-      L"Reg_OpenKey create read HKEY_LOCAL_MACHINE software\\microsoft"));
++  EXPECT_EQ(
++      SBOX_TEST_SUCCEEDED,
++      runner.RunTest(
++          L"Reg_OpenKey create read HKEY_LOCAL_MACHINE software\\microsoft"));
+ 
+-  EXPECT_EQ(SBOX_TEST_SUCCEEDED, runner.RunTest(
+-      L"Reg_OpenKey open read HKEY_LOCAL_MACHINE software\\microsoft"));
++  EXPECT_EQ(
++      SBOX_TEST_SUCCEEDED,
++      runner.RunTest(
++          L"Reg_OpenKey open read HKEY_LOCAL_MACHINE software\\microsoft"));
+ 
+   if (::IsUserAnAdmin()) {
+     // Tests write access on key allowed for read-write.
+-    EXPECT_EQ(SBOX_TEST_SUCCEEDED, runner.RunTest(
+-        L"Reg_OpenKey create write HKEY_LOCAL_MACHINE software\\microsoft"));
++    EXPECT_EQ(SBOX_TEST_SUCCEEDED,
++              runner.RunTest(L"Reg_OpenKey create write HKEY_LOCAL_MACHINE "
++                             L"software\\microsoft"));
+ 
+-    EXPECT_EQ(SBOX_TEST_SUCCEEDED, runner.RunTest(
+-        L"Reg_OpenKey open write HKEY_LOCAL_MACHINE software\\microsoft"));
++    EXPECT_EQ(
++        SBOX_TEST_SUCCEEDED,
++        runner.RunTest(
++            L"Reg_OpenKey open write HKEY_LOCAL_MACHINE software\\microsoft"));
+   }
+ 
+   // Tests subdirectory access on keys where we don't have subdirectory acess.
+-  EXPECT_EQ(SBOX_TEST_DENIED, runner.RunTest(L"Reg_OpenKey create read "
+-      L"HKEY_LOCAL_MACHINE software\\microsoft\\Windows"));
++  EXPECT_EQ(SBOX_TEST_DENIED,
++            runner.RunTest(L"Reg_OpenKey create read "
++                           L"HKEY_LOCAL_MACHINE software\\microsoft\\Windows"));
+ 
+-  EXPECT_EQ(SBOX_TEST_DENIED, runner.RunTest(L"Reg_OpenKey open read "
+-      L"HKEY_LOCAL_MACHINE software\\microsoft\\windows"));
++  EXPECT_EQ(SBOX_TEST_DENIED,
++            runner.RunTest(L"Reg_OpenKey open read "
++                           L"HKEY_LOCAL_MACHINE software\\microsoft\\windows"));
+ 
+   // Tests to see if we can create keys where we dont have subdirectory access.
+   // This is denied.
+-  EXPECT_EQ(SBOX_TEST_DENIED, runner.RunTest(L"Reg_OpenKey create write "
+-      L"HKEY_LOCAL_MACHINE software\\Microsoft\\google_unit_tests"));
++  EXPECT_EQ(SBOX_TEST_DENIED,
++            runner.RunTest(
++                L"Reg_OpenKey create write "
++                L"HKEY_LOCAL_MACHINE software\\Microsoft\\google_unit_tests"));
+ 
+   RegDeleteKey(HKEY_LOCAL_MACHINE, L"software\\Microsoft\\google_unit_tests");
+ 
+   // Tests if we need to handle differently the "\\" at the end.
+   // This is denied. We need to add both rules.
+-  EXPECT_EQ(SBOX_TEST_DENIED, runner.RunTest(
+-      L"Reg_OpenKey create read HKEY_LOCAL_MACHINE software\\microsoft\\"));
++  EXPECT_EQ(
++      SBOX_TEST_DENIED,
++      runner.RunTest(
++          L"Reg_OpenKey create read HKEY_LOCAL_MACHINE software\\microsoft\\"));
+ 
+-  EXPECT_EQ(SBOX_TEST_DENIED, runner.RunTest(
+-      L"Reg_OpenKey open read HKEY_LOCAL_MACHINE software\\microsoft\\"));
++  EXPECT_EQ(
++      SBOX_TEST_DENIED,
++      runner.RunTest(
++          L"Reg_OpenKey open read HKEY_LOCAL_MACHINE software\\microsoft\\"));
+ }
+ 
+ TEST(RegistryPolicyTest, TestKeyNoAccess) {
+@@ -142,11 +157,13 @@
+                              L"HKEY_LOCAL_MACHINE"));
+ 
+   // Tests read access where we don't have access at all.
+-  EXPECT_EQ(SBOX_TEST_DENIED, runner.RunTest(
+-      L"Reg_OpenKey create read HKEY_LOCAL_MACHINE software"));
++  EXPECT_EQ(
++      SBOX_TEST_DENIED,
++      runner.RunTest(L"Reg_OpenKey create read HKEY_LOCAL_MACHINE software"));
+ 
+-  EXPECT_EQ(SBOX_TEST_DENIED, runner.RunTest(
+-      L"Reg_OpenKey open read HKEY_LOCAL_MACHINE software"));
++  EXPECT_EQ(
++      SBOX_TEST_DENIED,
++      runner.RunTest(L"Reg_OpenKey open read HKEY_LOCAL_MACHINE software"));
+ }
+ 
+ TEST(RegistryPolicyTest, TestKeyReadOnlyAccess) {
+@@ -165,15 +182,21 @@
+                              L"HKEY_LOCAL_MACHINE\\Software\\Policies\\*"));
+ 
+   // Tests subdirectory acess on keys where we have subdirectory acess.
+-  EXPECT_EQ(SBOX_TEST_SUCCEEDED, runner.RunTest(L"Reg_OpenKey create read "
+-      L"HKEY_LOCAL_MACHINE software\\Policies\\microsoft"));
++  EXPECT_EQ(
++      SBOX_TEST_SUCCEEDED,
++      runner.RunTest(L"Reg_OpenKey create read "
++                     L"HKEY_LOCAL_MACHINE software\\Policies\\microsoft"));
+ 
+-  EXPECT_EQ(SBOX_TEST_SUCCEEDED, runner.RunTest(L"Reg_OpenKey open read "
+-      L"HKEY_LOCAL_MACHINE software\\Policies\\microsoft"));
++  EXPECT_EQ(
++      SBOX_TEST_SUCCEEDED,
++      runner.RunTest(L"Reg_OpenKey open read "
++                     L"HKEY_LOCAL_MACHINE software\\Policies\\microsoft"));
+ 
+   // Tests to see if we can create keys where we have subdirectory access.
+-  EXPECT_EQ(SBOX_TEST_DENIED, runner.RunTest(L"Reg_OpenKey create write "
+-      L"HKEY_LOCAL_MACHINE software\\Policies\\google_unit_tests"));
++  EXPECT_EQ(SBOX_TEST_DENIED,
++            runner.RunTest(
++                L"Reg_OpenKey create write "
++                L"HKEY_LOCAL_MACHINE software\\Policies\\google_unit_tests"));
+ 
+   RegDeleteKey(HKEY_LOCAL_MACHINE, L"software\\Policies\\google_unit_tests");
+ }
+@@ -195,8 +218,10 @@
+ 
+   if (::IsUserAnAdmin()) {
+     // Tests to see if we can create keys where we have subdirectory access.
+-    EXPECT_EQ(SBOX_TEST_SUCCEEDED, runner.RunTest(L"Reg_OpenKey create write "
+-        L"HKEY_LOCAL_MACHINE software\\Policies\\google_unit_tests"));
++    EXPECT_EQ(SBOX_TEST_SUCCEEDED,
++              runner.RunTest(
++                  L"Reg_OpenKey create write "
++                  L"HKEY_LOCAL_MACHINE software\\Policies\\google_unit_tests"));
+ 
+     RegDeleteKey(HKEY_LOCAL_MACHINE, L"software\\Policies\\google_unit_tests");
+   }
+@@ -226,22 +251,22 @@
+   // one by one. In this scenario, it tries to create "HKLM\Software" as a
+   // link key, which obviously fail with STATUS_OBJECT_NAME_COLLISION, and
+   // this is what is returned to the user.
+-  EXPECT_NE(SBOX_TEST_SUCCEEDED, runner.RunTest(L"Reg_OpenKey create link "
+-      L"HKEY_LOCAL_MACHINE software\\Policies\\google_unit_tests"));
++  EXPECT_NE(SBOX_TEST_SUCCEEDED,
++            runner.RunTest(
++                L"Reg_OpenKey create link "
++                L"HKEY_LOCAL_MACHINE software\\Policies\\google_unit_tests"));
+ 
+   // In case our code fails, and the call works, we need to delete the new
+   // link. There is no api for this, so we need to use the NT call.
+-  HKEY key = NULL;
++  HKEY key = nullptr;
+   LRESULT result = ::RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+                                   L"software\\Policies\\google_unit_tests",
+-                                  REG_OPTION_OPEN_LINK, MAXIMUM_ALLOWED,
+-                                  &key);
++                                  REG_OPTION_OPEN_LINK, MAXIMUM_ALLOWED, &key);
+ 
+   if (!result) {
+     HMODULE ntdll = GetModuleHandle(L"ntdll.dll");
+-    NtDeleteKeyFunction NtDeleteKey =
+-        reinterpret_cast<NtDeleteKeyFunction>(GetProcAddress(ntdll,
+-                                                             "NtDeleteKey"));
++    NtDeleteKeyFunction NtDeleteKey = reinterpret_cast<NtDeleteKeyFunction>(
++        GetProcAddress(ntdll, "NtDeleteKey"));
+     NtDeleteKey(key);
+   }
+ }
+@@ -265,25 +290,33 @@
+                              L"HKEY_USERS\\.default\\software"));
+ 
+   // Tests read access where we only have read-only access.
+-  EXPECT_EQ(SBOX_TEST_SUCCEEDED, runner.RunTest(
+-      L"Reg_OpenKey create read HKEY_CURRENT_USER software"));
++  EXPECT_EQ(
++      SBOX_TEST_SUCCEEDED,
++      runner.RunTest(L"Reg_OpenKey create read HKEY_CURRENT_USER software"));
+ 
+-  EXPECT_EQ(SBOX_TEST_SUCCEEDED, runner.RunTest(
+-      L"Reg_OpenKey open read HKEY_CURRENT_USER software"));
++  EXPECT_EQ(
++      SBOX_TEST_SUCCEEDED,
++      runner.RunTest(L"Reg_OpenKey open read HKEY_CURRENT_USER software"));
+ 
+   // Tests write access where we only have read-only acess.
+-  EXPECT_EQ(SBOX_TEST_DENIED, runner.RunTest(
+-      L"Reg_OpenKey create write HKEY_CURRENT_USER software"));
++  EXPECT_EQ(
++      SBOX_TEST_DENIED,
++      runner.RunTest(L"Reg_OpenKey create write HKEY_CURRENT_USER software"));
+ 
+-  EXPECT_EQ(SBOX_TEST_DENIED, runner.RunTest(
+-      L"Reg_OpenKey open write HKEY_CURRENT_USER software"));
++  EXPECT_EQ(
++      SBOX_TEST_DENIED,
++      runner.RunTest(L"Reg_OpenKey open write HKEY_CURRENT_USER software"));
+ 
+   // Tests maximum allowed access where we only have read-only access.
+-  EXPECT_EQ(SBOX_TEST_SUCCEEDED, runner.RunTest(
+-      L"Reg_OpenKey create maximum_allowed HKEY_CURRENT_USER software"));
++  EXPECT_EQ(
++      SBOX_TEST_SUCCEEDED,
++      runner.RunTest(
++          L"Reg_OpenKey create maximum_allowed HKEY_CURRENT_USER software"));
+ 
+-  EXPECT_EQ(SBOX_TEST_SUCCEEDED, runner.RunTest(
+-      L"Reg_OpenKey open maximum_allowed HKEY_CURRENT_USER software"));
++  EXPECT_EQ(
++      SBOX_TEST_SUCCEEDED,
++      runner.RunTest(
++          L"Reg_OpenKey open maximum_allowed HKEY_CURRENT_USER software"));
+ }
+ 
+ }  // namespace sandbox

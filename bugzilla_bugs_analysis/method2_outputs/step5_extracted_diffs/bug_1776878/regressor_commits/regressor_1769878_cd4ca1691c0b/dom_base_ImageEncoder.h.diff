@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/ImageEncoder.h
+# Commit: cd4ca1691c0b
+# Full Hash: cd4ca1691c0b74f665e4e43692d04a992d2a11db
+# Author: Olli Pettay <Olli.Pettay@helsinki.fi>
+# Date: 2022-06-23 03:54:50
+# Regressor Bug: 1769878
+# File Overlap Count: 1
+# Description:
+#   Bug 1769878, ensure objects owned by the worker thread are cleared when the worker is shutting down, r=asuth,aosmond
+#   
+#   Depends on D147858
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D149693
+# ==============================================================================
+
+diff -r 851d0144fd91 -r cd4ca1691c0b dom/base/ImageEncoder.h
+--- a/dom/base/ImageEncoder.h	Wed Jun 22 14:06:30 2022 +0000
++++ b/dom/base/ImageEncoder.h	Wed Jun 22 14:06:31 2022 +0000
+@@ -111,6 +111,11 @@
+   MOZ_CAN_RUN_SCRIPT
+   virtual nsresult ReceiveBlobImpl(already_AddRefed<BlobImpl> aBlobImpl) = 0;
+ 
++  // CanBeDeletedOnAnyThread is pure virtual, so that whoever extends this class
++  // needs to think how to handle cases like the owning DOM worker thread
++  // shutting down.
++  virtual bool CanBeDeletedOnAnyThread() = 0;
++
+  protected:
+   virtual ~EncodeCompleteCallback() = default;
+ };

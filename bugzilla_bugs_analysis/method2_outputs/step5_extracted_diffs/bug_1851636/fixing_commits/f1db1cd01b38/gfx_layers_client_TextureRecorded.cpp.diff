@@ -1,0 +1,29 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/client/TextureRecorded.cpp
+# Commit: f1db1cd01b38
+# Full Hash: f1db1cd01b380dcfc65ee07dcb851c4d70058175
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2023-09-07 04:09:51
+# Description:
+#   Bug 1851636: Don't create a new buffer if we fail to process the drop buffer event. r=jrmuizel
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D187558
+# ==============================================================================
+
+diff -r 1db7a958b945 -r f1db1cd01b38 gfx/layers/client/TextureRecorded.cpp
+--- a/gfx/layers/client/TextureRecorded.cpp	Wed Sep 06 16:37:55 2023 +0000
++++ b/gfx/layers/client/TextureRecorded.cpp	Wed Sep 06 16:37:56 2023 +0000
+@@ -41,7 +41,10 @@
+ }
+ 
+ bool RecordedTextureData::Lock(OpenMode aMode) {
+-  mCanvasChild->EnsureBeginTransaction();
++  if (!mCanvasChild->EnsureBeginTransaction()) {
++    return false;
++  }
++
+   if (!mDT) {
+     mTextureId = sNextRecordedTextureId++;
+     mCanvasChild->RecordEvent(RecordedNextTextureId(mTextureId));

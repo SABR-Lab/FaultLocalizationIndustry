@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/html/HTMLMediaElement.cpp
+# Commit: 85ef72ebde43
+# Full Hash: 85ef72ebde439c5de258af43faa9bd83a6e23b26
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2019-08-29 21:45:25
+# Regressor Bug: 1573102
+# File Overlap Count: 1
+# Description:
+#   Bug 1573102 - Remove mGraph from HTMLMediaElement::OutputMediaStream and OutputStreamManager. r=karlt
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D43666
+# ==============================================================================
+
+diff -r f61dd73cac3a -r 85ef72ebde43 dom/html/HTMLMediaElement.cpp
+--- a/dom/html/HTMLMediaElement.cpp	Thu Aug 29 13:32:31 2019 +0000
++++ b/dom/html/HTMLMediaElement.cpp	Thu Aug 29 13:32:50 2019 +0000
+@@ -3304,13 +3304,14 @@
+   MarkAsTainted();
+ 
+   // We don't support routing to a different graph.
+-  if (!mOutputStreams.IsEmpty() && aGraph != mOutputStreams[0].mGraph) {
++  if (!mOutputStreams.IsEmpty() &&
++      aGraph !=
++          mOutputStreams[0].mGraphKeepAliveDummyStream->mStream->Graph()) {
+     return nullptr;
+   }
+ 
+   OutputMediaStream* out = mOutputStreams.AppendElement();
+   nsPIDOMWindowInner* window = OwnerDoc()->GetInnerWindow();
+-  out->mGraph = static_cast<MediaStreamGraphImpl*>(aGraph);
+   out->mGraphKeepAliveDummyStream =
+       mOutputStreams.Length() == 1
+           ? MakeRefPtr<SharedDummyStream>(aGraph->CreateSourceStream())
+@@ -3338,7 +3339,8 @@
+ 
+   if (mDecoder) {
+     out->mCapturingDecoder = true;
+-    mDecoder->AddOutputStream(out->mStream, out->mGraph);
++    mDecoder->AddOutputStream(
++        out->mStream, out->mGraphKeepAliveDummyStream->mStream->Graph());
+   } else if (mSrcStream) {
+     out->mCapturingMediaStream = true;
+   }
+@@ -4663,7 +4665,8 @@
+     }
+ 
+     ms.mCapturingDecoder = true;
+-    aDecoder->AddOutputStream(ms.mStream, ms.mGraph);
++    aDecoder->AddOutputStream(ms.mStream,
++                              ms.mGraphKeepAliveDummyStream->mStream->Graph());
+   }
+ 
+   if (mMediaKeys) {

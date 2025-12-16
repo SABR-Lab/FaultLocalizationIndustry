@@ -1,0 +1,28 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/events/Event.cpp
+# Commit: c9b281a867f3
+# Full Hash: c9b281a867f33bb3aa88dd8318abe1c50d22e81d
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2025-02-08 21:03:38
+# Description:
+#   Bug 1946461 - Make `Event::GetPrimaryFrameOfEventTarget` return `nullptr` if target is moved outside the original `nsPresContext` r=smaug,emilio
+#   
+#   Chrome returns some computed value for `offsetX` and `offsetY` even in this
+#   hacky case, but we should return `{0, 0}` for now to keep the traditional
+#   behavior [1] and avoid the crash because Chrome's behavior is also tricky
+# ==============================================================================
+
+diff -r 24d23a09f65c -r c9b281a867f3 dom/events/Event.cpp
+--- a/dom/events/Event.cpp	Fri Feb 07 22:03:50 2025 +0000
++++ b/dom/events/Event.cpp	Fri Feb 07 22:04:59 2025 +0000
+@@ -717,7 +717,7 @@
+   // XXX Even after the event target content is moved to different document, we
+   // may get its primary frame.  In this case, should we return nullptr here?
+   nsIFrame* const frame = content->GetPrimaryFrame(FlushType::Layout);
+-  if (MOZ_UNLIKELY(!frame)) {
++  if (MOZ_UNLIKELY(!frame || frame->PresContext() != &aPresContext)) {
+     return nullptr;
+   }
+   // For compat, see https://github.com/w3c/csswg-drafts/issues/1508. In SVG

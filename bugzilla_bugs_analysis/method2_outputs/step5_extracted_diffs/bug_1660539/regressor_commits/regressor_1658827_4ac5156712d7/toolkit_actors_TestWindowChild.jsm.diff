@@ -1,0 +1,31 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/actors/TestWindowChild.jsm
+# Commit: 4ac5156712d7
+# Full Hash: 4ac5156712d7aac5ae9c7c479131720bb928fae1
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-08-17 21:46:02
+# Regressor Bug: 1658827
+# File Overlap Count: 1
+# Description:
+#   Bug 1658827 - Clear exceptions before returning from JSActor promise handlers, r=kmag
+#   
+#   There must be no pending exceptions on the JSContext when returning from a
+#   native promise handler. We were not successfully clearing exceptions in all
+#   cases in JSActor logic, meaning that query replies with unserializable data
+# ==============================================================================
+
+diff -r 98fddfef58ce -r 4ac5156712d7 toolkit/actors/TestWindowChild.jsm
+--- a/toolkit/actors/TestWindowChild.jsm	Mon Aug 17 15:19:34 2020 +0000
++++ b/toolkit/actors/TestWindowChild.jsm	Mon Aug 17 15:50:04 2020 +0000
+@@ -38,6 +38,9 @@
+       case "done":
+         this.done(aMessage.data);
+         break;
++      case "noncloneReply":
++        // Return a value which is non-cloneable, like a WindowProxy.
++        return this.contentWindow;
+     }
+ 
+     return undefined;

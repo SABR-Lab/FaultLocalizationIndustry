@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/tests/JSWindowActor/browser_sendQuery.js
+# Commit: 4ac5156712d7
+# Full Hash: 4ac5156712d7aac5ae9c7c479131720bb928fae1
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-08-17 21:46:02
+# Regressor Bug: 1658827
+# File Overlap Count: 1
+# Description:
+#   Bug 1658827 - Clear exceptions before returning from JSActor promise handlers, r=kmag
+#   
+#   There must be no pending exceptions on the JSContext when returning from a
+#   native promise handler. We were not successfully clearing exceptions in all
+#   cases in JSActor logic, meaning that query replies with unserializable data
+# ==============================================================================
+
+diff -r 98fddfef58ce -r 4ac5156712d7 dom/ipc/tests/JSWindowActor/browser_sendQuery.js
+--- a/dom/ipc/tests/JSWindowActor/browser_sendQuery.js	Mon Aug 17 15:19:34 2020 +0000
++++ b/dom/ipc/tests/JSWindowActor/browser_sendQuery.js	Mon Aug 17 15:50:04 2020 +0000
+@@ -94,3 +94,21 @@
+     is(result, 200);
+   },
+ });
++
++declTest("sendQuery unserializable reply", {
++  async test(browser) {
++    let parent = browser.browsingContext.currentWindowGlobal;
++    let actorParent = parent.getActor("TestWindow");
++    ok(actorParent, "JSWindowActorParent should have value");
++
++    try {
++      await actorParent.sendQuery("noncloneReply", {});
++      ok(false, "expected noncloneReply to be rejected");
++    } catch (error) {
++      ok(
++        error.message.includes("message reply cannot be cloned"),
++        "Error should have the correct message"
++      );
++    }
++  },
++});

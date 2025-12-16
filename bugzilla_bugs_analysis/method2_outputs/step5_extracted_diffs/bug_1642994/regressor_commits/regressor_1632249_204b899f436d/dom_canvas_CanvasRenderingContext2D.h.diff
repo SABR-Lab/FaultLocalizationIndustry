@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/CanvasRenderingContext2D.h
+# Commit: 204b899f436d
+# Full Hash: 204b899f436d99f0eae759af3ccfcbaabfbbb428
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-06-11 09:34:54
+# Regressor Bug: 1632249
+# File Overlap Count: 3
+# Description:
+#   Bug 1632249 - Support compositing out-of-process WebGL. r=handyman,lsalzman,nical,geckoview-reviewers,agi,imanol
+#   
+#   * Majorly simplity CanvasRenderer
+#   * Replace GLScreenBuffer with trivial GLSwapChain
+#   * Use descriptor structs so that future SharedSurface changes aren't so painful
+# ==============================================================================
+
+diff -r 3f5baab34b1f -r 204b899f436d dom/canvas/CanvasRenderingContext2D.h
+--- a/dom/canvas/CanvasRenderingContext2D.h	Thu Jun 11 06:36:55 2020 +0000
++++ b/dom/canvas/CanvasRenderingContext2D.h	Thu Jun 11 06:37:35 2020 +0000
+@@ -56,7 +56,6 @@
+ class Optional;
+ 
+ struct CanvasBidiProcessor;
+-class CanvasRenderingContext2DUserData;
+ class CanvasDrawObserver;
+ class CanvasShutdownObserver;
+ 
+@@ -87,6 +86,12 @@
+     return mCanvasElement->GetOriginalCanvas();
+   }
+ 
++  void OnBeforePaintTransaction() override;
++  void OnDidPaintTransaction() override;
++  layers::PersistentBufferProvider* GetBufferProvider() override {
++    return mBufferProvider;
++  }
++
+   void Save() override;
+   void Restore() override;
+   void Scale(double aX, double aY, mozilla::ErrorResult& aError) override;
+@@ -491,8 +496,6 @@
+     }
+   }
+ 
+-  friend class CanvasRenderingContext2DUserData;
+-
+   virtual UniquePtr<uint8_t[]> GetImageBuffer(int32_t* aFormat) override;
+ 
+   // Given a point, return hit region ID if it exists
+@@ -720,8 +723,6 @@
+ 
+   bool mHasPendingStableStateCallback;
+ 
+-  nsTArray<CanvasRenderingContext2DUserData*> mUserDatas;
+-
+   // If mCanvasElement is not provided, then a docshell is
+   nsCOMPtr<nsIDocShell> mDocShell;
+ 

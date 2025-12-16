@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/HTMLEditorEventListener.cpp
+# Commit: 0ea945553f63
+# Full Hash: 0ea945553f63659b99fd37265c5e7a764f70504d
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2024-12-03 16:21:08
+# Regressor Bug: 1680669
+# File Overlap Count: 1
+# Description:
+#   Bug 1680669 - part 6: Make methods of `MouseEvent` and static methods of `Event` aware of fractional coordinates r=smaug,emilio,webdriver-reviewers
+#   
+#   `screenX`, `screenY`, `clientX`, `clientY`, `x`, `y`, `offsetX` and `offsetY`
+#   are now `double`.  This patch makes the event classes aware of DOM events.
+#   
+# ==============================================================================
+
+diff -r 98d5a05c6c6e -r 0ea945553f63 editor/libeditor/HTMLEditorEventListener.cpp
+--- a/editor/libeditor/HTMLEditorEventListener.cpp	Tue Dec 03 07:10:01 2024 +0000
++++ b/editor/libeditor/HTMLEditorEventListener.cpp	Tue Dec 03 07:10:05 2024 +0000
+@@ -81,7 +81,7 @@
+       RefPtr<HTMLEditor> htmlEditor = mEditorBase->AsHTMLEditor();
+       DebugOnly<nsresult> rvIgnored =
+           htmlEditor->UpdateResizerOrGrabberPositionTo(
+-              mouseMoveEvent->ClientPoint());
++              RoundedToInt(mouseMoveEvent->ClientPoint()));
+       NS_WARNING_ASSERTION(
+           NS_SUCCEEDED(rvIgnored),
+           "HTMLEditor::UpdateResizerOrGrabberPositionTo() failed, but ignored");
+@@ -244,8 +244,8 @@
+   //      UI Events, but it may not be not an element node if it occurs
+   //      on native anonymous node like a resizer.
+ 
+-  DebugOnly<nsresult> rvIgnored =
+-      htmlEditor->StopDraggingResizerOrGrabberAt(aMouseEvent->ClientPoint());
++  DebugOnly<nsresult> rvIgnored = htmlEditor->StopDraggingResizerOrGrabberAt(
++      RoundedToInt(aMouseEvent->ClientPoint()));
+   NS_WARNING_ASSERTION(
+       NS_SUCCEEDED(rvIgnored),
+       "HTMLEditor::StopDraggingResizerOrGrabberAt() failed, but ignored");

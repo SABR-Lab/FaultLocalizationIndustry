@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/EditorEventListener.cpp
+# Commit: 71670cedaf26
+# Full Hash: 71670cedaf26214f3bcb8562a445cf1ef24f4db6
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2021-06-30 09:36:48
+# Regressor Bug: 1714914
+# File Overlap Count: 1
+# Description:
+#   Bug 1714914 - Make editor classes treat offset in parent node as uint32_t r=m_kato
+#   
+#   It should be treated as `uint32_t` since DOM API does so.  However, there are
+#   some exceptions:
+#   
+# ==============================================================================
+
+diff -r f5dcc2d793d6 -r 71670cedaf26 editor/libeditor/EditorEventListener.cpp
+--- a/editor/libeditor/EditorEventListener.cpp	Tue Jun 29 22:00:09 2021 +0000
++++ b/editor/libeditor/EditorEventListener.cpp	Wed Jun 30 07:07:28 2021 +0000
+@@ -831,7 +831,7 @@
+   int32_t dropOffset = -1;
+   nsCOMPtr<nsIContent> dropParentContent =
+       aDragEvent->GetRangeParentContentAndOffset(&dropOffset);
+-  if (NS_WARN_IF(!dropParentContent)) {
++  if (NS_WARN_IF(!dropParentContent) || NS_WARN_IF(dropOffset < 0)) {
+     return NS_ERROR_FAILURE;
+   }
+   if (DetachedFromEditor()) {
+@@ -1032,7 +1032,8 @@
+   int32_t dropOffset = -1;
+   nsCOMPtr<nsIContent> dropParentContent =
+       aDragEvent->GetRangeParentContentAndOffset(&dropOffset);
+-  if (!dropParentContent || NS_WARN_IF(DetachedFromEditor())) {
++  if (!dropParentContent || NS_WARN_IF(dropOffset < 0) ||
++      NS_WARN_IF(DetachedFromEditor())) {
+     return false;
+   }
+ 

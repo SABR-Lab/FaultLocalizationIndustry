@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mp4/MP4Demuxer.cpp
+# Commit: aa102eb9990d
+# Full Hash: aa102eb9990d6edbd5cf7473c5017082340764ff
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2023-05-24 21:42:08
+# Regressor Bug: 1817997
+# File Overlap Count: 1
+# Description:
+#   Bug 1817997 - Update the MP4 demuxer to use TimeUnit based on the internal MP4 time base. r=alwu
+#   
+#   This still gets the initial time value from mp4parse-rust, that is in
+#   microseconds. mp4parse-rust has been updated to expose real time, and will be
+#   updated later.
+# ==============================================================================
+
+diff -r 5c1b6ce71ca1 -r aa102eb9990d dom/media/mp4/MP4Demuxer.cpp
+--- a/dom/media/mp4/MP4Demuxer.cpp	Wed May 24 13:18:40 2023 +0000
++++ b/dom/media/mp4/MP4Demuxer.cpp	Wed May 24 13:18:40 2023 +0000
+@@ -356,7 +356,7 @@
+   auto seekTime = aTime;
+   mQueuedSample = nullptr;
+ 
+-  mIterator->Seek(seekTime.ToMicroseconds());
++  mIterator->Seek(seekTime);
+ 
+   // Check what time we actually seeked to.
+   do {
+@@ -480,16 +480,16 @@
+ 
+ void MP4TrackDemuxer::SetNextKeyFrameTime() {
+   mNextKeyframeTime.reset();
+-  Microseconds frameTime = mIterator->GetNextKeyframeTime();
+-  if (frameTime != -1) {
+-    mNextKeyframeTime.emplace(media::TimeUnit::FromMicroseconds(frameTime));
++  media::TimeUnit frameTime = mIterator->GetNextKeyframeTime();
++  if (frameTime.IsValid()) {
++    mNextKeyframeTime.emplace(frameTime);
+   }
+ }
+ 
+ void MP4TrackDemuxer::Reset() {
+   mQueuedSample = nullptr;
+-  // TODO, Seek to first frame available, which isn't always 0.
+-  mIterator->Seek(0);
++  // TODO: verify this
++  mIterator->Seek(media::TimeUnit::FromNegativeInfinity());
+   SetNextKeyFrameTime();
+ }
+ 

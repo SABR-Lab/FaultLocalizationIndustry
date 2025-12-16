@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/HttpBackgroundChannelChild.cpp
+# Commit: 4214217c588c
+# Full Hash: 4214217c588cd8f5a21acf197698905528f1ea17
+# Author: Junior Hsu <juhsu@mozilla.com>
+# Date: 2020-06-30 10:00:42
+# Regressor Bug: 1633935
+# File Overlap Count: 1
+# Description:
+#   Bug 1633935 - P5 allow OnProgress/OnStatus going thru pBg IPC, r=mayhemer,necko-reviewers
+#   
+#   Depends on D76971
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D76972
+# ==============================================================================
+
+diff -r e6c12eec1cef -r 4214217c588c netwerk/protocol/http/HttpBackgroundChannelChild.cpp
+--- a/netwerk/protocol/http/HttpBackgroundChannelChild.cpp	Tue Jun 30 00:33:01 2020 +0000
++++ b/netwerk/protocol/http/HttpBackgroundChannelChild.cpp	Tue Jun 30 00:33:19 2020 +0000
+@@ -133,6 +133,33 @@
+   return true;
+ }
+ 
++IPCResult HttpBackgroundChannelChild::RecvOnProgress(
++    const int64_t& aProgress, const int64_t& aProgressMax) {
++  LOG(("HttpBackgroundChannelChild::RecvOnProgress [this=%p]\n", this));
++  MOZ_ASSERT(OnSocketThread());
++
++  MOZ_ASSERT(mChannelChild, "no channel child in RecvOnProgress");
++  if (NS_WARN_IF(!mChannelChild)) {
++    return IPC_OK();
++  }
++
++  mChannelChild->ProcessOnProgress(aProgress, aProgressMax);
++  return IPC_OK();
++}
++
++IPCResult HttpBackgroundChannelChild::RecvOnStatus(const nsresult& aStatus) {
++  LOG(("HttpBackgroundChannelChild::RecvOnStatus [this=%p]\n", this));
++  MOZ_ASSERT(OnSocketThread());
++
++  MOZ_ASSERT(mChannelChild, "no channel child in RecvOnStatus");
++  if (NS_WARN_IF(!mChannelChild)) {
++    return IPC_OK();
++  }
++
++  mChannelChild->ProcessOnStatus(aStatus);
++  return IPC_OK();
++}
++
+ bool HttpBackgroundChannelChild::IsWaitingOnStartRequest() {
+   MOZ_ASSERT(OnSocketThread());
+ 

@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/PersistentBufferProvider.h
+# Commit: 6a3a092a59b6
+# Full Hash: 6a3a092a59b6939ff727c3b1d058cc3a857581a9
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2022-12-10 21:36:51
+# Regressor Bug: 1795768
+# File Overlap Count: 1
+# Description:
+#   Bug 1795768 - Do not use Direct2D canvas if willReadFrequently is set. r=jrmuizel
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D164364
+# ==============================================================================
+
+diff -r 169fe70ad296 -r 6a3a092a59b6 gfx/layers/PersistentBufferProvider.h
+--- a/gfx/layers/PersistentBufferProvider.h	Sat Dec 10 04:46:28 2022 +0000
++++ b/gfx/layers/PersistentBufferProvider.h	Sat Dec 10 04:46:28 2022 +0000
+@@ -187,7 +187,7 @@
+ 
+   static already_AddRefed<PersistentBufferProviderShared> Create(
+       gfx::IntSize aSize, gfx::SurfaceFormat aFormat,
+-      KnowsCompositor* aKnowsCompositor);
++      KnowsCompositor* aKnowsCompositor, bool aWillReadFrequently = false);
+ 
+   bool IsShared() const override { return true; }
+ 
+@@ -213,10 +213,13 @@
+ 
+   bool PreservesDrawingState() const override { return false; }
+ 
++  bool IsAccelerated() const override;
++
+  protected:
+   PersistentBufferProviderShared(gfx::IntSize aSize, gfx::SurfaceFormat aFormat,
+                                  KnowsCompositor* aKnowsCompositor,
+-                                 RefPtr<TextureClient>& aTexture);
++                                 RefPtr<TextureClient>& aTexture,
++                                 bool aWillReadFrequently);
+ 
+   ~PersistentBufferProviderShared();
+ 
+@@ -239,6 +242,8 @@
+   Maybe<uint32_t> mBack;
+   // Offset of the texture in mTextures that is presented to the compositor.
+   Maybe<uint32_t> mFront;
++  // Whether to avoid acceleration.
++  bool mWillReadFrequently = false;
+ 
+   RefPtr<gfx::DrawTarget> mDrawTarget;
+   RefPtr<gfx::SourceSurface> mSnapshot;

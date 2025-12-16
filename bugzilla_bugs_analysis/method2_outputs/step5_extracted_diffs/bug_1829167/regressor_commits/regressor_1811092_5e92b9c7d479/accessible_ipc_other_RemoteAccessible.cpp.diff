@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/ipc/other/RemoteAccessible.cpp
+# Commit: 5e92b9c7d479
+# Full Hash: 5e92b9c7d4794af1d7ab0fb5c278c2e681a18fc6
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2023-01-28 21:11:06
+# Regressor Bug: 1811092
+# File Overlap Count: 1
+# Description:
+#   Bug 1811092 - P1: Add new async add/set text selection message. r=Jamie
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D167201
+# ==============================================================================
+
+diff -r 7cebaa85f4ff -r 5e92b9c7d479 accessible/ipc/other/RemoteAccessible.cpp
+--- a/accessible/ipc/other/RemoteAccessible.cpp	Fri Jan 27 20:03:06 2023 +0000
++++ b/accessible/ipc/other/RemoteAccessible.cpp	Fri Jan 27 20:15:11 2023 +0000
+@@ -321,19 +321,17 @@
+ bool RemoteAccessible::SetSelectionBoundsAt(int32_t aSelectionNum,
+                                             int32_t aStartOffset,
+                                             int32_t aEndOffset) {
++  if (StaticPrefs::accessibility_cache_enabled_AtStartup()) {
++    return RemoteAccessibleBase<RemoteAccessible>::SetSelectionBoundsAt(
++        aSelectionNum, aStartOffset, aEndOffset);
++  }
++
+   bool retVal = false;
+   Unused << mDoc->SendSetSelectionBoundsAt(mID, aSelectionNum, aStartOffset,
+                                            aEndOffset, &retVal);
+   return retVal;
+ }
+ 
+-bool RemoteAccessible::AddToSelection(int32_t aStartOffset,
+-                                      int32_t aEndOffset) {
+-  bool retVal = false;
+-  Unused << mDoc->SendAddToSelection(mID, aStartOffset, aEndOffset, &retVal);
+-  return retVal;
+-}
+-
+ bool RemoteAccessible::RemoveFromSelection(int32_t aSelectionNum) {
+   bool retVal = false;
+   Unused << mDoc->SendRemoveFromSelection(mID, aSelectionNum, &retVal);

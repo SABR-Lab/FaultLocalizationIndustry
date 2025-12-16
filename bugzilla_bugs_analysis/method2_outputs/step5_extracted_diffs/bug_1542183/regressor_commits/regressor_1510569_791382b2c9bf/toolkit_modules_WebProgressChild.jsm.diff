@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/modules/WebProgressChild.jsm
+# Commit: 791382b2c9bf
+# Full Hash: 791382b2c9bf60371b68c0dd4d2ed26e4b846901
+# Author: Barret Rennie <barret@brennie.ca>
+# Date: 2019-04-04 04:33:36
+# Regressor Bug: 1510569
+# File Overlap Count: 1
+# Description:
+#   Bug 1510569 - Port onStatusChange notifications inside WebProgressChild.jsm to C++ r=baku
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D25446
+# ==============================================================================
+
+diff -r 31b206e2046f -r 791382b2c9bf toolkit/modules/WebProgressChild.jsm
+--- a/toolkit/modules/WebProgressChild.jsm	Wed Apr 03 17:31:41 2019 +0000
++++ b/toolkit/modules/WebProgressChild.jsm	Wed Apr 03 17:31:54 2019 +0000
+@@ -27,8 +27,10 @@
+ 
+     this.inLoadURI = false;
+ 
+-    // NOTIFY_CONTENT_BLOCKING is handled by PBrowser.
+-    let notifyCode = Ci.nsIWebProgress.NOTIFY_ALL & ~Ci.nsIWebProgress.NOTIFY_CONTENT_BLOCKING;
++    // NOTIFY_CONTENT_BLOCKING and NOTIFY_STATUS_CHANGE are handled by PBrowser.
++    let notifyCode = Ci.nsIWebProgress.NOTIFY_ALL &
++                        ~Ci.nsIWebProgress.NOTIFY_CONTENT_BLOCKING &
++                        ~Ci.nsIWebProgress.NOTIFY_STATUS;
+ 
+     this._filter = Cc["@mozilla.org/appshell/component/browser-status-filter;1"]
+                      .createInstance(Ci.nsIWebProgress);
+@@ -176,18 +178,6 @@
+     this._send("Content:LocationChange", json);
+   }
+ 
+-  // Note: Because the nsBrowserStatusFilter timeout runnable is
+-  // SystemGroup-labeled, this method should not modify this.mm.content DOM or
+-  // run this.mm.content JS.
+-  onStatusChange(aWebProgress, aRequest, aStatus, aMessage) {
+-    let json = this._setupJSON(aWebProgress, aRequest);
+-
+-    json.status = aStatus;
+-    json.message = aMessage;
+-
+-    this._send("Content:StatusChange", json);
+-  }
+-
+   getSecInfoAsString() {
+     let secInfo = this.mm.docShell.securityUI.secInfo;
+     if (secInfo) {

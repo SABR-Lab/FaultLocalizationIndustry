@@ -1,0 +1,74 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/tests/window_composition_text_querycontent.xhtml
+# Commit: 3d4472548fb9
+# Full Hash: 3d4472548fb9d48cce00f59066690611ee20ffcb
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2024-11-26 09:36:10
+# Regressor Bug: 1931301
+# File Overlap Count: 1
+# Description:
+#   Bug 1931301 - Notify of removals on a stable state, not mid-remove. r=smaug,masayuki,dshin
+#   
+#   This simplifies some observers, and makes others a bit more subtle, but I think
+#   over-all it is an improvement.
+#   
+# ==============================================================================
+
+diff -r 20a0394d798f -r 3d4472548fb9 widget/tests/window_composition_text_querycontent.xhtml
+--- a/widget/tests/window_composition_text_querycontent.xhtml	Mon Nov 25 17:56:21 2024 +0000
++++ b/widget/tests/window_composition_text_querycontent.xhtml	Mon Nov 25 17:58:40 2024 +0000
+@@ -10214,17 +10214,17 @@
+     await waitNotifications;
+     ensureToRemovePrecedingPositionChangeNotification();
+     if (isDefaultParagraphSeparatorBlock) {
+-      // First, the text node is split to "aB" and "d", i.e., "d" is removed from the text node.
+-      // Then, "d" is added after "aB" as new text node.  So, this won't appear as a text change
+-      // notification.  Next, a padding <br> is inserted between the text node.  This does not
+-      // appear as a text change notification because of invisible node from ContentEventHandler.
+-      // Finally, the <block> is split and remove the unnecessary padding <br> from the left
+-      // block.  So, one line break caused by the open tag of <block> appears with text length of
+-      // "d".
++      // Pressing Enter when aB[]d, then, it becomes <block>aB</block><block>[]d</block>.
++      // All text is replaced with 2 paragraphs.
++      //   <block>aB[]d</block> (removed aBd, added \naBd)
++      //   <block>aB and d</block> (removed d and added d)
++      //   <block>aB<br>[]d</block> (added \n)
++      //   <block>aB<br></block><block>[]d</block> (removed \nd and added \nd)
++      //   <block>aB</block><block>[]d</block> (removed \n)
+       checkTextChangeNotification(notifications[0], description, {
+         offset: offsetAtContainer + "aB".length,
+-        removedLength: getNativeText("d").length,
+-        addedLength: getNativeText("\nd").length,
++        removedLength: getNativeText("\nd").length,
++        addedLength: getNativeText("\n\nd").length,
+       });
+     } else {
+       // Inserting <br> causes removing "d" and inserting "<br>d"
+@@ -10276,17 +10276,16 @@
+     await waitNotifications;
+     ensureToRemovePrecedingPositionChangeNotification();
+     if (isDefaultParagraphSeparatorBlock) {
+-      // First, the text node is split to "a" and "d" after deleting "B", i.e., "Bd" is removed
+-      // from the text node.  Then, "d" is added after "aB" as new text node.  So, this won't
+-      // appear as a text change notification.  Next, a padding <br> is inserted between the text
+-      // node.  This does not appear as a text change notification because of invisible node from
+-      // ContentEventHandler.  Finally, the <block> is split and remove the unnecessary padding
+-      // <br> from the left block.  So, one line break caused by the open tag of <block> appears
+-      // with text length of "d".
++      //    a[]d (removed B)
++      //    <block>a[]d</block> (removed ad and added \nad)
++      //    <block>a and d</block> (removed d and added d)
++      //    <block>a<br>d</block> (added \n)
++      //    <block>a<br></block><block>d</block> (removed d and added \nd)
++      //    <block>a</block><block>d</block> (removed `\n)
+       checkTextChangeNotification(notifications[0], description, {
+         offset: offsetAtContainer + "a".length,
+-        removedLength: getNativeText("Bd").length,
+-        addedLength: getNativeText("\nd").length,
++        removedLength: getNativeText("B\nd").length,
++        addedLength: getNativeText("\n\nd").length,
+       });
+     } else {
+       checkTextChangeNotification(notifications[0], description, {

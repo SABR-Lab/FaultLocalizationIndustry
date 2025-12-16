@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/base/debug/alias.h
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 2
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/base/debug/alias.h
+--- a/security/sandbox/chromium/base/debug/alias.h	Wed Jun 12 21:55:59 2019 +1200
++++ b/security/sandbox/chromium/base/debug/alias.h	Wed Jun 12 11:10:48 2019 +0100
+@@ -6,6 +6,8 @@
+ #define BASE_DEBUG_ALIAS_H_
+ 
+ #include "base/base_export.h"
++#include "base/stl_util.h"
++#include "base/strings/string_util.h"
+ 
+ namespace base {
+ namespace debug {
+@@ -24,14 +26,19 @@
+ // copy the object or its fields to local variables. Example usage:
+ //   int last_error = err_;
+ //   base::debug::Alias(&last_error);
+-//   char name_copy[16];
+-//   strncpy(name_copy, p->name, sizeof(name_copy) - 1);
+-//   name_copy[sizeof(name_copy) - 1] = '\0';
+-//   base::debug::Alias(name_copy);
++//   DEBUG_ALIAS_FOR_CSTR(name_copy, p->name, 16);
+ //   CHECK(false);
+ void BASE_EXPORT Alias(const void* var);
+ 
+ }  // namespace debug
+ }  // namespace base
+ 
++// Convenience macro that copies the null-terminated string from |c_str| into a
++// stack-allocated char array named |var_name| that holds up to |char_count|
++// characters and should be preserved in memory dumps.
++#define DEBUG_ALIAS_FOR_CSTR(var_name, c_str, char_count)   \
++  char var_name[char_count];                                \
++  ::base::strlcpy(var_name, (c_str), base::size(var_name)); \
++  ::base::debug::Alias(var_name);
++
+ #endif  // BASE_DEBUG_ALIAS_H_

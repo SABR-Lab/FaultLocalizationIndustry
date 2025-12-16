@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentParent.cpp
+# Commit: af27682c5e7f
+# Full Hash: af27682c5e7f86ff17d6ed152c8010e763870bdc
+# Author: ssengupta <ssengupta@mozilla.com>
+# Date: 2020-05-13 03:44:05
+# Regressor Bug: 1635399
+# File Overlap Count: 1
+# Description:
+#   Bug 1635399 - Function PrincipalInfoToPrincipal now returns Result<nsCOMPtr<nsIPrincipal>, nsresult> r=ckerschb
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D73868
+# ==============================================================================
+
+diff -r 86b22b1a9f7e -r af27682c5e7f dom/ipc/ContentParent.cpp
+--- a/dom/ipc/ContentParent.cpp	Tue May 12 23:55:42 2020 +0300
++++ b/dom/ipc/ContentParent.cpp	Tue May 12 19:02:05 2020 +0000
+@@ -14,6 +14,7 @@
+ #include "BrowserParent.h"
+ 
+ #include "chrome/common/process_watcher.h"
++#include "mozilla/Result.h"
+ 
+ #ifdef ACCESSIBILITY
+ #  include "mozilla/a11y/PDocAccessible.h"
+@@ -2575,9 +2576,9 @@
+     // Send down to the content process the permissions for each of the
+     // registered service worker scopes.
+     for (auto& registration : registrations) {
+-      nsCOMPtr<nsIPrincipal> principal =
+-          PrincipalInfoToPrincipal(registration.principal());
+-      if (principal) {
++      auto principalOrErr = PrincipalInfoToPrincipal(registration.principal());
++      if (principalOrErr.isOk()) {
++        nsCOMPtr<nsIPrincipal> principal = principalOrErr.unwrap();
+         TransmitPermissionsForPrincipal(principal);
+       }
+     }

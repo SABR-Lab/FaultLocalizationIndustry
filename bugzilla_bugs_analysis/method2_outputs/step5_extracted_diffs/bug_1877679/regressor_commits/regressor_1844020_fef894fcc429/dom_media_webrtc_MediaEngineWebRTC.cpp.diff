@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/MediaEngineWebRTC.cpp
+# Commit: fef894fcc429
+# Full Hash: fef894fcc4294027fdfb62af3997b87411bef554
+# Author: Jan Grulich <jgrulich@redhat.com>
+# Date: 2023-11-30 17:23:44
+# Regressor Bug: 1844020
+# File Overlap Count: 1
+# Description:
+#   Bug 1844020 - Add a camera device placeholder in case PipeWire is not initialized yet r=pehrsons
+#   
+#   Implement DeviceInfoPipeWire with option to add a device placeholder
+#   when there is a camera device, but we don't have access to PipeWire yet.
+#   We ask the Camera portal whether there is a camera device present.
+# ==============================================================================
+
+diff -r ed31b2acb5fb -r fef894fcc429 dom/media/webrtc/MediaEngineWebRTC.cpp
+--- a/dom/media/webrtc/MediaEngineWebRTC.cpp	Thu Nov 30 11:49:35 2023 +0000
++++ b/dom/media/webrtc/MediaEngineWebRTC.cpp	Thu Nov 30 11:49:36 2023 +0000
+@@ -102,6 +102,7 @@
+     char deviceName[MediaEngineSource::kMaxDeviceNameLength];
+     char uniqueId[MediaEngineSource::kMaxUniqueIdLength];
+     bool scarySource = false;
++    bool placeholder = false;
+ 
+     // paranoia
+     deviceName[0] = '\0';
+@@ -110,7 +111,7 @@
+ 
+     error = GetChildAndCall(&CamerasChild::GetCaptureDevice, capEngine, i,
+                             deviceName, sizeof(deviceName), uniqueId,
+-                            sizeof(uniqueId), &scarySource);
++                            sizeof(uniqueId), &scarySource, &placeholder);
+     if (error) {
+       LOG(("camera:GetCaptureDevice: Failed %d", error));
+       continue;
+@@ -137,11 +138,13 @@
+     // The remote video backend doesn't implement group id. We return the
+     // device name and higher layers will correlate this with the name of
+     // audio devices.
+-    aDevices->EmplaceBack(new MediaDevice(
+-        this, aMediaSource, name, uuid, uuid,
+-        MediaDevice::IsScary(scaryKind || scarySource),
+-        canRequestOsLevelPrompt ? MediaDevice::OsPromptable::Yes
+-                                : MediaDevice::OsPromptable::No));
++
++    aDevices->EmplaceBack(
++        new MediaDevice(this, aMediaSource, name, uuid, uuid,
++                        MediaDevice::IsScary(scaryKind || scarySource),
++                        canRequestOsLevelPrompt ? MediaDevice::OsPromptable::Yes
++                                                : MediaDevice::OsPromptable::No,
++                        MediaDevice::IsPlaceholder(placeholder)));
+   }
+ }
+ 

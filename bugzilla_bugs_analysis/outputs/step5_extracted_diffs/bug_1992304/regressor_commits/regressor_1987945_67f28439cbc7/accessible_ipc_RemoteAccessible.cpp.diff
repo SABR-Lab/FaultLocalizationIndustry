@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/ipc/RemoteAccessible.cpp
+# Commit: 67f28439cbc7
+# Full Hash: 67f28439cbc71117a690ea3eee3ef12b0593a7e6
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2025-09-29 20:54 +0000
+# Regressor Bug: 1987945
+# File Overlap Count: 1
+# Overlapping Files: accessible/tests/browser/relations/browser_anchor_positioning.js
+# Description:
+#   Bug 1987945 - P3: Support details relation in anchored targets in remote accessibles. r=Jamie,layout-anchor-positioning-reviewers,layout-reviewers,emilio,firefox-style-system-reviewers
+# ==============================================================================
+
+diff -r b93b02b24271 -r 67f28439cbc7 accessible/ipc/RemoteAccessible.cpp
+--- a/accessible/ipc/RemoteAccessible.cpp	Mon Sep 29 20:54:29 2025 +0000
++++ b/accessible/ipc/RemoteAccessible.cpp	Mon Sep 29 20:54:29 2025 +0000
+@@ -1204,6 +1204,14 @@
+ 
+       if (auto maybeIds = aAcc->mCachedFields->GetAttribute<nsTArray<uint64_t>>(
+               data.mAtom)) {
++        if (data.mAtom == nsGkAtoms::target) {
++          if (!maybeIds->IsEmpty() &&
++              !nsAccUtils::IsValidDetailsTargetForAnchor(
++                  aAcc->mDoc->GetAccessible(maybeIds->ElementAt(0)), aAcc)) {
++            continue;
++          }
++        }
++
+         // Relations can have several cached attributes in order of precedence,
+         // if one is found we use it.
+         return maybeIds;

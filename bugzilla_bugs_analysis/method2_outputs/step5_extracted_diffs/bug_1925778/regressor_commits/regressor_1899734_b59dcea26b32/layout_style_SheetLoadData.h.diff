@@ -1,0 +1,71 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/style/SheetLoadData.h
+# Commit: b59dcea26b32
+# Full Hash: b59dcea26b327513f9843bd339ecfe4bb073e267
+# Author: Tooru Fujisawa <arai_a@mac.com>
+# Date: 2024-10-02 09:50:09
+# Regressor Bug: 1899734
+# File Overlap Count: 1
+# Description:
+#   Bug 1899734 - Part 7: Carry SubResourceNetworkMetadataHolder with SheetLoadData for complete and incomplete load, and propagate through dependencies. r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D223353
+# ==============================================================================
+
+diff -r a15f046e5cdf -r b59dcea26b32 layout/style/SheetLoadData.h
+--- a/layout/style/SheetLoadData.h	Tue Oct 01 12:17:22 2024 +0000
++++ b/layout/style/SheetLoadData.h	Tue Oct 01 12:17:23 2024 +0000
+@@ -7,6 +7,7 @@
+ #ifndef mozilla_css_SheetLoadData_h
+ #define mozilla_css_SheetLoadData_h
+ 
++#include "mozilla/AlreadyAddRefed.h"
+ #include "mozilla/RefPtr.h"
+ #include "mozilla/css/Loader.h"
+ #include "mozilla/css/SheetParsingMode.h"
+@@ -60,24 +61,29 @@
+   void StartPendingLoad();
+ 
+   // Data for loading a sheet linked from a document
+-  SheetLoadData(css::Loader*, const nsAString& aTitle, nsIURI*, StyleSheet*,
+-                SyncLoad, nsINode* aOwningNode, IsAlternate, MediaMatched,
+-                StylePreloadKind, nsICSSLoaderObserver* aObserver,
+-                nsIPrincipal* aTriggeringPrincipal, nsIReferrerInfo*,
+-                const nsAString& aNonce, dom::FetchPriority aFetchPriority);
++  SheetLoadData(
++      css::Loader*, const nsAString& aTitle, nsIURI*, StyleSheet*, SyncLoad,
++      nsINode* aOwningNode, IsAlternate, MediaMatched, StylePreloadKind,
++      nsICSSLoaderObserver* aObserver, nsIPrincipal* aTriggeringPrincipal,
++      nsIReferrerInfo*, const nsAString& aNonce,
++      dom::FetchPriority aFetchPriority,
++      already_AddRefed<SubResourceNetworkMetadataHolder>&& aNetworkMetadata);
+ 
+   // Data for loading a sheet linked from an @import rule
+-  SheetLoadData(css::Loader*, nsIURI*, StyleSheet*, SheetLoadData* aParentData,
+-                nsICSSLoaderObserver* aObserver,
+-                nsIPrincipal* aTriggeringPrincipal, nsIReferrerInfo*);
++  SheetLoadData(
++      css::Loader*, nsIURI*, StyleSheet*, SheetLoadData* aParentData,
++      nsICSSLoaderObserver* aObserver, nsIPrincipal* aTriggeringPrincipal,
++      nsIReferrerInfo*,
++      already_AddRefed<SubResourceNetworkMetadataHolder>&& aNetworkMetadata);
+ 
+   // Data for loading a non-document sheet
+-  SheetLoadData(css::Loader*, nsIURI*, StyleSheet*, SyncLoad,
+-                UseSystemPrincipal, StylePreloadKind,
+-                const Encoding* aPreloadEncoding,
+-                nsICSSLoaderObserver* aObserver,
+-                nsIPrincipal* aTriggeringPrincipal, nsIReferrerInfo*,
+-                const nsAString& aNonce, dom::FetchPriority aFetchPriority);
++  SheetLoadData(
++      css::Loader*, nsIURI*, StyleSheet*, SyncLoad, UseSystemPrincipal,
++      StylePreloadKind, const Encoding* aPreloadEncoding,
++      nsICSSLoaderObserver* aObserver, nsIPrincipal* aTriggeringPrincipal,
++      nsIReferrerInfo*, const nsAString& aNonce,
++      dom::FetchPriority aFetchPriority,
++      already_AddRefed<SubResourceNetworkMetadataHolder>&& aNetworkMetadata);
+ 
+   nsIReferrerInfo* ReferrerInfo() const { return mReferrerInfo; }
+ 

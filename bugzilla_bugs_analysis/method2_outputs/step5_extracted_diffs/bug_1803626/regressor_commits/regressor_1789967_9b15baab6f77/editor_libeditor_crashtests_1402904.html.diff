@@ -1,0 +1,69 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/crashtests/1402904.html
+# Commit: 9b15baab6f77
+# Full Hash: 9b15baab6f77d09eca2956276f66fee97555e4a1
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-09-22 09:56:47
+# Regressor Bug: 1789967
+# File Overlap Count: 1
+# Description:
+#   Bug 1789967 - part 3: Make `HTMLEditor::CollapseSelectionToEndOfLastLeafNodeOfDocument` and `HTMLEditor::InitEditorContentAndSelection` do nothing if the document is partially editable r=m_kato
+#   
+#   They and their callees work with the result of `GetRoot()` which is the document
+#   element or the body element.  If the body is not editable, `Selection` should
+#   not be updated in non-editable region nor `<br>` elements should not be
+# ==============================================================================
+
+diff -r 4d1e93c629da -r 9b15baab6f77 editor/libeditor/crashtests/1402904.html
+--- a/editor/libeditor/crashtests/1402904.html	Thu Sep 22 06:24:38 2022 +0000
++++ b/editor/libeditor/crashtests/1402904.html	Thu Sep 22 06:27:37 2022 +0000
+@@ -1,29 +1,36 @@
+ <script>
+-function jsfuzzer() {
+-  var option = document.getElementById("option");
++function onLoad() {
++  // For emulating the traditional behavior, collapse Selection to end of the
++  // parent of <embed> (<embed> is not a container, therefore, its parent is the
++  // deepest last child container element of the <body>).
++  getSelection().collapse(
++    document.querySelector("embed").parentElement,
++    document.querySelector("embed").parentElement.childNodes.length
++  ); // Point the <embed>
++  const option = document.querySelector("option");
+   option.addEventListener("click", () => {
+-    document.execCommand("forwardDelete", false);
++    document.execCommand("forwardDelete");
+   });
+-  var li2 = document.getElementById("li2");
++  const li2 = document.getElementById("li2");
+   li2.addEventListener("DOMNodeInserted", () => {
+     option.click();
+   });
+-  var select = document.getElementById("select");
++  const select = document.querySelector("select");
+   select.parentElement.setAttribute("onpageshow", "onPageShow()");
+ }
+ 
+ function onPageShow() {
+-  var li1 = document.getElementById("li1");
++  const li1 = document.getElementById("li1");
+   li1.addEventListener("DOMSubtreeModified", () => {
+-    document.execCommand("selectAll", false);
+-    document.execCommand("indent", false);
++    document.execCommand("selectAll");
++    document.execCommand("indent");
+   });
+   li1.appendChild(document.createElement("legend"));
+ }
+ </script>
+-<body onload=jsfuzzer()>
+-<select id="select">
+-<option id="option"></option>
++<body onload="onLoad()">
++<select>
++<option></option>
+ </select>
+ <li id="li1"></li>
+ <ul contenteditable="true">

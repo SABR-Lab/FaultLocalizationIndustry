@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/EditorBase.cpp
+# Commit: 42ed78fa08b2
+# Full Hash: 42ed78fa08b226f3de66ce279740432bcd393a84
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2021-08-27 09:43:40
+# Regressor Bug: 1727185
+# File Overlap Count: 1
+# Description:
+#   Bug 1727185 - part 2: Add removable node checks for more callers of `DeleteNodeTransaction::MaybeCreate()` r=m_kato
+#   
+#   I just missed some callers of it.  And I also make
+#   `EditorBase::DeleteNodeTransaction()` a virtual method and `HTMLEditor` override
+#   it.  Then, even if it's called by helper classes, the `HTMLEditor` version is
+# ==============================================================================
+
+diff -r f79cc68cd2fe -r 42ed78fa08b2 editor/libeditor/EditorBase.cpp
+--- a/editor/libeditor/EditorBase.cpp	Fri Aug 27 00:26:30 2021 +0000
++++ b/editor/libeditor/EditorBase.cpp	Fri Aug 27 00:49:35 2021 +0000
+@@ -3943,6 +3943,10 @@
+       return deleteTextTransaction.forget();
+     }
+ 
++    if (IsHTMLEditor() &&
++        NS_WARN_IF(!HTMLEditUtils::IsRemovableNode(*previousEditableContent))) {
++      return nullptr;
++    }
+     RefPtr<DeleteNodeTransaction> deleteNodeTransaction =
+         DeleteNodeTransaction::MaybeCreate(*this, *previousEditableContent);
+     if (!deleteNodeTransaction) {
+@@ -3987,6 +3991,10 @@
+       return deleteTextTransaction.forget();
+     }
+ 
++    if (IsHTMLEditor() &&
++        NS_WARN_IF(!HTMLEditUtils::IsRemovableNode(*nextEditableContent))) {
++      return nullptr;
++    }
+     RefPtr<DeleteNodeTransaction> deleteNodeTransaction =
+         DeleteNodeTransaction::MaybeCreate(*this, *nextEditableContent);
+     if (!deleteNodeTransaction) {
+@@ -4080,6 +4088,9 @@
+   }
+ 
+   MOZ_ASSERT(IsHTMLEditor());
++  if (NS_WARN_IF(!HTMLEditUtils::IsRemovableNode(*editableContent))) {
++    return nullptr;
++  }
+   RefPtr<DeleteNodeTransaction> deleteNodeTransaction =
+       DeleteNodeTransaction::MaybeCreate(*this, *editableContent);
+   NS_WARNING_ASSERTION(deleteNodeTransaction,

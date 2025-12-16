@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/cookie/CookieServiceChild.cpp
+# Commit: c7862a00e6e7
+# Full Hash: c7862a00e6e74fec00119ab746639ead6954b702
+# Author: Paul Zuehlcke <pbz@mozilla.com>
+# Date: 2023-09-19 03:53:26
+# Regressor Bug: 1839918
+# File Overlap Count: 1
+# Description:
+#   Bug 1839918 - Use PHttpChannel for SetCookies calls from child channels. r=bvandersloot,necko-reviewers,cookie-reviewers,valentin
+#   
+#   Depends on D186045
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D186340
+# ==============================================================================
+
+diff -r 8d7f44b9b6e2 -r c7862a00e6e7 netwerk/cookie/CookieServiceChild.cpp
+--- a/netwerk/cookie/CookieServiceChild.cpp	Mon Sep 18 11:55:09 2023 +0000
++++ b/netwerk/cookie/CookieServiceChild.cpp	Mon Sep 18 11:55:10 2023 +0000
+@@ -8,6 +8,7 @@
+ #include "CookieLogging.h"
+ #include "CookieService.h"
+ #include "mozilla/net/CookieServiceChild.h"
++#include "mozilla/net/HttpChannelChild.h"
+ #include "mozilla/net/NeckoChannelParams.h"
+ #include "mozilla/LoadInfo.h"
+ #include "mozilla/BasePrincipal.h"
+@@ -28,6 +29,7 @@
+ #include "nsIURI.h"
+ #include "nsIPrefBranch.h"
+ #include "nsIWebProgressListener.h"
++#include "nsQueryObject.h"
+ #include "nsServiceManagerUtils.h"
+ #include "mozilla/Telemetry.h"
+ #include "mozilla/TimeStamp.h"
+@@ -571,7 +573,10 @@
+ 
+   // Asynchronously call the parent.
+   if (CanSend() && !cookiesToSend.IsEmpty()) {
+-    SendSetCookies(baseDomain, attrs, aHostURI, true, cookiesToSend);
++    RefPtr<HttpChannelChild> httpChannelChild = do_QueryObject(aChannel);
++    MOZ_ASSERT(httpChannelChild);
++    httpChannelChild->SendSetCookies(baseDomain, attrs, aHostURI, true,
++                                     cookiesToSend);
+   }
+ 
+   return NS_OK;

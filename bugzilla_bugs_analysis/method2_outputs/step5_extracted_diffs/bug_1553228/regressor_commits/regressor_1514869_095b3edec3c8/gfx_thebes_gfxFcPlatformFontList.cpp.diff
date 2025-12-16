@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxFcPlatformFontList.cpp
+# Commit: 095b3edec3c8
+# Full Hash: 095b3edec3c8ba9318c71d0acc91e10ce57818dc
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2019-04-29 21:53:38
+# Regressor Bug: 1514869
+# File Overlap Count: 1
+# Description:
+#   Bug 1514869 - patch 2 - Adapt platform-font-list code to work with either the existing in-process font list or cross-process shared font list. r=jwatt
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D22938
+# ==============================================================================
+
+diff -r 21ef00977ab6 -r 095b3edec3c8 gfx/thebes/gfxFcPlatformFontList.cpp
+--- a/gfx/thebes/gfxFcPlatformFontList.cpp	Sat Apr 27 15:37:29 2019 +0000
++++ b/gfx/thebes/gfxFcPlatformFontList.cpp	Sat Apr 27 15:37:58 2019 +0000
+@@ -1788,8 +1788,9 @@
+ }
+ 
+ bool gfxFcPlatformFontList::FindAndAddFamilies(
+-    const nsACString& aFamily, nsTArray<FamilyAndGeneric>* aOutput,
+-    FindFamiliesFlags aFlags, gfxFontStyle* aStyle, gfxFloat aDevToCssSize) {
++    StyleGenericFontFamily aGeneric, const nsACString& aFamily,
++    nsTArray<FamilyAndGeneric>* aOutput, FindFamiliesFlags aFlags,
++    gfxFontStyle* aStyle, gfxFloat aDevToCssSize) {
+   nsAutoCString familyName(aFamily);
+   ToLowerCase(familyName);
+   nsAtom* language = (aStyle ? aStyle->language.get() : nullptr);
+@@ -1868,7 +1869,8 @@
+       break;
+     }
+     gfxPlatformFontList::FindAndAddFamilies(
+-        nsDependentCString(ToCharPtr(substName)), &cachedFamilies, aFlags);
++        aGeneric, nsDependentCString(ToCharPtr(substName)), &cachedFamilies,
++        aFlags);
+   }
+ 
+   // Cache the resulting list, so we don't have to do this again.
+@@ -1973,7 +1975,7 @@
+ }
+ 
+ void gfxFcPlatformFontList::AddGenericFonts(
+-    mozilla::StyleGenericFontFamily aGenericType, nsAtom* aLanguage,
++    StyleGenericFontFamily aGenericType, nsAtom* aLanguage,
+     nsTArray<FamilyAndGeneric>& aFamilyList) {
+   bool usePrefFontList = false;
+ 
+@@ -2131,7 +2133,8 @@
+       nsAutoCString mappedGenericName(ToCharPtr(mappedGeneric));
+       AutoTArray<FamilyAndGeneric, 1> genericFamilies;
+       if (gfxPlatformFontList::FindAndAddFamilies(
+-              mappedGenericName, &genericFamilies, FindFamiliesFlags(0))) {
++              StyleGenericFontFamily::None, mappedGenericName, &genericFamilies,
++              FindFamiliesFlags(0))) {
+         MOZ_ASSERT(genericFamilies.Length() == 1, "expected a single family");
+         if (!prefFonts->Contains(genericFamilies[0].mFamily)) {
+           prefFonts->AppendElement(genericFamilies[0].mFamily);

@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/AudioStream.cpp
+# Commit: 3000680ad5f4
+# Full Hash: 3000680ad5f46c43b409bdd5468dff476634aec7
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2022-04-20 21:53:00
+# Regressor Bug: 1743834
+# File Overlap Count: 1
+# Description:
+#   Bug 1743834 - Wait for the audio callbacks to start being called before using the audio clock. r=alwu,media-playback-reviewers
+#   
+#   Because we're generally using high latency on the cubeb stream used by
+#   AudioStream instance, it can take some time for the callbacks to start being
+#   called, and the for the audio clock (cubeb_stream_get_position(...)) to advance.
+# ==============================================================================
+
+diff -r 048e93d0a274 -r 3000680ad5f4 dom/media/AudioStream.cpp
+--- a/dom/media/AudioStream.cpp	Wed Apr 20 12:07:09 2022 +0000
++++ b/dom/media/AudioStream.cpp	Wed Apr 20 12:07:10 2022 +0000
+@@ -148,7 +148,9 @@
+       mSandboxed(CubebUtils::SandboxEnabled()),
+       mPlaybackComplete(false),
+       mPlaybackRate(1.0f),
+-      mPreservesPitch(true) {}
++      mPreservesPitch(true),
++      mCallbacksStarted(false)
++    {}
+ 
+ AudioStream::~AudioStream() {
+   LOG("deleted, state %d", mState.load());
+@@ -231,8 +233,8 @@
+   auto startTime = TimeStamp::Now();
+   TRACE("AudioStream::Init");
+ 
+-  LOG("%s channels: %d, rate: %d", __FUNCTION__, mOutChannels,
+-      mAudioClock.GetInputRate());
++  LOG("%s channels: %d, rate: %d", __FUNCTION__, mOutChannels, mAudioClock.GetInputRate());
++
+   mSinkInfo = aSinkInfo;
+ 
+   cubeb_stream_params params;
+@@ -594,6 +596,9 @@
+     CubebUtils::GetAudioThreadRegistry()->Register(mAudioThreadId);
+   }
+   WebCore::DenormalDisabler disabler;
++  if (!mCallbacksStarted) {
++    mCallbacksStarted = true;
++  }
+ 
+   TRACE_AUDIO_CALLBACK_BUDGET(aFrames, mAudioClock.GetInputRate());
+   TRACE("AudioStream::DataCallback");

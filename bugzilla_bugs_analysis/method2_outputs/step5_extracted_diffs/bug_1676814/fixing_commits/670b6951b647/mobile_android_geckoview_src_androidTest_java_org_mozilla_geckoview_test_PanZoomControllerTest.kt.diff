@@ -1,0 +1,49 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: mobile/android/geckoview/src/androidTest/java/org/mozilla/geckoview/test/PanZoomControllerTest.kt
+# Commit: 670b6951b647
+# Full Hash: 670b6951b647f11d1e4e60b026f36e26358578e2
+# Author: Hiroyuki Ikezoe <hikezoe.birchill@mozilla.com>
+# Date: 2020-11-14 09:46:25
+# Description:
+#   Bug 1676814 - Revert a2f0dae16c37 to stop crashing on fast fling etc. r=botond,geckoview-reviewers,snorp
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D96965
+# ==============================================================================
+
+diff -r cc937e3d332f -r 670b6951b647 mobile/android/geckoview/src/androidTest/java/org/mozilla/geckoview/test/PanZoomControllerTest.kt
+--- a/mobile/android/geckoview/src/androidTest/java/org/mozilla/geckoview/test/PanZoomControllerTest.kt	Fri Nov 13 18:45:40 2020 +0200
++++ b/mobile/android/geckoview/src/androidTest/java/org/mozilla/geckoview/test/PanZoomControllerTest.kt	Fri Nov 13 15:21:59 2020 +0000
+@@ -449,4 +449,31 @@
+                       value, equalTo(PanZoomController.INPUT_RESULT_HANDLED_CONTENT))
+         }
+     }
++
++    private fun fling() {
++        val downTime = SystemClock.uptimeMillis();
++        val down = MotionEvent.obtain(
++                downTime, SystemClock.uptimeMillis(), MotionEvent.ACTION_DOWN, 50f, 90f, 0)
++
++        mainSession.panZoomController.onTouchEventForResult(down)
++        var move = MotionEvent.obtain(
++                downTime, SystemClock.uptimeMillis(), MotionEvent.ACTION_MOVE, 50f, 70f, 0)
++        mainSession.panZoomController.onTouchEvent(move)
++        move = MotionEvent.obtain(
++                downTime, SystemClock.uptimeMillis(), MotionEvent.ACTION_MOVE, 50f, 30f, 0)
++        mainSession.panZoomController.onTouchEvent(move)
++
++        val up = MotionEvent.obtain(
++                downTime, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 50f, 10f, 0)
++        mainSession.panZoomController.onTouchEvent(up)
++    }
++
++    @WithDisplay(width = 100, height = 100)
++    @Test
++    fun dontCrashDuringFastFling() {
++        setupDocument(TOUCHSTART_HTML_PATH)
++
++        fling()
++        fling()
++    }
+ }

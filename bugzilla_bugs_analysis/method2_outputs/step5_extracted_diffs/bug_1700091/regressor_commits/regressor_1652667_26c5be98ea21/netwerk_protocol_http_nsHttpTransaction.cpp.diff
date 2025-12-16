@@ -1,0 +1,102 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/nsHttpTransaction.cpp
+# Commit: 26c5be98ea21
+# Full Hash: 26c5be98ea21c8c331cefe9649e3eb53197cd821
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2020-08-26 03:24:37
+# Regressor Bug: 1652667
+# File Overlap Count: 1
+# Description:
+#   Bug 1652667 - P2: Telemetry for whether a connection is succeeded by using an HTTPSSVC record r=valentin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D87857
+# ==============================================================================
+
+diff -r 96bd98319c62 -r 26c5be98ea21 netwerk/protocol/http/nsHttpTransaction.cpp
+--- a/netwerk/protocol/http/nsHttpTransaction.cpp	Tue Aug 25 17:29:32 2020 +0000
++++ b/netwerk/protocol/http/nsHttpTransaction.cpp	Tue Aug 25 17:29:31 2020 +0000
+@@ -137,7 +137,8 @@
+       mEarlyDataDisposition(EARLY_NONE),
+       mFastOpenStatus(TFO_NOT_TRIED),
+       mTrafficCategory(HttpTrafficCategory::eInvalid),
+-      mProxyConnectResponseCode(0) {
++      mProxyConnectResponseCode(0),
++      m421Received(false) {
+   this->mSelfAddr.inet = {};
+   this->mPeerAddr.inet = {};
+   LOG(("Creating nsHttpTransaction @%p\n", this));
+@@ -1074,6 +1075,27 @@
+   return nullptr;
+ }
+ 
++nsHttpTransaction::HTTPSSVC_CONNECTION_FAILED_REASON
++nsHttpTransaction::ErrorCodeToFailedReason(nsresult aErrorCode) {
++  HTTPSSVC_CONNECTION_FAILED_REASON reason = HTTPSSVC_CONNECTION_OTHERS;
++  switch (aErrorCode) {
++    case NS_ERROR_UNKNOWN_HOST:
++      reason = HTTPSSVC_CONNECTION_UNKNOWN_HOST;
++      break;
++    case NS_ERROR_CONNECTION_REFUSED:
++      reason = HTTPSSVC_CONNECTION_UNREACHABLE;
++      break;
++    default:
++      if (m421Received) {
++        reason = HTTPSSVC_CONNECTION_421_RECEIVED;
++      } else if (NS_ERROR_GET_MODULE(aErrorCode) == NS_ERROR_MODULE_SECURITY) {
++        reason = HTTPSSVC_CONNECTION_SECURITY_ERROR;
++      }
++      break;
++  }
++  return reason;
++}
++
+ void nsHttpTransaction::Close(nsresult reason) {
+   LOG(("nsHttpTransaction::Close [this=%p reason=%" PRIx32 "]\n", this,
+        static_cast<uint32_t>(reason)));
+@@ -1232,6 +1254,8 @@
+                             !reallySentData || connReused)) ||
+         restartToFallbackConnInfo) {
+       if (restartToFallbackConnInfo) {
++        Telemetry::Accumulate(Telemetry::DNS_HTTPSSVC_CONNECTION_FAILED_REASON,
++                              ErrorCodeToFailedReason(reason));
+         nsCOMPtr<nsIDNSService> dns = do_GetService(NS_DNSSERVICE_CONTRACTID);
+         if (dns) {
+           LOG(("add failed domain name [%s] -> [%s] to exclusion list",
+@@ -1332,6 +1356,13 @@
+       LOG(("  keeping the connection because of mProxyConnectFailed"));
+       relConn = false;
+     }
++
++    // Use mFallbackConnInfo as an indicator that this transaction is completed
++    // successfully with an HTTPSSVC record.
++    if (mFallbackConnInfo) {
++      Telemetry::Accumulate(Telemetry::DNS_HTTPSSVC_CONNECTION_FAILED_REASON,
++                            HTTPSSVC_CONNECTION_OK);
++    }
+   }
+ 
+   // mTimings.responseEnd is normally recorded based on the end of a
+@@ -1814,6 +1845,8 @@
+         LOG(("Misdirected Request.\n"));
+         gHttpHandler->ClearHostMapping(mConnInfo);
+ 
++        m421Received = true;
++
+         // Unsticky the connection to allow restart.  This can get set when an
+         // NTLM proxy is successfully authenticated.
+         mCaps |= (NS_HTTP_REFRESH_DNS | NS_HTTP_CONNECTION_RESTARTABLE);
+@@ -2729,6 +2762,12 @@
+                                              mCaps & NS_HTTP_DISALLOW_HTTP3,
+                                              getter_AddRefs(svcbRecord)))) {
+     LOG(("  no usable record!"));
++    bool allRecordsExcluded = false;
++    Unused << record->GetAllRecordsExcluded(&allRecordsExcluded);
++    Telemetry::Accumulate(Telemetry::DNS_HTTPSSVC_CONNECTION_FAILED_REASON,
++                          allRecordsExcluded
++                              ? HTTPSSVC_CONNECTION_ALL_RECORDS_EXCLUDED
++                              : HTTPSSVC_CONNECTION_NO_USABLE_RECORD);
+     return NS_ERROR_FAILURE;
+   }
+ 

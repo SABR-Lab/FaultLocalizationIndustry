@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/TextDirectiveCreator.cpp
+# Commit: b1fda3f9af8a
+# Full Hash: b1fda3f9af8ae58da0ea4a24078dd75b784e79cf
+# Author: Cosmin Sabou <csabou@mozilla.com>
+# Date: 2025-09-10 09:37:11
+# Regressor Bug: 1979588
+# File Overlap Count: 2
+# Overlapping Files: dom/base/test/test_text-fragments-create-text-directive.html, dom/base/TextDirectiveCreator.cpp
+# Description:
+#   Revert "Bug 1979588 - Text Fragments: Correctly deal with long words at end of range for range-based matching. r=dom-core,smaug" for causing crashes (bug 1987845) as part of the Nightly merge operations
+#   
+#   This reverts commit 7db1bf44de9eb0bcf7b68ff1b5206fc801432ee0.
+# ==============================================================================
+
+diff -r 89d6d9a06132 -r b1fda3f9af8a dom/base/TextDirectiveCreator.cpp
+--- a/dom/base/TextDirectiveCreator.cpp	Wed Sep 10 01:47:49 2025 +0000
++++ b/dom/base/TextDirectiveCreator.cpp	Wed Sep 10 12:33:12 2025 +0300
+@@ -236,26 +236,17 @@
+             dom_text_fragments_create_text_fragment_exact_match_max_length());
+     const auto [wordStart, wordEnd] =
+         intl::WordBreaker::FindWord(mStartContent, mStartContent.Length() / 2);
+-    // This check is fine because the range content strings have compressed
+-    // whitespace, therefore first and last character cannot be whitespace.
+     if (wordStart == 0 && wordEnd == mStartContent.Length()) {
++      // This check is fine because the range content strings have compressed
++      // whitespace.
+       TEXT_FRAGMENT_LOG(
+           "Target range only contains one word, which is longer than the "
+           "maximum length. Aborting.");
+       return false;
+     }
+ 
+-    // These cases are hit when `mStartContent` contains a very large (>50% of
+-    // the total length) word. Then the wordbreaker would return wordEnd=length
+-    // if the long word is at the end of the string. In that case, use the
+-    // wordStart position to break, so that mEndContent is not empty.
+-    if (wordEnd == mStartContent.Length()) {
+-      mEndContent = Substring(mStartContent, wordStart);
+-      mStartContent = Substring(mStartContent, 0, wordStart);
+-    } else {
+-      mEndContent = Substring(mStartContent, wordEnd);
+-      mStartContent = Substring(mStartContent, 0, wordEnd);
+-    }
++    mEndContent = Substring(mStartContent, wordEnd);
++    mStartContent = Substring(mStartContent, 0, wordEnd);
+   }
+   if (mStartContent.Length() > kMaxContextTermLength) {
+     TEXT_FRAGMENT_LOG(

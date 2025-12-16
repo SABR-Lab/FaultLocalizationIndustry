@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediacontrol/MediaStatusManager.cpp
+# Commit: 98843b4e9041
+# Full Hash: 98843b4e904162a035dd2ab15aa57c431caf3bdd
+# Author: alwu <alwu@mozilla.com>
+# Date: 2020-06-09 09:21:34
+# Regressor Bug: 1640998
+# File Overlap Count: 1
+# Description:
+#   Bug 1640998 - part6 : only notify the active media session's metadata change. r=chunmin
+#   
+#   This patch will
+#   - prevent dispatching metadata change event for non-active media session (we only care about the event from the active media session)
+#   
+# ==============================================================================
+
+diff -r 714b2fb21e23 -r 98843b4e9041 dom/media/mediacontrol/MediaStatusManager.cpp
+--- a/dom/media/mediacontrol/MediaStatusManager.cpp	Tue Jun 09 02:23:35 2020 +0000
++++ b/dom/media/mediacontrol/MediaStatusManager.cpp	Mon Jun 08 18:51:10 2020 +0000
+@@ -99,7 +99,12 @@
+         NS_ConvertUTF16toUTF8(aMetadata->mAlbum).get());
+     info->mMetadata = aMetadata;
+   }
+-  mMetadataChangedEvent.Notify(GetCurrentMediaMetadata());
++  // Only notify the event if the changed metadata belongs to the active media
++  // session.
++  if (!mActiveMediaSessionContextId ||
++      *mActiveMediaSessionContextId == aBrowsingContextId) {
++    mMetadataChangedEvent.Notify(GetCurrentMediaMetadata());
++  }
+   if (StaticPrefs::media_mediacontrol_testingevents_enabled()) {
+     if (nsCOMPtr<nsIObserverService> obs = services::GetObserverService()) {
+       obs->NotifyObservers(nullptr, "media-session-controller-metadata-changed",

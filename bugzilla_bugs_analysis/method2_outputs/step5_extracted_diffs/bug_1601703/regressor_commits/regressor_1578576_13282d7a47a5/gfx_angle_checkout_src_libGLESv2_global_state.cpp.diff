@@ -1,0 +1,132 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/angle/checkout/src/libGLESv2/global_state.cpp
+# Commit: 13282d7a47a5
+# Full Hash: 13282d7a47a57a73be8d060efd9645b4d642f03e
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2019-09-08 09:46:52
+# Regressor Bug: 1578576
+# File Overlap Count: 4
+# Description:
+#   Bug 1578576 - Part 2: Update to ANGLE 3865 r=jgilbert
+#   
+#   Depends on D44561
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44579
+# ==============================================================================
+
+diff -r 3064469c073d -r 13282d7a47a5 gfx/angle/checkout/src/libGLESv2/global_state.cpp
+--- a/gfx/angle/checkout/src/libGLESv2/global_state.cpp	Sat Sep 07 13:36:46 2019 +0000
++++ b/gfx/angle/checkout/src/libGLESv2/global_state.cpp	Sat Sep 07 13:38:36 2019 +0000
+@@ -35,6 +35,11 @@
+ {
+ static TLSIndex threadTLS = TLS_INVALID_INDEX;
+ Debug *g_Debug            = nullptr;
++std::atomic<std::mutex *> g_Mutex;
++static_assert(std::is_trivially_constructible<decltype(g_Mutex)>::value,
++              "global mutex is not trivially constructible");
++static_assert(std::is_trivially_destructible<decltype(g_Mutex)>::value,
++              "global mutex is not trivially destructible");
+ 
+ Thread *AllocateCurrentThread()
+ {
+@@ -56,15 +61,34 @@
+ 
+ void AllocateDebug()
+ {
+-    // TODO(geofflang): Lock around global allocation. http://anglebug.com/2464
++    // All EGL calls use a global lock, this is thread safe
+     if (g_Debug == nullptr)
+     {
+         g_Debug = new Debug();
+     }
+ }
+ 
++void AllocateMutex()
++{
++    if (g_Mutex == nullptr)
++    {
++        std::unique_ptr<std::mutex> newMutex(new std::mutex());
++        std::mutex *expected = nullptr;
++        if (g_Mutex.compare_exchange_strong(expected, newMutex.get()))
++        {
++            newMutex.release();
++        }
++    }
++}
++
+ }  // anonymous namespace
+ 
++std::mutex &GetGlobalMutex()
++{
++    AllocateMutex();
++    return *g_Mutex;
++}
++
+ Thread *GetCurrentThread()
+ {
+     // Create a TLS index if one has not been created for this DLL
+@@ -109,21 +133,6 @@
+ }
+ }  // namespace egl
+ 
+-#if ANGLE_FORCE_THREAD_SAFETY == ANGLE_ENABLED
+-namespace angle
+-{
+-namespace
+-{
+-std::mutex g_Mutex;
+-}  // anonymous namespace
+-
+-std::mutex &GetGlobalMutex()
+-{
+-    return g_Mutex;
+-}
+-}  // namespace angle
+-#endif
+-
+ #ifdef ANGLE_PLATFORM_WINDOWS
+ namespace egl
+ {
+@@ -138,16 +147,28 @@
+     return SetTLSValue(threadTLS, nullptr);
+ }
+ 
+-void DealocateDebug()
++void DeallocateDebug()
+ {
+     SafeDelete(g_Debug);
+ }
+ 
++void DeallocateMutex()
++{
++    std::mutex *mutex = g_Mutex.exchange(nullptr);
++    {
++        // Wait for the mutex to become released by other threads before deleting.
++        std::lock_guard<std::mutex> lock(*mutex);
++    }
++    SafeDelete(mutex);
++}
++
+ bool InitializeProcess()
+ {
+     ASSERT(g_Debug == nullptr);
+     AllocateDebug();
+ 
++    AllocateMutex();
++
+     threadTLS = CreateTLSIndex();
+     if (threadTLS == TLS_INVALID_INDEX)
+     {
+@@ -159,7 +180,9 @@
+ 
+ bool TerminateProcess()
+ {
+-    DealocateDebug();
++    DeallocateDebug();
++
++    DeallocateMutex();
+ 
+     if (!DeallocateCurrentThread())
+     {

@@ -1,0 +1,34 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/nsIFrame.h
+# Commit: e90eb44c2da3
+# Full Hash: e90eb44c2da3303c038c67b7ad28b1498cd5a98c
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2024-07-19 16:21:39
+# Description:
+#   Bug 1897255 - Make `nsIFrame::PeekOffsetForLine` won't cross editing host boundary unless the callers allows that r=emilio
+#   
+#   The problems in the testcase are, `nsIFrame::PeekOffsetForLine` returns a frame
+#   for any content node outside the editing host and `nsIFrame::GetLastLeaf`
+#   returns a native anonymous subtree node if the frame is for the native
+# ==============================================================================
+
+diff -r bd02e7030721 -r e90eb44c2da3 layout/generic/nsIFrame.h
+--- a/layout/generic/nsIFrame.h	Fri Jul 19 07:46:19 2024 +0000
++++ b/layout/generic/nsIFrame.h	Fri Jul 19 08:13:10 2024 +0000
+@@ -795,7 +795,13 @@
+    * Get the content object associated with this frame. Does not add a
+    * reference.
+    */
+-  nsIContent* GetContent() const { return mContent; }
++  [[nodiscard]] nsIContent* GetContent() const { return mContent; }
++
++  [[nodiscard]] bool ContentIsRootOfNativeAnonymousSubtree() const {
++    return mContent && mContent->IsRootOfNativeAnonymousSubtree();
++  }
++
++  [[nodiscard]] inline bool ContentIsEditable() const;
+ 
+   /**
+    * @brief Get the closest native anonymous subtree root if the content is in a

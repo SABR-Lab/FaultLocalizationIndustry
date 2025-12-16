@@ -1,0 +1,38 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/shell/js.cpp
+# Commit: 7ea3821e4b4b
+# Full Hash: 7ea3821e4b4bbbd3e590353c703be946c3d223a7
+# Author: Jason Orendorff <jason.orendorff@gmail.com>
+# Date: 2020-09-30 09:29:18
+# Description:
+#   Bug 1667036 - Fix a couple of bugs in a shell-only debugger callback. r=tcampbell.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D91343
+# ==============================================================================
+
+diff -r ca15ce025dde -r 7ea3821e4b4b js/src/shell/js.cpp
+--- a/js/src/shell/js.cpp	Tue Sep 29 19:09:31 2020 +0000
++++ b/js/src/shell/js.cpp	Tue Sep 29 19:51:52 2020 +0000
+@@ -4187,10 +4187,16 @@
+ 
+   RootedValue elementValue(cx);
+   if (!JS_GetProperty(cx, infoObject, "element", &elementValue)) {
+-    return nullptr;
+-  }
+-
+-  return elementValue.toObjectOrNull();
++    // This shouldn't happen in the shell, as ParseCompileOptions always
++    // creates the infoObject with this property. In any case, this callback
++    // must not leave an exception pending, so:
++    MOZ_CRASH("error getting source element");
++  }
++
++  if (elementValue.isObject()) {
++    return &elementValue.toObject();
++  }
++  return nullptr;
+ }
+ 
+ static void WorkerMain(WorkerInput* input) {

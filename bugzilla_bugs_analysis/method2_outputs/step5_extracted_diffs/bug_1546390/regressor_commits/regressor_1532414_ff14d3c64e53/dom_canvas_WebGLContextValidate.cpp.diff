@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLContextValidate.cpp
+# Commit: ff14d3c64e53
+# Full Hash: ff14d3c64e53dad7b4720c983b8f19bb494ed28a
+# Author: Ehsan Akhgari <ehsan@mozilla.com>
+# Date: 2019-03-06 04:36:55
+# Regressor Bug: 1532414
+# File Overlap Count: 1
+# Description:
+#   Bug 1532414 - Pass a document/principal pointer to nsContentUtils::ShouldResistFingerprinting() callers in the canvas API; r=baku
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D22002
+# ==============================================================================
+
+diff -r 14b6b6f8a599 -r ff14d3c64e53 dom/canvas/WebGLContextValidate.cpp
+--- a/dom/canvas/WebGLContextValidate.cpp	Tue Mar 05 12:42:51 2019 +0000
++++ b/dom/canvas/WebGLContextValidate.cpp	Tue Mar 05 12:42:51 2019 +0000
+@@ -471,6 +471,14 @@
+   gl->fGetFloatv(driverPName, mGLAliasedPointSizeRange);
+ 
+   ////////////////
++  bool shouldResistFingerprinting =
++      mCanvasElement ?
++                     // If we're constructed from a canvas element
++          nsContentUtils::ShouldResistFingerprinting(GetOwnerDoc())
++                     :
++                     // If we're constructed from an offscreen canvas
++          nsContentUtils::ShouldResistFingerprinting(
++              mOffscreenCanvas->GetOwnerGlobal()->PrincipalOrNull());
+ 
+   if (gfxPrefs::WebGLMinCapabilityMode()) {
+     bool ok = true;
+@@ -505,7 +513,7 @@
+     }
+ 
+     mDisableFragHighP = true;
+-  } else if (nsContentUtils::ShouldResistFingerprinting()) {
++  } else if (shouldResistFingerprinting) {
+     bool ok = true;
+ 
+     ok &= RestrictCap(&mGLMaxTextureSize, kCommonMaxTextureSize);

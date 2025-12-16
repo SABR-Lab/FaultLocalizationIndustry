@@ -1,0 +1,67 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/xul/XULMenuParentElement.cpp
+# Commit: 5464978a27a8
+# Full Hash: 5464978a27a8e770db08b80e3a98b281f6e78318
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-02-08 09:52:31
+# Regressor Bug: 1812329
+# File Overlap Count: 1
+# Description:
+#   Bug 1812329 - Remove nsMenuBarFrame. r=smaug
+#   
+#   This ended up being a lot more straight-forward than the menu changes.
+#   
+#   TLDR:
+# ==============================================================================
+
+diff -r 38ecc5076ab3 -r 5464978a27a8 dom/xul/XULMenuParentElement.cpp
+--- a/dom/xul/XULMenuParentElement.cpp	Tue Feb 07 18:08:30 2023 +0000
++++ b/dom/xul/XULMenuParentElement.cpp	Tue Feb 07 18:09:37 2023 +0000
+@@ -5,20 +5,20 @@
+ 
+ #include "XULMenuParentElement.h"
+ #include "XULButtonElement.h"
++#include "XULMenuBarElement.h"
+ #include "XULPopupElement.h"
+ #include "mozilla/LookAndFeel.h"
++#include "mozilla/StaticAnalysisFunctions.h"
+ #include "mozilla/TextEvents.h"
+ #include "mozilla/dom/DocumentInlines.h"
+ #include "mozilla/dom/KeyboardEvent.h"
+ #include "mozilla/EventDispatcher.h"
+ #include "nsDebug.h"
+-#include "nsMenuBarFrame.h"
+ #include "nsMenuPopupFrame.h"
+ #include "nsString.h"
+ #include "nsStringFwd.h"
+ #include "nsUTF8Utils.h"
+ #include "nsXULElement.h"
+-#include "nsMenuBarListener.h"
+ #include "nsXULPopupManager.h"
+ 
+ namespace mozilla::dom {
+@@ -127,8 +127,9 @@
+   }
+   mActiveItem = nullptr;
+ 
+-  if (nsMenuBarFrame* f = do_QueryFrame(GetPrimaryFrame())) {
+-    f->SetActive(!!aChild);
++  if (auto* menuBar = XULMenuBarElement::FromNode(*this)) {
++    // KnownLive because `this` is known-live by definition.
++    MOZ_KnownLive(menuBar)->SetActive(!!aChild);
+   }
+ 
+   if (!aChild) {
+@@ -388,4 +389,10 @@
+   return foundMenuBeforeCurrent;
+ }
+ 
++void XULMenuParentElement::HandleEnterKeyPress(WidgetEvent& aEvent) {
++  if (RefPtr child = GetActiveMenuChild()) {
++    child->HandleEnterKeyPress(aEvent);
++  }
++}
++
+ }  // namespace mozilla::dom

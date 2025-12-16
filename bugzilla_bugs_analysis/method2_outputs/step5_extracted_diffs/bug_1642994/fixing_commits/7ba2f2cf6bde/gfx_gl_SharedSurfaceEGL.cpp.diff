@@ -1,0 +1,45 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/gl/SharedSurfaceEGL.cpp
+# Commit: 7ba2f2cf6bde
+# Full Hash: 7ba2f2cf6bdedd2cafd4e8717fa548e5b54dd184
+# Author: Imanol Fernandez <mortimergoro@gmail.com>
+# Date: 2020-07-10 09:48:19
+# Description:
+#   Bug 1642994 - Fix SurfaceTexture assertion failure in WebGLContext::GetFrontBuffer r=jgilbert
+#   
+#   - WaitForBufferOwnership() must be called before locking the front buffer
+#   - Use mDefaultFB->mFB instead of 0 to fix a freeze in the readPixels call
+#   - SurfaceTexture.releaseTexImage must be called after each use
+# ==============================================================================
+
+diff -r 4879dea5cdd6 -r 7ba2f2cf6bde gfx/gl/SharedSurfaceEGL.cpp
+--- a/gfx/gl/SharedSurfaceEGL.cpp	Thu Jul 09 14:09:49 2020 +0000
++++ b/gfx/gl/SharedSurfaceEGL.cpp	Thu Jul 09 18:31:12 2020 +0000
+@@ -17,6 +17,7 @@
+ #if defined(MOZ_WIDGET_ANDROID)
+ #  include "AndroidNativeWindow.h"
+ #  include "mozilla/java/SurfaceAllocatorWrappers.h"
++#  include "mozilla/java/GeckoSurfaceTextureWrappers.h"
+ #endif  // defined(MOZ_WIDGET_ANDROID)
+ 
+ namespace mozilla {
+@@ -201,6 +202,17 @@
+   mOrigEglSurface = nullptr;
+ }
+ 
++void SharedSurface_SurfaceTexture::ProducerReadReleaseImpl() {
++  java::GeckoSurfaceTexture::LocalRef surfaceTexture =
++      java::GeckoSurfaceTexture::Lookup(mSurface->GetHandle());
++  if (!surfaceTexture) {
++    NS_ERROR("Didn't find GeckoSurfaceTexture in ProducerReadReleaseImpl");
++    return;
++  }
++  surfaceTexture->UpdateTexImage();
++  surfaceTexture->ReleaseTexImage();
++}
++
+ void SharedSurface_SurfaceTexture::Commit() {
+   MOZ_RELEASE_ASSERT(mSurface->GetAvailable());
+ 

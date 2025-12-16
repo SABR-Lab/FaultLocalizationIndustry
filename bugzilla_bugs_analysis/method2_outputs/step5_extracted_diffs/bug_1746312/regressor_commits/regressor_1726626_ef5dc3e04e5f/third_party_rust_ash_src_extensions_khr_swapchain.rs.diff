@@ -1,0 +1,73 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/ash/src/extensions/khr/swapchain.rs
+# Commit: ef5dc3e04e5f
+# Full Hash: ef5dc3e04e5f271eea0636ab3a495e95cc912f1d
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-09-04 09:40:24
+# Regressor Bug: 1726626
+# File Overlap Count: 3
+# Description:
+#   Bug 1726626 - Move gfx/wgpu into a 3rd party dependency r=jgilbert,bholley
+#   
+#   This update makes wgpu a vendored dependency instead of having it in gfx/wgpu.
+#   
+#   ## Notes
+# ==============================================================================
+
+diff --git a/third_party/rust/ash/src/extensions/khr/swapchain.rs b/third_party/rust/ash/src/extensions/khr/swapchain.rs
+--- a/third_party/rust/ash/src/extensions/khr/swapchain.rs
++++ b/third_party/rust/ash/src/extensions/khr/swapchain.rs
+@@ -1,29 +1,28 @@
+-#![allow(dead_code)]
+ use crate::prelude::*;
+-use crate::version::{DeviceV1_0, InstanceV1_0};
+ use crate::vk;
+ use crate::RawPtr;
++use crate::{Device, Instance};
+ use std::ffi::CStr;
+ use std::mem;
+ use std::ptr;
+ 
+ #[derive(Clone)]
+ pub struct Swapchain {
+     handle: vk::Device,
+     swapchain_fn: vk::KhrSwapchainFn,
+ }
+ 
+ impl Swapchain {
+-    pub fn new<I: InstanceV1_0, D: DeviceV1_0>(instance: &I, device: &D) -> Swapchain {
++    pub fn new(instance: &Instance, device: &Device) -> Self {
+         let swapchain_fn = vk::KhrSwapchainFn::load(|name| unsafe {
+             mem::transmute(instance.get_device_proc_addr(device.handle(), name.as_ptr()))
+         });
+-        Swapchain {
++        Self {
+             handle: device.handle(),
+             swapchain_fn,
+         }
+     }
+ 
+     pub fn name() -> &'static CStr {
+         vk::KhrSwapchainFn::name()
+     }
+@@ -45,17 +44,17 @@ impl Swapchain {
+     #[doc = "<https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/vkAcquireNextImageKHR.html>"]
+     pub unsafe fn acquire_next_image(
+         &self,
+         swapchain: vk::SwapchainKHR,
+         timeout: u64,
+         semaphore: vk::Semaphore,
+         fence: vk::Fence,
+     ) -> VkResult<(u32, bool)> {
+-        let mut index = mem::zeroed();
++        let mut index = 0;
+         let err_code = self.swapchain_fn.acquire_next_image_khr(
+             self.handle,
+             swapchain,
+             timeout,
+             semaphore,
+             fence,
+             &mut index,
+         );

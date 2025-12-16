@@ -1,0 +1,84 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmBaselineCompile.cpp
+# Commit: cf96078694ae
+# Full Hash: cf96078694aea74cae4557f683a76c6de6ba9cf1
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2023-08-05 09:19:01
+# Regressor Bug: 1692065
+# File Overlap Count: 3
+# Description:
+#   Bug 1692065 - wasm: Rename MIRType::RefOrNull to 'WasmAnyRef'. r=yury
+#   
+#   This is a mechanical change. The previous name 'RefOrNull' was too
+#   generic, and it wasn't clear that the type was actually a wasm::AnyRef
+#   type.
+# ==============================================================================
+
+diff -r 662cb63c42d7 -r cf96078694ae js/src/wasm/WasmBaselineCompile.cpp
+--- a/js/src/wasm/WasmBaselineCompile.cpp	Fri Aug 04 14:06:49 2023 +0000
++++ b/js/src/wasm/WasmBaselineCompile.cpp	Fri Aug 04 14:06:49 2023 +0000
+@@ -370,7 +370,7 @@
+   for (WasmABIArgIter i(args); !i.done(); i++) {
+     ABIArg argLoc = *i;
+     if (argLoc.kind() == ABIArg::Stack &&
+-        args[i.index()] == MIRType::RefOrNull) {
++        args[i.index()] == MIRType::WasmAnyRef) {
+       uint32_t offset = argLoc.offsetFromArgBase();
+       MOZ_ASSERT(offset < inboundStackArgBytes);
+       MOZ_ASSERT(offset % sizeof(void*) == 0);
+@@ -443,7 +443,7 @@
+   for (const Local& l : localInfo_) {
+     // Locals that are stack arguments were already added to the stackmap
+     // before pushing the frame.
+-    if (l.type == MIRType::RefOrNull && !l.isStackArgument()) {
++    if (l.type == MIRType::WasmAnyRef && !l.isStackArgument()) {
+       uint32_t offs = fr.localOffsetFromSp(l);
+       MOZ_ASSERT(0 == (offs % sizeof(void*)));
+       stackMapGenerator_.machineStackTracker.setGCPointer(offs / sizeof(void*));
+@@ -483,7 +483,7 @@
+       case MIRType::Int64:
+         fr.storeLocalI64(RegI64(i->gpr64()), l);
+         break;
+-      case MIRType::RefOrNull: {
++      case MIRType::WasmAnyRef: {
+         DebugOnly<uint32_t> offs = fr.localOffsetFromSp(l);
+         MOZ_ASSERT(0 == (offs % sizeof(void*)));
+         fr.storeLocalRef(RegRef(i->gpr()), l);
+@@ -1533,7 +1533,7 @@
+       break;
+     }
+     case ValType::Ref: {
+-      ABIArg argLoc = call->abi.next(MIRType::RefOrNull);
++      ABIArg argLoc = call->abi.next(MIRType::WasmAnyRef);
+       if (argLoc.kind() == ABIArg::Stack) {
+         ScratchRef scratch(*this);
+         loadRef(arg, scratch);
+@@ -4652,7 +4652,7 @@
+       break;
+     }
+ #endif
+-    case MIRType::RefOrNull: {
++    case MIRType::WasmAnyRef: {
+       RegRef rv = captureReturnedRef();
+       pushRef(rv);
+       break;
+@@ -5346,7 +5346,7 @@
+     case ValType::Ref: {
+       RegRef rv = popRef();
+       syncLocal(slot);
+-      fr.storeLocalRef(rv, localFromSlot(slot, MIRType::RefOrNull));
++      fr.storeLocalRef(rv, localFromSlot(slot, MIRType::WasmAnyRef));
+       if (isSetLocal) {
+         freeRef(rv);
+       } else {
+@@ -5834,7 +5834,7 @@
+       case MIRType::Float32:
+         t = ValType::F32;
+         break;
+-      case MIRType::RefOrNull:
++      case MIRType::WasmAnyRef:
+         t = RefType::extern_();
+         break;
+       case MIRType::Pointer:

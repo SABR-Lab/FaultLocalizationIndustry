@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/ipc/SocketProcessParent.cpp
+# Commit: a92c423736e5
+# Full Hash: a92c423736e5979a8cf039017fd707d41f665b9c
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2020-05-25 15:42:48
+# Regressor Bug: 1546358
+# File Overlap Count: 1
+# Description:
+#   Bug 1546358 - Forward cache entry check to parent process r=dragana
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D75941
+# ==============================================================================
+
+diff -r b21cc935a336 -r a92c423736e5 netwerk/ipc/SocketProcessParent.cpp
+--- a/netwerk/ipc/SocketProcessParent.cpp	Fri May 22 13:37:54 2020 +0000
++++ b/netwerk/ipc/SocketProcessParent.cpp	Mon May 25 11:07:07 2020 +0000
+@@ -7,6 +7,7 @@
+ #include "SocketProcessLogging.h"
+ 
+ #include "AltServiceParent.h"
++#include "CachePushChecker.h"
+ #include "HttpTransactionParent.h"
+ #include "SocketProcessHost.h"
+ #include "mozilla/dom/MemoryReportRequest.h"
+@@ -344,6 +345,17 @@
+   return IPC_OK();
+ }
+ 
++mozilla::ipc::IPCResult SocketProcessParent::RecvCachePushCheck(
++    nsIURI* aPushedURL, OriginAttributes&& aOriginAttributes,
++    nsCString&& aRequestString, CachePushCheckResolver&& aResolver) {
++  RefPtr<CachePushChecker> checker = new CachePushChecker(
++      aPushedURL, aOriginAttributes, aRequestString, aResolver);
++  if (NS_FAILED(checker->DoCheck())) {
++    aResolver(false);
++  }
++  return IPC_OK();
++}
++
+ // To ensure that IPDL is finished before SocketParent gets deleted.
+ class DeferredDeleteSocketProcessParent : public Runnable {
+  public:

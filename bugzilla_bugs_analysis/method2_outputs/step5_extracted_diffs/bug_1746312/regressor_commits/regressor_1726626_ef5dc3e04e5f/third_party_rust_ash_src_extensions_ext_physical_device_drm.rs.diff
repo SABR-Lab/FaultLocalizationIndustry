@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/ash/src/extensions/ext/physical_device_drm.rs
+# Commit: ef5dc3e04e5f
+# Full Hash: ef5dc3e04e5f271eea0636ab3a495e95cc912f1d
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-09-04 09:40:24
+# Regressor Bug: 1726626
+# File Overlap Count: 3
+# Description:
+#   Bug 1726626 - Move gfx/wgpu into a 3rd party dependency r=jgilbert,bholley
+#   
+#   This update makes wgpu a vendored dependency instead of having it in gfx/wgpu.
+#   
+#   ## Notes
+# ==============================================================================
+
+diff --git a/third_party/rust/ash/src/extensions/ext/physical_device_drm.rs b/third_party/rust/ash/src/extensions/ext/physical_device_drm.rs
+new file mode 100644
+--- /dev/null
++++ b/third_party/rust/ash/src/extensions/ext/physical_device_drm.rs
+@@ -0,0 +1,24 @@
++use crate::vk;
++use crate::Instance;
++use std::ffi::CStr;
++
++#[derive(Clone)]
++pub struct PhysicalDeviceDrm;
++
++impl PhysicalDeviceDrm {
++    pub unsafe fn get_properties(
++        instance: &Instance,
++        pdevice: vk::PhysicalDevice,
++    ) -> vk::PhysicalDeviceDrmPropertiesEXT {
++        let mut props_drm = vk::PhysicalDeviceDrmPropertiesEXT::default();
++        {
++            let mut props = vk::PhysicalDeviceProperties2::builder().push_next(&mut props_drm);
++            instance.get_physical_device_properties2(pdevice, &mut props);
++        }
++        props_drm
++    }
++
++    pub fn name() -> &'static CStr {
++        vk::ExtPhysicalDeviceDrmFn::name()
++    }
++}

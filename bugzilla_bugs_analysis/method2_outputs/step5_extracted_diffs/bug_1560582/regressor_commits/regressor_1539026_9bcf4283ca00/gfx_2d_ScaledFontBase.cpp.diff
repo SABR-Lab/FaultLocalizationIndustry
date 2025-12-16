@@ -1,0 +1,72 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/2d/ScaledFontBase.cpp
+# Commit: 9bcf4283ca00
+# Full Hash: 9bcf4283ca003f8572392b8f111361c12eecde3d
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2019-03-31 09:00:52
+# Regressor Bug: 1539026
+# File Overlap Count: 1
+# Description:
+#   Bug 1539026 - Skia m74 Moz2D fixes. r=rhunt
+# ==============================================================================
+
+diff -r 01b0009b3f67 -r 9bcf4283ca00 gfx/2d/ScaledFontBase.cpp
+--- a/gfx/2d/ScaledFontBase.cpp	Tue Mar 26 11:06:47 2019 -0400
++++ b/gfx/2d/ScaledFontBase.cpp	Tue Mar 26 11:06:56 2019 -0400
+@@ -10,7 +10,7 @@
+ 
+ #ifdef USE_SKIA
+ #  include "PathSkia.h"
+-#  include "skia/include/core/SkPaint.h"
++#  include "skia/include/core/SkFont.h"
+ #endif
+ 
+ #ifdef USE_CAIRO
+@@ -109,26 +109,32 @@
+   SkTypeface *typeFace = GetSkTypeface();
+   MOZ_ASSERT(typeFace);
+ 
+-  SkPaint paint;
+-  paint.setTypeface(sk_ref_sp(typeFace));
+-  paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
+-  paint.setTextSize(SkFloatToScalar(mSize));
++  SkFont font(sk_ref_sp(typeFace), SkFloatToScalar(mSize));
+ 
+   std::vector<uint16_t> indices;
+-  std::vector<SkPoint> offsets;
+   indices.resize(aBuffer.mNumGlyphs);
+-  offsets.resize(aBuffer.mNumGlyphs);
+-
+   for (unsigned int i = 0; i < aBuffer.mNumGlyphs; i++) {
+     indices[i] = aBuffer.mGlyphs[i].mIndex;
+-    offsets[i].fX = SkFloatToScalar(aBuffer.mGlyphs[i].mPosition.x);
+-    offsets[i].fY = SkFloatToScalar(aBuffer.mGlyphs[i].mPosition.y);
+   }
+ 
+-  SkPath path;
+-  paint.getPosTextPath(&indices.front(), aBuffer.mNumGlyphs * 2,
+-                       &offsets.front(), &path);
+-  return path;
++  struct Context {
++    const Glyph* mGlyph;
++    SkPath mPath;
++  } ctx = { aBuffer.mGlyphs };
++
++  font.getPaths(indices.data(), indices.size(),
++    [](const SkPath* glyphPath, const SkMatrix& scaleMatrix, void* ctxPtr) {
++      Context& ctx = *reinterpret_cast<Context*>(ctxPtr);
++      if (glyphPath) {
++        SkMatrix transMatrix(scaleMatrix);
++        transMatrix.postTranslate(SkFloatToScalar(ctx.mGlyph->mPosition.x),
++                                  SkFloatToScalar(ctx.mGlyph->mPosition.y));
++        ctx.mPath.addPath(*glyphPath, transMatrix);
++      }
++      ++ctx.mGlyph;
++    }, &ctx);
++
++  return ctx.mPath;
+ }
+ #endif
+ 

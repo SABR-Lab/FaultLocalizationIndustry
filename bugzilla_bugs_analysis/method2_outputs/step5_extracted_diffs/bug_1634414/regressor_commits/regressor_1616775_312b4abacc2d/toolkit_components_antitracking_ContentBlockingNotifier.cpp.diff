@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/antitracking/ContentBlockingNotifier.cpp
+# Commit: 312b4abacc2d
+# Full Hash: 312b4abacc2dfe0ab2014d62ca271ac54af6704d
+# Author: Dimi Lee <dlee@mozilla.com>
+# Date: 2020-04-23 21:43:09
+# Regressor Bug: 1616775
+# File Overlap Count: 1
+# Description:
+#   Bug 1616775 - P7. Add IPC for ContentBlockingNotifier::OnDecision r=timhuang,baku
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D71016
+# ==============================================================================
+
+diff -r 9be5ae499d84 -r 312b4abacc2d toolkit/components/antitracking/ContentBlockingNotifier.cpp
+--- a/toolkit/components/antitracking/ContentBlockingNotifier.cpp	Thu Apr 23 14:25:31 2020 +0000
++++ b/toolkit/components/antitracking/ContentBlockingNotifier.cpp	Thu Apr 23 14:25:33 2020 +0000
+@@ -447,6 +447,39 @@
+ }
+ 
+ /* static */
++void ContentBlockingNotifier::OnDecision(BrowsingContext* aBrowsingContext,
++                                         BlockingDecision aDecision,
++                                         uint32_t aRejectedReason) {
++  MOZ_ASSERT(aBrowsingContext);
++  MOZ_ASSERT_IF(XRE_IsContentProcess(), aBrowsingContext->IsInProcess());
++
++  if (aBrowsingContext->IsInProcess()) {
++    nsCOMPtr<nsPIDOMWindowOuter> outer = aBrowsingContext->GetDOMWindow();
++    if (NS_WARN_IF(!outer)) {
++      return;
++    }
++
++    nsCOMPtr<nsPIDOMWindowInner> inner = outer->GetCurrentInnerWindow();
++    if (NS_WARN_IF(!inner)) {
++      return;
++    }
++
++    ContentBlockingNotifier::OnDecision(inner, aDecision, aRejectedReason);
++  } else {
++    // we send an IPC to the content process when we don't have an in-process
++    // browsing context. This is not smart because this should be able to be
++    // done directly in the parent. The reason we are doing this is because we
++    // need the channel, which is not accessible in the parent when you only
++    // have a browsing context.
++    MOZ_ASSERT(XRE_IsParentProcess());
++
++    ContentParent* cp = aBrowsingContext->Canonical()->GetContentParent();
++    Unused << cp->SendOnContentBlockingDecision(aBrowsingContext, aDecision,
++                                                aRejectedReason);
++  }
++}
++
++/* static */
+ void ContentBlockingNotifier::OnEvent(nsIChannel* aTrackingChannel,
+                                       uint32_t aRejectedReason) {
+   MOZ_ASSERT(XRE_IsParentProcess() && aTrackingChannel);

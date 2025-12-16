@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/nsBlockFrame.h
+# Commit: b0b878dae244
+# Full Hash: b0b878dae244416c3b4799f43ee2f5176f3d3fc8
+# Author: fantasai <fantasai.cvs@inkedblade.net>
+# Date: 2024-02-28 04:30:28
+# Regressor Bug: 1765615
+# File Overlap Count: 1
+# Description:
+#   Bug 1684236 - Implement 'align-content' on block containers. r=layout-reviewers,jfkthame
+#   
+#   This is Fantasai's original patch, massively simplified:
+#   
+#    * We now can switch whether we're a BFC dynamically (bug 1765615), which
+# ==============================================================================
+
+diff -r 6b8582441a76 -r b0b878dae244 layout/generic/nsBlockFrame.h
+--- a/layout/generic/nsBlockFrame.h	Tue Feb 27 11:35:54 2024 -0500
++++ b/layout/generic/nsBlockFrame.h	Tue Feb 27 16:32:02 2024 +0000
+@@ -492,6 +492,14 @@
+                            BlockReflowState& aState, ReflowOutput& aMetrics);
+ 
+   /**
++   * Calculates the necessary shift to honor 'align-content' and applies it.
++   */
++  void AlignContent(BlockReflowState& aState, ReflowOutput& aMetrics,
++                    nscoord aBEndEdgeOfChildren);
++  // Stash the effective align-content shift value between reflows
++  NS_DECLARE_FRAME_PROPERTY_SMALL_VALUE(AlignContentShift, nscoord)
++
++  /**
+    * Helper method for Reflow(). Computes the overflow areas created by our
+    * children, and includes them into aOverflowAreas.
+    */
+@@ -540,6 +548,16 @@
+    */
+   bool IsVisualFormControl(nsPresContext* aPresContext);
+ 
++  /** Whether this block has an effective align-content property */
++  bool IsAligned() const {
++    return StylePosition()->mAlignContent.primary !=
++           mozilla::StyleAlignFlags::NORMAL;
++  }
++
++  nscoord GetAlignContentShift() const {
++    return IsAligned() ? GetProperty(AlignContentShift()) : 0;
++  }
++
+   /**
+    * For text-wrap:balance, we iteratively try reflowing with adjusted inline
+    * size to find the "best" result (the tightest size that can be applied

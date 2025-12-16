@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/smil/SMILCSSProperty.cpp
+# Commit: 729abedf9bda
+# Full Hash: 729abedf9bda03da3f75ad660fafc2fa92a67bf5
+# Author: Zach Hoffman <zach@zrhoffman.net>
+# Date: 2023-12-18 17:17:57
+# Regressor Bug: 1846516
+# File Overlap Count: 1
+# Description:
+#   Bug 1846516 - [css-properties-values-api] Use AnimatedPropertyID to communicate between Gecko and Servo. r=emilio,layout-reviewers,firefox-style-system-reviewers
+#   
+#   Co-authored-by: Frederic Wang <fred.wang@free.fr>
+#   Co-authored-by: Emilio Cobos Álvarez <emilio@crisal.io>
+#   
+# ==============================================================================
+
+diff -r 63603267402e -r 729abedf9bda dom/smil/SMILCSSProperty.cpp
+--- a/dom/smil/SMILCSSProperty.cpp	Mon Dec 18 09:24:08 2023 +0000
++++ b/dom/smil/SMILCSSProperty.cpp	Mon Dec 18 09:24:08 2023 +0000
+@@ -10,6 +10,7 @@
+ 
+ #include <utility>
+ 
++#include "mozilla/AnimatedPropertyID.h"
+ #include "mozilla/SMILCSSValueType.h"
+ #include "mozilla/SMILValue.h"
+ #include "mozilla/ServoBindings.h"
+@@ -62,8 +63,11 @@
+   }
+ 
+   AnimationValue computedValue;
++  AnimatedPropertyID property(mPropID);
++  MOZ_ASSERT(!property.IsCustom(),
++             "Cannot animate custom properties with SMIL");
+   computedValue.mServo =
+-      Servo_ComputedValues_ExtractAnimationValue(mBaseComputedStyle, mPropID)
++      Servo_ComputedValues_ExtractAnimationValue(mBaseComputedStyle, &property)
+           .Consume();
+   if (!computedValue.mServo) {
+     return baseValue;

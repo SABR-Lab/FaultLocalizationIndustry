@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/mips-shared/CodeGenerator-mips-shared.cpp
+# Commit: cf96078694ae
+# Full Hash: cf96078694aea74cae4557f683a76c6de6ba9cf1
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2023-08-05 09:19:01
+# Regressor Bug: 1692065
+# File Overlap Count: 3
+# Description:
+#   Bug 1692065 - wasm: Rename MIRType::RefOrNull to 'WasmAnyRef'. r=yury
+#   
+#   This is a mechanical change. The previous name 'RefOrNull' was too
+#   generic, and it wasn't clear that the type was actually a wasm::AnyRef
+#   type.
+# ==============================================================================
+
+diff -r 662cb63c42d7 -r cf96078694ae js/src/jit/mips-shared/CodeGenerator-mips-shared.cpp
+--- a/js/src/jit/mips-shared/CodeGenerator-mips-shared.cpp	Fri Aug 04 14:06:49 2023 +0000
++++ b/js/src/jit/mips-shared/CodeGenerator-mips-shared.cpp	Fri Aug 04 14:06:49 2023 +0000
+@@ -106,7 +106,7 @@
+   if (mir->compareType() == MCompare::Compare_Object ||
+       mir->compareType() == MCompare::Compare_Symbol ||
+       mir->compareType() == MCompare::Compare_UIntPtr ||
+-      mir->compareType() == MCompare::Compare_RefOrNull) {
++      mir->compareType() == MCompare::Compare_WasmAnyRef) {
+     if (right->isConstant()) {
+       MOZ_ASSERT(mir->compareType() == MCompare::Compare_UIntPtr);
+       masm.cmpPtrSet(cond, ToRegister(left), Imm32(ToInt32(right)),
+@@ -139,7 +139,7 @@
+   if (mir->compareType() == MCompare::Compare_Object ||
+       mir->compareType() == MCompare::Compare_Symbol ||
+       mir->compareType() == MCompare::Compare_UIntPtr ||
+-      mir->compareType() == MCompare::Compare_RefOrNull) {
++      mir->compareType() == MCompare::Compare_WasmAnyRef) {
+     if (comp->right()->isConstant()) {
+       MOZ_ASSERT(mir->compareType() == MCompare::Compare_UIntPtr);
+       emitBranch(ToRegister(comp->left()), Imm32(ToInt32(comp->right())), cond,
+@@ -1897,7 +1897,7 @@
+   Register cond = ToRegister(ins->condExpr());
+   const LAllocation* falseExpr = ins->falseExpr();
+ 
+-  if (mirType == MIRType::Int32 || mirType == MIRType::RefOrNull) {
++  if (mirType == MIRType::Int32 || mirType == MIRType::WasmAnyRef) {
+     Register out = ToRegister(ins->output());
+     MOZ_ASSERT(ToRegister(ins->trueExpr()) == out,
+                "true expr input is reused for output");

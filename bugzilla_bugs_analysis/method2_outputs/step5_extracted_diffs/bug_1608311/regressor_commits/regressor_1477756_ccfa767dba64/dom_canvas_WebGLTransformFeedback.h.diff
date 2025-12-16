@@ -1,0 +1,72 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLTransformFeedback.h
+# Commit: ccfa767dba64
+# Full Hash: ccfa767dba644dc193e0246eb8e8ff3377e8b8a5
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Client-side bindings mirror for precise CC, and merge similar codepaths. r=handyman
+#   
+#   * Context loss using RAII
+#   * Move Program reflection Client-side
+#   
+# ==============================================================================
+
+diff -r 71c122ac0ca7 -r ccfa767dba64 dom/canvas/WebGLTransformFeedback.h
+--- a/dom/canvas/WebGLTransformFeedback.h	Wed Jan 08 22:19:14 2020 +0000
++++ b/dom/canvas/WebGLTransformFeedback.h	Wed Jan 08 22:19:16 2020 +0000
+@@ -6,8 +6,6 @@
+ #ifndef WEBGL_TRANSFORM_FEEDBACK_H_
+ #define WEBGL_TRANSFORM_FEEDBACK_H_
+ 
+-#include "mozilla/LinkedList.h"
+-#include "nsWrapperCache.h"
+ #include "WebGLObjectModel.h"
+ 
+ namespace mozilla {
+@@ -15,14 +13,14 @@
+ struct CachedDrawFetchLimits;
+ }
+ 
+-class WebGLTransformFeedback final
+-    : public WebGLRefCountedObject<WebGLTransformFeedback>,
+-      public LinkedListElement<WebGLTransformFeedback> {
++class WebGLTransformFeedback final : public WebGLContextBoundObject {
+   friend class ScopedDrawWithTransformFeedback;
+   friend class WebGLContext;
+   friend class WebGL2Context;
+   friend class WebGLProgram;
+ 
++  MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(WebGLTransformFeedback, override)
++
+   friend const webgl::CachedDrawFetchLimits* ValidateDraw(WebGLContext*, GLenum,
+                                                           uint32_t);
+ 
+@@ -38,7 +36,7 @@
+   bool mIsPaused;
+   bool mIsActive;
+   // Not in state tables:
+-  WebGLRefPtr<WebGLProgram> mActive_Program;
++  RefPtr<WebGLProgram> mActive_Program;
+   MOZ_INIT_OUTSIDE_CTOR GLenum mActive_PrimMode;
+   MOZ_INIT_OUTSIDE_CTOR size_t mActive_VertPosition;
+   MOZ_INIT_OUTSIDE_CTOR size_t mActive_VertCapacity;
+@@ -47,13 +45,9 @@
+   WebGLTransformFeedback(WebGLContext* webgl, GLuint tf);
+ 
+  private:
+-  ~WebGLTransformFeedback();
++  ~WebGLTransformFeedback() override;
+ 
+  public:
+-  NS_INLINE_DECL_REFCOUNTING(WebGLTransformFeedback)
+-
+-  void Delete();
+-
+   bool IsActiveAndNotPaused() const { return mIsActive && !mIsPaused; }
+ 
+   // GL Funcs

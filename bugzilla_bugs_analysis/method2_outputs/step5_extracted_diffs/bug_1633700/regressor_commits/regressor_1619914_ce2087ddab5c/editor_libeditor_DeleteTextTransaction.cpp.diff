@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/DeleteTextTransaction.cpp
+# Commit: ce2087ddab5c
+# Full Hash: ce2087ddab5c2efcbce3b52da02b3363a37d6813
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2020-04-04 09:29:13
+# Regressor Bug: 1619914
+# File Overlap Count: 1
+# Description:
+#   Bug 1619914 - part 1: Make each transaction class grab their members with local variable before touching the DOM tree r=m_kato
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D69302
+# ==============================================================================
+
+diff -r 1c8115a9a684 -r ce2087ddab5c editor/libeditor/DeleteTextTransaction.cpp
+--- a/editor/libeditor/DeleteTextTransaction.cpp	Fri Apr 03 10:21:33 2020 +0000
++++ b/editor/libeditor/DeleteTextTransaction.cpp	Fri Apr 03 08:30:37 2020 +0000
+@@ -99,7 +99,7 @@
+ 
+ MOZ_CAN_RUN_SCRIPT_BOUNDARY NS_IMETHODIMP
+ DeleteTextTransaction::DoTransaction() {
+-  if (NS_WARN_IF(!mEditorBase) || NS_WARN_IF(!mTextNode)) {
++  if (NS_WARN_IF(!CanDoIt())) {
+     return NS_ERROR_NOT_AVAILABLE;
+   }
+ 
+@@ -111,16 +111,16 @@
+     return error.StealNSResult();
+   }
+ 
+-  RefPtr<EditorBase> editorBase = mEditorBase;
+-  RefPtr<Text> textNode = mTextNode;
+-  editorBase->DoDeleteText(*textNode, mOffset, mLengthToDelete, error);
++  OwningNonNull<EditorBase> editorBase = *mEditorBase;
++  OwningNonNull<Text> textNode = *mTextNode;
++  editorBase->DoDeleteText(textNode, mOffset, mLengthToDelete, error);
+   if (error.Failed()) {
+     NS_WARNING("EditorBase::DoDeleteText() failed");
+     return error.StealNSResult();
+   }
+ 
+   DebugOnly<nsresult> rvIgnored =
+-      editorBase->RangeUpdaterRef().SelAdjDeleteText(*textNode, mOffset,
++      editorBase->RangeUpdaterRef().SelAdjDeleteText(textNode, mOffset,
+                                                      mLengthToDelete);
+   NS_WARNING_ASSERTION(NS_SUCCEEDED(rvIgnored),
+                        "RangeUpdater::SelAdjDeleteText() failed, but ignored");
+@@ -142,8 +142,8 @@
+ //     it an insertion point or an extended selection?
+ MOZ_CAN_RUN_SCRIPT_BOUNDARY NS_IMETHODIMP
+ DeleteTextTransaction::UndoTransaction() {
+-  if (NS_WARN_IF(!mTextNode) || NS_WARN_IF(!mEditorBase)) {
+-    return NS_ERROR_NOT_INITIALIZED;
++  if (NS_WARN_IF(!CanDoIt())) {
++    return NS_ERROR_NOT_AVAILABLE;
+   }
+   RefPtr<EditorBase> editorBase = mEditorBase;
+   RefPtr<Text> textNode = mTextNode;

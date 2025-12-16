@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: devtools/client/fronts/watcher.js
+# Commit: 6eaa4d12b58c
+# Full Hash: 6eaa4d12b58cb4762729fdf53511450926383db8
+# Author: Nicolas Chevobbe <nchevobbe@mozilla.com>
+# Date: 2020-10-15 09:40:06
+# Regressor Bug: 1633712
+# File Overlap Count: 1
+# Description:
+#   Bug 1633712 - [devtools] Create WorkerTargets as soon as possible. r=ochameau,devtools-backward-compat-reviewers.
+#   
+#   This patch adds support for dedicated worker targets in the Watcher actor.
+#   Shared and Service workers are not handled yet.
+#   
+# ==============================================================================
+
+diff -r 10f97f47c883 -r 6eaa4d12b58c devtools/client/fronts/watcher.js
+--- a/devtools/client/fronts/watcher.js	Thu Oct 15 05:11:58 2020 +0000
++++ b/devtools/client/fronts/watcher.js	Thu Oct 15 05:17:52 2020 +0000
+@@ -15,6 +15,12 @@
+   "devtools/client/fronts/targets/browsing-context",
+   true
+ );
++loader.lazyRequireGetter(
++  this,
++  "WorkerTargetFront",
++  "devtools/client/fronts/targets/worker",
++  true
++);
+ 
+ class WatcherFront extends FrontClassWithSpec(watcherSpec) {
+   constructor(client, targetFront, parentFront) {
+@@ -34,10 +40,14 @@
+   }
+ 
+   _onTargetAvailable(form) {
+-    const front = new BrowsingContextTargetFront(this.conn, null, this);
++    const FrontCls = form.actor.includes("workerTarget")
++      ? WorkerTargetFront
++      : BrowsingContextTargetFront;
++    const front = new FrontCls(this.conn, null, this);
+     front.actorID = form.actor;
+     front.form(form);
+     this.manage(front);
++
+     this.emit("target-available", front);
+   }
+ 

@@ -1,0 +1,32 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/Shape.cpp
+# Commit: 4531d5c25694
+# Full Hash: 4531d5c256947ff782377ba0143e3f37bd7207c2
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2021-03-06 09:33:16
+# Regressor Bug: 1689413
+# File Overlap Count: 1
+# Description:
+#   Bug 1689413 part 5 - Remove JSClass* from ObjectGroup. r=jonco
+#   
+#   BaseShape stores the JSClass* too so this patch changes the code to get the JSClass*
+#   from there instead of from the ObjectGroup.
+#   
+# ==============================================================================
+
+diff -r f1bb16079c0e -r 4531d5c25694 js/src/vm/Shape.cpp
+--- a/js/src/vm/Shape.cpp	Fri Mar 05 19:10:06 2021 +0000
++++ b/js/src/vm/Shape.cpp	Fri Mar 05 19:10:06 2021 +0000
+@@ -1408,7 +1408,9 @@
+ }
+ 
+ inline BaseShape::BaseShape(const StackBaseShape& base)
+-    : TenuredCellWithNonGCPointer(base.clasp) {}
++    : TenuredCellWithNonGCPointer(base.clasp) {
++  MOZ_ASSERT(JS::StringIsASCII(clasp()->name));
++}
+ 
+ /* static */
+ BaseShape* BaseShape::get(JSContext* cx, StackBaseShape& base) {

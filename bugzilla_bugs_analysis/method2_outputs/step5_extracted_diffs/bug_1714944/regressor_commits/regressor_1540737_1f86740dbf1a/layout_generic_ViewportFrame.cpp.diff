@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/ViewportFrame.cpp
+# Commit: 1f86740dbf1a
+# Full Hash: 1f86740dbf1a19596fd07fbaf3b1100383f76876
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2021-05-19 08:32:22
+# Regressor Bug: 1540737
+# File Overlap Count: 2
+# Description:
+#   Bug 1540737 - Implement Paint() for all display items, and nsDisplayList so that we can paint without using FrameLayerBuilder. r=miko
+#   
+#   This creates a new leaf nsDisplayWrapper item for consumers that just want an empty wrapper, with a Paint method that asserts. This lets us leaves Paint pure-virtual on nsDisplayWrapList, and lets the compiler force us to implement it for the other leaf types.
+#   
+#   It also disables flattening of transform/opacity items. This is because they flatten the items even when used with FlattenedDisplayItemIterator, even though this doesn't add markers to replace them (only FLB does this). We could in theory fix this, but I don't think FLB performance matters much any more.
+# ==============================================================================
+
+diff -r fdee5a641aee -r 1f86740dbf1a layout/generic/ViewportFrame.cpp
+--- a/layout/generic/ViewportFrame.cpp	Wed May 19 01:11:32 2021 +0000
++++ b/layout/generic/ViewportFrame.cpp	Wed May 19 01:11:32 2021 +0000
+@@ -235,7 +235,7 @@
+       aBuilder->GetDirtyRect() + offset);
+   // Wrap the whole top layer in a single item with maximum z-index,
+   // and append it at the very end, so that it stays at the topmost.
+-  nsDisplayWrapList* wrapList = MakeDisplayItemWithIndex<nsDisplayWrapList>(
++  nsDisplayWrapList* wrapList = MakeDisplayItemWithIndex<nsDisplayWrapper>(
+       aBuilder, this, 2, &topLayerList, aBuilder->CurrentActiveScrolledRoot(),
+       false);
+   if (!wrapList) {

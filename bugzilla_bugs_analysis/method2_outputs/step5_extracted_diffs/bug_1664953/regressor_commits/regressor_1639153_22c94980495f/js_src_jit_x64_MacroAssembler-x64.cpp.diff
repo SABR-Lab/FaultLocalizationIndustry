@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/x64/MacroAssembler-x64.cpp
+# Commit: 22c94980495f
+# Full Hash: 22c94980495f7fe64f1bc554aa1d16da66b2d2cd
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-10-30 03:48:30
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 1: Reserve two slots after stack arguments for the future tls preservation. r=lth
+#   
+#   We are going to remove Frame::tls and support trampolines for indirect calls, so we need to get rid of using Frame::tls.
+#   In this and the followup patches I will iteratively remove all dependencies of Frame::tls and remove it eventually.
+#   
+# ==============================================================================
+
+diff -r 1a25820134c9 -r 22c94980495f js/src/jit/x64/MacroAssembler-x64.cpp
+--- a/js/src/jit/x64/MacroAssembler-x64.cpp	Thu Oct 29 13:05:27 2020 +0000
++++ b/js/src/jit/x64/MacroAssembler-x64.cpp	Fri Oct 23 18:17:36 2020 +0000
+@@ -335,7 +335,7 @@
+ // ABI function calls.
+ 
+ void MacroAssembler::setupUnalignedABICall(Register scratch) {
+-  setupABICall();
++  setupNativeABICall();
+   dynamicAlignment_ = true;
+ 
+   movq(rsp, scratch);

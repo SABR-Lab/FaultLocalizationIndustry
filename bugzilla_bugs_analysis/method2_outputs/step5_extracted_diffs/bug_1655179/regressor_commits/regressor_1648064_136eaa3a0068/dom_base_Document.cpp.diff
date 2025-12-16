@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/Document.cpp
+# Commit: 136eaa3a0068
+# Full Hash: 136eaa3a0068bedf81db704fa077a9fc65f46279
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2020-07-23 03:20:25
+# Regressor Bug: 1648064
+# File Overlap Count: 1
+# Description:
+#   Bug 1648064 - Make print preview documents wait properly for the document to be loaded. r=smaug
+#   
+#   Otherwise my test fails intermittently on CI. We need to block on all
+#   the load blockers because stuff like responsive images doesn't fire the
+#   load directly but they do that as a micro task (blocking the load
+# ==============================================================================
+
+diff -r b38b31524349 -r 136eaa3a0068 dom/base/Document.cpp
+--- a/dom/base/Document.cpp	Wed Jul 22 20:29:08 2020 +0000
++++ b/dom/base/Document.cpp	Wed Jul 22 20:29:16 2020 +0000
+@@ -10765,6 +10765,8 @@
+ 
+   if (mAsyncOnloadBlockCount != 0) {
+     // We need to wait until the async onload block has been handled.
++    //
++    // FIXME(emilio): Shouldn't we return here??
+     PostUnblockOnloadEvent();
+   }
+ 

@@ -1,0 +1,109 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/ActorsParent.cpp
+# Commit: 6180f2e753bd
+# Full Hash: 6180f2e753bd2efb4905c6a70eb6607144807d5b
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-10-11 10:49:37
+# Regressor Bug: 1866402
+# File Overlap Count: 1
+# Description:
+#   Bug 1866402 - Add support for initializing corresponding origin to QuotaManager::OpenClientDirectory; r=devtools-reviewers,nchevobbe
+#   
+#   QuotaManager::OpenClientDirectory can now get initialization status of
+#   corresponding origin and initialize the origin if it's needed.
+#   
+# ==============================================================================
+
+diff -r f25dfc157ef7 -r 6180f2e753bd dom/quota/ActorsParent.cpp
+--- a/dom/quota/ActorsParent.cpp	Fri Oct 11 00:06:08 2024 +0000
++++ b/dom/quota/ActorsParent.cpp	Fri Oct 11 00:06:09 2024 +0000
+@@ -5263,10 +5263,18 @@
+ }
+ 
+ RefPtr<ClientDirectoryLockPromise> QuotaManager::OpenClientDirectory(
+-    const ClientMetadata& aClientMetadata,
++    const ClientMetadata& aClientMetadata, bool aCreateIfNonExistent,
+     Maybe<RefPtr<ClientDirectoryLock>&> aPendingDirectoryLockOut) {
+   AssertIsOnOwningThread();
+ 
++  const auto persistenceType = aClientMetadata.mPersistenceType;
++
++  QM_TRY_UNWRAP(
++      auto principalInfo, PrincipalMetadataToPrincipalInfo(aClientMetadata),
++      [](StaticString aFunc, const nsresult aRv) {
++        return ClientDirectoryLockPromise::CreateAndReject(aRv, aFunc);
++      });
++
+   nsTArray<RefPtr<BoolPromise>> promises;
+ 
+   RefPtr<UniversalDirectoryLock> storageDirectoryLock =
+@@ -5284,7 +5292,7 @@
+ 
+   RefPtr<UniversalDirectoryLock> temporaryStorageDirectoryLock;
+ 
+-  if (IsBestEffortPersistenceType(aClientMetadata.mPersistenceType)) {
++  if (IsBestEffortPersistenceType(persistenceType)) {
+     temporaryStorageDirectoryLock = CreateDirectoryLockInternal(
+         PersistenceScope::CreateFromSet(PERSISTENCE_TYPE_TEMPORARY,
+                                         PERSISTENCE_TYPE_DEFAULT),
+@@ -5300,6 +5308,25 @@
+     }
+   }
+ 
++  RefPtr<UniversalDirectoryLock> originDirectoryLock =
++      CreateDirectoryLockInternal(
++          PersistenceScope::CreateFromValue(persistenceType),
++          OriginScope::FromOrigin(aClientMetadata.mOrigin),
++          Nullable<Client::Type>(), /* aExclusive */ false);
++
++  const bool originInitialized =
++      persistenceType == PERSISTENCE_TYPE_PERSISTENT
++          ? IsPersistentOriginInitialized(principalInfo)
++          : IsTemporaryOriginInitialized(persistenceType, principalInfo);
++
++  if (originInitialized &&
++      !IsDirectoryLockBlockedByUninitStorageOrUninitOriginsOperation(
++          originDirectoryLock)) {
++    originDirectoryLock = nullptr;
++  } else {
++    promises.AppendElement(originDirectoryLock->Acquire());
++  }
++
+   RefPtr<ClientDirectoryLock> clientDirectoryLock =
+       CreateDirectoryLock(aClientMetadata, /* aExclusive */ false);
+ 
+@@ -5357,6 +5384,32 @@
+                    return self->InitializeTemporaryStorage(
+                        std::move(temporaryStorageDirectoryLock));
+                  })
++          ->Then(
++              GetCurrentSerialEventTarget(), __func__,
++              [self = RefPtr(this), persistenceType,
++               principalInfo = std::move(principalInfo), aCreateIfNonExistent,
++               originDirectoryLock = std::move(originDirectoryLock)](
++                  const BoolPromise::ResolveOrRejectValue& aValue) mutable {
++                if (aValue.IsReject()) {
++                  SafeDropDirectoryLockIfNotDropped(originDirectoryLock);
++
++                  return BoolPromise::CreateAndReject(aValue.RejectValue(),
++                                                      __func__);
++                }
++
++                if (!originDirectoryLock) {
++                  return BoolPromise::CreateAndResolve(true, __func__);
++                }
++
++                if (persistenceType == PERSISTENCE_TYPE_PERSISTENT) {
++                  return self->InitializePersistentOrigin(
++                      principalInfo, std::move(originDirectoryLock));
++                }
++
++                return self->InitializeTemporaryOrigin(
++                    persistenceType, principalInfo, aCreateIfNonExistent,
++                    std::move(originDirectoryLock));
++              })
+           ->Then(GetCurrentSerialEventTarget(), __func__,
+                  [clientDirectoryLock = std::move(clientDirectoryLock)](
+                      const BoolPromise::ResolveOrRejectValue& aValue) mutable {

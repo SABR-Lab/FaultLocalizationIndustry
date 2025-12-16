@@ -1,0 +1,67 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/webrender_bindings/WebRenderAPI.cpp
+# Commit: f215196f1d1c
+# Full Hash: f215196f1d1c8c6b42214b35fee351ef021bd704
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2020-03-28 09:32:56
+# Description:
+#   Bug 1624125 - Track display list changes in DisplayItemCache r=jrmuizel
+#   
+#   This is needed because display lists and DisplayItemCache have different lifetimes. For example, display lists can outlive WebRenderLayerManager when device reset occurs.
+#   
+#   A slightly nicer way of fixing this would be to couple DisplayItemCache with nsDisplayList or nsDisplayListBuilder. This is would currently require a lot of refactoring to look nice, because the painting code still supports non-retained display lists and non-WR code paths.
+# ==============================================================================
+
+diff -r 13a7265ed731 -r f215196f1d1c gfx/webrender_bindings/WebRenderAPI.cpp
+--- a/gfx/webrender_bindings/WebRenderAPI.cpp	Fri Mar 27 16:49:40 2020 +0000
++++ b/gfx/webrender_bindings/WebRenderAPI.cpp	Fri Mar 27 16:49:37 2020 +0000
+@@ -912,6 +912,10 @@
+       mDisplayItemCache(aCache) {
+   MOZ_COUNT_CTOR(DisplayListBuilder);
+   mWrState = wr_state_new(aId, aContentSize, aCapacity);
++
++  if (mDisplayItemCache && mDisplayItemCache->IsEnabled()) {
++    mDisplayItemCache->SetPipelineId(aId);
++  }
+ }
+ 
+ DisplayListBuilder::~DisplayListBuilder() {
+@@ -967,6 +971,11 @@
+ void DisplayListBuilder::Finalize(
+     layers::RenderRootDisplayListData& aOutTransaction) {
+   MOZ_ASSERT(mRenderRoot == wr::RenderRoot::Default);
++
++  if (mDisplayItemCache && mDisplayItemCache->IsEnabled()) {
++    wr_dp_set_cache_size(mWrState, mDisplayItemCache->CurrentSize());
++  }
++
+   wr::VecU8 dl;
+   wr_api_finalize_builder(SubBuilder(aOutTransaction.mRenderRoot).mWrState,
+                           &aOutTransaction.mContentSize,
+@@ -1529,24 +1538,6 @@
+   return false;
+ }
+ 
+-void DisplayListBuilder::UpdateCacheState(
+-    const bool aPartialDisplayListBuildFailed) {
+-  if (mDisplayItemCache && mDisplayItemCache->IsEnabled()) {
+-    mDisplayItemCache->UpdateState(aPartialDisplayListBuildFailed,
+-                                   CurrentPipelineId());
+-#if 0
+-    mDisplayItemCache->Stats().Print();
+-    mDisplayItemCache->Stats().Reset();
+-#endif
+-  }
+-}
+-
+-void DisplayListBuilder::UpdateCacheSize() {
+-  if (mDisplayItemCache && mDisplayItemCache->IsEnabled()) {
+-    wr_dp_set_cache_size(mWrState, mDisplayItemCache->CurrentSize());
+-  }
+-}
+-
+ Maybe<layers::ScrollableLayerGuid::ViewID>
+ DisplayListBuilder::GetContainingFixedPosScrollTarget(
+     const ActiveScrolledRoot* aAsr) {

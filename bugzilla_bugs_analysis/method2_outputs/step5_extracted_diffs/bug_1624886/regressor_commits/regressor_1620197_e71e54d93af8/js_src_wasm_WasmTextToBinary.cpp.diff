@@ -1,0 +1,98 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmTextToBinary.cpp
+# Commit: e71e54d93af8
+# Full Hash: e71e54d93af8baa6ef915c81dc04ac3400f825cd
+# Author: Andy Wingo <wingo@igalia.com>
+# Date: 2020-03-06 20:10:41
+# Regressor Bug: 1620197
+# File Overlap Count: 1
+# Description:
+#   Bug 1620197 - Enable multiple results from WebAssembly functions r=lth
+#   
+#   This patch enables multi-value calls and returns, adding some tests, and
+#   conditionally disabling a couple expect-fail reftests that now pass.
+#   
+# ==============================================================================
+
+diff -r afbf73fb4073 -r e71e54d93af8 js/src/wasm/WasmTextToBinary.cpp
+--- a/js/src/wasm/WasmTextToBinary.cpp	Fri Mar 06 09:57:45 2020 +0000
++++ b/js/src/wasm/WasmTextToBinary.cpp	Fri Mar 06 13:53:07 2020 +0000
+@@ -2464,15 +2464,11 @@
+   return true;
+ }
+ 
+-// For ParseAnonFuncType: allow more than one results.
+-enum class MultiResult { False, True };
+-
+ // This guarantees that the ref has an index when we return and won't need to be
+ // resolved later.  If `withLookahead` then whatever comes after the type does
+ // not cause an error and is not consumed, and any number of results are
+ // allowed.
+ static bool ParseAnonFuncType(WasmParseContext& c, AstRef* ref,
+-                              MultiResult multiResult,
+                               WithLookahead withLookahead) {
+   MOZ_ASSERT(ref->isInvalid());
+ 
+@@ -2480,10 +2476,6 @@
+   if (!ParseFuncSig(c, &funcType, withLookahead)) {
+     return false;
+   }
+-  if (multiResult == MultiResult::False && funcType.results().length() > 1) {
+-    c.ts.generateError(c.ts.peek(), "too many results", c.error);
+-    return false;
+-  }
+   uint32_t funcTypeIndex;
+   if (!c.module->declare(std::move(funcType), &funcTypeIndex)) {
+     return false;
+@@ -2525,7 +2517,7 @@
+   }
+ 
+   AstRef t;
+-  if (!ParseAnonFuncType(c, &t, MultiResult::True, WithLookahead::True)) {
++  if (!ParseAnonFuncType(c, &t, WithLookahead::True)) {
+     return false;
+   }
+   const AstFuncType& ft = c.module->types()[t.index()]->asFuncType();
+@@ -4202,7 +4194,7 @@
+     return false;
+   }
+   if (ref->isInvalid()) {
+-    if (!ParseAnonFuncType(c, ref, MultiResult::False, WithLookahead::False)) {
++    if (!ParseAnonFuncType(c, ref, WithLookahead::False)) {
+       return false;
+     }
+   }
+@@ -4289,10 +4281,6 @@
+         if (!ParseValueTypeList(c, &results)) {
+           return false;
+         }
+-        if (results.length() > 1) {
+-          c.ts.generateError(token, "too many results", c.error);
+-          return false;
+-        }
+         break;
+       default:
+         c.ts.unget(token);
+@@ -4382,10 +4370,6 @@
+     if (!ParseFuncSig(c, &funcType, WithLookahead::False)) {
+       return nullptr;
+     }
+-    if (funcType.results().length() > 1) {
+-      c.ts.generateError(c.ts.peek(), "too many results", c.error);
+-      return nullptr;
+-    }
+     type = new (c.lifo) AstFuncType(name, std::move(funcType));
+   } else if (c.ts.getIf(WasmToken::Struct)) {
+     AstStructType st(c.lifo);
+@@ -4801,8 +4785,7 @@
+   }
+ 
+   if (funcTypeRef.isInvalid()) {
+-    if (!ParseAnonFuncType(c, &funcTypeRef, MultiResult::False,
+-                           WithLookahead::False)) {
++    if (!ParseAnonFuncType(c, &funcTypeRef, WithLookahead::False)) {
+       return nullptr;
+     }
+   }

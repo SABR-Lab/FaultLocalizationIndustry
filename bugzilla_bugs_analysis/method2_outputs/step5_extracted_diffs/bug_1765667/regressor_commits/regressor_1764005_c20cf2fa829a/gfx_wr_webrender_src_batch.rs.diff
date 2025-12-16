@@ -1,0 +1,79 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/batch.rs
+# Commit: c20cf2fa829a
+# Full Hash: c20cf2fa829a19cb6b60909d05abcda40e77dd70
+# Author: Glenn Watson <git@intuitionlibrary.com>
+# Date: 2022-04-20 09:42:47
+# Regressor Bug: 1764005
+# File Overlap Count: 1
+# Description:
+#   Bug 1764005 - Add backdrop-filter primitive support r=gfx-reviewers,lsalzman,nical
+#   
+#   Add support for backdrop-filter primitive in WR. Each backdrop
+#   filter primitive establishes a render task sub-graph. The primitive
+#   instance registers itself as a resolve source to receive the
+# ==============================================================================
+
+diff -r d5b01209cf78 -r c20cf2fa829a gfx/wr/webrender/src/batch.rs
+--- a/gfx/wr/webrender/src/batch.rs	Wed Apr 20 01:08:52 2022 +0000
++++ b/gfx/wr/webrender/src/batch.rs	Wed Apr 20 01:09:09 2022 +0000
+@@ -28,6 +28,7 @@
+ use crate::renderer::MAX_VERTEX_TEXTURE_WIDTH;
+ use crate::resource_cache::{GlyphFetchResult, ImageProperties, ImageRequest};
+ use crate::space::SpaceMapper;
++use crate::surface::SurfaceTileDescriptor;
+ use crate::visibility::{PrimitiveVisibilityFlags, VisibilityState};
+ use smallvec::SmallVec;
+ use std::{f32, i32, usize};
+@@ -3800,7 +3801,7 @@
+         //           of a hash map if it ever shows up in profiles. This is
+         //           slightly complicated by the sub_slice_index in the
+         //           TileKey structure - could have a 2 level array?
+-        tiles: FastHashMap<TileKey, RenderTaskId>,
++        tiles: FastHashMap<TileKey, SurfaceTileDescriptor>,
+     },
+     Simple {
+         render_task_id: RenderTaskId,
+@@ -3823,6 +3824,9 @@
+     /// If this surface builds a sub-graph, it will mark a task in the filter sub-graph
+     /// as a resolve source for the input from the parent surface.
+     pub resolve_source: Option<RenderTaskId>,
++
++    /// List of render tasks that depend on the task that will be created for this builder
++    pub extra_dependencies: Vec<RenderTaskId>,
+ }
+ 
+ impl CommandBufferBuilder {
+@@ -3831,12 +3835,13 @@
+             kind: CommandBufferBuilderKind::Invalid,
+             establishes_sub_graph: false,
+             resolve_source: None,
++            extra_dependencies: Vec::new(),
+         }
+     }
+ 
+     /// Construct a tiled command buffer builder
+     pub fn new_tiled(
+-        tiles: FastHashMap<TileKey, RenderTaskId>,
++        tiles: FastHashMap<TileKey, SurfaceTileDescriptor>,
+     ) -> Self {
+         CommandBufferBuilder {
+             kind: CommandBufferBuilderKind::Tiled {
+@@ -3844,6 +3849,7 @@
+             },
+             establishes_sub_graph: false,
+             resolve_source: None,
++            extra_dependencies: Vec::new(),
+         }
+     }
+ 
+@@ -3860,6 +3866,7 @@
+             },
+             establishes_sub_graph,
+             resolve_source: None,
++            extra_dependencies: Vec::new(),
+         }
+     }
+ }

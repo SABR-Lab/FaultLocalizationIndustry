@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wgpu_bindings/src/error.rs
+# Commit: 843c7d19787b
+# Full Hash: 843c7d19787b5beb9caa2fbf71192b174738bb92
+# Author: Brad Werth <bwerth@mozilla.com>
+# Date: 2023-10-17 03:58:35
+# Regressor Bug: 1838693
+# File Overlap Count: 1
+# Description:
+#   Bug 1838693 Part 1: Stub in 'lose the device' and trigger it on device lost errors. r=webgpu-reviewers,nical
+#   
+#   This creates a WebGPUParent::LoseDevice entry point, which informs the
+#   WebGPUChild that the device has been lost. The child side is largely a
+#   stub, as a later part will rationalize the handling of the device.lost
+# ==============================================================================
+
+diff -r e0dd0b10e8fd -r 843c7d19787b gfx/wgpu_bindings/src/error.rs
+--- a/gfx/wgpu_bindings/src/error.rs	Mon Oct 16 15:29:21 2023 +0000
++++ b/gfx/wgpu_bindings/src/error.rs	Mon Oct 16 15:31:59 2023 +0000
+@@ -94,9 +94,10 @@
+ #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+ pub(crate) enum ErrorBufferType {
+     None = 0,
+-    Internal = 1,
+-    OutOfMemory = 2,
+-    Validation = 3,
++    DeviceLost = 1,
++    Internal = 2,
++    OutOfMemory = 3,
++    Validation = 4,
+ }
+ 
+ /// A trait for querying the [`ErrorBufferType`] classification of an error. Used by
+@@ -174,7 +175,7 @@
+             match self {
+                 RequestDeviceError::OutOfMemory => ErrorBufferType::OutOfMemory,
+ 
+-                RequestDeviceError::DeviceLost => ErrorBufferType::None,
++                RequestDeviceError::DeviceLost => ErrorBufferType::DeviceLost,
+ 
+                 RequestDeviceError::Internal
+                 | RequestDeviceError::InvalidAdapter
+@@ -437,7 +438,7 @@
+         fn error_type(&self) -> ErrorBufferType {
+             match self {
+                 DeviceError::Invalid | DeviceError::WrongDevice => ErrorBufferType::Validation,
+-                DeviceError::Lost => ErrorBufferType::None,
++                DeviceError::Lost => ErrorBufferType::DeviceLost,
+                 DeviceError::OutOfMemory => ErrorBufferType::OutOfMemory,
+                 DeviceError::ResourceCreationFailed => ErrorBufferType::Internal,
+             }

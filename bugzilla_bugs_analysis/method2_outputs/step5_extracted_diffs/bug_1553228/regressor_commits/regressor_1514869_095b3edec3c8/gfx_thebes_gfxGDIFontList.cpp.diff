@@ -1,0 +1,75 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxGDIFontList.cpp
+# Commit: 095b3edec3c8
+# Full Hash: 095b3edec3c8ba9318c71d0acc91e10ce57818dc
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2019-04-29 21:53:38
+# Regressor Bug: 1514869
+# File Overlap Count: 1
+# Description:
+#   Bug 1514869 - patch 2 - Adapt platform-font-list code to work with either the existing in-process font list or cross-process shared font list. r=jwatt
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D22938
+# ==============================================================================
+
+diff -r 21ef00977ab6 -r 095b3edec3c8 gfx/thebes/gfxGDIFontList.cpp
+--- a/gfx/thebes/gfxGDIFontList.cpp	Sat Apr 27 15:37:29 2019 +0000
++++ b/gfx/thebes/gfxGDIFontList.cpp	Sat Apr 27 15:37:58 2019 +0000
+@@ -820,7 +820,8 @@
+   return fe;
+ }
+ 
+-bool gfxGDIFontList::FindAndAddFamilies(const nsACString& aFamily,
++bool gfxGDIFontList::FindAndAddFamilies(StyleGenericFontFamily aGeneric,
++                                        const nsACString& aFamily,
+                                         nsTArray<FamilyAndGeneric>* aOutput,
+                                         FindFamiliesFlags aFlags,
+                                         gfxFontStyle* aStyle,
+@@ -831,7 +832,7 @@
+ 
+   gfxFontFamily* ff = mFontSubstitutes.GetWeak(keyName);
+   if (ff) {
+-    aOutput->AppendElement(FamilyAndGeneric(ff));
++    aOutput->AppendElement(FamilyAndGeneric(ff, aGeneric));
+     return true;
+   }
+ 
+@@ -839,13 +840,13 @@
+     return false;
+   }
+ 
+-  return gfxPlatformFontList::FindAndAddFamilies(aFamily, aOutput, aFlags,
+-                                                 aStyle, aDevToCssSize);
++  return gfxPlatformFontList::FindAndAddFamilies(aGeneric, aFamily, aOutput,
++                                                 aFlags, aStyle, aDevToCssSize);
+ }
+ 
+ FontFamily gfxGDIFontList::GetDefaultFontForPlatform(
+     const gfxFontStyle* aStyle) {
+-  gfxFontFamily* ff = nullptr;
++  FontFamily ff;
+ 
+   // this really shouldn't fail to find a font....
+   NONCLIENTMETRICSW ncm;
+@@ -854,8 +855,8 @@
+       ::SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0);
+   if (status) {
+     ff = FindFamily(NS_ConvertUTF16toUTF8(ncm.lfMessageFont.lfFaceName));
+-    if (ff) {
+-      return FontFamily(ff);
++    if (!ff.IsNull()) {
++      return ff;
+     }
+   }
+ 
+@@ -866,7 +867,7 @@
+     ff = FindFamily(NS_ConvertUTF16toUTF8(logFont.lfFaceName));
+   }
+ 
+-  return FontFamily(ff);
++  return ff;
+ }
+ 
+ void gfxGDIFontList::AddSizeOfExcludingThis(MallocSizeOf aMallocSizeOf,

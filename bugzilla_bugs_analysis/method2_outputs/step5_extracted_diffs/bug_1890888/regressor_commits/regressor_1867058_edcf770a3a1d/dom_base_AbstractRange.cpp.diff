@@ -1,0 +1,31 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/AbstractRange.cpp
+# Commit: edcf770a3a1d
+# Full Hash: edcf770a3a1df7b6d618062eb7cdbde9596adbad
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2024-03-26 04:11:24
+# Regressor Bug: 1867058
+# File Overlap Count: 1
+# Description:
+#   Bug 1867058 - Part 8: Update Selection to support across shadow dom selection r=smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D195310
+# ==============================================================================
+
+diff -r d665bdcc228a -r edcf770a3a1d dom/base/AbstractRange.cpp
+--- a/dom/base/AbstractRange.cpp	Mon Mar 25 13:40:58 2024 +0000
++++ b/dom/base/AbstractRange.cpp	Mon Mar 25 13:40:59 2024 +0000
+@@ -378,7 +378,10 @@
+   bool isFirstSelection = mSelections.IsEmpty();
+   mSelections.AppendElement(&aSelection);
+   if (isFirstSelection && !mRegisteredClosestCommonInclusiveAncestor) {
+-    nsINode* commonAncestor = GetClosestCommonInclusiveAncestor();
++    nsINode* commonAncestor = GetClosestCommonInclusiveAncestor(
++        StaticPrefs::dom_shadowdom_selection_across_boundary_enabled()
++            ? AllowRangeCrossShadowBoundary::Yes
++            : AllowRangeCrossShadowBoundary::No);
+     MOZ_ASSERT(commonAncestor, "unexpected disconnected nodes");
+     RegisterClosestCommonInclusiveAncestor(commonAncestor);
+   }

@@ -1,0 +1,84 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/d3d12/src/queue.rs
+# Commit: ef5dc3e04e5f
+# Full Hash: ef5dc3e04e5f271eea0636ab3a495e95cc912f1d
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-09-04 09:40:24
+# Regressor Bug: 1726626
+# File Overlap Count: 3
+# Description:
+#   Bug 1726626 - Move gfx/wgpu into a 3rd party dependency r=jgilbert,bholley
+#   
+#   This update makes wgpu a vendored dependency instead of having it in gfx/wgpu.
+#   
+#   ## Notes
+# ==============================================================================
+
+diff --git a/third_party/rust/d3d12/src/queue.rs b/third_party/rust/d3d12/src/queue.rs
+--- a/third_party/rust/d3d12/src/queue.rs
++++ b/third_party/rust/d3d12/src/queue.rs
+@@ -1,31 +1,31 @@
+-use crate::{com::WeakPtr, sync::Fence, CommandList, HRESULT};
+-use winapi::um::d3d12;
+-
+-#[repr(u32)]
+-pub enum Priority {
+-    Normal = d3d12::D3D12_COMMAND_QUEUE_PRIORITY_NORMAL,
+-    High = d3d12::D3D12_COMMAND_QUEUE_PRIORITY_HIGH,
+-    GlobalRealtime = d3d12::D3D12_COMMAND_QUEUE_PRIORITY_GLOBAL_REALTIME,
+-}
+-
+-bitflags! {
+-    pub struct CommandQueueFlags: u32 {
+-        const DISABLE_GPU_TIMEOUT = d3d12::D3D12_COMMAND_QUEUE_FLAG_DISABLE_GPU_TIMEOUT;
+-    }
+-}
+-
+-pub type CommandQueue = WeakPtr<d3d12::ID3D12CommandQueue>;
+-
+-impl CommandQueue {
+-    pub fn execute_command_lists(&self, command_lists: &[CommandList]) {
+-        let command_lists = command_lists
+-            .iter()
+-            .map(CommandList::as_mut_ptr)
+-            .collect::<Box<[_]>>();
+-        unsafe { self.ExecuteCommandLists(command_lists.len() as _, command_lists.as_ptr()) }
+-    }
+-
+-    pub fn signal(&self, fence: Fence, value: u64) -> HRESULT {
+-        unsafe { self.Signal(fence.as_mut_ptr(), value) }
+-    }
+-}
++use crate::{com::WeakPtr, sync::Fence, CommandList, HRESULT};
++use winapi::um::d3d12;
++
++#[repr(u32)]
++pub enum Priority {
++    Normal = d3d12::D3D12_COMMAND_QUEUE_PRIORITY_NORMAL,
++    High = d3d12::D3D12_COMMAND_QUEUE_PRIORITY_HIGH,
++    GlobalRealtime = d3d12::D3D12_COMMAND_QUEUE_PRIORITY_GLOBAL_REALTIME,
++}
++
++bitflags! {
++    pub struct CommandQueueFlags: u32 {
++        const DISABLE_GPU_TIMEOUT = d3d12::D3D12_COMMAND_QUEUE_FLAG_DISABLE_GPU_TIMEOUT;
++    }
++}
++
++pub type CommandQueue = WeakPtr<d3d12::ID3D12CommandQueue>;
++
++impl CommandQueue {
++    pub fn execute_command_lists(&self, command_lists: &[CommandList]) {
++        let command_lists = command_lists
++            .iter()
++            .map(CommandList::as_mut_ptr)
++            .collect::<Box<[_]>>();
++        unsafe { self.ExecuteCommandLists(command_lists.len() as _, command_lists.as_ptr()) }
++    }
++
++    pub fn signal(&self, fence: Fence, value: u64) -> HRESULT {
++        unsafe { self.Signal(fence.as_mut_ptr(), value) }
++    }
++}

@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/HTMLEditor.h
+# Commit: 7f56b90bd017
+# Full Hash: 7f56b90bd017610e724a68a5379e190cd951506f
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-08-04 09:46:07
+# Regressor Bug: 1774704
+# File Overlap Count: 1
+# Description:
+#   Bug 1774704 - part 7-6: Make `HTMLEditor::AlignContentsInAllTableCellsAndListItems` and `HTMLEditor::AlignBlockContentsWithDivElement` stop touching `Selection` directly r=m_kato
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D152979
+# ==============================================================================
+
+diff -r 27d5779ea393 -r 7f56b90bd017 editor/libeditor/HTMLEditor.h
+--- a/editor/libeditor/HTMLEditor.h	Thu Aug 04 04:53:54 2022 +0000
++++ b/editor/libeditor/HTMLEditor.h	Thu Aug 04 05:00:38 2022 +0000
+@@ -2415,9 +2415,11 @@
+    *                            as its child.
+    * @param aAlignType          New value of align attribute of `<div>`
+    *                            element.
+-   */
+-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult AlignBlockContentsWithDivElement(
+-      dom::Element& aBlockElement, const nsAString& aAlignType);
++   * @return                    A candidate position to put caret.
++   */
++  [[nodiscard]] MOZ_CAN_RUN_SCRIPT Result<EditorDOMPoint, nsresult>
++  AlignBlockContentsWithDivElement(Element& aBlockElement,
++                                   const nsAString& aAlignType);
+ 
+   /**
+    * AlignContentsInAllTableCellsAndListItems() calls
+@@ -2427,8 +2429,9 @@
+    * @param aElement            The node which is or whose descendants should
+    *                            be aligned to aAlignType.
+    * @param aAlignType          New value of `align` attribute of `<div>`.
+-   */
+-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
++   * @return                    A candidate position to put caret.
++   */
++  [[nodiscard]] MOZ_CAN_RUN_SCRIPT Result<EditorDOMPoint, nsresult>
+   AlignContentsInAllTableCellsAndListItems(dom::Element& aElement,
+                                            const nsAString& aAlignType);
+ 

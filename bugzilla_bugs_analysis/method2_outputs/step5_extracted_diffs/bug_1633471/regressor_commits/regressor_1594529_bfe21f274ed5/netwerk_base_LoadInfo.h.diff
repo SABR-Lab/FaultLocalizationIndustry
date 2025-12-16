@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/base/LoadInfo.h
+# Commit: bfe21f274ed5
+# Full Hash: bfe21f274ed5a4630a3503bcb875fed04f90533c
+# Author: Anny Gakhokidze <agakhokidze@mozilla.com>
+# Date: 2020-04-16 03:00:04
+# Regressor Bug: 1594529
+# File Overlap Count: 1
+# Description:
+#   Bug 1594529 - Create LoadInfo for subdocuments directly in parent process with DocumentChannel. r=mattwoodrow,nika
+#   
+#   Currently, with Fission enabled we are not able to create a proper LoadInfo
+#   object when doing a subdocument load because we do not have access to a loading
+#   context if the load is happening inside of an OOP frame. To solve this problem,
+# ==============================================================================
+
+diff -r 29ff609063c2 -r bfe21f274ed5 netwerk/base/LoadInfo.h
+--- a/netwerk/base/LoadInfo.h	Wed Apr 15 18:53:22 2020 +0000
++++ b/netwerk/base/LoadInfo.h	Wed Apr 15 18:53:06 2020 +0000
+@@ -30,6 +30,7 @@
+ class PerformanceStorage;
+ class XMLHttpRequestMainThread;
+ class CanonicalBrowsingContext;
++class WindowGlobalParent;
+ }  // namespace dom
+ 
+ namespace net {
+@@ -56,6 +57,7 @@
+   NS_DECL_ISUPPORTS
+   NS_DECL_NSILOADINFO
+ 
++  // Used for TYPE_SUBDOCUMENT load.
+   // aLoadingPrincipal MUST NOT BE NULL.
+   LoadInfo(nsIPrincipal* aLoadingPrincipal, nsIPrincipal* aTriggeringPrincipal,
+            nsINode* aLoadingContext, nsSecurityFlags aSecurityFlags,
+@@ -65,6 +67,10 @@
+            const Maybe<mozilla::dom::ServiceWorkerDescriptor>& aController =
+                Maybe<mozilla::dom::ServiceWorkerDescriptor>(),
+            uint32_t aSandboxFlags = 0);
++  // Used for TYPE_SUBDOCUMENT load.
++  LoadInfo(dom::CanonicalBrowsingContext* aBrowsingContext,
++           nsIPrincipal* aTriggeringPrincipal, uint64_t aFrameOuterWindowID,
++           nsSecurityFlags aSecurityFlags, uint32_t aSandboxFlags);
+ 
+   // Constructor used for TYPE_DOCUMENT loads which have a different
+   // loadingContext than other loads. This ContextForTopLevelLoad is
+@@ -179,6 +185,7 @@
+   ~LoadInfo() = default;
+ 
+   void ComputeIsThirdPartyContext(nsPIDOMWindowOuter* aOuterWindow);
++  void ComputeIsThirdPartyContext(dom::WindowGlobalParent* aGlobal);
+ 
+   // This function is the *only* function which can change the securityflags
+   // of a loadinfo. It only exists because of the XHR code. Don't call it

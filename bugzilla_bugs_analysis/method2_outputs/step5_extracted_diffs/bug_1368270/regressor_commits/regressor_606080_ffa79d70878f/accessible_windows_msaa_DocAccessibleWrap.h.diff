@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/windows/msaa/DocAccessibleWrap.h
+# Commit: ffa79d70878f
+# Full Hash: ffa79d70878f731b772ecf7a6d26e24eb8eaa5cb
+# Author: Trevor Saunders <tbsaunde@tbsaunde.org>
+# Date: 2015-05-06 20:26:41
+# Regressor Bug: 606080
+# File Overlap Count: 1
+# Description:
+#   bug 606080 - on windows give accessibles a unique 32 bit id r=surkov
+# ==============================================================================
+
+diff -r 28c2b07d197c -r ffa79d70878f accessible/windows/msaa/DocAccessibleWrap.h
+--- a/accessible/windows/msaa/DocAccessibleWrap.h	Mon Apr 13 18:30:07 2015 -0400
++++ b/accessible/windows/msaa/DocAccessibleWrap.h	Tue Apr 14 12:45:43 2015 -0400
+@@ -34,12 +34,30 @@
+   // DocAccessible
+   virtual void* GetNativeWindow() const;
+ 
++  /**
++   * Manage the mapping from id to Accessible.
++   */
++#ifdef _WIN64
++  void AddID(uint32_t aID, AccessibleWrap* aAcc)
++    { mIDToAccessibleMap.Put(aID, aAcc); }
++  void RemoveID(uint32_t aID) { mIDToAccessibleMap.Remove(aID); }
++  AccessibleWrap* GetAccessibleByID(uint32_t aID) const
++    { return mIDToAccessibleMap.Get(aID); }
++#endif
++
+ protected:
+   // DocAccessible
+   virtual void DoInitialUpdate();
+ 
+ protected:
+   void* mHWND;
++
++  /*
++   * This provides a mapping from 32 bit id to accessible objects.
++   */
++#ifdef _WIN64
++  nsDataHashtable<nsUint32HashKey, AccessibleWrap*> mIDToAccessibleMap;
++#endif
+ };
+ 
+ } // namespace a11y

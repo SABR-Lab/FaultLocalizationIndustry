@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmDebugFrame.cpp
+# Commit: 5ab04623c826
+# Full Hash: 5ab04623c826b7f4d125fbb936754dd29af0a472
+# Author: Lars T Hansen <lhansen@mozilla.com>
+# Date: 2022-03-18 16:59:23
+# Regressor Bug: 1756951
+# File Overlap Count: 2
+# Description:
+#   Bug 1756951 - Part 1: Do not patch code when debugging. r=yury
+#   
+#   Instead of emitting a patchable call at entry/exit/breakpoints, emit a
+#   conditional call to a per-instance handler that the debugger can
+#   install.  The new code is larger than the code it replaces but within
+# ==============================================================================
+
+diff -r d209d5f4d95e -r 5ab04623c826 js/src/wasm/WasmDebugFrame.cpp
+--- a/js/src/wasm/WasmDebugFrame.cpp	Fri Mar 18 07:20:52 2022 +0000
++++ b/js/src/wasm/WasmDebugFrame.cpp	Fri Mar 18 07:56:07 2022 +0000
+@@ -158,7 +158,7 @@
+ void DebugFrame::observe(JSContext* cx) {
+   if (!flags_.observing) {
+     instance()->debug().adjustEnterAndLeaveFrameTrapsState(
+-        cx, /* enabled = */ true);
++        cx, instance(), /* enabled = */ true);
+     flags_.observing = true;
+   }
+ }
+@@ -166,7 +166,7 @@
+ void DebugFrame::leave(JSContext* cx) {
+   if (flags_.observing) {
+     instance()->debug().adjustEnterAndLeaveFrameTrapsState(
+-        cx, /* enabled = */ false);
++        cx, instance(), /* enabled = */ false);
+     flags_.observing = false;
+   }
+ }

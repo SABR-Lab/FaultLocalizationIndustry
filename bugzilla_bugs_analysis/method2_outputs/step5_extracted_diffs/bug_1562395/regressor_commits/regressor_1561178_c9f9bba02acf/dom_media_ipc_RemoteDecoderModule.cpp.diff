@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/ipc/RemoteDecoderModule.cpp
+# Commit: c9f9bba02acf
+# Full Hash: c9f9bba02acf40a824a92fd9430cc5e10edcc485
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2019-06-28 16:12:48
+# Regressor Bug: 1561178
+# File Overlap Count: 1
+# Description:
+#   Bug 1561178 - Make passing a TextureFactoryIdentifier optional, and pass one whenever we can. r=jya
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D35965
+# ==============================================================================
+
+diff -r c633a515314d -r c9f9bba02acf dom/media/ipc/RemoteDecoderModule.cpp
+--- a/dom/media/ipc/RemoteDecoderModule.cpp	Fri Jun 28 06:31:59 2019 +0000
++++ b/dom/media/ipc/RemoteDecoderModule.cpp	Fri Jun 28 06:32:16 2019 +0000
+@@ -146,8 +146,11 @@
+   // thread during this single dispatch.
+   RefPtr<Runnable> task =
+       NS_NewRunnableFunction("RemoteDecoderModule::CreateVideoDecoder", [&]() {
+-        result = child->InitIPDL(aParams.VideoConfig(), aParams.mRate.mValue,
+-                                 aParams.mOptions);
++        result = child->InitIPDL(
++            aParams.VideoConfig(), aParams.mRate.mValue, aParams.mOptions,
++            aParams.mKnowsCompositor
++                ? &aParams.mKnowsCompositor->GetTextureFactoryIdentifier()
++                : nullptr);
+         if (NS_FAILED(result)) {
+           // Release RemoteVideoDecoderChild here, while we're on
+           // manager thread.  Don't just let the RefPtr go out of scope.

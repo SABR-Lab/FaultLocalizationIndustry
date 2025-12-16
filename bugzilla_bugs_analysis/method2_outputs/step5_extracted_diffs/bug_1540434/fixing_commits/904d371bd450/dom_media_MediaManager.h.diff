@@ -1,0 +1,40 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/media/MediaManager.h
+# Commit: 904d371bd450
+# Full Hash: 904d371bd450fd0bd9db5a148e6e65bcfbc17ee9
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2019-04-16 15:43:40
+# Description:
+#   Bug 1540434 - Convert a bunch of rawptrs related to MediaManager to RefPtr. r=jib
+#   
+#   When unplugging a camera in use in a video-only gUM capture, we see a crash in
+#   GetUserMediaWindowListener::Remove when trying to use `aListener` after its last
+#   reference was removed from an nsRefPtrHashTable at the beginning of the method.
+# ==============================================================================
+
+diff -r 35aed2f899c3 -r 904d371bd450 dom/media/MediaManager.h
+--- a/dom/media/MediaManager.h	Tue Apr 16 07:25:10 2019 +0000
++++ b/dom/media/MediaManager.h	Tue Apr 16 07:37:48 2019 +0000
+@@ -183,16 +183,15 @@
+     MOZ_ASSERT(NS_IsMainThread());
+     return mActiveWindows.GetWeak(aWindowId);
+   }
+-  void AddWindowID(uint64_t aWindowId, GetUserMediaWindowListener* aListener);
++  void AddWindowID(uint64_t aWindowId,
++                   RefPtr<GetUserMediaWindowListener> aListener);
+   void RemoveWindowID(uint64_t aWindowId);
+   void SendPendingGUMRequest();
+   bool IsWindowStillActive(uint64_t aWindowId) {
+     return !!GetWindowListener(aWindowId);
+   }
+-  bool IsWindowListenerStillActive(GetUserMediaWindowListener* aListener);
+-  // Note: also calls aListener->Remove(), even if inactive
+-  void RemoveFromWindowList(uint64_t aWindowID,
+-                            GetUserMediaWindowListener* aListener);
++  bool IsWindowListenerStillActive(
++      const RefPtr<GetUserMediaWindowListener>& aListener);
+ 
+   typedef dom::NavigatorUserMediaSuccessCallback GetUserMediaSuccessCallback;
+   typedef dom::NavigatorUserMediaErrorCallback GetUserMediaErrorCallback;

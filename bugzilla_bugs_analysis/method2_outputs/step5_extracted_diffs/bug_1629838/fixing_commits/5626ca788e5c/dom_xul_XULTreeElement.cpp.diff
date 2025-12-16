@@ -1,0 +1,32 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/xul/XULTreeElement.cpp
+# Commit: 5626ca788e5c
+# Full Hash: 5626ca788e5ca41919945cedabff8685ffb99957
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2020-04-15 09:25:24
+# Description:
+#   Bug 1629838 - Don't flush reentrantly from XUL a11y construction. r=Jamie
+#   
+#   This code has pretty much always been broken, we've started to flush
+#   more because we fixed a bug that was not looking at XUL trees inside
+#   shadow DOM in bug 1625991.
+# ==============================================================================
+
+diff -r 0f37ad2fc083 -r 5626ca788e5c dom/xul/XULTreeElement.cpp
+--- a/dom/xul/XULTreeElement.cpp	Tue Apr 14 23:35:35 2020 +0000
++++ b/dom/xul/XULTreeElement.cpp	Wed Apr 15 01:01:12 2020 +0000
+@@ -173,9 +173,9 @@
+   return nullptr;
+ }
+ 
+-already_AddRefed<nsTreeColumns> XULTreeElement::GetColumns() {
+-  nsTreeBodyFrame* body = GetTreeBodyFrame();
+-  if (body) {
++already_AddRefed<nsTreeColumns> XULTreeElement::GetColumns(
++    FlushType aFlushType) {
++  if (nsTreeBodyFrame* body = GetTreeBodyFrame(aFlushType)) {
+     return body->Columns();
+   }
+   return nullptr;

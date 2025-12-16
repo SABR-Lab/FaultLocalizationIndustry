@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/nsDragServiceProxy.cpp
+# Commit: df85fe3d7cb6
+# Full Hash: df85fe3d7cb6a219c37e0a80d00f51e07783aec1
+# Author: David P <daparks@mozilla.com>
+# Date: 2024-07-04 16:09:52
+# Regressor Bug: 1893119
+# File Overlap Count: 1
+# Description:
+#   Bug 1893119: Part 22 - Make nsIDragService::StartDragSession return the nsIDragSession r=rkraesig,win-reviewers,gstoll,geckoview-reviewers,m_kato
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D212298
+# ==============================================================================
+
+diff -r 384b025f56d3 -r df85fe3d7cb6 widget/nsDragServiceProxy.cpp
+--- a/widget/nsDragServiceProxy.cpp	Thu Jul 04 07:48:11 2024 +0000
++++ b/widget/nsDragServiceProxy.cpp	Thu Jul 04 07:48:12 2024 +0000
+@@ -118,23 +118,23 @@
+   return NS_OK;
+ }
+ 
+-NS_IMETHODIMP
++nsIDragSession*
+ nsDragServiceProxy::StartDragSession(nsISupports* aWidgetProvider) {
+   nsIWidget* widget = GetWidgetFromWidgetProvider(aWidgetProvider);
+-  NS_ENSURE_TRUE(widget, NS_ERROR_INVALID_ARG);
++  NS_ENSURE_TRUE(widget, nullptr);
+   BrowserChild* targetBrowser = widget->GetOwningBrowserChild();
+-  NS_ENSURE_TRUE(targetBrowser, NS_ERROR_INVALID_ARG);
++  NS_ENSURE_TRUE(targetBrowser, nullptr);
+   RefPtr<nsIDragSession> session = targetBrowser->GetDragSession();
+   if (session) {
+     // session already exists on the browser
+-    return NS_OK;
++    return session;
+   }
+ 
+   session = CreateDragSession();
+   MOZ_ASSERT(session);
+   static_cast<nsDragSessionProxy*>(session.get())->SetDragTarget(targetBrowser);
+   targetBrowser->SetDragSession(session);
+-  return NS_OK;
++  return session;
+ }
+ 
+ NS_IMETHODIMP

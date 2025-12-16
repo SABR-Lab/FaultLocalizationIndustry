@@ -1,0 +1,71 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/render_task_graph.rs
+# Commit: c0f58fd74e56
+# Full Hash: c0f58fd74e56b24f67fccae08097d151e21a0f80
+# Author: Ashley Hale <ahale@mozilla.com>
+# Date: 2024-05-09 16:15:25
+# Regressor Bug: 1824502
+# File Overlap Count: 1
+# Description:
+#   Bug 1824502 - Implement native SVG filter rendering in WebRender r=gw
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D209646
+# ==============================================================================
+
+diff -r 3e2ec3a3b738 -r c0f58fd74e56 gfx/wr/webrender/src/render_task_graph.rs
+--- a/gfx/wr/webrender/src/render_task_graph.rs	Thu May 09 02:12:39 2024 +0000
++++ b/gfx/wr/webrender/src/render_task_graph.rs	Thu May 09 04:09:00 2024 +0000
+@@ -591,9 +591,12 @@
+             }
+         }
+ 
+-        // By now, all surfaces that were borrowed from the render target pool must
+-        // be returned to the resource cache, or we are leaking intermediate surfaces!
+-        assert!(self.active_surfaces.is_empty());
++        if !self.active_surfaces.is_empty() {
++            graph.print();
++            // By now, all surfaces that were borrowed from the render target pool must
++            // be returned to the resource cache, or we are leaking intermediate surfaces!
++            assert!(self.active_surfaces.is_empty());
++        }
+ 
+         // Each task is now allocated to a surface and target rect. Write that to the
+         // GPU blocks and task_data. After this point, the graph is returned and is
+@@ -656,29 +659,30 @@
+     pub fn print(
+         &self,
+     ) {
+-        debug!("-- RenderTaskGraph --");
++        print!("-- RenderTaskGraph --\n");
+ 
+         for (i, task) in self.tasks.iter().enumerate() {
+-            debug!("Task {} [{}]: render_on={} free_after={} children={:?}",
++            print!("Task {} [{}]: render_on={} free_after={} children={:?} target_size={:?}\n",
+                 i,
+                 task.kind.as_str(),
+                 task.render_on.0,
+                 task.free_after.0,
+                 task.children,
++                task.get_target_size(),
+             );
+         }
+ 
+         for (p, pass) in self.passes.iter().enumerate() {
+-            debug!("Pass {}:", p);
++            print!("Pass {}:\n", p);
+ 
+             for (s, sub_pass) in pass.sub_passes.iter().enumerate() {
+-                debug!("\tSubPass {}: {:?}",
++                print!("\tSubPass {}: {:?}\n",
+                     s,
+                     sub_pass.surface,
+                 );
+ 
+                 for task_id in &sub_pass.task_ids {
+-                    debug!("\t\tTask {:?}", task_id.index);
++                    print!("\t\tTask {:?}\n", task_id.index);
+                 }
+             }
+         }

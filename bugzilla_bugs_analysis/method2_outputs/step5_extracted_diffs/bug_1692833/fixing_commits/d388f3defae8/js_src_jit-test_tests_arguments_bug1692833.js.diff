@@ -1,0 +1,46 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit-test/tests/arguments/bug1692833.js
+# Commit: d388f3defae8
+# Full Hash: d388f3defae8b4f1bbc50d78875803b05c73f302
+# Author: Iain Ireland <iireland@mozilla.com>
+# Date: 2021-02-18 21:46:37
+# Description:
+#   Bug 1692833: Read argsObj fallibly r=nbp
+#   
+#   I couldn't get the fuzzbug to replicate locally, but based on the backtrace I eventually managed to get a similar failure using `--scalar-replace-arguments`.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D105566
+# ==============================================================================
+
+diff -r 277372ed679b -r d388f3defae8 js/src/jit-test/tests/arguments/bug1692833.js
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/js/src/jit-test/tests/arguments/bug1692833.js	Thu Feb 18 18:33:50 2021 +0000
+@@ -0,0 +1,26 @@
++// |jit-test| --scalar-replace-arguments
++
++g13 = newGlobal({newCompartment: true})
++g13.parent = this;
++g13.eval("(" + function() {
++    Debugger(parent).onExceptionUnwind = function(frame) {
++	frame.older;
++  }
++} + ")()");
++
++function foo(depth) {
++    try {
++	if (depth > 0) {
++	    bar(depth - arguments.length);
++	} else {
++	    throw 1;
++	}
++    } catch (e) { throw e }
++}
++function bar(depth) {
++    foo(depth);
++}
++
++try {
++    foo(50);
++} catch {}

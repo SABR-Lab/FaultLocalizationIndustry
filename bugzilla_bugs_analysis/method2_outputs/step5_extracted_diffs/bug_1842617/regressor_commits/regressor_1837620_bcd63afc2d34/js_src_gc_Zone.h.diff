@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/Zone.h
+# Commit: bcd63afc2d34
+# Full Hash: bcd63afc2d3449830cfe6f51c03373f890ef6435
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2023-07-06 04:06:52
+# Regressor Bug: 1837620
+# File Overlap Count: 1
+# Description:
+#   Bug 1837620 - Part 6: Make edges for multiple shape guard weak too r=sfink
+#   
+#   To make the edges for the multiple shape guard weak we need a way to find and
+#   update the objects used to hold these edges. The simplest way to do this is to
+#   add a vector in the zone.  I don't believe that there are not huge numbers of
+# ==============================================================================
+
+diff -r 24e0b10be67a -r bcd63afc2d34 js/src/gc/Zone.h
+--- a/js/src/gc/Zone.h	Wed Jul 05 16:58:38 2023 +0000
++++ b/js/src/gc/Zone.h	Wed Jul 05 16:58:38 2023 +0000
+@@ -309,6 +309,13 @@
+   friend class js::WeakRefObject;
+   js::MainThreadOrGCTaskData<KeptAliveSet> keptObjects;
+ 
++  // To support weak pointers in some special cases we keep a list of objects
++  // that need to be traced weakly on GC. This is currently only used for the
++  // JIT's ShapeListObject. It's assumed that there will not be many of these
++  // objects.
++  using ObjectVector = js::GCVector<JSObject*, 0, js::SystemAllocPolicy>;
++  js::MainThreadOrGCTaskData<ObjectVector> objectsWithWeakPointers;
++
+  public:
+   static JS::Zone* from(ZoneAllocator* zoneAlloc) {
+     return static_cast<Zone*>(zoneAlloc);
+@@ -344,6 +351,9 @@
+ 
+   void traceWeakJitScripts(JSTracer* trc);
+ 
++  bool registerObjectWithWeakPointers(JSObject* obj);
++  void sweepObjectsWithWeakPointers(JSTracer* trc);
++
+   void addSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf,
+                               JS::CodeSizes* code, size_t* regexpZone,
+                               size_t* jitZone, size_t* baselineStubsOptimized,

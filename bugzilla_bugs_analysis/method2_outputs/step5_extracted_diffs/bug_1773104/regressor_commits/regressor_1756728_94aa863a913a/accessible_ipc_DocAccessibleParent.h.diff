@@ -1,0 +1,92 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/ipc/DocAccessibleParent.h
+# Commit: 94aa863a913a
+# Full Hash: 94aa863a913a0f935b5e7636e49e5a33727c638a
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2022-06-01 09:46:32
+# Regressor Bug: 1756728
+# File Overlap Count: 1
+# Description:
+#   Bug 1756728 part 1: Make it possible to retrieve a BrowsingContext from a DocAccessibleParent. r=morgan
+#   
+#   Previously, even for remote in-process iframes, it was only possible to retrieve the top level BrowsingContext for the remote process by getting the managing BrowserParent.
+#   This makes it possible to get the correct BrowsingContext even for in-process iframes.
+#   
+# ==============================================================================
+
+diff -r f6b6083e77c9 -r 94aa863a913a accessible/ipc/DocAccessibleParent.h
+--- a/accessible/ipc/DocAccessibleParent.h	Wed Jun 01 00:01:50 2022 +0000
++++ b/accessible/ipc/DocAccessibleParent.h	Wed Jun 01 00:34:17 2022 +0000
+@@ -16,6 +16,10 @@
+ #include "nsISupportsImpl.h"
+ 
+ namespace mozilla {
++namespace dom {
++class CanonicalBrowsingContext;
++}
++
+ namespace a11y {
+ 
+ class TextRange;
+@@ -34,24 +38,7 @@
+  public:
+   NS_INLINE_DECL_REFCOUNTING(DocAccessibleParent);
+ 
+-  DocAccessibleParent()
+-      : RemoteAccessible(this),
+-        mParentDoc(kNoParentDoc),
+-#if defined(XP_WIN)
+-        mEmulatedWindowHandle(nullptr),
+-#endif  // defined(XP_WIN)
+-        mTopLevel(false),
+-        mTopLevelInContentProcess(false),
+-        mShutdown(false),
+-        mFocus(0),
+-        mCaretId(0),
+-        mCaretOffset(-1),
+-        mIsCaretAtEndOfLine(false) {
+-    sMaxDocID++;
+-    mActorID = sMaxDocID;
+-    MOZ_ASSERT(!LiveDocs().Get(mActorID));
+-    LiveDocs().InsertOrUpdate(mActorID, this);
+-  }
++  DocAccessibleParent();
+ 
+   /**
+    * Set this as a top level document; i.e. it is not embedded by another remote
+@@ -87,6 +74,12 @@
+     mShutdown = true;
+   }
+ 
++  void SetBrowsingContext(dom::CanonicalBrowsingContext* aBrowsingContext);
++
++  dom::CanonicalBrowsingContext* GetBrowsingContext() const {
++    return mBrowsingContext;
++  }
++
+   /*
+    * Called when a message from a document in a child process notifies the main
+    * process it is firing an event.
+@@ -324,11 +317,7 @@
+   virtual void SelectionRanges(nsTArray<TextRange>* aRanges) const override;
+ 
+  private:
+-  ~DocAccessibleParent() {
+-    LiveDocs().Remove(mActorID);
+-    MOZ_ASSERT(mChildDocs.Length() == 0);
+-    MOZ_ASSERT(!ParentDoc());
+-  }
++  ~DocAccessibleParent();
+ 
+   class ProxyEntry : public PLDHashEntryHdr {
+    public:
+@@ -392,6 +381,7 @@
+   bool mTopLevel;
+   bool mTopLevelInContentProcess;
+   bool mShutdown;
++  RefPtr<dom::CanonicalBrowsingContext> mBrowsingContext;
+ 
+   nsTHashSet<RefPtr<dom::BrowserBridgeParent>> mPendingOOPChildDocs;
+ 

@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/VideoConduit.h
+# Commit: 7888e4be3d7e
+# Full Hash: 7888e4be3d7e633739cf590e73b0a3af0ef3f9fc
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 5
+# Description:
+#   Bug 1654112 - Fix remote-inbound-rtp.packetsReceived. r=bwc
+#   
+#   There are two problems with this stat:
+#   - The BaseSeq tracking logic in MediaPipeline doesn't account for multiple ssrcs
+#     (rtx)
+# ==============================================================================
+
+diff -r 6b3195b0e545 -r 7888e4be3d7e dom/media/webrtc/libwebrtcglue/VideoConduit.h
+--- a/dom/media/webrtc/libwebrtcglue/VideoConduit.h	Mon Sep 06 16:04:25 2021 +0200
++++ b/dom/media/webrtc/libwebrtcglue/VideoConduit.h	Wed Sep 08 10:34:57 2021 +0200
+@@ -82,6 +82,8 @@
+   void DetachRenderer() override;
+ 
+   Maybe<DOMHighResTimeStamp> LastRtcpReceived() const override;
++  Maybe<uint16_t> RtpSendBaseSeqFor(uint32_t aSsrc) const override;
++
+   DOMHighResTimeStamp GetNow() const override;
+ 
+   void StopTransmitting();
+@@ -473,6 +475,12 @@
+   // Call thread only
+   Maybe<DOMHighResTimeStamp> mLastRtcpReceived;
+ 
++  // Call thread only. ssrc -> base_seq
++  std::map<uint32_t, uint16_t> mRtpSendBaseSeqs;
++  // libwebrtc network thread only. ssrc -> base_seq.
++  // To track changes needed to mRtpSendBaseSeqs.
++  std::map<uint32_t, uint16_t> mRtpSendBaseSeqs_n;
++
+   // Tracking the attributes of received frames over time
+   // Protected by mRendererMonitor
+   dom::RTCVideoFrameHistoryInternal mReceivedFrameHistory;

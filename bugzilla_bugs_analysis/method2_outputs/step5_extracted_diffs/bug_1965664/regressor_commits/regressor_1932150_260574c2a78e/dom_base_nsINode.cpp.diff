@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsINode.cpp
+# Commit: 260574c2a78e
+# Full Hash: 260574c2a78e619e6c9815a797a8df7086004994
+# Author: Serban Stanca <sstanca@mozilla.com>
+# Date: 2025-05-09 04:15:00
+# Regressor Bug: 1932150
+# File Overlap Count: 1
+# Description:
+#   Revert "Bug 1932150 - Update ranges to correctly set and update nodes for flattened selection r=jjaschke,smaug,dom-core"
+#   
+#   This reverts commit 0221ba097eb5884f3efe76c607cb0cc7c9170635.
+# ==============================================================================
+
+diff -r d699f1b53a1e -r 260574c2a78e dom/base/nsINode.cpp
+--- a/dom/base/nsINode.cpp	Thu May 08 22:53:05 2025 +0300
++++ b/dom/base/nsINode.cpp	Thu May 08 22:53:06 2025 +0300
+@@ -310,26 +310,17 @@
+     const nsINode* aNode) {
+   while (aNode &&
+          !aNode->IsClosestCommonInclusiveAncestorForRangeInSelection()) {
+-    const bool isNodeInFlattenedShadowTree =
++    const bool isNodeInShadowTree =
+         StaticPrefs::dom_shadowdom_selection_across_boundary_enabled() &&
+-        (aNode->IsInShadowTree() ||
+-         (aNode->IsContent() && aNode->AsContent()->GetAssignedSlot()));
+-
++        aNode->IsInShadowTree();
+     if (!aNode
+              ->IsDescendantOfClosestCommonInclusiveAncestorForRangeInSelection() &&
+-        !isNodeInFlattenedShadowTree) {
++        !isNodeInShadowTree) {
+       return nullptr;
+     }
+-
+-    if (StaticPrefs::dom_shadowdom_selection_across_boundary_enabled()) {
+-      if (aNode->IsContent() && aNode->AsContent()->GetAssignedSlot()) {
+-        aNode = aNode->AsContent()->GetAssignedSlot();
+-      } else {
+-        aNode = aNode->GetParentOrShadowHostNode();
+-      }
+-      continue;
+-    }
+-    aNode = aNode->GetParentNode();
++    aNode = StaticPrefs::dom_shadowdom_selection_across_boundary_enabled()
++                ? aNode->GetParentOrShadowHostNode()
++                : aNode->GetParentNode();
+   }
+   return aNode;
+ }

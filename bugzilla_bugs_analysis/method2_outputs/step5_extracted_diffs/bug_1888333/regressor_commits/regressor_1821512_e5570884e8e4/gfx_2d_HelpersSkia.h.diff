@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/2d/HelpersSkia.h
+# Commit: e5570884e8e4
+# Full Hash: e5570884e8e43505e1a35ce3fa7ab8fc33ede79d
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2023-04-16 09:48:54
+# Regressor Bug: 1821512
+# File Overlap Count: 1
+# Description:
+#   Bug 1821512 - Fix Skia usage for API changes. r=jrmuizel
+#   
+#   This just tries to address fairly random changes in the Skia API and correct
+#   our usage of it in Moz2D and some other places.
+#   
+# ==============================================================================
+
+diff -r efc92c86fafd -r e5570884e8e4 gfx/2d/HelpersSkia.h
+--- a/gfx/2d/HelpersSkia.h	Sun Apr 16 03:59:59 2023 +0000
++++ b/gfx/2d/HelpersSkia.h	Sun Apr 16 04:00:00 2023 +0000
+@@ -9,8 +9,10 @@
+ 
+ #include "2D.h"
+ #include "skia/include/core/SkCanvas.h"
++#include "skia/include/core/SkPathEffect.h"
++#include "skia/include/core/SkPathTypes.h"
++#include "skia/include/core/SkShader.h"
+ #include "skia/include/effects/SkDashPathEffect.h"
+-#include "skia/include/core/SkShader.h"
+ #include "mozilla/Assertions.h"
+ #include <cmath>
+ #include <vector>
+@@ -146,8 +148,8 @@
+           SkFloatToScalar(aOptions.mDashPattern[i % aOptions.mDashLength]);
+     }
+ 
+-    sk_sp<SkPathEffect> dash = SkDashPathEffect::Make(
+-        &pattern.front(), dashCount, SkFloatToScalar(aOptions.mDashOffset));
++    auto dash = SkDashPathEffect::Make(&pattern.front(), dashCount,
++                                       SkFloatToScalar(aOptions.mDashOffset));
+     aPaint.setPathEffect(dash);
+   }
+ 
+@@ -303,14 +305,14 @@
+   return SkFontHinting::kNormal;
+ }
+ 
+-static inline FillRule GetFillRule(SkPath::FillType aFillType) {
++static inline FillRule GetFillRule(SkPathFillType aFillType) {
+   switch (aFillType) {
+-    case SkPath::kWinding_FillType:
++    case SkPathFillType::kWinding:
+       return FillRule::FILL_WINDING;
+-    case SkPath::kEvenOdd_FillType:
++    case SkPathFillType::kEvenOdd:
+       return FillRule::FILL_EVEN_ODD;
+-    case SkPath::kInverseWinding_FillType:
+-    case SkPath::kInverseEvenOdd_FillType:
++    case SkPathFillType::kInverseWinding:
++    case SkPathFillType::kInverseEvenOdd:
+     default:
+       NS_WARNING("Unsupported fill type\n");
+       break;

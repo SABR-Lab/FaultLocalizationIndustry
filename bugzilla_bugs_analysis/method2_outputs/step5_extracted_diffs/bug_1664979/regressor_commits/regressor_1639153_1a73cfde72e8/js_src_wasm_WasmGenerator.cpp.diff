@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmGenerator.cpp
+# Commit: 1a73cfde72e8
+# Full Hash: 1a73cfde72e8f4d19bdcfdbffa9fbc78bba01e24
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2021-09-28 09:54:33
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Introduce indirect stubs to optimize call_indirect. r=lth
+#   
+#   This patch introduces indirect stubs.
+#   An indirect stub is a stub that takes care of any switching activities needed for call_indirect.
+#   Before this patch, we have to conservatively assume that any call_indirect's target can be from a foreign instance,
+# ==============================================================================
+
+diff -r da3c5d8492db -r 1a73cfde72e8 js/src/wasm/WasmGenerator.cpp
+--- a/js/src/wasm/WasmGenerator.cpp	Tue Sep 28 05:16:23 2021 +0000
++++ b/js/src/wasm/WasmGenerator.cpp	Tue Sep 28 05:24:15 2021 +0000
+@@ -477,7 +477,8 @@
+     const CallSiteTarget& target = callSiteTargets_[lastPatchedCallSite_];
+     uint32_t callerOffset = callSite.returnAddressOffset();
+     switch (callSite.kind()) {
+-      case CallSiteDesc::Dynamic:
++      case CallSiteDesc::Import:
++      case CallSiteDesc::Indirect:
+       case CallSiteDesc::Symbolic:
+         break;
+       case CallSiteDesc::Func: {
+@@ -581,6 +582,9 @@
+     case CodeRange::Throw:
+       // Jumped to by other stubs, so nothing to do.
+       break;
++    case CodeRange::IndirectStub:
++      MOZ_CRASH("Indirect stub generates later - at runtime.");
++      break;
+     case CodeRange::FarJumpIsland:
+     case CodeRange::BuiltinThunk:
+       MOZ_CRASH("Unexpected CodeRange kind");

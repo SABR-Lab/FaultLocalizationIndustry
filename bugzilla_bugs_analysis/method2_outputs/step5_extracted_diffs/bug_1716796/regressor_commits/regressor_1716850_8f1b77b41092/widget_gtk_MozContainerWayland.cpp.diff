@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/MozContainerWayland.cpp
+# Commit: 8f1b77b41092
+# Full Hash: 8f1b77b41092110383fb8ea236f7cc181510da69
+# Author: stransky <stransky@redhat.com>
+# Date: 2021-06-17 04:27:31
+# Regressor Bug: 1716850
+# File Overlap Count: 1
+# Description:
+#   Bug 1716850 [Wayland] Call WindowSurfaceWayland::Reset() from moz_container_wayland_surface_create_locked(), r=rmader
+#   
+#   Depends on D118078
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D118079
+# ==============================================================================
+
+diff -r 09e90d1b7c7b -r 8f1b77b41092 widget/gtk/MozContainerWayland.cpp
+--- a/widget/gtk/MozContainerWayland.cpp	Wed Jun 16 20:37:12 2021 +0000
++++ b/widget/gtk/MozContainerWayland.cpp	Wed Jun 16 20:37:12 2021 +0000
+@@ -284,10 +284,6 @@
+ 
+   LOGWAYLAND(("%s [%p]\n", __FUNCTION__, (void*)container));
+ 
+-  if (wl_container->window_surface) {
+-    wl_container->window_surface->Reset();
+-  }
+-
+   if (wl_container->opaque_region_used) {
+     moz_gdk_wayland_window_remove_frame_callback_surface_locked(container);
+   }
+@@ -509,6 +505,10 @@
+   }
+   wl_subsurface_set_desync(wl_container->subsurface);
+ 
++  if (wl_container->window_surface) {
++    wl_container->window_surface->Reset();
++  }
++
+   // Try to guess subsurface offset to avoid potential flickering.
+   int dx, dy;
+   if (moz_container_get_nsWindow(container)->GetCSDDecorationOffset(&dx, &dy)) {

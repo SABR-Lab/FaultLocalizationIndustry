@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/ipc/other/DocAccessibleChild.cpp
+# Commit: b3216f1cfd1f
+# Full Hash: b3216f1cfd1f295a707bb089132f86c1e0770c8d
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2021-02-02 03:35:00
+# Regressor Bug: 1688972
+# File Overlap Count: 1
+# Description:
+#   Bug 1688972 - Make FocusedChild work across document/process boundaries. r=Jamie
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D103102
+# ==============================================================================
+
+diff -r 0a6d78effab1 -r b3216f1cfd1f accessible/ipc/other/DocAccessibleChild.cpp
+--- a/accessible/ipc/other/DocAccessibleChild.cpp	Mon Feb 01 20:09:55 2021 +0100
++++ b/accessible/ipc/other/DocAccessibleChild.cpp	Mon Feb 01 17:54:23 2021 +0000
+@@ -1524,15 +1524,30 @@
+ }
+ 
+ mozilla::ipc::IPCResult DocAccessibleChild::RecvFocusedChild(
+-    const uint64_t& aID, uint64_t* aChild, bool* aOk) {
+-  *aChild = 0;
+-  *aOk = false;
++    const uint64_t& aID, PDocAccessibleChild** aResultDoc,
++    uint64_t* aResultID) {
++  *aResultDoc = nullptr;
++  *aResultID = 0;
+   Accessible* acc = IdToAccessible(aID);
+-  if (acc) {
+-    Accessible* child = acc->FocusedChild();
+-    if (child) {
+-      *aChild = reinterpret_cast<uint64_t>(child->UniqueID());
+-      *aOk = true;
++  if (!acc) {
++    return IPC_OK();
++  }
++
++  Accessible* result = acc->FocusedChild();
++  if (result) {
++    // Accessible::FocusedChild can return an Accessible from a descendant
++    // document.
++    DocAccessibleChild* resultDoc = result->Document()->IPCDoc();
++    // We've sent the constructor for this document to the parent process.
++    // However, because the constructor is async, the parent process might
++    // get the result of this (sync) method before it runs the constructor.
++    // If we send this document in this case, the parent process will crash.
++    // Therefore, we only do this if the parent process has explicitly told
++    // us that the document has been constructed there.
++    if (resultDoc && resultDoc->IsConstructedInParentProcess()) {
++      *aResultDoc = resultDoc;
++      *aResultID =
++          result->IsDoc() ? 0 : reinterpret_cast<uint64_t>(result->UniqueID());
+     }
+   }
+   return IPC_OK();

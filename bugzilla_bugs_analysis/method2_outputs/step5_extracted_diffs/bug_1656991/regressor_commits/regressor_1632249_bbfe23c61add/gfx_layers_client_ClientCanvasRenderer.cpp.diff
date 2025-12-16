@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/client/ClientCanvasRenderer.cpp
+# Commit: bbfe23c61add
+# Full Hash: bbfe23c61add07377daf80696fd6996c0463f5b6
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-06-09 09:21:34
+# Regressor Bug: 1632249
+# File Overlap Count: 1
+# Description:
+#   Bug 1632249 - Support compositing out-of-process WebGL. r=handyman,lsalzman,nical,geckoview-reviewers,agi,imanol
+#   
+#   * Majorly simplity CanvasRenderer
+#   * Replace GLScreenBuffer with trivial GLSwapChain
+#   * Use descriptor structs so that future SharedSurface changes aren't so painful
+# ==============================================================================
+
+diff -r 8fcfac450ecc -r bbfe23c61add gfx/layers/client/ClientCanvasRenderer.cpp
+--- a/gfx/layers/client/ClientCanvasRenderer.cpp	Mon Jun 08 20:13:01 2020 +0000
++++ b/gfx/layers/client/ClientCanvasRenderer.cpp	Mon Jun 08 20:34:15 2020 +0000
+@@ -17,35 +17,16 @@
+ 
+ bool ClientCanvasRenderer::CreateCompositable() {
+   if (!mCanvasClient) {
+-    TextureFlags flags = TextureFlags::DEFAULT;
+-    if (mOriginPos == gl::OriginPos::BottomLeft) {
+-      flags |= TextureFlags::ORIGIN_BOTTOM_LEFT;
+-    }
+-
+-    if (IsOpaque()) {
+-      flags |= TextureFlags::IS_OPAQUE;
++    auto compositableFlags = TextureFlags::NO_FLAGS;
++    if (!mData.mIsAlphaPremult) {
++      // WR needs this flag marked on the compositable, not just the texture.
++      compositableFlags |= TextureFlags::NON_PREMULTIPLIED;
+     }
+-
+-    if (!mIsAlphaPremultiplied) {
+-      flags |= TextureFlags::NON_PREMULTIPLIED;
+-    }
+-
+-    mCanvasClient = CanvasClient::CreateCanvasClient(GetCanvasClientType(),
+-                                                     GetForwarder(), flags);
+-    if (!mCanvasClient) {
+-      return false;
+-    }
++    mCanvasClient = new CanvasClient(GetForwarder(), compositableFlags);
+ 
+     if (mLayer->HasShadow()) {
+-      if (mAsyncRenderer) {
+-        static_cast<CanvasClientBridge*>(mCanvasClient.get())->SetLayer(mLayer);
+-      } else if (mOOPRenderer) {
+-        static_cast<CanvasClientOOP*>(mCanvasClient.get())
+-            ->SetLayer(mLayer, mOOPRenderer);
+-      } else {
+-        mCanvasClient->Connect();
+-        GetForwarder()->AsLayerForwarder()->Attach(mCanvasClient, mLayer);
+-      }
++      mCanvasClient->Connect();
++      GetForwarder()->AsLayerForwarder()->Attach(mCanvasClient, mLayer);
+     }
+   }
+ 

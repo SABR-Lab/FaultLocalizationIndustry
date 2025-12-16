@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/ResizeObserver.h
+# Commit: 3508e2bd4e3c
+# Full Hash: 3508e2bd4e3cbc756cff7da7aee3c60c29c15bd1
+# Author: Frédéric Wang <fwang@igalia.com>
+# Date: 2024-02-29 21:06:42
+# Regressor Bug: 1807253
+# File Overlap Count: 1
+# Description:
+#   Bug 1880928 - Remove last remembered size observer, handle it in Document::DetermineProximityToViewportAndNotifyResizeObservers. r=emilio,layout-reviewers
+#   
+#   The CSS Box Sizing specification indicates that last remembered sizes
+#   are recorded "at the time that ResizeObserver events are determined and
+#   delivered" [1].
+# ==============================================================================
+
+diff -r 467f563c9ea5 -r 3508e2bd4e3c dom/base/ResizeObserver.h
+--- a/dom/base/ResizeObserver.h	Thu Feb 29 08:50:55 2024 +0000
++++ b/dom/base/ResizeObserver.h	Thu Feb 29 08:50:55 2024 +0000
+@@ -191,8 +191,21 @@
+    */
+   MOZ_CAN_RUN_SCRIPT uint32_t BroadcastActiveObservations();
+ 
+-  static already_AddRefed<ResizeObserver> CreateLastRememberedSizeObserver(
+-      Document&);
++  /**
++   * Returns |aTarget|'s size in the form of gfx::Size (in pixels).
++   * If the target is an SVG that does not participate in CSS layout,
++   * its width and height are determined from bounding box. Otherwise, the
++   * relevant box is determined according to the |aBox| parameter.
++   *
++   * If dom.resize_observer.support_fragments is enabled, or if
++   * |aForceFragmentHandling| is true then the function reports the size of all
++   * fragments, and not just the first one.
++   *
++   * https://www.w3.org/TR/resize-observer-1/#calculate-box-size
++   */
++  static AutoTArray<LogicalPixelSize, 1> CalculateBoxSize(
++      Element* aTarget, ResizeObserverBoxOptions aBox,
++      bool aForceFragmentHandling = false);
+ 
+  protected:
+   ~ResizeObserver() { Disconnect(); }

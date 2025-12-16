@@ -1,0 +1,92 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/linux/SandboxFilter.cpp
+# Commit: 678c6a3d00ee
+# Full Hash: 678c6a3d00ee204c81dbbd7d9254469d31af9102
+# Author: Michael Froman <mfroman@mozilla.com>
+# Date: 2020-03-09 21:52:54
+# Regressor Bug: 1608558
+# File Overlap Count: 1
+# Description:
+#   Bug 1608558 - pt3 - add EvaluateSocketCall and missing cases to EvaluateSyscall for Socket process sandbox. r=gcp
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D62445
+# ==============================================================================
+
+diff -r adc30f2f9a5c -r 678c6a3d00ee security/sandbox/linux/SandboxFilter.cpp
+--- a/security/sandbox/linux/SandboxFilter.cpp	Mon Mar 09 14:56:24 2020 +0000
++++ b/security/sandbox/linux/SandboxFilter.cpp	Mon Mar 09 14:56:43 2020 +0000
+@@ -1503,11 +1503,47 @@
+     }
+   }
+ 
++  Maybe<ResultExpr> EvaluateSocketCall(int aCall,
++                                       bool aHasArgs) const override {
++    switch (aCall) {
++      case SYS_BIND:
++        return Some(Allow());
++
++      case SYS_SOCKET:
++        return Some(Allow());
++
++      case SYS_CONNECT:
++        return Some(Allow());
++
++      case SYS_RECVFROM:
++      case SYS_SENDTO:
++      case SYS_SENDMMSG:
++        return Some(Allow());
++
++      case SYS_RECV:
++      case SYS_SEND:
++      case SYS_GETSOCKOPT:
++      case SYS_SETSOCKOPT:
++      case SYS_GETSOCKNAME:
++      case SYS_GETPEERNAME:
++      case SYS_SHUTDOWN:
++      case SYS_ACCEPT:
++      case SYS_ACCEPT4:
++        return Some(Allow());
++
++      default:
++        return SandboxPolicyCommon::EvaluateSocketCall(aCall, aHasArgs);
++    }
++  }
++
+   ResultExpr EvaluateSyscall(int sysno) const override {
+     switch (sysno) {
+       case __NR_getrusage:
+         return Allow();
+ 
++      case __NR_prctl:
++        return Allow();
++
+       case __NR_ioctl: {
+         static const unsigned long kTypeMask = _IOC_TYPEMASK << _IOC_TYPESHIFT;
+         static const unsigned long kTtyIoctls = TIOCSTI & kTypeMask;
+@@ -1573,6 +1609,11 @@
+ 
+ #ifdef DESKTOP
+       // This section is borrowed from ContentSandboxPolicy
++      CASES_FOR_getrlimit:
++      CASES_FOR_getresuid:
++      CASES_FOR_getresgid:
++        return Allow();
++
+       case __NR_prlimit64: {
+         // Allow only the getrlimit() use case.  (glibc seems to use
+         // only pid 0 to indicate the current process; pid == getpid()
+@@ -1586,6 +1627,12 @@
+       }
+ #endif  // DESKTOP
+ 
++      CASES_FOR_getuid:
++      CASES_FOR_getgid:
++      CASES_FOR_geteuid:
++      CASES_FOR_getegid:
++        return Allow();
++
+       default:
+         return SandboxPolicyCommon::EvaluateSyscall(sysno);
+     }

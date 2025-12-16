@@ -1,0 +1,34 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/AudioConduit.cpp
+# Commit: a64e03b3e760
+# Full Hash: a64e03b3e760528372218bc42f3c02f9447c5a38
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 5
+# Description:
+#   Bug 1654112 - Handle call shutdown in MediaSessionConduit::GetCallStats() and callers. r=ng
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D124375
+# ==============================================================================
+
+diff -r cc2d56c5c678 -r a64e03b3e760 dom/media/webrtc/libwebrtcglue/AudioConduit.cpp
+--- a/dom/media/webrtc/libwebrtcglue/AudioConduit.cpp	Thu Sep 02 12:19:23 2021 +0200
++++ b/dom/media/webrtc/libwebrtcglue/AudioConduit.cpp	Thu Sep 02 13:55:29 2021 +0200
+@@ -383,9 +383,12 @@
+   return Some(mSendStream->GetStats());
+ }
+ 
+-webrtc::Call::Stats WebrtcAudioConduit::GetCallStats() const {
++Maybe<webrtc::Call::Stats> WebrtcAudioConduit::GetCallStats() const {
+   MOZ_ASSERT(mCallThread->IsOnCurrentThread());
+-  return mCall->Call()->GetStats();
++  if (!mCall->Call()) {
++    return Nothing();
++  }
++  return Some(mCall->Call()->GetStats());
+ }
+ 
+ void WebrtcAudioConduit::OnRtcpBye() { mRtcpByeEvent.Notify(); }

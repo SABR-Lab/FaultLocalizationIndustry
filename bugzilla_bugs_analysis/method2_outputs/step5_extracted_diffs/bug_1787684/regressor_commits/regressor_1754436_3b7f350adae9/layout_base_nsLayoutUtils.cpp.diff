@@ -1,0 +1,94 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/base/nsLayoutUtils.cpp
+# Commit: 3b7f350adae9
+# Full Hash: 3b7f350adae9812f4f2a571fc070f9f8b1fb55a9
+# Author: Timothy Nikkel <tnikkel@gmail.com>
+# Date: 2022-02-12 09:47:43
+# Regressor Bug: 1754436
+# File Overlap Count: 2
+# Description:
+#   Bug 1754662. Refactor nsLayoutUtils::GetPopupFrameForEventCoordinates. r=emilio
+#   
+#   This lets us re-use code for bug 1754436.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D138392
+# ==============================================================================
+
+diff -r 761755ec9388 -r 3b7f350adae9 layout/base/nsLayoutUtils.cpp
+--- a/layout/base/nsLayoutUtils.cpp	Sat Feb 12 05:52:14 2022 +0000
++++ b/layout/base/nsLayoutUtils.cpp	Sat Feb 12 08:46:47 2022 +0000
+@@ -1620,18 +1620,26 @@
+   return GetEventCoordinatesRelativeTo(event, RelativeTo{aFrame});
+ }
+ 
++static bool IsValidCoordinateTypeEvent(const WidgetEvent* aEvent) {
++  if (!aEvent) {
++    return false;
++  }
++  return aEvent->mClass == eMouseEventClass ||
++         aEvent->mClass == eMouseScrollEventClass ||
++         aEvent->mClass == eWheelEventClass ||
++         aEvent->mClass == eDragEventClass ||
++         aEvent->mClass == eSimpleGestureEventClass ||
++         aEvent->mClass == ePointerEventClass ||
++         aEvent->mClass == eGestureNotifyEventClass ||
++         aEvent->mClass == eTouchEventClass ||
++         aEvent->mClass == eQueryContentEventClass;
++}
++
+ nsPoint nsLayoutUtils::GetEventCoordinatesRelativeTo(const WidgetEvent* aEvent,
+                                                      RelativeTo aFrame) {
+-  if (!aEvent || (aEvent->mClass != eMouseEventClass &&
+-                  aEvent->mClass != eMouseScrollEventClass &&
+-                  aEvent->mClass != eWheelEventClass &&
+-                  aEvent->mClass != eDragEventClass &&
+-                  aEvent->mClass != eSimpleGestureEventClass &&
+-                  aEvent->mClass != ePointerEventClass &&
+-                  aEvent->mClass != eGestureNotifyEventClass &&
+-                  aEvent->mClass != eTouchEventClass &&
+-                  aEvent->mClass != eQueryContentEventClass))
++  if (!IsValidCoordinateTypeEvent(aEvent)) {
+     return nsPoint(NS_UNCONSTRAINEDSIZE, NS_UNCONSTRAINEDSIZE);
++  }
+ 
+   return GetEventCoordinatesRelativeTo(aEvent, aEvent->AsGUIEvent()->mRefPoint,
+                                        aFrame);
+@@ -1733,7 +1741,19 @@
+ }
+ 
+ nsIFrame* nsLayoutUtils::GetPopupFrameForEventCoordinates(
+-    nsPresContext* aPresContext, const WidgetEvent* aEvent) {
++    nsPresContext* aRootPresContext, const WidgetEvent* aEvent) {
++  if (!IsValidCoordinateTypeEvent(aEvent)) {
++    return nullptr;
++  }
++
++  const auto* guiEvent = aEvent->AsGUIEvent();
++  return GetPopupFrameForPoint(aRootPresContext, guiEvent->mWidget,
++                               guiEvent->mRefPoint);
++}
++
++nsIFrame* nsLayoutUtils::GetPopupFrameForPoint(
++    nsPresContext* aRootPresContext, nsIWidget* aWidget,
++    const mozilla::LayoutDeviceIntPoint& aPoint) {
+   nsXULPopupManager* pm = nsXULPopupManager::GetInstance();
+   if (!pm) {
+     return nullptr;
+@@ -1742,11 +1762,10 @@
+   pm->GetVisiblePopups(popups);
+   uint32_t i;
+   // Search from top to bottom
+-  for (i = 0; i < popups.Length(); i++) {
+-    nsIFrame* popup = popups[i];
+-    if (popup->PresContext()->GetRootPresContext() == aPresContext &&
+-        popup->ScrollableOverflowRect().Contains(
+-            GetEventCoordinatesRelativeTo(aEvent, RelativeTo{popup}))) {
++  for (nsIFrame* popup : popups) {
++    if (popup->PresContext()->GetRootPresContext() == aRootPresContext &&
++        popup->ScrollableOverflowRect().Contains(GetEventCoordinatesRelativeTo(
++            aWidget, aPoint, RelativeTo{popup}))) {
+       return popup;
+     }
+   }

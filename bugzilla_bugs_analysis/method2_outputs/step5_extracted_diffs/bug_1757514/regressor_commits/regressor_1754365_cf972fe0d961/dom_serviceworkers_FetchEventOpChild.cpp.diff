@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/serviceworkers/FetchEventOpChild.cpp
+# Commit: cf972fe0d961
+# Full Hash: cf972fe0d96164788f998f04008930474526e400
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2022-02-26 21:36:36
+# Regressor Bug: 1754365
+# File Overlap Count: 1
+# Description:
+#   Bug 1754365 - Create IPC for transferring NavigationPreload's PerformanceTimingData. r=dom-worker-reviewers,jesup
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D138251
+# ==============================================================================
+
+diff -r f8afd25bf41e -r cf972fe0d961 dom/serviceworkers/FetchEventOpChild.cpp
+--- a/dom/serviceworkers/FetchEventOpChild.cpp	Sat Feb 26 08:40:25 2022 +0000
++++ b/dom/serviceworkers/FetchEventOpChild.cpp	Sat Feb 26 08:40:26 2022 +0000
+@@ -230,9 +230,19 @@
+     mPreloadResponseReadyPromise
+         ->Then(
+             GetCurrentSerialEventTarget(), __func__,
+-            [this](SafeRefPtr<InternalResponse> aInternalResponse) {
+-              auto response =
+-                  aInternalResponse->ToParentToParentInternalResponse();
++            [this](FetchServiceResponse&& aResponse) {
++              SafeRefPtr<InternalResponse> preloadResponse;
++              IPCPerformanceTimingData timingData;
++              nsString initiatorType;
++              nsString entryName;
++              Tie(preloadResponse, timingData, initiatorType, entryName) =
++                  std::move(aResponse);
++              ParentToParentResponseWithTiming response;
++              response.response() =
++                  preloadResponse->ToParentToParentInternalResponse();
++              response.timingData() = timingData;
++              response.initiatorType() = initiatorType;
++              response.entryName() = entryName;
+               if (!mWasSent) {
+                 // The actor wasn't sent yet, we can still send the preload
+                 // response with it.

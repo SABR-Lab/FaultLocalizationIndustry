@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/BrowsingContext.h
+# Commit: 93e3344dd1f7
+# Full Hash: 93e3344dd1f7454dc46c1553dd05e5e3bc78c349
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2020-08-26 03:24:37
+# Regressor Bug: 1636728
+# File Overlap Count: 1
+# Description:
+#   Bug 1636728 - Centralize printing entry points in nsGlobalWindowOuter, and move cloning out of nsPrintJob. r=jwatt,geckoview-reviewers,smaug,agi
+#   
+#   This centralizes our print and preview setup in nsGlobalWindowOuter so
+#   that we never re-clone a clone, and so that we reuse the window.open()
+#   codepath to create the browsing context to clone into.
+# ==============================================================================
+
+diff -r 2969f3de028f -r 93e3344dd1f7 docshell/base/BrowsingContext.h
+--- a/docshell/base/BrowsingContext.h	Tue Aug 25 02:58:57 2020 +0000
++++ b/docshell/base/BrowsingContext.h	Tue Aug 25 17:45:12 2020 +0000
+@@ -98,9 +98,6 @@
+   FIELD(CurrentInnerWindowId, uint64_t)                                      \
+   FIELD(HadOriginalOpener, bool)                                             \
+   FIELD(IsPopupSpam, bool)                                                   \
+-  /* Whether the window is currently blocked spinning the event loop in the  \
+-   * middle of a window.print() operation */                                 \
+-  FIELD(IsAwaitingPrint, bool)                                               \
+   /* Controls whether the BrowsingContext is currently considered to be      \
+    * activated by a gesture */                                               \
+   FIELD(UserActivationState, UserActivation::State)                          \
+@@ -422,8 +419,6 @@
+ 
+   bool FullscreenAllowed() const;
+ 
+-  bool IsAwaitingPrint() const { return GetIsAwaitingPrint(); }
+-
+   float FullZoom() const { return GetFullZoom(); }
+   float TextZoom() const { return GetTextZoom(); }
+ 
+@@ -737,8 +732,6 @@
+ 
+   void DidSet(FieldIndex<IDX_IsActive>, bool aOldValue);
+ 
+-  void DidSet(FieldIndex<IDX_IsAwaitingPrint>, bool aOldValue);
+-
+   // Ensure that we only set the flag on the top level browsingContext.
+   // And then, we do a pre-order walk in the tree to refresh the
+   // volume of all media elements.

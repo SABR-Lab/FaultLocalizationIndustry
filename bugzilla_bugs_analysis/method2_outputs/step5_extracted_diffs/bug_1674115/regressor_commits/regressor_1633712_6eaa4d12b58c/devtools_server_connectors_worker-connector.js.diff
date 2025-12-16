@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: devtools/server/connectors/worker-connector.js
+# Commit: 6eaa4d12b58c
+# Full Hash: 6eaa4d12b58cb4762729fdf53511450926383db8
+# Author: Nicolas Chevobbe <nchevobbe@mozilla.com>
+# Date: 2020-10-15 09:40:06
+# Regressor Bug: 1633712
+# File Overlap Count: 1
+# Description:
+#   Bug 1633712 - [devtools] Create WorkerTargets as soon as possible. r=ochameau,devtools-backward-compat-reviewers.
+#   
+#   This patch adds support for dedicated worker targets in the Watcher actor.
+#   Shared and Service workers are not handled yet.
+#   
+# ==============================================================================
+
+diff -r 10f97f47c883 -r 6eaa4d12b58c devtools/server/connectors/worker-connector.js
+--- a/devtools/server/connectors/worker-connector.js	Thu Oct 15 05:11:58 2020 +0000
++++ b/devtools/server/connectors/worker-connector.js	Thu Oct 15 05:17:52 2020 +0000
+@@ -21,6 +21,8 @@
+  * @params {String} forwardingPrefix: The prefix that will be used to forward messages
+  *                  to the DevToolsServer on the worker thread.
+  * @params {Object} options: An option object that will be passed with the "connect" packet.
++ * @params {Object} options.watchedData: The watchedData object that will be passed to the
++ *                  worker target actor.
+  */
+ function connectToWorker(connection, dbg, forwardingPrefix, options) {
+   return new Promise((resolve, reject) => {
+@@ -100,6 +102,11 @@
+         type: "connect",
+         forwardingPrefix,
+         options,
++        workerDebuggerData: {
++          id: dbg.id,
++          type: dbg.type,
++          url: dbg.url,
++        },
+       })
+     );
+ 

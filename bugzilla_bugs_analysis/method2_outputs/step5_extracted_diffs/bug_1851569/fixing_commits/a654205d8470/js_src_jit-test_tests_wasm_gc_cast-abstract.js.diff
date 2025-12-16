@@ -1,0 +1,49 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit-test/tests/wasm/gc/cast-abstract.js
+# Commit: a654205d8470
+# Full Hash: a654205d84701ba611f22f0020be612e0db887c6
+# Author: Ben Visness <bvisness@mozilla.com>
+# Date: 2023-09-14 04:15:24
+# Description:
+#   Bug 1851569: Add i31 to ref.cast test suite. r=jseward
+#   
+#   This thoroughly tests i31's interaction with other types, and fixes a couple subtle bugs. For example, casting an anyref to an eqref was incorrectly failing if the value was i31.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D188108
+# ==============================================================================
+
+diff -r 893bba06f7dd -r a654205d8470 js/src/jit-test/tests/wasm/gc/cast-abstract.js
+--- a/js/src/jit-test/tests/wasm/gc/cast-abstract.js	Wed Sep 13 20:28:18 2023 +0000
++++ b/js/src/jit-test/tests/wasm/gc/cast-abstract.js	Wed Sep 13 20:57:56 2023 +0000
+@@ -75,6 +75,7 @@
+   ],
+   top: 'anyref',
+ };
++const i31 = { name: 'i31', make: '(i31.new (i32.const 123))', top: 'anyref' };
+ const none = { name: 'none', none: true, top: 'anyref' };
+ 
+ const func = { name: 'func', top: 'funcref' };
+@@ -91,7 +92,9 @@
+   [any, eq, struct, s1, s2, none],
+   [any, eq, array, a1, a2, none],
+   [any, eq, s1, s2, a1, a2, none],
+-  // i31 eventually
++  [any, eq, i31, none],
++  [any, eq, i31, s1, none],
++  [any, eq, i31, a1, none],
+ 
+   [func, ft1, ft2, nofunc],
+   [func, ft3, ft4, nofunc],
+@@ -192,6 +195,10 @@
+               // v5 instructions only support gc types
+               doV5 = false;
+             }
++            if (!start.makeV5 || !middle.makeV5 || !end.makeV5) {
++              // finally, some types just never made it into v5
++              doV5 = false;
++            }
+ 
+             let emoji1 = good1 ? '✅' : '❌';
+             let emoji2 = good2 ? '✅' : '❌';

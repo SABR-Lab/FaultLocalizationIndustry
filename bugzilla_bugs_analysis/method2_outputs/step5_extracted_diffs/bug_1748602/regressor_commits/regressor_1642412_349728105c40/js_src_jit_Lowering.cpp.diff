@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/Lowering.cpp
+# Commit: 349728105c40
+# Full Hash: 349728105c40993896170f4c2f43e152a3466706
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2022-01-08 09:40:24
+# Regressor Bug: 1642412
+# File Overlap Count: 19
+# Description:
+#   Bug 1748602 - Backout bug 1642412. r=lth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D135346
+# ==============================================================================
+
+diff -r 32873022d2ed -r 349728105c40 js/src/jit/Lowering.cpp
+--- a/js/src/jit/Lowering.cpp	Fri Jan 07 20:35:15 2022 +0000
++++ b/js/src/jit/Lowering.cpp	Fri Jan 07 20:43:16 2022 +0000
+@@ -5090,12 +5090,6 @@
+   }
+ }
+ 
+-void LIRGenerator::visitWasmLoadTableElement(MWasmLoadTableElement* ins) {
+-  LAllocation elements = useRegisterAtStart(ins->elements());
+-  LAllocation index = useRegisterAtStart(ins->index());
+-  define(new (alloc()) LWasmLoadTableElement(elements, index), ins);
+-}
+-
+ void LIRGenerator::visitWasmStoreGlobalVar(MWasmStoreGlobalVar* ins) {
+   MDefinition* value = ins->value();
+   size_t offs = offsetof(wasm::TlsData, globalArea) + ins->globalDataOffset();
+@@ -5158,12 +5152,6 @@
+   define(new (alloc()) LWasmDerivedPointer(base), ins);
+ }
+ 
+-void LIRGenerator::visitWasmDerivedIndexPointer(MWasmDerivedIndexPointer* ins) {
+-  LAllocation base = useRegisterAtStart(ins->base());
+-  LAllocation index = useRegisterAtStart(ins->index());
+-  define(new (alloc()) LWasmDerivedIndexPointer(base, index), ins);
+-}
+-
+ void LIRGenerator::visitWasmStoreRef(MWasmStoreRef* ins) {
+   LAllocation tls = useRegister(ins->tls());
+   LAllocation valueAddr = useFixed(ins->valueAddr(), PreBarrierReg);

@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/MediaDecoderStateMachine.cpp
+# Commit: abd21243cfda
+# Full Hash: abd21243cfda241d4eae6022ebb4d8105772487d
+# Author: alwu <alwu@mozilla.com>
+# Date: 2022-11-05 21:53:50
+# Regressor Bug: 1262276
+# File Overlap Count: 1
+# Description:
+#   Bug 1262276 - part10 : bypass skip to the next frame until media loops back. r=padenot
+#   
+#   We don't want to trigger skip-to-next-keyframe after reaching video
+#   EOS. Because now we've reset the demuxer to 0, and are going to request
+#   data from start.
+# ==============================================================================
+
+diff -r d122b10f03ad -r abd21243cfda dom/media/MediaDecoderStateMachine.cpp
+--- a/dom/media/MediaDecoderStateMachine.cpp	Sat Nov 05 02:23:32 2022 +0000
++++ b/dom/media/MediaDecoderStateMachine.cpp	Sat Nov 05 02:23:32 2022 +0000
+@@ -1136,6 +1136,7 @@
+                 PutDataOnWaiting(aVideo);
+                 return;
+               }
++              mMaster->mBypassingSkipToNextKeyFrameCheck = true;
+               HandleVideoDecoded(aVideo);
+               ProcessSamplesWaitingAdjustmentIfAny();
+             },
+@@ -3792,15 +3793,18 @@
+   MOZ_ASSERT(!IsWaitingVideoData());
+   LOGV(
+       "Queueing video task - queued=%zu, decoder-queued=%zo"
+-      ", stime=%" PRId64,
++      ", stime=%" PRId64 ", by-pass-skip=%d",
+       VideoQueue().GetSize(), mReader->SizeOfVideoQueueInFrames(),
+-      aCurrentTime.ToMicroseconds());
++      aCurrentTime.ToMicroseconds(), mBypassingSkipToNextKeyFrameCheck);
+ 
+   PerformanceRecorder perfRecorder(PerformanceRecorder::Stage::RequestData,
+                                    Info().mVideo.mImage.height);
+   perfRecorder.Start();
+   RefPtr<MediaDecoderStateMachine> self = this;
+-  mReader->RequestVideoData(aCurrentTime, aRequestNextKeyFrame)
++  mReader
++      ->RequestVideoData(
++          mBypassingSkipToNextKeyFrameCheck ? media::TimeUnit() : aCurrentTime,
++          mBypassingSkipToNextKeyFrameCheck ? false : aRequestNextKeyFrame)
+       ->Then(
+           OwnerThread(), __func__,
+           [this, self, perfRecorder(std::move(perfRecorder))](
+@@ -4107,6 +4111,10 @@
+     // of the media track, so the time over the end should be corrected.
+     AdjustByLooping(clockTime);
+     bool loopback = clockTime < GetMediaTime() && mLooping;
++    if (loopback && mBypassingSkipToNextKeyFrameCheck) {
++      LOG("media has looped back, no longer bypassing skip-to-next-key-frame");
++      mBypassingSkipToNextKeyFrameCheck = false;
++    }
+ 
+     // Skip frames up to the frame at the playback position, and figure out
+     // the time remaining until it's time to display the next frame and drop

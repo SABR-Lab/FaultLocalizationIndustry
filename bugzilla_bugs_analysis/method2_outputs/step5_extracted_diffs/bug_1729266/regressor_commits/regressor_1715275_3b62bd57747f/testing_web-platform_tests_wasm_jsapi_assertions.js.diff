@@ -1,0 +1,37 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: testing/web-platform/tests/wasm/jsapi/assertions.js
+# Commit: 3b62bd57747f
+# Full Hash: 3b62bd57747f21c800a93da325d999fa5efb3850
+# Author: Jessica Tallon <jtallon@igalia.com>
+# Date: 2021-09-03 03:51:58
+# Regressor Bug: 1715275
+# File Overlap Count: 1
+# Description:
+#   Bug 1715275 - Add support for a JS WebAssembly.Function object r=rhunt
+#   
+#   This introduces a new Constructor WebAssembly.Function which is part of
+#   the WASM JS-API type reflection work. This allows normal JS functions to
+#   be wrapped with a type and used with WebAssembly objects (e.g. Tables).
+# ==============================================================================
+
+diff -r f6f4514d09bf -r 3b62bd57747f testing/web-platform/tests/wasm/jsapi/assertions.js
+--- a/testing/web-platform/tests/wasm/jsapi/assertions.js	Thu Sep 02 15:56:01 2021 +0000
++++ b/testing/web-platform/tests/wasm/jsapi/assertions.js	Thu Sep 02 15:58:18 2021 +0000
+@@ -17,8 +17,13 @@
+ }
+ 
+ function assert_exported_function(fn, { name, length }, description) {
+-  assert_equals(Object.getPrototypeOf(fn), Function.prototype,
+-                `${description}: prototype`);
++  if (WebAssembly.Function === undefined) {
++    assert_equals(Object.getPrototypeOf(fn), Function.prototype,
++                  `${description}: prototype`);
++  } else {
++    assert_equals(Object.getPrototypeOf(fn), WebAssembly.Function.prototype,
++                  `${description}: prototype`);
++  }
+ 
+   assert_function_name(fn, name, description);
+   assert_function_length(fn, length, description);

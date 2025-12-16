@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLIpdl.h
+# Commit: 4cff94ca9818
+# Full Hash: 4cff94ca98189769f21a855520a345c6c4e5c841
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2021-01-15 03:50:53
+# Regressor Bug: 1640607
+# File Overlap Count: 1
+# Description:
+#   Bug 1640607 - Send SurfaceDescriptors for GPU blitting for video-to-webgl. r=lsalzman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D101061
+# ==============================================================================
+
+diff -r 044f8b594c71 -r 4cff94ca9818 dom/canvas/WebGLIpdl.h
+--- a/dom/canvas/WebGLIpdl.h	Thu Jan 14 01:20:12 2021 +0000
++++ b/dom/canvas/WebGLIpdl.h	Thu Jan 14 01:23:06 2021 +0000
+@@ -226,6 +226,10 @@
+ 
+ // -
+ 
++template <typename T>
++struct ParamTraits<mozilla::webgl::EnumMask<T>> final
++    : public PlainOldDataSerializer<mozilla::webgl::EnumMask<T>> {};
++
+ template <>
+ struct ParamTraits<mozilla::webgl::InitContextResult> final {
+   using T = mozilla::webgl::InitContextResult;
+@@ -234,13 +238,15 @@
+     WriteParam(msg, in.error);
+     WriteParam(msg, in.options);
+     WriteParam(msg, in.limits);
++    WriteParam(msg, in.uploadableSdTypes);
+   }
+ 
+   static bool Read(const Message* const msg, PickleIterator* const itr,
+                    T* const out) {
+     return ReadParam(msg, itr, &out->error) &&
+            ReadParam(msg, itr, &out->options) &&
+-           ReadParam(msg, itr, &out->limits);
++           ReadParam(msg, itr, &out->limits) &&
++           ReadParam(msg, itr, &out->uploadableSdTypes);
+   }
+ };
+ 

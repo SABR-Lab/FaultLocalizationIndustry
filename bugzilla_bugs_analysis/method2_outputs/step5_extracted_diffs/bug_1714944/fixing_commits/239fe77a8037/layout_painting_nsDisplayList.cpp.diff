@@ -1,0 +1,59 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: layout/painting/nsDisplayList.cpp
+# Commit: 239fe77a8037
+# Full Hash: 239fe77a80378f1d6c6fd933ba3fed07acba29c9
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2021-06-23 09:53:24
+# Description:
+#   Bug 1714944 - Flatten away wrapper items while collecting 3D transform leaves. r=miko
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D117491
+# ==============================================================================
+
+diff -r 9fcef28e4d90 -r 239fe77a8037 layout/painting/nsDisplayList.cpp
+--- a/layout/painting/nsDisplayList.cpp	Tue Jun 22 21:19:43 2021 +0000
++++ b/layout/painting/nsDisplayList.cpp	Tue Jun 22 21:20:15 2021 +0000
+@@ -8292,13 +8292,14 @@
+ }
+ 
+ void nsDisplayTransform::Collect3DTransformLeaves(
+-    nsTArray<nsDisplayTransform*>& aLeaves) {
++    nsDisplayListBuilder* aBuilder, nsTArray<nsDisplayTransform*>& aLeaves) {
+   if (!IsParticipating3DContext() || IsLeafOf3DContext()) {
+     aLeaves.AppendElement(this);
+     return;
+   }
+ 
+-  for (nsDisplayItem* item : mChildren) {
++  FlattenedDisplayListIterator iter(aBuilder, &mChildren);
++  while (nsDisplayItem* item = iter.GetNextItem()) {
+     if (item->GetType() == DisplayItemType::TYPE_PERSPECTIVE) {
+       auto* perspective = static_cast<nsDisplayPerspective*>(item);
+       if (!perspective->GetChildren()->GetTop()) {
+@@ -8306,8 +8307,13 @@
+       }
+       item = perspective->GetChildren()->GetTop();
+     }
+-    MOZ_RELEASE_ASSERT(item->GetType() == DisplayItemType::TYPE_TRANSFORM);
+-    static_cast<nsDisplayTransform*>(item)->Collect3DTransformLeaves(aLeaves);
++    if (item->GetType() != DisplayItemType::TYPE_TRANSFORM) {
++      gfxCriticalError() << "Invalid child item within 3D transform of type: "
++                         << item->Name();
++      continue;
++    }
++    static_cast<nsDisplayTransform*>(item)->Collect3DTransformLeaves(aBuilder,
++                                                                     aLeaves);
+   }
+ }
+ 
+@@ -8333,7 +8339,7 @@
+   std::list<TransformPolygon> inputLayers;
+ 
+   nsTArray<nsDisplayTransform*> leaves;
+-  Collect3DTransformLeaves(leaves);
++  Collect3DTransformLeaves(aBuilder, leaves);
+   for (nsDisplayTransform* item : leaves) {
+     auto bounds = LayoutDeviceRect::FromAppUnits(
+         item->mChildBounds, item->mFrame->PresContext()->AppUnitsPerDevPixel());

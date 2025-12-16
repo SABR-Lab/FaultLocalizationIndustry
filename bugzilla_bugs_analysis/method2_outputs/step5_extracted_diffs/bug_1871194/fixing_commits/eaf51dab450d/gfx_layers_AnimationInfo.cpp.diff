@@ -1,0 +1,38 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/AnimationInfo.cpp
+# Commit: eaf51dab450d
+# Full Hash: eaf51dab450ddb8a82772f837df4ba0689624922
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-12-22 16:44:53
+# Description:
+#   Bug 1871194 - Improve nsCSSPropertyIDSet interaction with AnimatedPropertyID. r=zrhoffman
+#   
+#   Make it less error-prone by adding a HasProperty(AnimatedPropertyId&)
+#   overload.
+#   
+# ==============================================================================
+
+diff -r 71d4c5581b64 -r eaf51dab450d gfx/layers/AnimationInfo.cpp
+--- a/gfx/layers/AnimationInfo.cpp	Thu Dec 21 15:58:59 2023 +0000
++++ b/gfx/layers/AnimationInfo.cpp	Thu Dec 21 16:08:47 2023 +0000
+@@ -544,7 +544,7 @@
+     MOZ_ASSERT(effect);
+     for (const AnimationProperty& property : effect->Properties()) {
+       // TODO(zrhoffman, bug 1869475): Handle custom properties
+-      if (!aPropertySet.HasProperty(property.mProperty.mID)) {
++      if (!aPropertySet.HasProperty(property.mProperty)) {
+         continue;
+       }
+ 
+@@ -579,7 +579,8 @@
+     MOZ_ASSERT(keyframeEffect,
+                "A playing animation should have a keyframe effect");
+     const AnimationProperty* property =
+-        keyframeEffect->GetEffectiveAnimationOfProperty(aProperty, *aEffects);
++        keyframeEffect->GetEffectiveAnimationOfProperty(
++            AnimatedPropertyID(aProperty), *aEffects);
+     if (!property) {
+       continue;
+     }

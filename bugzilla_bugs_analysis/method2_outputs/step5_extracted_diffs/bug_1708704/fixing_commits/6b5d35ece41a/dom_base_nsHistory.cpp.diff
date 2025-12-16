@@ -1,0 +1,104 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsHistory.cpp
+# Commit: 6b5d35ece41a
+# Full Hash: 6b5d35ece41a07e2c6e5b9e663e410b09e16de32
+# Author: Niklas Goegge <ngogge@mozilla.com>
+# Date: 2021-05-04 21:49:50
+# Description:
+#   Bug 1708704 - Check for null pointers when using GetWindowContext() r=ckerschb
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D114226
+# ==============================================================================
+
+diff -r 042c5a186d30 -r 6b5d35ece41a dom/base/nsHistory.cpp
+--- a/dom/base/nsHistory.cpp	Tue May 04 17:21:01 2021 +0000
++++ b/dom/base/nsHistory.cpp	Tue May 04 17:25:23 2021 +0000
+@@ -158,21 +158,20 @@
+     return;
+   }
+ 
++  bool userActivation =
++      win->GetWindowContext()
++          ? win->GetWindowContext()->HasValidTransientUserGestureActivation()
++          : false;
++
+   // Ignore the return value from Go(), since returning errors from Go() can
+   // lead to exceptions and a possible leak of history length
+   // AsyncGo throws if we hit the location change rate limit.
+   if (StaticPrefs::dom_window_history_async()) {
+-    session_history->AsyncGo(
+-        aDelta, /* aRequireUserInteraction = */ false,
+-        /* aUserActivation */
+-        win->GetWindowContext()->HasValidTransientUserGestureActivation(),
+-        aCallerType, aRv);
++    session_history->AsyncGo(aDelta, /* aRequireUserInteraction = */ false,
++                             userActivation, aCallerType, aRv);
+   } else {
+-    session_history->Go(
+-        aDelta, /* aRequireUserInteraction = */ false,
+-        /* aUserActivation */
+-        win->GetWindowContext()->HasValidTransientUserGestureActivation(),
+-        IgnoreErrors());
++    session_history->Go(aDelta, /* aRequireUserInteraction = */ false,
++                        userActivation, IgnoreErrors());
+   }
+ }
+ 
+@@ -191,18 +190,17 @@
+     return;
+   }
+ 
++  bool userActivation =
++      win->GetWindowContext()
++          ? win->GetWindowContext()->HasValidTransientUserGestureActivation()
++          : false;
++
+   if (StaticPrefs::dom_window_history_async()) {
+-    sHistory->AsyncGo(
+-        -1, /* aRequireUserInteraction = */ false,
+-        /* aUserActivation */
+-        win->GetWindowContext()->HasValidTransientUserGestureActivation(),
+-        aCallerType, aRv);
++    sHistory->AsyncGo(-1, /* aRequireUserInteraction = */ false, userActivation,
++                      aCallerType, aRv);
+   } else {
+-    sHistory->Go(
+-        -1, /* aRequireUserInteraction = */ false,
+-        /* aUserActivation */
+-        win->GetWindowContext()->HasValidTransientUserGestureActivation(),
+-        IgnoreErrors());
++    sHistory->Go(-1, /* aRequireUserInteraction = */ false, userActivation,
++                 IgnoreErrors());
+   }
+ }
+ 
+@@ -221,18 +219,17 @@
+     return;
+   }
+ 
++  bool userActivation =
++      win->GetWindowContext()
++          ? win->GetWindowContext()->HasValidTransientUserGestureActivation()
++          : false;
++
+   if (StaticPrefs::dom_window_history_async()) {
+-    sHistory->AsyncGo(
+-        1, /* aRequireUserInteraction = */ false,
+-        /* aUserActivation */
+-        win->GetWindowContext()->HasValidTransientUserGestureActivation(),
+-        aCallerType, aRv);
++    sHistory->AsyncGo(1, /* aRequireUserInteraction = */ false, userActivation,
++                      aCallerType, aRv);
+   } else {
+-    sHistory->Go(
+-        1, /* aRequireUserInteraction = */ false,
+-        /* aUserActivation */
+-        win->GetWindowContext()->HasValidTransientUserGestureActivation(),
+-        IgnoreErrors());
++    sHistory->Go(1, /* aRequireUserInteraction = */ false, userActivation,
++                 IgnoreErrors());
+   }
+ }
+ 

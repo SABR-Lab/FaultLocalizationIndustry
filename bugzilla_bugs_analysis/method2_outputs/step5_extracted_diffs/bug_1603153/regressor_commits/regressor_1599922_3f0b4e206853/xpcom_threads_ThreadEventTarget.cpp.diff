@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: xpcom/threads/ThreadEventTarget.cpp
+# Commit: 3f0b4e206853
+# Full Hash: 3f0b4e206853e813534a9d1416d39ee0fac05abd
+# Author: Karl Tomlinson <karlt+@karlt.net>
+# Date: 2019-12-10 05:01:13
+# Regressor Bug: 1599922
+# File Overlap Count: 1
+# Description:
+#   Bug 1599922 clear PRThread references before the PRThread is deleted r=froydnj
+#   
+#   Virtual thread references are used for IsOnCurrentThread(), which would
+#   spuriously return true when the dangling pointer happened to match that of a
+#   new PRThread.
+# ==============================================================================
+
+diff -r 2968e233f172 -r 3f0b4e206853 xpcom/threads/ThreadEventTarget.cpp
+--- a/xpcom/threads/ThreadEventTarget.cpp	Mon Dec 09 21:43:13 2019 +0000
++++ b/xpcom/threads/ThreadEventTarget.cpp	Mon Dec 09 14:47:47 2019 +0000
+@@ -96,6 +96,8 @@
+   mVirtualThread = GetCurrentVirtualThread();
+ }
+ 
++void ThreadEventTarget::ClearCurrentThread() { mVirtualThread = nullptr; }
++
+ NS_IMPL_ISUPPORTS(ThreadEventTarget, nsIEventTarget, nsISerialEventTarget)
+ 
+ NS_IMETHODIMP

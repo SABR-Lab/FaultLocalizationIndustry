@@ -1,0 +1,29 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/cookiestore/CookieStore.cpp
+# Commit: 8787ad76f129
+# Full Hash: 8787ad76f1293ea12ca83982ce367ce0de4c0667
+# Author: Andrea Marchesini <amarchesini@mozilla.com>
+# Date: 2024-09-25 09:06:41
+# Description:
+#   Bug 1920534 - Extra check for the window object existence in CookieStore API, r=smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D223328
+# ==============================================================================
+
+diff -r c42c42c2bd8a -r 8787ad76f129 dom/cookiestore/CookieStore.cpp
+--- a/dom/cookiestore/CookieStore.cpp	Tue Sep 24 16:10:21 2024 +0000
++++ b/dom/cookiestore/CookieStore.cpp	Tue Sep 24 16:17:04 2024 +0000
+@@ -205,7 +205,10 @@
+ 
+   if (NS_IsMainThread()) {
+     nsCOMPtr<nsPIDOMWindowInner> window = aCookieStore->GetOwnerWindow();
+-    MOZ_ASSERT(window);
++    if (NS_WARN_IF(!window)) {
++      aPromise->MaybeReject(NS_ERROR_DOM_SECURITY_ERR);
++      return false;
++    }
+ 
+     ThirdPartyUtil* thirdPartyUtil = ThirdPartyUtil::GetInstance();
+     if (thirdPartyUtil) {

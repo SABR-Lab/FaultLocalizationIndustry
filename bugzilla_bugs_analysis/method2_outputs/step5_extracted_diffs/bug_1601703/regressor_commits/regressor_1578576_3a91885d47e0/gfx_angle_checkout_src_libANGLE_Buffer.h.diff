@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/angle/checkout/src/libANGLE/Buffer.h
+# Commit: 3a91885d47e0
+# Full Hash: 3a91885d47e0ef7fba9749562d52300eea67c651
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2019-11-11 21:52:52
+# Regressor Bug: 1578576
+# File Overlap Count: 4
+# Description:
+#   Bug 1578576 - Part 2: Update to ANGLE 3865 r=jgilbert
+#   
+#   Depends on D44561
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44579
+# ==============================================================================
+
+diff -r 77cee77c0307 -r 3a91885d47e0 gfx/angle/checkout/src/libANGLE/Buffer.h
+--- a/gfx/angle/checkout/src/libANGLE/Buffer.h	Fri Nov 08 16:41:42 2019 +0000
++++ b/gfx/angle/checkout/src/libANGLE/Buffer.h	Fri Nov 08 17:06:00 2019 +0000
+@@ -44,6 +44,7 @@
+     GLint64 getMapOffset() const { return mMapOffset; }
+     GLint64 getMapLength() const { return mMapLength; }
+     GLint64 getSize() const { return mSize; }
++    bool isBoundForTransformFeedback() const { return mTransformFeedbackIndexedBindingCount != 0; }
+ 
+   private:
+     friend class Buffer;
+@@ -99,8 +100,8 @@
+     angle::Result unmap(const Context *context, GLboolean *result);
+ 
+     // These are called when another operation changes Buffer data.
+-    void onTransformFeedback(const Context *context);
+-    void onPixelPack(const Context *context);
++    void onTransformFeedback();
++    void onPixelPack();
+ 
+     angle::Result getIndexRange(const gl::Context *context,
+                                 DrawElementsType type,
+@@ -139,9 +140,7 @@
+     void onNonTFBindingChanged(int incr) { mState.mBindingCount += incr; }
+ 
+     // angle::ObserverInterface implementation.
+-    void onSubjectStateChange(const gl::Context *context,
+-                              angle::SubjectIndex index,
+-                              angle::SubjectMessage message) override;
++    void onSubjectStateChange(angle::SubjectIndex index, angle::SubjectMessage message) override;
+ 
+   private:
+     BufferState mState;

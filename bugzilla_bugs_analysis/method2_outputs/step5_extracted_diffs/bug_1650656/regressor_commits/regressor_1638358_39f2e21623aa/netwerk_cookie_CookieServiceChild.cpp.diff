@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/cookie/CookieServiceChild.cpp
+# Commit: 39f2e21623aa
+# Full Hash: 39f2e21623aa7c19517e32cbd97dc1c3584c58ca
+# Author: Andrea Marchesini <amarchesini@mozilla.com>
+# Date: 2020-06-02 03:24:46
+# Regressor Bug: 1638358
+# File Overlap Count: 1
+# Description:
+#   Bug 1638358 - Cookie Schemeful Same-Site - part 5 - schemeful comparison, r=mayhemer
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D75629
+# ==============================================================================
+
+diff -r 2c873c72bf1f -r 39f2e21623aa netwerk/cookie/CookieServiceChild.cpp
+--- a/netwerk/cookie/CookieServiceChild.cpp	Mon Jun 01 16:49:05 2020 +0000
++++ b/netwerk/cookie/CookieServiceChild.cpp	Mon Jun 01 16:49:03 2020 +0000
+@@ -331,6 +331,9 @@
+ 
+   nsCOMPtr<nsIPrincipal> principal = aDocument->EffectiveStoragePrincipal();
+ 
++  nsICookie::schemeType schemeType =
++      CookieCommons::PrincipalToSchemeType(principal);
++
+   nsAutoCString baseDomain;
+   nsresult rv = CookieCommons::GetBaseDomain(principal, baseDomain);
+   if (NS_WARN_IF(NS_FAILED(rv))) {
+@@ -388,6 +391,10 @@
+       continue;
+     }
+ 
++    if (!CookieCommons::MaybeCompareScheme(cookie, schemeType)) {
++      continue;
++    }
++
+     // if the nsIURI path doesn't match the cookie path, don't send it back
+     if (!CookieCommons::PathMatches(cookie, pathFromURI)) {
+       continue;

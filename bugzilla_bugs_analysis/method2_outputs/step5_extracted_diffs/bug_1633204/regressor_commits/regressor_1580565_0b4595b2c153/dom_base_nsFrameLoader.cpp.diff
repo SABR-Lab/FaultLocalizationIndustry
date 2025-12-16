@@ -1,0 +1,85 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsFrameLoader.cpp
+# Commit: 0b4595b2c153
+# Full Hash: 0b4595b2c1531b83fc24fbf9b0f6ceacfc3506bd
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-04-22 09:35:42
+# Regressor Bug: 1580565
+# File Overlap Count: 3
+# Description:
+#   Bug 1580565 - Part 4: Use WindowContext to manage BrowsingContext cached status, r=farre
+#   
+#   The existing infrastructure which stored cached BrowsingContexts on the
+#   BrowsingContextGroup was added before WindowContexts were added, and can cause
+#   racing issues with partially discarded trees during process switches.
+# ==============================================================================
+
+diff -r 4363e3a3d799 -r 0b4595b2c153 dom/base/nsFrameLoader.cpp
+--- a/dom/base/nsFrameLoader.cpp	Wed Apr 22 01:37:52 2020 +0000
++++ b/dom/base/nsFrameLoader.cpp	Wed Apr 22 01:37:55 2020 +0000
+@@ -274,24 +274,18 @@
+   RefPtr<BrowsingContext> opener;
+   if (aOpenWindowInfo && !aOpenWindowInfo->GetForceNoOpener()) {
+     opener = aOpenWindowInfo->GetParent();
++    MOZ_ASSERT(opener->IsInProcess(),
++               "Must create BrowsingContext with opener in-process");
+   }
+ 
+-  Document* doc = aOwner->OwnerDoc();
+-  // Get our parent docshell off the document of mOwnerContent
+-  // XXXbz this is such a total hack.... We really need to have a
+-  // better setup for doing this.
+-
+-  // Determine our parent nsDocShell
+-  RefPtr<nsDocShell> parentDocShell = nsDocShell::Cast(doc->GetDocShell());
+-
+-  if (NS_WARN_IF(!parentDocShell)) {
++  RefPtr<nsGlobalWindowInner> parentInner =
++      nsGlobalWindowInner::Cast(aOwner->OwnerDoc()->GetInnerWindow());
++  if (NS_WARN_IF(!parentInner) || parentInner->IsDying()) {
+     return nullptr;
+   }
+ 
+-  RefPtr<BrowsingContext> parentContext = parentDocShell->GetBrowsingContext();
+-
+-  // Don't create a child docshell for a discarded browsing context.
+-  if (NS_WARN_IF(!parentContext) || parentContext->IsDiscarded()) {
++  BrowsingContext* parentBC = parentInner->GetBrowsingContext();
++  if (NS_WARN_IF(!parentBC) || parentBC->IsDiscarded()) {
+     return nullptr;
+   }
+ 
+@@ -305,7 +299,7 @@
+   // currently active. And in that latter case, if we try to attach our BC now,
+   // it will wind up attached as a child of the currently active inner window
+   // for the BrowsingContext, and cause no end of trouble.
+-  if (IsTopContent(parentContext, aOwner)) {
++  if (IsTopContent(parentBC, aOwner)) {
+     // Create toplevel content without a parent & as Type::Content.
+     return BrowsingContext::CreateDetached(nullptr, opener, frameName,
+                                            BrowsingContext::Type::Content);
+@@ -314,11 +308,8 @@
+   MOZ_ASSERT(!aOpenWindowInfo,
+              "Can't have openWindowInfo for non-toplevel context");
+ 
+-  auto type = parentContext->IsContent() ? BrowsingContext::Type::Content
+-                                         : BrowsingContext::Type::Chrome;
+-
+-  return BrowsingContext::CreateDetached(parentContext, nullptr, frameName,
+-                                         type);
++  return BrowsingContext::CreateDetached(parentInner, nullptr, frameName,
++                                         parentBC->GetType());
+ }
+ 
+ static bool InitialLoadIsRemote(Element* aOwner) {
+@@ -827,7 +818,7 @@
+ 
+ static bool AllDescendantsOfType(BrowsingContext* aParent,
+                                  BrowsingContext::Type aType) {
+-  for (auto& child : aParent->GetChildren()) {
++  for (auto& child : aParent->Children()) {
+     if (child->GetType() != aType || !AllDescendantsOfType(child, aType)) {
+       return false;
+     }

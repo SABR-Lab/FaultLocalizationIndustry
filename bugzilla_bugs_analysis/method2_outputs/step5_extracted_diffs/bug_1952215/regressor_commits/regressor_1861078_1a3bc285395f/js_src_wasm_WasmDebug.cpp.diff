@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmDebug.cpp
+# Commit: 1a3bc285395f
+# Full Hash: 1a3bc285395ffcc5d9281dd45d4f6c2bb918bf43
+# Author: Julien Pages <jpages@mozilla.com>
+# Date: 2025-03-04 04:58:00
+# Regressor Bug: 1861078
+# File Overlap Count: 1
+# Description:
+#   Bug 1861078 - wasm: make metadata offsets relative to CodeBlock->codeBase. r=rhunt
+#   
+#   Metadata used offsets to the beginning of code segment. Change that to use
+#   offsets relative to the beginning of CodeBlock. This allows us to avoid offseting
+#   metadata later on and prepare the work for simplification of stackmaps.
+# ==============================================================================
+
+diff -r 66d70b730ea6 -r 1a3bc285395f js/src/wasm/WasmDebug.cpp
+--- a/js/src/wasm/WasmDebug.cpp	Mon Mar 03 16:15:17 2025 +0000
++++ b/js/src/wasm/WasmDebug.cpp	Mon Mar 03 16:37:47 2025 +0000
+@@ -180,9 +180,8 @@
+   }
+   size_t debugTrapOffset = callSite.returnAddressOffset();
+ 
+-  const CodeSegment& codeSegment = debugSegment();
+   const CodeRange* codeRange =
+-      code_->lookupFuncRange(codeSegment.base() + debugTrapOffset);
++      code_->lookupFuncRange(debugCode().base() + debugTrapOffset);
+   MOZ_ASSERT(codeRange);
+ 
+   uint32_t funcIndex = codeRange->funcIndex();
+@@ -300,7 +299,7 @@
+ }
+ 
+ void DebugState::enableDebugTrapping(Instance* instance) {
+-  instance->setDebugStub(code_->sharedStubs().segment->base() +
++  instance->setDebugStub(code_->sharedStubs().base() +
+                          code_->debugStubOffset());
+ }
+ 
+@@ -340,11 +339,11 @@
+            !iter.done() && !mustLeaveEnabled; iter.next()) {
+         WasmBreakpointSite* site = iter.get().value();
+         CallSite callSite;
+-        if (SlowCallSiteSearchByOffset(debugCode(), site->offset, &callSite)) {
++        const CodeBlock& codeBlock = debugCode();
++        if (SlowCallSiteSearchByOffset(codeBlock, site->offset, &callSite)) {
+           size_t debugTrapOffset = callSite.returnAddressOffset();
+-          const CodeSegment& codeSegment = debugSegment();
+           const CodeRange* codeRange =
+-              code_->lookupFuncRange(codeSegment.base() + debugTrapOffset);
++              code_->lookupFuncRange(codeBlock.base() + debugTrapOffset);
+           MOZ_ASSERT(codeRange);
+           mustLeaveEnabled = codeRange->funcIndex() == funcIdx;
+         }

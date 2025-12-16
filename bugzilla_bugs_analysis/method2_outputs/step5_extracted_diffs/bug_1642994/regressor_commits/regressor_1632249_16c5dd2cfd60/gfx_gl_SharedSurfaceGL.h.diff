@@ -1,0 +1,178 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/gl/SharedSurfaceGL.h
+# Commit: 16c5dd2cfd60
+# Full Hash: 16c5dd2cfd600a62c80ca17cfb35c0868e016056
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-06-15 21:48:38
+# Regressor Bug: 1632249
+# File Overlap Count: 3
+# Description:
+#   Bug 1632249 - Support compositing out-of-process WebGL. r=handyman,lsalzman,nical,geckoview-reviewers,agi,imanol
+#   
+#   * Majorly simplity CanvasRenderer
+#   * Replace GLScreenBuffer with trivial GLSwapChain
+#   * Use descriptor structs so that future SharedSurface changes aren't so painful
+# ==============================================================================
+
+diff -r ca8139d58d58 -r 16c5dd2cfd60 gfx/gl/SharedSurfaceGL.h
+--- a/gfx/gl/SharedSurfaceGL.h	Fri Jun 12 21:53:14 2020 +0000
++++ b/gfx/gl/SharedSurfaceGL.h	Mon Jun 15 18:25:55 2020 +0000
+@@ -6,140 +6,37 @@
+ #ifndef SHARED_SURFACE_GL_H_
+ #define SHARED_SURFACE_GL_H_
+ 
+-#include "ScopedGLHelpers.h"
+ #include "SharedSurface.h"
+-#include "SurfaceTypes.h"
+-#include "GLContextTypes.h"
+-#include "gfxTypes.h"
+-#include "mozilla/Mutex.h"
+-
+-#include <queue>
+-
+-namespace mozilla {
+-namespace gl {
+-class GLContext;
+-}  // namespace gl
+-namespace gfx {
+-class DataSourceSurface;
+-}  // namespace gfx
+-}  // namespace mozilla
+ 
+ namespace mozilla {
+ namespace gl {
+ 
+-// For readback and bootstrapping:
+-class SharedSurface_Basic : public SharedSurface {
+- public:
+-  static UniquePtr<SharedSurface_Basic> Create(GLContext* gl,
+-                                               const GLFormats& formats,
+-                                               const gfx::IntSize& size,
+-                                               bool hasAlpha);
+-
+-  static UniquePtr<SharedSurface_Basic> Wrap(GLContext* gl,
+-                                             const gfx::IntSize& size,
+-                                             bool hasAlpha, GLuint tex);
++class MozFramebuffer;
+ 
+-  static SharedSurface_Basic* Cast(SharedSurface* surf) {
+-    MOZ_ASSERT(surf->mType == SharedSurfaceType::Basic);
+-
+-    return (SharedSurface_Basic*)surf;
+-  }
++// For readback and bootstrapping:
++class SharedSurface_Basic final : public SharedSurface {
++ public:
++  static UniquePtr<SharedSurface_Basic> Create(const SharedSurfaceDesc&);
+ 
+- protected:
+-  const GLuint mTex;
+-  const bool mOwnsTex;
+-  GLuint mFB;
+-
+-  SharedSurface_Basic(GLContext* gl, const gfx::IntSize& size, bool hasAlpha,
+-                      GLuint tex, bool ownsTex);
++ private:
++  SharedSurface_Basic(const SharedSurfaceDesc& desc,
++                      UniquePtr<MozFramebuffer>&& fb);
+ 
+  public:
+-  virtual ~SharedSurface_Basic();
+-
+-  virtual void LockProdImpl() override {}
+-  virtual void UnlockProdImpl() override {}
+-
+-  virtual void ProducerAcquireImpl() override {}
+-  virtual void ProducerReleaseImpl() override {}
+-
+-  virtual GLuint ProdTexture() override { return mTex; }
+-
+-  virtual bool ToSurfaceDescriptor(
+-      layers::SurfaceDescriptor* const out_descriptor) override {
+-    MOZ_CRASH("GFX: ToSurfaceDescriptor");
+-    return false;
+-  }
++  Maybe<layers::SurfaceDescriptor> ToSurfaceDescriptor() override;
+ };
+ 
+-class SurfaceFactory_Basic : public SurfaceFactory {
+- public:
+-  SurfaceFactory_Basic(GLContext* gl, const SurfaceCaps& caps,
+-                       const layers::TextureFlags& flags);
+-
+-  virtual UniquePtr<SharedSurface> CreateShared(
+-      const gfx::IntSize& size) override {
+-    bool hasAlpha = mReadCaps.alpha;
+-    return SharedSurface_Basic::Create(mGL, mFormats, size, hasAlpha);
+-  }
+-};
+-
+-// Using shared GL textures:
+-class SharedSurface_GLTexture : public SharedSurface {
++class SurfaceFactory_Basic final : public SurfaceFactory {
+  public:
+-  static UniquePtr<SharedSurface_GLTexture> Create(GLContext* prodGL,
+-                                                   const GLFormats& formats,
+-                                                   const gfx::IntSize& size,
+-                                                   bool hasAlpha);
+-
+-  static SharedSurface_GLTexture* Cast(SharedSurface* surf) {
+-    MOZ_ASSERT(surf->mType == SharedSurfaceType::SharedGLTexture);
+-
+-    return (SharedSurface_GLTexture*)surf;
+-  }
+-
+- protected:
+-  const GLuint mTex;
+-  GLsync mSync;
++  explicit SurfaceFactory_Basic(GLContext& gl);
+ 
+-  SharedSurface_GLTexture(GLContext* prodGL, const gfx::IntSize& size,
+-                          bool hasAlpha, GLuint tex)
+-      : SharedSurface(SharedSurfaceType::SharedGLTexture,
+-                      AttachmentType::GLTexture, prodGL, size, hasAlpha, true),
+-        mTex(tex),
+-        mSync(0) {}
+-
+- public:
+-  virtual ~SharedSurface_GLTexture();
+-
+-  virtual void LockProdImpl() override {}
+-  virtual void UnlockProdImpl() override {}
+-
+-  virtual void ProducerAcquireImpl() override {}
+-  virtual void ProducerReleaseImpl() override;
+-
+-  virtual GLuint ProdTexture() override { return mTex; }
+-
+-  virtual bool ToSurfaceDescriptor(
+-      layers::SurfaceDescriptor* const out_descriptor) override;
+-};
+-
+-class SurfaceFactory_GLTexture : public SurfaceFactory {
+- public:
+-  SurfaceFactory_GLTexture(GLContext* prodGL, const SurfaceCaps& caps,
+-                           const RefPtr<layers::LayersIPCChannel>& allocator,
+-                           const layers::TextureFlags& flags)
+-      : SurfaceFactory(SharedSurfaceType::SharedGLTexture, prodGL, caps,
+-                       allocator, flags) {}
+-
+-  virtual UniquePtr<SharedSurface> CreateShared(
+-      const gfx::IntSize& size) override {
+-    bool hasAlpha = mReadCaps.alpha;
+-    return SharedSurface_GLTexture::Create(mGL, mFormats, size, hasAlpha);
++  virtual UniquePtr<SharedSurface> CreateSharedImpl(
++      const SharedSurfaceDesc& desc) override {
++    return SharedSurface_Basic::Create(desc);
+   }
+ };
+ 
+ }  // namespace gl
++}  // namespace mozilla
+ 
+-} /* namespace mozilla */
+-
+-#endif /* SHARED_SURFACE_GL_H_ */
++#endif  // SHARED_SURFACE_GL_H_

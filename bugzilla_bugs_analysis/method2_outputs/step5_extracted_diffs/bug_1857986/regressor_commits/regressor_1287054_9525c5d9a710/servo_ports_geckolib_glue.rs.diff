@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: servo/ports/geckolib/glue.rs
+# Commit: 9525c5d9a710
+# Full Hash: 9525c5d9a710cd1a2c960389c03a31aba9e02003
+# Author: Robert Longson <longsonr@gmail.com>
+# Date: 2023-09-13 09:25:56
+# Regressor Bug: 1287054
+# File Overlap Count: 1
+# Description:
+#   Bug 1287054 part 2 - support vw, vh, vmin and vmax units for non-CSS lengths r=emilio,jgilbert
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D180619
+# ==============================================================================
+
+diff -r a16d763f2866 -r 9525c5d9a710 servo/ports/geckolib/glue.rs
+--- a/servo/ports/geckolib/glue.rs	Tue Sep 12 21:10:54 2023 +0000
++++ b/servo/ports/geckolib/glue.rs	Tue Sep 12 21:10:55 2023 +0000
+@@ -5341,7 +5341,7 @@
+     use style::properties::PropertyDeclaration;
+     use style::values::generics::length::{LengthPercentageOrAuto, Size};
+     use style::values::generics::NonNegative;
+-    use style::values::specified::length::{FontRelativeLength, LengthPercentage};
++    use style::values::specified::length::{FontRelativeLength, LengthPercentage, ViewportPercentageLength};
+     use style::values::specified::FontSize;
+ 
+     let long = get_longhand_from_id!(property);
+@@ -5375,6 +5375,18 @@
+         structs::nsCSSUnit::eCSSUnit_Point => NoCalcLength::Absolute(AbsoluteLength::Pt(value)),
+         structs::nsCSSUnit::eCSSUnit_Pica => NoCalcLength::Absolute(AbsoluteLength::Pc(value)),
+         structs::nsCSSUnit::eCSSUnit_Quarter => NoCalcLength::Absolute(AbsoluteLength::Q(value)),
++        structs::nsCSSUnit::eCSSUnit_VW => {
++            NoCalcLength::ViewportPercentage(ViewportPercentageLength::Vw(value))
++        },
++        structs::nsCSSUnit::eCSSUnit_VH => {
++            NoCalcLength::ViewportPercentage(ViewportPercentageLength::Vh(value))
++        },
++        structs::nsCSSUnit::eCSSUnit_VMin => {
++            NoCalcLength::ViewportPercentage(ViewportPercentageLength::Vmin(value))
++        },
++        structs::nsCSSUnit::eCSSUnit_VMax => {
++            NoCalcLength::ViewportPercentage(ViewportPercentageLength::Vmax(value))
++        },
+         _ => unreachable!("Unknown unit passed to SetLengthValue"),
+     };
+ 

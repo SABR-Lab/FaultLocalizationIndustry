@@ -1,0 +1,97 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/angle/checkout/src/libANGLE/ResourceManager.h
+# Commit: 13282d7a47a5
+# Full Hash: 13282d7a47a57a73be8d060efd9645b4d642f03e
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2019-09-08 09:46:52
+# Regressor Bug: 1578576
+# File Overlap Count: 4
+# Description:
+#   Bug 1578576 - Part 2: Update to ANGLE 3865 r=jgilbert
+#   
+#   Depends on D44561
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44579
+# ==============================================================================
+
+diff -r 3064469c073d -r 13282d7a47a5 gfx/angle/checkout/src/libANGLE/ResourceManager.h
+--- a/gfx/angle/checkout/src/libANGLE/ResourceManager.h	Sat Sep 07 13:36:46 2019 +0000
++++ b/gfx/angle/checkout/src/libANGLE/ResourceManager.h	Sat Sep 07 13:38:36 2019 +0000
+@@ -30,12 +30,14 @@
+ class Sync;
+ class Framebuffer;
+ struct Limitations;
++class MemoryObject;
+ class Path;
+ class Program;
+ class ProgramPipeline;
+ class Renderbuffer;
+ class Sampler;
+ class Shader;
++class Semaphore;
+ class Texture;
+ 
+ template <typename HandleAllocatorType>
+@@ -173,7 +175,7 @@
+         return mObjectMap.query(handle);
+     }
+ 
+-    void signalAllTexturesDirty(const Context *context) const;
++    void signalAllTexturesDirty() const;
+ 
+     ANGLE_INLINE Texture *checkTextureAllocation(rx::GLImplFactory *factory,
+                                                  GLuint handle,
+@@ -267,7 +269,7 @@
+     Framebuffer *getFramebuffer(GLuint handle) const;
+     void setDefaultFramebuffer(Framebuffer *framebuffer);
+ 
+-    void invalidateFramebufferComplenessCache(const Context *context) const;
++    void invalidateFramebufferComplenessCache() const;
+ 
+     Framebuffer *checkFramebufferAllocation(rx::GLImplFactory *factory,
+                                             const Caps &caps,
+@@ -304,6 +306,42 @@
+     ~ProgramPipelineManager() override {}
+ };
+ 
++class MemoryObjectManager : public ResourceManagerBase<HandleAllocator>
++{
++  public:
++    MemoryObjectManager();
++
++    GLuint createMemoryObject(rx::GLImplFactory *factory);
++    void deleteMemoryObject(const Context *context, GLuint handle);
++    MemoryObject *getMemoryObject(GLuint handle) const;
++
++  protected:
++    ~MemoryObjectManager() override;
++
++  private:
++    void reset(const Context *context) override;
++
++    ResourceMap<MemoryObject> mMemoryObjects;
++};
++
++class SemaphoreManager : public ResourceManagerBase<HandleAllocator>
++{
++  public:
++    SemaphoreManager();
++
++    GLuint createSemaphore(rx::GLImplFactory *factory);
++    void deleteSemaphore(const Context *context, GLuint handle);
++    Semaphore *getSemaphore(GLuint handle) const;
++
++  protected:
++    ~SemaphoreManager() override;
++
++  private:
++    void reset(const Context *context) override;
++
++    ResourceMap<Semaphore> mSemaphores;
++};
++
+ }  // namespace gl
+ 
+ #endif  // LIBANGLE_RESOURCEMANAGER_H_

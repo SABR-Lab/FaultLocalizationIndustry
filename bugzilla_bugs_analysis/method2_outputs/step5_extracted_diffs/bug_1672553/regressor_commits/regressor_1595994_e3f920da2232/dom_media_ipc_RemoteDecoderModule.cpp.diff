@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/ipc/RemoteDecoderModule.cpp
+# Commit: e3f920da2232
+# Full Hash: e3f920da22320921473f385cb060ed7978d67df9
+# Author: Dan Glastonbury <dan.glastonbury@gmail.com>
+# Date: 2020-10-21 09:51:28
+# Regressor Bug: 1595994
+# File Overlap Count: 1
+# Description:
+#   Bug 1595994 - P3: Only create PDMs that are supported in the current process. r=kamidphish
+#   
+#   Depends on D52797
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D54876
+# ==============================================================================
+
+diff -r 44471f99280c -r e3f920da2232 dom/media/ipc/RemoteDecoderModule.cpp
+--- a/dom/media/ipc/RemoteDecoderModule.cpp	Tue Oct 20 23:23:58 2020 +0000
++++ b/dom/media/ipc/RemoteDecoderModule.cpp	Tue Oct 20 23:24:27 2020 +0000
+@@ -33,10 +33,20 @@
+ void RemoteDecoderModule::Init() {
+   MOZ_ASSERT(NS_IsMainThread());
+ 
+-  if (!BrowserTabsRemoteAutostart()) {
+-    return;
++  if (BrowserTabsRemoteAutostart()) {
++    RemoteDecoderManagerChild::InitializeThread();
+   }
+-  RemoteDecoderManagerChild::InitializeThread();
++}
++
++already_AddRefed<PlatformDecoderModule> RemoteDecoderModule::Create() {
++  MOZ_ASSERT(!XRE_IsGPUProcess() && !XRE_IsRDDProcess(),
++             "Should not be created in GPU or RDD process.");
++  if (!XRE_IsContentProcess()) {
++    // For now, the RemoteDecoderModule is only available in the content
++    // process.
++    return nullptr;
++  }
++  return MakeAndAddRef<RemoteDecoderModule>();
+ }
+ 
+ bool RemoteDecoderModule::SupportsMimeType(

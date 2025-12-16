@@ -1,0 +1,92 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/MacroAssembler.cpp
+# Commit: bd8381646b47
+# Full Hash: bd8381646b4734c3240dace68c3606be1cc38ba2
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-10-02 04:10:47
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 6.6: Add tls dependency for truncate i32. r=lth
+#   
+#   We generate builtin call for MTruncateToInt32 operation for floating points types,
+#   so we need to add a tls dependency.
+#   I inserted NYI for arm64 because Ion doesn't support arm64.
+# ==============================================================================
+
+diff -r 81e645d5ccfd -r bd8381646b47 js/src/jit/MacroAssembler.cpp
+--- a/js/src/jit/MacroAssembler.cpp	Thu Oct 01 07:53:01 2020 +0000
++++ b/js/src/jit/MacroAssembler.cpp	Thu Oct 01 11:24:30 2020 +0000
+@@ -2443,6 +2443,11 @@
+                                            bool widenFloatToDouble,
+                                            bool compilingWasm,
+                                            wasm::BytecodeOffset callOffset) {
++  if (compilingWasm) {
++    Push(WasmTlsReg);
++  }
++  int32_t framePushedAfterTls = framePushed();
++
+ #if defined(JS_CODEGEN_ARM) || defined(JS_CODEGEN_ARM64) || \
+     defined(JS_CODEGEN_MIPS32) || defined(JS_CODEGEN_MIPS64)
+   ScratchDoubleScope fpscratch(*this);
+@@ -2467,9 +2472,11 @@
+   MOZ_ASSERT(src.isDouble());
+ 
+   if (compilingWasm) {
++    int32_t tlsOffset = framePushed() - framePushedAfterTls;
+     setupWasmABICall();
+     passABIArg(src, MoveOp::DOUBLE);
+-    callWithABI(callOffset, wasm::SymbolicAddress::ToInt32, mozilla::Nothing());
++    callWithABI(callOffset, wasm::SymbolicAddress::ToInt32,
++                mozilla::Some(tlsOffset));
+   } else {
+     setupUnalignedABICall(dest);
+     passABIArg(src, MoveOp::DOUBLE);
+@@ -2488,6 +2495,10 @@
+ #else
+   MOZ_CRASH("MacroAssembler platform hook: outOfLineTruncateSlow");
+ #endif
++
++  if (compilingWasm) {
++    Pop(WasmTlsReg);
++  }
+ }
+ 
+ void MacroAssembler::convertDoubleToInt(FloatRegister src, Register output,
+@@ -3136,31 +3147,20 @@
+                                        MoveOp::Type result) {
+   MOZ_ASSERT(wasm::NeedsBuiltinThunk(imm));
+ 
+-  // We clobber WasmTlsReg below in the loadWasmTlsRegFromFrame(), but Ion
+-  // assumes it is non-volatile, so preserve it manually.
+-  Push(WasmTlsReg);
+-
+   uint32_t stackAdjust;
+   callWithABIPre(&stackAdjust, /* callFromWasm = */ true);
+ 
+-  // The TLS register is used in builtin thunks and must be set, by ABI:
+-  // reload it after passing arguments, which might have used it at spill
+-  // points when placing arguments.
+-
++  // The TLS register is used in builtin thunks and must be set, by ABI.
+   if (tlsOffset) {
+-    // Account for stackAdjust and Push(WasmTlsReg).
+-    *tlsOffset += stackAdjust + sizeof(void*);
+-    loadPtr(Address(getStackPointer(), *tlsOffset), WasmTlsReg);
++    loadPtr(Address(getStackPointer(), *tlsOffset + stackAdjust), WasmTlsReg);
+   } else {
+-    loadWasmTlsRegFromFrame();
++    MOZ_CRASH("This can be only for an unsupported architecture.");
+   }
+   CodeOffset raOffset = call(
+       wasm::CallSiteDesc(bytecode.offset(), wasm::CallSite::Symbolic), imm);
+ 
+   callWithABIPost(stackAdjust, result, /* callFromWasm = */ true);
+ 
+-  Pop(WasmTlsReg);
+-
+   return raOffset;
+ }
+ 

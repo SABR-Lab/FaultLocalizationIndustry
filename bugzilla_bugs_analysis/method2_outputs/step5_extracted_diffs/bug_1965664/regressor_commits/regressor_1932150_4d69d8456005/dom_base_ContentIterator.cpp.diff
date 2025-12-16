@@ -1,0 +1,217 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/ContentIterator.cpp
+# Commit: 4d69d8456005
+# Full Hash: 4d69d8456005efeb2ad4581ff00120e63c0bbdbc
+# Author: Serban Stanca <sstanca@mozilla.com>
+# Date: 2025-05-09 04:15:00
+# Regressor Bug: 1932150
+# File Overlap Count: 2
+# Description:
+#   Revert "Bug 1932150 - Fix some inconsistency about indicating whether the selection is allowed to cross the shadow boundary r=jjaschke,dom-core"
+#   
+#   This reverts commit f0836d70a70a1dbc6d74032586a1d5658243ea97.
+# ==============================================================================
+
+diff -r 48fc3f91f020 -r 4d69d8456005 dom/base/ContentIterator.cpp
+--- a/dom/base/ContentIterator.cpp	Thu May 08 22:53:07 2025 +0300
++++ b/dom/base/ContentIterator.cpp	Thu May 08 22:53:07 2025 +0300
+@@ -550,8 +550,7 @@
+ // static
+ template <typename NodeType>
+ nsIContent* ContentIteratorBase<NodeType>::GetDeepFirstChild(
+-    nsIContent* aRoot,
+-    AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary) {
++    nsIContent* aRoot, bool aAllowCrossShadowBoundary) {
+   if (NS_WARN_IF(!aRoot)) {
+     return nullptr;
+   }
+@@ -568,7 +567,7 @@
+     // shadowRoot->GetFirstChild() should be able to return the <slot> element.
+     // It's probably correct I think. Then it's up to the caller of this
+     // iterator to decide whether to use the slot's assigned nodes or not.
+-    MOZ_ASSERT(aAllowCrossShadowBoundary == AllowRangeCrossShadowBoundary::Yes);
++    MOZ_ASSERT(aAllowCrossShadowBoundary);
+     child = shadowRoot->GetFirstChild();
+   } else {
+     child = node->GetFirstChild();
+@@ -608,8 +607,7 @@
+ // static
+ template <typename NodeType>
+ nsIContent* ContentIteratorBase<NodeType>::GetDeepLastChild(
+-    nsIContent* aRoot,
+-    AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary) {
++    nsIContent* aRoot, bool aAllowCrossShadowBoundary) {
+   if (NS_WARN_IF(!aRoot)) {
+     return nullptr;
+   }
+@@ -642,7 +640,7 @@
+ //
+ template <typename NodeType>
+ nsIContent* ContentIteratorBase<NodeType>::GetNextSibling(
+-    nsINode* aNode, AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary,
++    nsINode* aNode, bool aAllowCrossShadowBoundary) {
+   if (NS_WARN_IF(!aNode)) {
+     return nullptr;
+   }
+@@ -657,7 +655,7 @@
+     return nullptr;
+   }
+ 
+-  if (aAllowCrossShadowBoundary == AllowRangeCrossShadowBoundary::Yes) {
++  if (aAllowCrossShadowBoundary) {
+     // This is temporary solution.
+     // For shadow root, instead of getting to the sibling of the parent
+     // directly, we need to get into the light tree of the parent to handle
+@@ -676,7 +674,7 @@
+ // (when aAllowCrossShadowBoundary is true), or grandpa's prev sibling... static
+ template <typename NodeType>
+ nsIContent* ContentIteratorBase<NodeType>::GetPrevSibling(
+-    nsINode* aNode, AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary) {
++    nsINode* aNode, bool aAllowCrossShadowBoundary) {
+   if (NS_WARN_IF(!aNode)) {
+     return nullptr;
+   }
+@@ -949,7 +947,7 @@
+ void ContentSubtreeIterator::CacheInclusiveAncestorsOfEndContainer() {
+   mInclusiveAncestorsOfEndContainer.Clear();
+   nsINode* const endContainer = ShadowDOMSelectionHelpers::GetEndContainer(
+-      mRange, mAllowCrossShadowBoundary);
++      mRange, IterAllowCrossShadowBoundary());
+   nsIContent* endNode =
+       endContainer->IsContent() ? endContainer->AsContent() : nullptr;
+   while (endNode) {
+@@ -966,7 +964,7 @@
+ 
+ nsIContent* ContentSubtreeIterator::DetermineCandidateForFirstContent() const {
+   nsINode* startContainer = ShadowDOMSelectionHelpers::GetStartContainer(
+-      mRange, mAllowCrossShadowBoundary);
++      mRange, IterAllowCrossShadowBoundary());
+   nsIContent* firstCandidate = nullptr;
+   // find first node in range
+   nsINode* node = nullptr;
+@@ -981,7 +979,7 @@
+ 
+     MOZ_ASSERT(child == startContainer->GetChildAt_Deprecated(
+                             ShadowDOMSelectionHelpers::StartOffset(
+-                                mRange, mAllowCrossShadowBoundary)));
++                                mRange, IterAllowCrossShadowBoundary())));
+     if (!child) {
+       // offset after last child
+       node = startContainer;
+@@ -992,13 +990,13 @@
+ 
+   if (!firstCandidate) {
+     // then firstCandidate is next node after node
+-    firstCandidate =
+-        ContentIteratorBase::GetNextSibling(node, mAllowCrossShadowBoundary);
++    firstCandidate = ContentIteratorBase::GetNextSibling(
++        node, IterAllowCrossShadowBoundary());
+   }
+ 
+   if (firstCandidate) {
+     firstCandidate = ContentIteratorBase::GetDeepFirstChild(
+-        firstCandidate, mAllowCrossShadowBoundary);
++        firstCandidate, IterAllowCrossShadowBoundary());
+   }
+ 
+   return firstCandidate;
+@@ -1028,10 +1026,10 @@
+ nsIContent* ContentSubtreeIterator::DetermineCandidateForLastContent() const {
+   nsIContent* lastCandidate{nullptr};
+   nsINode* endContainer = ShadowDOMSelectionHelpers::GetEndContainer(
+-      mRange, mAllowCrossShadowBoundary);
++      mRange, IterAllowCrossShadowBoundary());
+   // now to find the last node
+-  int32_t offset =
+-      ShadowDOMSelectionHelpers::EndOffset(mRange, mAllowCrossShadowBoundary);
++  int32_t offset = ShadowDOMSelectionHelpers::EndOffset(
++      mRange, IterAllowCrossShadowBoundary());
+ 
+   int32_t numChildren = endContainer->GetChildCount();
+ 
+@@ -1046,21 +1044,20 @@
+     lastCandidate = IterAllowCrossShadowBoundary()
+                         ? mRange->MayCrossShadowBoundaryEndRef().Ref()
+                         : mRange->EndRef().Ref();
+-    MOZ_ASSERT(lastCandidate ==
+-               endContainer->GetChildAt_Deprecated(offset - 1));
++    MOZ_ASSERT(lastCandidate == endContainer->GetChildAt_Deprecated(--offset));
+     NS_ASSERTION(lastCandidate,
+                  "tree traversal trouble in ContentSubtreeIterator::Init");
+   }
+ 
+   if (!lastCandidate) {
+     // then lastCandidate is prev node before node
+-    lastCandidate =
+-        ContentIteratorBase::GetPrevSibling(node, mAllowCrossShadowBoundary);
++    lastCandidate = ContentIteratorBase::GetPrevSibling(
++        node, IterAllowCrossShadowBoundary());
+   }
+ 
+   if (lastCandidate) {
+     lastCandidate = ContentIteratorBase::GetDeepLastChild(
+-        lastCandidate, mAllowCrossShadowBoundary);
++        lastCandidate, IterAllowCrossShadowBoundary());
+   }
+ 
+   return lastCandidate;
+@@ -1075,13 +1072,13 @@
+       mRange->GetClosestCommonInclusiveAncestor(mAllowCrossShadowBoundary);
+ 
+   nsINode* startContainer = ShadowDOMSelectionHelpers::GetStartContainer(
+-      mRange, mAllowCrossShadowBoundary);
+-  const int32_t startOffset =
+-      ShadowDOMSelectionHelpers::StartOffset(mRange, mAllowCrossShadowBoundary);
++      mRange, IterAllowCrossShadowBoundary());
++  const int32_t startOffset = ShadowDOMSelectionHelpers::StartOffset(
++      mRange, IterAllowCrossShadowBoundary());
+   nsINode* endContainer = ShadowDOMSelectionHelpers::GetEndContainer(
+-      mRange, mAllowCrossShadowBoundary);
+-  const int32_t endOffset =
+-      ShadowDOMSelectionHelpers::EndOffset(mRange, mAllowCrossShadowBoundary);
++      mRange, IterAllowCrossShadowBoundary());
++  const int32_t endOffset = ShadowDOMSelectionHelpers::EndOffset(
++      mRange, IterAllowCrossShadowBoundary());
+   MOZ_ASSERT(mClosestCommonInclusiveAncestor && startContainer && endContainer);
+   // Bug 767169
+   MOZ_ASSERT(uint32_t(startOffset) <= startContainer->Length() &&
+@@ -1159,8 +1156,8 @@
+     return;
+   }
+ 
+-  nsINode* nextNode =
+-      ContentIteratorBase::GetNextSibling(mCurNode, mAllowCrossShadowBoundary);
++  nsINode* nextNode = ContentIteratorBase::GetNextSibling(
++      mCurNode, IterAllowCrossShadowBoundary());
+ 
+   NS_ASSERTION(nextNode, "No next sibling!?! This could mean deadlock!");
+ 
+@@ -1226,7 +1223,7 @@
+ nsIContent* ContentSubtreeIterator::GetTopAncestorInRange(
+     nsINode* aNode) const {
+   if (!aNode || !ShadowDOMSelectionHelpers::GetParentNodeInSameSelection(
+-                    *aNode, mAllowCrossShadowBoundary)) {
++                    *aNode, IterAllowCrossShadowBoundary())) {
+     return nullptr;
+   }
+ 
+@@ -1245,7 +1242,7 @@
+   nsIContent* lastContentInShadowTree = nullptr;
+   while (content) {
+     nsINode* parent = ShadowDOMSelectionHelpers::GetParentNodeInSameSelection(
+-        *content, mAllowCrossShadowBoundary);
++        *content, IterAllowCrossShadowBoundary());
+ 
+     // content always has a parent.  If its parent is the root, however --
+     // i.e., either it's not content, or it is content but its own parent is
+@@ -1258,7 +1255,7 @@
+     // We have to special-case this because CompareNodeToRange treats the root
+     // node differently -- see bug 765205.
+     if (!parent || !ShadowDOMSelectionHelpers::GetParentNodeInSameSelection(
+-                       *parent, mAllowCrossShadowBoundary)) {
++                       *parent, IterAllowCrossShadowBoundary())) {
+       return content;
+     }
+ 

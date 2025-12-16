@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/HttpTransactionParent.h
+# Commit: 96bd98319c62
+# Full Hash: 96bd98319c6242a9b05dc4723b928e88537424e1
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2020-08-26 03:24:37
+# Regressor Bug: 1652667
+# File Overlap Count: 1
+# Description:
+#   Bug 1652667 - P1: Add telemetry for when an HTTPSSVC record is received r=dragana
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D87844
+# ==============================================================================
+
+diff -r b61a789151df -r 96bd98319c62 netwerk/protocol/http/HttpTransactionParent.h
+--- a/netwerk/protocol/http/HttpTransactionParent.h	Tue Aug 25 17:29:21 2020 +0000
++++ b/netwerk/protocol/http/HttpTransactionParent.h	Tue Aug 25 17:29:32 2020 +0000
+@@ -53,7 +53,8 @@
+       const bool& aProxyConnectFailed, const TimingStructArgs& aTimings,
+       const int32_t& aProxyConnectResponseCode,
+       nsTArray<uint8_t>&& aDataForSniffer, const Maybe<nsCString>& aAltSvcUsed,
+-      const bool& aDataToChildProcess, const bool& aRestarted);
++      const bool& aDataToChildProcess, const bool& aRestarted,
++      Maybe<uint32_t>&& aHTTPSSVCReceivedStage);
+   mozilla::ipc::IPCResult RecvOnTransportStatus(
+       const nsresult& aStatus, const int64_t& aProgress,
+       const int64_t& aProgressMax,
+@@ -90,13 +91,16 @@
+ 
+   void GetStructFromInfo(nsHttpConnectionInfo* aInfo,
+                          HttpConnectionInfoCloneArgs& aArgs);
+-  void DoOnStartRequest(
+-      const nsresult& aStatus, const Maybe<nsHttpResponseHead>& aResponseHead,
+-      const nsCString& aSecurityInfoSerialization,
+-      const bool& aProxyConnectFailed, const TimingStructArgs& aTimings,
+-      const int32_t& aProxyConnectResponseCode,
+-      nsTArray<uint8_t>&& aDataForSniffer, const Maybe<nsCString>& aAltSvcUsed,
+-      const bool& aDataToChildProcess, const bool& aRestarted);
++  void DoOnStartRequest(const nsresult& aStatus,
++                        const Maybe<nsHttpResponseHead>& aResponseHead,
++                        const nsCString& aSecurityInfoSerialization,
++                        const bool& aProxyConnectFailed,
++                        const TimingStructArgs& aTimings,
++                        const int32_t& aProxyConnectResponseCode,
++                        nsTArray<uint8_t>&& aDataForSniffer,
++                        const Maybe<nsCString>& aAltSvcUsed,
++                        const bool& aDataToChildProcess, const bool& aRestarted,
++                        Maybe<uint32_t>&& aHTTPSSVCReceivedStage);
+   void DoOnDataAvailable(const nsCString& aData, const uint64_t& aOffset,
+                          const uint32_t& aCount);
+   void DoOnStopRequest(
+@@ -152,6 +156,7 @@
+   OnPushCallback mOnPushCallback;
+   nsTArray<uint8_t> mDataForSniffer;
+   std::function<void()> mCallOnResume;
++  Maybe<uint32_t> mHTTPSSVCReceivedStage;
+ };
+ 
+ NS_DEFINE_STATIC_IID_ACCESSOR(HttpTransactionParent,

@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/windows/nsWindow.cpp
+# Commit: d400d0a16ce6
+# Full Hash: d400d0a16ce6c20bfe5addb995f610f4881b31e6
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2021-08-27 09:43:40
+# Regressor Bug: 1722487
+# File Overlap Count: 3
+# Description:
+#   Bug 1722487 - Avoid some work for font list updates. r=jfkthame
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D123363
+# ==============================================================================
+
+diff -r ab80197101b9 -r d400d0a16ce6 widget/windows/nsWindow.cpp
+--- a/widget/windows/nsWindow.cpp	Thu Aug 26 23:10:30 2021 +0000
++++ b/widget/windows/nsWindow.cpp	Thu Aug 26 23:17:54 2021 +0000
+@@ -5048,17 +5048,6 @@
+   return nullptr;
+ }
+ 
+-static void ForceFontUpdate() {
+-  // update device context font cache
+-  // Dirty but easiest way:
+-  // Changing nsIPrefBranch entry which triggers callbacks
+-  // and flows into calling mDeviceContext->FlushFontCache()
+-  // to update the font cache in all the instance of Browsers
+-  static const char kPrefName[] = "font.internaluseonly.changed";
+-  bool fontInternalChange = Preferences::GetBool(kPrefName, false);
+-  Preferences::SetBool(kPrefName, !fontInternalChange);
+-}
+-
+ bool nsWindow::ExternalHandlerProcessMessage(UINT aMessage, WPARAM& aWParam,
+                                              LPARAM& aLParam,
+                                              MSGResult& aResult) {
+@@ -5231,7 +5220,9 @@
+           do_GetService("@mozilla.org/gfx/fontenumerator;1", &rv);
+       if (NS_SUCCEEDED(rv)) {
+         fontEnum->UpdateFontList(&didChange);
+-        ForceFontUpdate();
++        if (didChange) {
++          gfxPlatform::ForceGlobalReflow(gfxPlatform::NeedsReframe::Yes);
++        }
+       }  // if (NS_SUCCEEDED(rv))
+     } break;
+ 

@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsGlobalWindowInner.cpp
+# Commit: da37e2d8a175
+# Full Hash: da37e2d8a175fda08a98920d820dda0899b6aedf
+# Author: Benjamin VanderSloot <bvandersloot@mozilla.com>
+# Date: 2025-06-13 09:36:48
+# Regressor Bug: 1969017
+# File Overlap Count: 2
+# Description:
+#   Bug 1969017 - Refactor FedCM to use a managed actor rather than tagging onto WindowGlobalParent - r=anti-tracking-reviewers,emz
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D251617
+# ==============================================================================
+
+diff -r 15b92f98f62c -r da37e2d8a175 dom/base/nsGlobalWindowInner.cpp
+--- a/dom/base/nsGlobalWindowInner.cpp	Thu Jun 12 18:16:52 2025 +0000
++++ b/dom/base/nsGlobalWindowInner.cpp	Thu Jun 12 18:16:53 2025 +0000
+@@ -183,6 +183,7 @@
+ #include "mozilla/dom/VRDisplayEventBinding.h"
+ #include "mozilla/dom/VREventObserver.h"
+ #include "mozilla/dom/VisualViewport.h"
++#include "mozilla/dom/WebIdentityHandler.h"
+ #include "mozilla/dom/WebIDLGlobalNameHash.h"
+ #include "mozilla/dom/WindowBinding.h"
+ #include "mozilla/dom/WindowContext.h"
+@@ -1443,6 +1444,7 @@
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDocumentCsp)
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBrowserChild)
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDoc)
++  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWebIdentityHandler)
+ 
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mIdleRequestExecutor)
+   for (IdleRequest* request : tmp->mIdleRequestCallbacks) {
+@@ -7774,6 +7776,18 @@
+   return wc->GetUsingStorageAccess();
+ }
+ 
++WebIdentityHandler* nsPIDOMWindowInner::GetOrCreateWebIdentityHandler() {
++  if (mWebIdentityHandler) {
++    return mWebIdentityHandler;
++  }
++  mWebIdentityHandler = new WebIdentityHandler(this);
++  bool success = mWebIdentityHandler->MaybeCreateActor();
++  if (!success) {
++    mWebIdentityHandler = nullptr;
++  }
++  return mWebIdentityHandler;
++}
++
+ CloseWatcherManager* nsPIDOMWindowInner::EnsureCloseWatcherManager() {
+   if (!mCloseWatcherManager) {
+     mCloseWatcherManager = new CloseWatcherManager();

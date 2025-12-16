@@ -1,0 +1,93 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/CompositorBridgeParent.cpp
+# Commit: eac17a862c29
+# Full Hash: eac17a862c29a52ae1a389c5e55c0a1cec0db7b6
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2020-01-11 09:48:29
+# Regressor Bug: 1600472
+# File Overlap Count: 2
+# Description:
+#   Bug 1600472 - Disable allowing sacrificing subpixel anti-aliasing for small screens. r=jrmuizel
+#   
+#   This patch only allows sacrificing subpixel anti-aliasing when the
+#   screen size is larger than WUXGA, and when the force disable pref is not
+#   set. In the future, we may also add disable this for high end GPUs.
+# ==============================================================================
+
+diff -r b6e5faa0693d -r eac17a862c29 gfx/layers/ipc/CompositorBridgeParent.cpp
+--- a/gfx/layers/ipc/CompositorBridgeParent.cpp	Fri Jan 10 18:24:13 2020 +0000
++++ b/gfx/layers/ipc/CompositorBridgeParent.cpp	Fri Jan 10 16:57:55 2020 +0000
+@@ -262,6 +262,18 @@
+   }
+ }
+ 
++/*static*/ template <typename Lambda>
++inline void CompositorBridgeParent::ForEachWebRenderBridgeParent(
++    const Lambda& aCallback) {
++  sIndirectLayerTreesLock->AssertCurrentThreadOwns();
++  for (auto it : sIndirectLayerTrees) {
++    LayerTreeState* state = &it.second;
++    if (state->mWrBridge) {
++      aCallback(state->mWrBridge);
++    }
++  }
++}
++
+ /**
+  * A global map referencing each compositor by ID.
+  *
+@@ -1996,6 +2008,52 @@
+   }
+ }
+ 
++/*static*/
++void CompositorBridgeParent::InitializeStatics() {
++  gfxVars::SetAllowSacrificingSubpixelAAListener(&UpdateQualitySettings);
++  gfxVars::SetWebRenderDebugFlagsListener(&UpdateDebugFlags);
++}
++
++/*static*/
++void CompositorBridgeParent::UpdateQualitySettings() {
++  if (!CompositorThreadHolder::IsInCompositorThread()) {
++    if (CompositorLoop()) {
++      CompositorLoop()->PostTask(
++          NewRunnableFunction("CompositorBridgeParent::UpdateQualitySettings",
++                              &CompositorBridgeParent::UpdateQualitySettings));
++    }
++
++    // If there is no compositor loop, e.g. due to shutdown, then we can
++    // safefully just ignore this request.
++    return;
++  }
++
++  MonitorAutoLock lock(*sIndirectLayerTreesLock);
++  ForEachWebRenderBridgeParent([&](WebRenderBridgeParent* wrBridge) -> void {
++    wrBridge->UpdateQualitySettings();
++  });
++}
++
++/*static*/
++void CompositorBridgeParent::UpdateDebugFlags() {
++  if (!CompositorThreadHolder::IsInCompositorThread()) {
++    if (CompositorLoop()) {
++      CompositorLoop()->PostTask(
++          NewRunnableFunction("CompositorBridgeParent::UpdateDebugFlags",
++                              &CompositorBridgeParent::UpdateDebugFlags));
++    }
++
++    // If there is no compositor loop, e.g. due to shutdown, then we can
++    // safefully just ignore this request.
++    return;
++  }
++
++  MonitorAutoLock lock(*sIndirectLayerTreesLock);
++  ForEachWebRenderBridgeParent([&](WebRenderBridgeParent* wrBridge) -> void {
++    wrBridge->UpdateDebugFlags();
++  });
++}
++
+ RefPtr<WebRenderBridgeParent> CompositorBridgeParent::GetWebRenderBridgeParent()
+     const {
+   return mWrBridge;

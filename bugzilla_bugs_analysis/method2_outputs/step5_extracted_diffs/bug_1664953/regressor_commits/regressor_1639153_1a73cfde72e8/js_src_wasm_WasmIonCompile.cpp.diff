@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmIonCompile.cpp
+# Commit: 1a73cfde72e8
+# Full Hash: 1a73cfde72e8f4d19bdcfdbffa9fbc78bba01e24
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2021-09-28 09:54:33
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Introduce indirect stubs to optimize call_indirect. r=lth
+#   
+#   This patch introduces indirect stubs.
+#   An indirect stub is a stub that takes care of any switching activities needed for call_indirect.
+#   Before this patch, we have to conservatively assume that any call_indirect's target can be from a foreign instance,
+# ==============================================================================
+
+diff -r da3c5d8492db -r 1a73cfde72e8 js/src/wasm/WasmIonCompile.cpp
+--- a/js/src/wasm/WasmIonCompile.cpp	Tue Sep 28 05:16:23 2021 +0000
++++ b/js/src/wasm/WasmIonCompile.cpp	Tue Sep 28 05:24:15 2021 +0000
+@@ -1694,7 +1694,7 @@
+       callee = CalleeDesc::wasmTable(table, funcTypeId);
+     }
+ 
+-    CallSiteDesc desc(lineOrBytecode, CallSiteDesc::Dynamic);
++    CallSiteDesc desc(lineOrBytecode, CallSiteDesc::Indirect);
+     ArgTypeVector args(funcType);
+     ResultType resultType = ResultType::Vector(funcType.results());
+     auto* ins = MWasmCall::New(alloc(), desc, callee, call.regArgs_,
+@@ -1715,7 +1715,7 @@
+       return true;
+     }
+ 
+-    CallSiteDesc desc(lineOrBytecode, CallSiteDesc::Dynamic);
++    CallSiteDesc desc(lineOrBytecode, CallSiteDesc::Import);
+     auto callee = CalleeDesc::import(globalDataOffset);
+     ArgTypeVector args(funcType);
+     ResultType resultType = ResultType::Vector(funcType.results());

@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/GCRuntime.h
+# Commit: 77a3b9246b5b
+# Full Hash: 77a3b9246b5b7af30be9e331fd19ea9e8d18bbd6
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2020-07-10 21:52:04
+# Regressor Bug: 1652019
+# File Overlap Count: 1
+# Description:
+#   Bug 1652019 - Move more of decommit logic off-thread r=sfink
+#   
+#   We can sort the available chunks list and prepare the list of chunks to decommit when we're already runnin off-thread.
+#   
+#   Depends on D83107
+# ==============================================================================
+
+diff -r c3399c3f3831 -r 77a3b9246b5b js/src/gc/GCRuntime.h
+--- a/js/src/gc/GCRuntime.h	Fri Jul 10 16:59:39 2020 +0000
++++ b/js/src/gc/GCRuntime.h	Fri Jul 10 17:02:42 2020 +0000
+@@ -157,15 +157,9 @@
+ // Search the provided Chunks for free arenas and decommit them.
+ class BackgroundDecommitTask : public GCParallelTask {
+  public:
+-  using ChunkVector = mozilla::Vector<Chunk*>;
+-
+   explicit BackgroundDecommitTask(GCRuntime* gc) : GCParallelTask(gc) {}
+-  void setChunksToScan(ChunkVector& chunks);
+ 
+   void run() override;
+-
+- private:
+-  MainThreadOrGCTaskData<ChunkVector> toDecommit;
+ };
+ 
+ class SweepMarkTask : public GCParallelTask {
+@@ -761,8 +755,9 @@
+   void endSweepPhase(bool lastGC);
+   bool allCCVisibleZonesWereCollected();
+   void sweepZones(JSFreeOp* fop, bool destroyingRuntime);
++  void startDecommit();
++  void decommitFreeArenas(const bool& canel, AutoLockGC& lock);
+   void decommitFreeArenasWithoutUnlocking(const AutoLockGC& lock);
+-  void startDecommit();
+   void queueZonesAndStartBackgroundSweep(ZoneList& zones);
+   void sweepFromBackgroundThread(AutoLockHelperThreadState& lock);
+   void startBackgroundFree();

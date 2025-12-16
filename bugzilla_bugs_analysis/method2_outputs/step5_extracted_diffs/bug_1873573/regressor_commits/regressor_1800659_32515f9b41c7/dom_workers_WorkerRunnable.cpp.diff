@@ -1,0 +1,127 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/WorkerRunnable.cpp
+# Commit: 32515f9b41c7
+# Full Hash: 32515f9b41c77d6ccd5831eed28953037c4fb319
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2023-06-07 03:30:33
+# Regressor Bug: 1800659
+# File Overlap Count: 2
+# Description:
+#   Bug 1800659 - P2 remove nsICancelableRunnable inheriting form WorkerRunnable. r=asuth
+#   
+#   This patch is only remove the inheriting, but keeping Cancel() implmentation.
+#   The Cancel() is needed in some special cases, such as Worker enters Canceling when WorkerScope is not created.
+#   
+# ==============================================================================
+
+diff -r 910dabb8545d -r 32515f9b41c7 dom/workers/WorkerRunnable.cpp
+--- a/dom/workers/WorkerRunnable.cpp	Tue Jun 06 06:36:50 2023 +0000
++++ b/dom/workers/WorkerRunnable.cpp	Tue Jun 06 06:36:50 2023 +0000
+@@ -57,7 +57,6 @@
+                                TargetAndBusyBehavior aBehavior)
+     : mWorkerPrivate(aWorkerPrivate),
+       mBehavior(aBehavior),
+-      mCanceled(0),
+       mCallingCancelWithinRun(false) {
+   LOG(("WorkerRunnable::WorkerRunnable [%p]", this));
+   MOZ_ASSERT(aWorkerPrivate);
+@@ -220,7 +219,6 @@
+ 
+ NS_INTERFACE_MAP_BEGIN(WorkerRunnable)
+   NS_INTERFACE_MAP_ENTRY(nsIRunnable)
+-  NS_INTERFACE_MAP_ENTRY(nsICancelableRunnable)
+   NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIRunnable)
+   // kWorkerRunnableIID is special in that it does not AddRef its result.
+   if (aIID.Equals(kWorkerRunnableIID)) {
+@@ -245,12 +243,8 @@
+   }
+ #endif
+ 
+-  if (IsCanceled() && !mCallingCancelWithinRun) {
+-    return NS_OK;
+-  }
+-
+   if (targetIsWorkerThread &&
+-      mWorkerPrivate->AllPendingRunnablesShouldBeCanceled() && !IsCanceled() &&
++      mWorkerPrivate->AllPendingRunnablesShouldBeCanceled() &&
+       !mCallingCancelWithinRun) {
+     LOG(("WorkerRunnable::Run [%p] Cancel runnable...", this));
+     // Prevent recursion.
+@@ -261,8 +255,6 @@
+     MOZ_ASSERT(mCallingCancelWithinRun);
+     mCallingCancelWithinRun = false;
+ 
+-    MOZ_ASSERT(IsCanceled(), "Subclass Cancel() didn't set IsCanceled()!");
+-
+     if (mBehavior == WorkerThreadModifyBusyCount) {
+       mWorkerPrivate->ModifyBusyCountFromWorker(false);
+     }
+@@ -417,13 +409,8 @@
+ }
+ 
+ nsresult WorkerRunnable::Cancel() {
+-  uint32_t canceledCount = ++mCanceled;
+-
+-  MOZ_ASSERT(canceledCount, "Cancel() overflow!");
+-
+-  // The docs say that Cancel() should not be called more than once and that we
+-  // should throw NS_ERROR_UNEXPECTED if it is.
+-  return (canceledCount == 1) ? NS_OK : NS_ERROR_UNEXPECTED;
++  LOG(("WorkerRunnable::Cancel [%p]", this));
++  return NS_OK;
+ }
+ 
+ void WorkerDebuggerRunnable::PostDispatch(WorkerPrivate* aWorkerPrivate,
+@@ -471,6 +458,9 @@
+     nsresult aResult)
+     : WorkerSyncRunnable(aWorkerPrivate, std::move(aSyncLoopTarget)),
+       mResult(aResult) {
++  LOG(("MainThreadStopSyncLoopRunnable::MainThreadStopSyncLoopRunnable [%p]",
++       this));
++
+   AssertIsOnMainThread();
+ #ifdef DEBUG
+   mWorkerPrivate->AssertValidSyncLoop(mSyncLoopTarget);
+@@ -478,11 +468,8 @@
+ }
+ 
+ nsresult MainThreadStopSyncLoopRunnable::Cancel() {
+-  // We need to check first if cancel is called twice
+-  nsresult rv = WorkerSyncRunnable::Cancel();
+-  NS_ENSURE_SUCCESS(rv, rv);
+-
+-  rv = Run();
++  LOG(("MainThreadStopSyncLoopRunnable::Cancel [%p]", this));
++  nsresult rv = Run();
+   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "Run() failed");
+ 
+   return rv;
+@@ -523,10 +510,7 @@
+ #endif
+ 
+ nsresult WorkerControlRunnable::Cancel() {
+-  // We need to check first if cancel is called twice
+-  nsresult rv = WorkerRunnable::Cancel();
+-  NS_ENSURE_SUCCESS(rv, rv);
+-
++  LOG(("WorkerControlRunnable::Cancel [%p]", this));
+   if (NS_FAILED(Run())) {
+     NS_WARNING("WorkerControlRunnable::Run() failed.");
+   }
+@@ -689,11 +673,9 @@
+       MOZ_ASSERT(aRunnable);
+     }
+ 
+-    // We must call RunBackOnWorkerThreadForCleanup() also if the runnable is
+-    // canceled.
+-    nsresult Cancel() override {
+-      WorkerRun(nullptr, mWorkerPrivate);
+-      return MainThreadWorkerControlRunnable::Cancel();
++    virtual nsresult Cancel() override {
++      Unused << WorkerRun(nullptr, mWorkerPrivate);
++      return NS_OK;
+     }
+ 
+     virtual bool WorkerRun(JSContext* aCx,

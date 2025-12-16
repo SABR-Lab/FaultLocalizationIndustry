@@ -1,0 +1,113 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: servo/components/style/properties/cascade.rs
+# Commit: 834a980cbd49
+# Full Hash: 834a980cbd49b0634e98e0a00441bb20ad4ceb40
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2021-02-16 21:51:29
+# Regressor Bug: 1690836
+# File Overlap Count: 1
+# Description:
+#   Bug 1690836 - Cache substituted values from shorthand properties during the cascade. r=xidorn
+#   
+#   This brings the time down to 1.6ms from 4.8ms on the test-case in the
+#   bug. This should be improvable too, but I think this is a nice
+#   improvement for regular styling as well.
+# ==============================================================================
+
+diff -r 9455553189d2 -r 834a980cbd49 servo/components/style/properties/cascade.rs
+--- a/servo/components/style/properties/cascade.rs	Tue Feb 16 13:38:08 2021 +0000
++++ b/servo/components/style/properties/cascade.rs	Tue Feb 16 13:38:08 2021 +0000
+@@ -10,11 +10,10 @@
+ use crate::font_metrics::FontMetricsProvider;
+ use crate::logical_geometry::WritingMode;
+ use crate::media_queries::Device;
+-use crate::properties::{CSSWideKeyword, LonghandId, LonghandIdSet, PropertyFlags};
+-use crate::properties::{ComputedValueFlags, CASCADE_PROPERTY};
+-use crate::properties::{ComputedValues, Importance, StyleBuilder};
+ use crate::properties::{
+-    DeclarationImportanceIterator, PropertyDeclaration, PropertyDeclarationId,
++    CSSWideKeyword, ComputedValueFlags, ComputedValues, DeclarationImportanceIterator, Importance,
++    LonghandId, LonghandIdSet, PropertyDeclaration, PropertyDeclarationId, PropertyFlags,
++    ShorthandsWithPropertyReferencesCache, StyleBuilder, CASCADE_PROPERTY,
+ };
+ use crate::rule_cache::{RuleCache, RuleCacheConditions};
+ use crate::rule_tree::StrongRuleNode;
+@@ -325,10 +324,12 @@
+ 
+     let using_cached_reset_properties = {
+         let mut cascade = Cascade::new(&mut context, cascade_mode);
++        let mut shorthand_cache = ShorthandsWithPropertyReferencesCache::default();
+ 
+         cascade.apply_properties::<EarlyProperties, _>(
+             ApplyResetProperties::Yes,
+             declarations.iter().cloned(),
++            &mut shorthand_cache,
+         );
+ 
+         cascade.compute_visited_style_if_needed(
+@@ -348,7 +349,11 @@
+             ApplyResetProperties::Yes
+         };
+ 
+-        cascade.apply_properties::<LateProperties, _>(apply_reset, declarations.iter().cloned());
++        cascade.apply_properties::<LateProperties, _>(
++            apply_reset,
++            declarations.iter().cloned(),
++            &mut shorthand_cache,
++        );
+ 
+         using_cached_reset_properties
+     };
+@@ -501,10 +506,14 @@
+         }
+     }
+ 
+-    fn substitute_variables_if_needed<'decl>(
++    fn substitute_variables_if_needed<'decl, 'cache>(
+         &mut self,
+         declaration: &'decl PropertyDeclaration,
+-    ) -> Cow<'decl, PropertyDeclaration> {
++        cache: &'cache mut ShorthandsWithPropertyReferencesCache,
++    ) -> Cow<'decl, PropertyDeclaration>
++    where
++        'cache: 'decl,
++    {
+         let declaration = match *declaration {
+             PropertyDeclaration::WithVariables(ref declaration) => declaration,
+             ref d => return Cow::Borrowed(d),
+@@ -536,12 +545,13 @@
+             }
+         }
+ 
+-        Cow::Owned(declaration.value.substitute_variables(
++        declaration.value.substitute_variables(
+             declaration.id,
+             self.context.builder.custom_properties.as_ref(),
+             self.context.quirks_mode,
+             self.context.device(),
+-        ))
++            cache,
++        )
+     }
+ 
+     #[inline(always)]
+@@ -559,6 +569,7 @@
+         &mut self,
+         apply_reset: ApplyResetProperties,
+         declarations: I,
++        mut shorthand_cache: &mut ShorthandsWithPropertyReferencesCache,
+     ) where
+         Phase: CascadePhase,
+         I: Iterator<Item = (&'decls PropertyDeclaration, Origin)>,
+@@ -619,7 +630,8 @@
+                 continue;
+             }
+ 
+-            let mut declaration = self.substitute_variables_if_needed(declaration);
++            let mut declaration =
++                self.substitute_variables_if_needed(declaration, &mut shorthand_cache);
+ 
+             // When document colors are disabled, do special handling of
+             // properties that are marked as ignored in that mode.

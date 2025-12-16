@@ -1,0 +1,70 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/antitracking/StoragePrincipalHelper.cpp
+# Commit: 1a38b75a7dbb
+# Full Hash: 1a38b75a7dbb86fa14d2763e7a983dfd0bde5d50
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2021-01-22 10:17:55
+# Regressor Bug: 1686828
+# File Overlap Count: 1
+# Description:
+#   Bug 1686828 - Use https OriginAttributes to fetch HTTPS RR r=necko-reviewers,timhuang,dragana
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D102234
+# ==============================================================================
+
+diff -r e83b6fb52b62 -r 1a38b75a7dbb toolkit/components/antitracking/StoragePrincipalHelper.cpp
+--- a/toolkit/components/antitracking/StoragePrincipalHelper.cpp	Thu Jan 21 22:08:27 2021 +0000
++++ b/toolkit/components/antitracking/StoragePrincipalHelper.cpp	Thu Jan 21 22:08:26 2021 +0000
+@@ -328,10 +328,14 @@
+   aAttributes.SetPartitionKey(aFirstPartyURI);
+ }
+ 
+-// static
+-bool StoragePrincipalHelper::GetOriginAttributesForHSTS(
+-    nsIChannel* aChannel, OriginAttributes& aAttributes) {
+-  if (!GetOriginAttributesForNetworkState(aChannel, aAttributes)) {
++enum SupportedScheme { HTTP, HTTPS };
++
++static bool GetOriginAttributesWithScheme(nsIChannel* aChannel,
++                                          OriginAttributes& aAttributes,
++                                          SupportedScheme aScheme) {
++  const nsString targetScheme = aScheme == HTTP ? u"http"_ns : u"https"_ns;
++  if (!StoragePrincipalHelper::GetOriginAttributesForNetworkState(
++          aChannel, aAttributes)) {
+     return false;
+   }
+ 
+@@ -358,16 +362,29 @@
+   nsAutoString scheme;
+   scheme.Assign(Substring(start, iter));
+ 
+-  if (!scheme.EqualsLiteral("https")) {
++  if (scheme.Equals(targetScheme)) {
+     return true;
+   }
+ 
+   nsAutoString key;
+-  key.AssignLiteral("(http");
++  key += u"("_ns;
++  key += targetScheme;
+   key.Append(Substring(iter, end));
+   aAttributes.SetPartitionKey(key);
+ 
+   return true;
+ }
+ 
++// static
++bool StoragePrincipalHelper::GetOriginAttributesForHSTS(
++    nsIChannel* aChannel, OriginAttributes& aAttributes) {
++  return GetOriginAttributesWithScheme(aChannel, aAttributes, HTTP);
++}
++
++// static
++bool StoragePrincipalHelper::GetOriginAttributesForHTTPSRR(
++    nsIChannel* aChannel, OriginAttributes& aAttributes) {
++  return GetOriginAttributesWithScheme(aChannel, aAttributes, HTTPS);
++}
++
+ }  // namespace mozilla

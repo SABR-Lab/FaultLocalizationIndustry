@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/android/Platform.cpp
+# Commit: 16707adce3d7
+# Full Hash: 16707adce3d7036be5a196ea1a77ecd8c4761244
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2023-11-30 04:12:04
+# Regressor Bug: 1862802
+# File Overlap Count: 1
+# Description:
+#   Bug 1862802 part 2: Support find in page on Android using only caret events instead of converting them to virtual cursor change events. r=eeejay
+#   
+#   Depends on D192642
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D192643
+# ==============================================================================
+
+diff -r 2f75e063b5f9 -r 16707adce3d7 accessible/android/Platform.cpp
+--- a/accessible/android/Platform.cpp	Wed Nov 29 03:53:19 2023 +0000
++++ b/accessible/android/Platform.cpp	Wed Nov 29 03:53:19 2023 +0000
+@@ -146,10 +146,23 @@
+                                   bool aFromUser) {
+   RefPtr<SessionAccessibility> sessionAcc =
+       SessionAccessibility::GetInstanceFor(aTarget);
++  if (!sessionAcc) {
++    return;
++  }
+ 
+-  if (sessionAcc) {
+-    sessionAcc->SendTextSelectionChangedEvent(aTarget, aOffset);
++  if (!aTarget->IsDoc() && !aFromUser && !aIsSelectionCollapsed) {
++    // Pivot to the caret's position if it has an expanded selection.
++    // This is used mostly for find in page.
++    Accessible* leaf = TextLeafPoint::GetCaret(aTarget).ActualizeCaret().mAcc;
++    MOZ_ASSERT(leaf);
++    if (Accessible* result = AccessibleWrap::DoPivot(
++            leaf, java::SessionAccessibility::HTML_GRANULARITY_DEFAULT, true,
++            true)) {
++      sessionAcc->SendAccessibilityFocusedEvent(result);
++    }
+   }
++
++  sessionAcc->SendTextSelectionChangedEvent(aTarget, aOffset);
+ }
+ 
+ void a11y::PlatformTextChangeEvent(Accessible* aTarget, const nsAString& aStr,

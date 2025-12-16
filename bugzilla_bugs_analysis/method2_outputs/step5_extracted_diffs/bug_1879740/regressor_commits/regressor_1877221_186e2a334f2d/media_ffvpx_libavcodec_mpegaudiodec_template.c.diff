@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/ffvpx/libavcodec/mpegaudiodec_template.c
+# Commit: 186e2a334f2d
+# Full Hash: 186e2a334f2deb37b29f44b28bc8c83babeeb9a4
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2024-02-09 09:37:17
+# Regressor Bug: 1877221
+# File Overlap Count: 1
+# Description:
+#   Bug 1877221 - Pull in new ffmpeg code, reapply patch. r=media-playback-reviewers,chunmin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D199909
+# ==============================================================================
+
+diff -r c5920de78d16 -r 186e2a334f2d media/ffvpx/libavcodec/mpegaudiodec_template.c
+--- a/media/ffvpx/libavcodec/mpegaudiodec_template.c	Thu Feb 08 10:39:53 2024 +0000
++++ b/media/ffvpx/libavcodec/mpegaudiodec_template.c	Thu Feb 08 10:39:54 2024 +0000
+@@ -760,6 +760,7 @@
+     /* low frequencies (called big values) */
+     s_index = 0;
+     for (i = 0; i < 3; i++) {
++        const VLCElem *vlctab;
+         int j, k, l, linbits;
+         j = g->region_size[i];
+         if (j == 0)
+@@ -768,13 +769,13 @@
+         k       = g->table_select[i];
+         l       = ff_mpa_huff_data[k][0];
+         linbits = ff_mpa_huff_data[k][1];
+-        vlc     = &ff_huff_vlc[l];
+ 
+         if (!l) {
+             memset(&g->sb_hybrid[s_index], 0, sizeof(*g->sb_hybrid) * 2 * j);
+             s_index += 2 * j;
+             continue;
+         }
++        vlctab  = ff_huff_vlc[l];
+ 
+         /* read huffcode and compute each couple */
+         for (; j > 0; j--) {
+@@ -787,7 +788,7 @@
+                 if (pos >= end_pos)
+                     break;
+             }
+-            y = get_vlc2(&s->gb, vlc->table, 7, 3);
++            y = get_vlc2(&s->gb, vlctab, 7, 3);
+ 
+             if (!y) {
+                 g->sb_hybrid[s_index    ] =

@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/notification/NotificationParent.cpp
+# Commit: bb63792c3333
+# Full Hash: bb63792c3333a7911bdfad9e9e9ec58bb48bad93
+# Author: Kagami Sascha Rosylight <saschanaz@outlook.com>
+# Date: 2024-11-08 04:19:40
+# Regressor Bug: 1928702
+# File Overlap Count: 1
+# Description:
+#   Bug 1928702 - Part 2: Create PNotification via PBackground r=asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D227687
+# ==============================================================================
+
+diff -r 93937caf6d13 -r bb63792c3333 dom/notification/NotificationParent.cpp
+--- a/dom/notification/NotificationParent.cpp	Thu Nov 07 17:32:03 2024 +0000
++++ b/dom/notification/NotificationParent.cpp	Thu Nov 07 17:32:03 2024 +0000
+@@ -6,6 +6,8 @@
+ 
+ #include "NotificationParent.h"
+ 
++#include "mozilla/ipc/Endpoint.h"
++
+ namespace mozilla::dom::notification {
+ 
+ NS_IMPL_ISUPPORTS(NotificationParent, nsIObserver)
+@@ -20,4 +22,22 @@
+   return IPC_OK();
+ }
+ 
++nsresult NotificationParent::BindToMainThread(
++    Endpoint<PNotificationParent>&& aParentEndpoint,
++    PBackgroundParent::CreateNotificationParentResolver&& aResolver) {
++  nsCOMPtr<nsIThread> thread = NS_GetCurrentThread();
++
++  NS_DispatchToMainThread(NS_NewRunnableFunction(
++      "NotificationParent::BindToMainThread",
++      [self = RefPtr(this), endpoint = std::move(aParentEndpoint),
++       resolver = std::move(aResolver), thread]() mutable {
++        bool result = endpoint.Bind(self);
++        thread->Dispatch(NS_NewRunnableFunction(
++            "NotificationParent::BindToMainThreadResult",
++            [result, resolver = std::move(resolver)]() { resolver(result); }));
++      }));
++
++  return NS_OK;
++}
++
+ }  // namespace mozilla::dom::notification

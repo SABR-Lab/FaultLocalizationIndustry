@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/xpconnect/src/XPCJSRuntime.cpp
+# Commit: 955256297d6d
+# Full Hash: 955256297d6dc83d52eb77a202c9c320622c0d13
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2019-11-05 16:16:12
+# Regressor Bug: 1579367
+# File Overlap Count: 1
+# Description:
+#   Bug 1579367 - Initialize XPCJSContext explicitly, after loading user prefs. r=kmag
+#   
+#   This way we get the correct values for start-up prefs in the parent process.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D51061
+# ==============================================================================
+
+diff -r 68e7fb2885b0 -r 955256297d6d js/xpconnect/src/XPCJSRuntime.cpp
+--- a/js/xpconnect/src/XPCJSRuntime.cpp	Tue Nov 05 08:19:10 2019 +0200
++++ b/js/xpconnect/src/XPCJSRuntime.cpp	Tue Nov 05 06:29:13 2019 +0000
+@@ -32,6 +32,7 @@
+ #include "nsIPlatformInfo.h"
+ #include "nsPIDOMWindow.h"
+ #include "nsPrintfCString.h"
++#include "nsScriptSecurityManager.h"
+ #include "nsThreadPool.h"
+ #include "nsWindowSizes.h"
+ #include "mozilla/Preferences.h"
+@@ -1135,6 +1136,8 @@
+ 
+   JS::SetGCSliceCallback(cx, mPrevGCSliceCallback);
+ 
++  nsScriptSecurityManager::GetScriptSecurityManager()->ClearJSCallbacks(cx);
++
+   // Shut down the helper threads
+   gHelperThreads->Shutdown();
+   gHelperThreads = nullptr;
+@@ -3045,6 +3048,8 @@
+   // these jsids filled in later when we have a JSContext to work with.
+   mStrIDs[0] = JSID_VOID;
+ 
++  nsScriptSecurityManager::GetScriptSecurityManager()->InitJSCallbacks(cx);
++
+   // Unconstrain the runtime's threshold on nominal heap size, to avoid
+   // triggering GC too often if operating continuously near an arbitrary
+   // finite threshold (0xffffffff is infinity for uint32_t parameters).

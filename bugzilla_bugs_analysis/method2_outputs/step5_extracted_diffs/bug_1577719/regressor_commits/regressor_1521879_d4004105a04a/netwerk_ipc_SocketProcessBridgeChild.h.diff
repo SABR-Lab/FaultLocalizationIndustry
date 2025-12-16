@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/ipc/SocketProcessBridgeChild.h
+# Commit: d4004105a04a
+# Full Hash: d4004105a04ad9a473930acb9c6a05d90cd9f028
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2019-02-23 04:13:22
+# Regressor Bug: 1521879
+# File Overlap Count: 1
+# Description:
+#   Bug 1521879 - Part 1: IPC-based MediaTransport implementation r=mjf
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D17273
+# ==============================================================================
+
+diff -r baecf588657c -r d4004105a04a netwerk/ipc/SocketProcessBridgeChild.h
+--- a/netwerk/ipc/SocketProcessBridgeChild.h	Thu Feb 21 23:16:40 2019 +0000
++++ b/netwerk/ipc/SocketProcessBridgeChild.h	Thu Feb 21 20:24:54 2019 +0000
+@@ -22,10 +22,10 @@
+   NS_DECL_ISUPPORTS
+   NS_DECL_NSIOBSERVER
+ 
+-  static bool Create(Endpoint<PSocketProcessBridgeChild>&& aEndpoint);
+   static already_AddRefed<SocketProcessBridgeChild> GetSingleton();
+-  static void EnsureSocketProcessBridge(std::function<void()>&& aOnSuccess,
+-                                        std::function<void()>&& aOnFailure);
++  typedef MozPromise<RefPtr<SocketProcessBridgeChild>, nsCString, false>
++      GetPromise;
++  static RefPtr<GetPromise> GetSocketProcessBridge();
+ 
+   mozilla::ipc::IPCResult RecvTest();
+   void ActorDestroy(ActorDestroyReason aWhy) override;
+@@ -34,8 +34,12 @@
+   bool Inited() const { return mInited; };
+   ProcessId SocketProcessPid() const { return mSocketProcessPid; };
+ 
++  dom::PMediaTransportChild* AllocPMediaTransportChild() override;
++  bool DeallocPMediaTransportChild(dom::PMediaTransportChild* aActor) override;
++
+  private:
+   DISALLOW_COPY_AND_ASSIGN(SocketProcessBridgeChild);
++  static bool Create(Endpoint<PSocketProcessBridgeChild>&& aEndpoint);
+   explicit SocketProcessBridgeChild(
+       Endpoint<PSocketProcessBridgeChild>&& aEndpoint);
+   virtual ~SocketProcessBridgeChild();

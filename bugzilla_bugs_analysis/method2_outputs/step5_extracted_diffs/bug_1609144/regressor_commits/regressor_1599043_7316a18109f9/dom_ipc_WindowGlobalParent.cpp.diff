@@ -1,0 +1,83 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/WindowGlobalParent.cpp
+# Commit: 7316a18109f9
+# Full Hash: 7316a18109f9d69d88db073664aadf6f59d6a7a0
+# Author: Tim Huang <tihuang@mozilla.com>
+# Date: 2020-01-14 03:45:02
+# Regressor Bug: 1599043
+# File Overlap Count: 1
+# Description:
+#   Bug 1599043 - Part 2: Allow the WindowGlobalParent to send OnContentBlockingEvent in parent. r=dimi,Ehsan
+#   
+#   This patch makes the WindowGlobalParent to be able to send the
+#   OnContentBlockingEvent in the parent process.
+#   
+# ==============================================================================
+
+diff -r 2c4f84b0e661 -r 7316a18109f9 dom/ipc/WindowGlobalParent.cpp
+--- a/dom/ipc/WindowGlobalParent.cpp	Mon Jan 13 14:06:50 2020 +0000
++++ b/dom/ipc/WindowGlobalParent.cpp	Mon Jan 13 14:07:02 2020 +0000
+@@ -13,6 +13,7 @@
+ #include "mozilla/dom/ContentParent.h"
+ #include "mozilla/dom/BrowserHost.h"
+ #include "mozilla/dom/BrowserParent.h"
++#include "mozilla/dom/RemoteWebProgress.h"
+ #include "mozilla/dom/WindowGlobalActorsBinding.h"
+ #include "mozilla/dom/WindowGlobalChild.h"
+ #include "mozilla/dom/ChromeUtils.h"
+@@ -30,6 +31,7 @@
+ #include "nsQueryObject.h"
+ #include "nsFrameLoaderOwner.h"
+ #include "nsSerializationHelper.h"
++#include "nsIBrowser.h"
+ #include "nsITransportSecurityInfo.h"
+ #include "nsISharePicker.h"
+ 
+@@ -303,6 +305,8 @@
+   MOZ_ASSERT_IF(aBlocked, aReason.isNothing());
+   MOZ_ASSERT_IF(!isCookiesBlockedTracker, aReason.isNothing());
+   MOZ_ASSERT_IF(isCookiesBlockedTracker && !aBlocked, aReason.isSome());
++  MOZ_DIAGNOSTIC_ASSERT(XRE_IsParentProcess());
++  MOZ_DIAGNOSTIC_ASSERT_IF(XRE_IsE10sParentProcess(), !IsInProcess());
+ 
+   // Return early if this WindowGlobalParent is in process.
+   if (IsInProcess()) {
+@@ -315,8 +319,35 @@
+   Maybe<uint32_t> event = GetContentBlockingLog()->RecordLogParent(
+       origin, aEvent, aBlocked, aReason, aTrackingFullHashes);
+ 
++  // Notify the OnContentBlockingEvent if necessary.
+   if (event) {
+-    // Notify the OnContentBlockingEvent.
++    // Get the browser parent from the manager directly since the content
++    // blocking event could happen in the early stage of loading, i.e.
++    // accessing cookies for the http header. At this stage, the actor is
++    // not ready, so we would get a nullptr from GetBrowserParent(). But,
++    // we can actually get it from the manager.
++    RefPtr<BrowserParent> browserParent =
++        static_cast<BrowserParent*>(Manager());
++    if (NS_WARN_IF(!browserParent)) {
++      return;
++    }
++
++    nsCOMPtr<nsIBrowser> browser;
++    nsCOMPtr<nsIWebProgress> manager;
++    nsCOMPtr<nsIWebProgressListener> managerAsListener;
++
++    if (!browserParent->GetWebProgressListener(
++            getter_AddRefs(browser), getter_AddRefs(manager),
++            getter_AddRefs(managerAsListener))) {
++      return;
++    }
++
++    nsCOMPtr<nsIWebProgress> webProgress =
++        new RemoteWebProgress(manager, OuterWindowId(), InnerWindowId(), 0,
++                              false, BrowsingContext()->IsTopContent());
++
++    Unused << managerAsListener->OnContentBlockingEvent(webProgress, aRequest,
++                                                        event.value());
+   }
+ }
+ 

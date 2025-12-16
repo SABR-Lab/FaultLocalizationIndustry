@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsContentList.cpp
+# Commit: 3d4472548fb9
+# Full Hash: 3d4472548fb9d48cce00f59066690611ee20ffcb
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2024-11-26 09:36:10
+# Regressor Bug: 1931301
+# File Overlap Count: 1
+# Description:
+#   Bug 1931301 - Notify of removals on a stable state, not mid-remove. r=smaug,masayuki,dshin
+#   
+#   This simplifies some observers, and makes others a bit more subtle, but I think
+#   over-all it is an improvement.
+#   
+# ==============================================================================
+
+diff -r 20a0394d798f -r 3d4472548fb9 dom/base/nsContentList.cpp
+--- a/dom/base/nsContentList.cpp	Mon Nov 25 17:56:21 2024 +0000
++++ b/dom/base/nsContentList.cpp	Mon Nov 25 17:58:40 2024 +0000
+@@ -814,8 +814,7 @@
+   ASSERT_IN_SYNC;
+ }
+ 
+-void nsContentList::ContentRemoved(nsIContent* aChild,
+-                                   nsIContent* aPreviousSibling) {
++void nsContentList::ContentWillBeRemoved(nsIContent* aChild) {
+   if (mState != State::Dirty &&
+       MayContainRelevantNodes(aChild->GetParentNode()) &&
+       nsContentUtils::IsInSameAnonymousTree(mRootNode, aChild) &&
+@@ -1120,7 +1119,7 @@
+   // If a labelable element is moved to outside or inside of
+   // nested associated labels, we're gonna have to modify
+   // the content list.
+-  if (mState != State::Dirty ||
++  if (mState != State::Dirty &&
+       nsContentUtils::IsInSameAnonymousTree(mRootNode, container)) {
+     SetDirty();
+     return;
+@@ -1131,18 +1130,17 @@
+   // If a labelable element is moved to outside or inside of
+   // nested associated labels, we're gonna have to modify
+   // the content list.
+-  if (mState != State::Dirty ||
++  if (mState != State::Dirty &&
+       nsContentUtils::IsInSameAnonymousTree(mRootNode, aChild)) {
+     SetDirty();
+     return;
+   }
+ }
+ 
+-void nsLabelsNodeList::ContentRemoved(nsIContent* aChild,
+-                                      nsIContent* aPreviousSibling) {
++void nsLabelsNodeList::ContentWillBeRemoved(nsIContent* aChild) {
+   // If a labelable element is removed, we're gonna have to clean
+   // the content list.
+-  if (mState != State::Dirty ||
++  if (mState != State::Dirty &&
+       nsContentUtils::IsInSameAnonymousTree(mRootNode, aChild)) {
+     SetDirty();
+     return;

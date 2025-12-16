@@ -1,0 +1,114 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/base/PresShell.cpp
+# Commit: c428c3ad7725
+# Full Hash: c428c3ad7725593f33b4ea2da9851be31be0c1df
+# Author: Martin Robinson <mrobinson@igalia.com>
+# Date: 2022-11-28 15:41:50
+# Regressor Bug: 1791759
+# File Overlap Count: 1
+# Description:
+#   Bug 1791759 - Add support for `content-visibility: auto` r=emilio
+#   
+#   This change adds support for `content-visibilty: auto` as well as
+#   showing and hiding content based on the relevancy of the content as
+#   defined in the specification. Changes to relevancy are handled by
+# ==============================================================================
+
+diff -r ce553434720c -r c428c3ad7725 layout/base/PresShell.cpp
+--- a/layout/base/PresShell.cpp	Mon Nov 28 09:45:39 2022 +0000
++++ b/layout/base/PresShell.cpp	Mon Nov 28 09:53:06 2022 +0000
+@@ -2279,6 +2279,8 @@
+       mPendingScrollAnchorAdjustment.Remove(scrollableFrame);
+       mPendingScrollResnap.Remove(scrollableFrame);
+     }
++
++    mContentVisibilityAutoFrames.Remove(aFrame);
+   }
+ }
+ 
+@@ -3662,6 +3664,18 @@
+     mContentToScrollTo = nullptr;
+   }
+ 
++  // If the target frame is an ancestor of a `content-visibility: auto`
++  // element ensure that it is laid out, so that the boundary rectangle is
++  // correct.
++  if (mContentToScrollTo) {
++    if (nsIFrame* frame = mContentToScrollTo->GetPrimaryFrame()) {
++      if (frame->IsHiddenByContentVisibilityOnAnyAncestor(
++              nsIFrame::IncludeContentVisibility::Auto)) {
++        frame->PresShell()->EnsureReflowIfFrameHasHiddenContent(frame);
++      }
++    }
++  }
++
+   // Flush layout and attempt to scroll in the process.
+   if (PresShell* presShell = composedDoc->GetPresShell()) {
+     presShell->SetNeedLayoutFlush();
+@@ -3704,7 +3718,9 @@
+   NS_ASSERTION(mDidInitialize, "should have done initial reflow by now");
+ 
+   nsIFrame* frame = mContentToScrollTo->GetPrimaryFrame();
+-  if (!frame || frame->IsHiddenByContentVisibilityOnAnyAncestor()) {
++
++  if (!frame || frame->IsHiddenByContentVisibilityOnAnyAncestor(
++                    nsIFrame::IncludeContentVisibility::Hidden)) {
+     mContentToScrollTo->RemoveProperty(nsGkAtoms::scrolling);
+     mContentToScrollTo = nullptr;
+     return;
+@@ -3731,10 +3747,6 @@
+ bool PresShell::ScrollFrameIntoView(
+     nsIFrame* aTargetFrame, const Maybe<nsRect>& aKnownRectRelativeToTarget,
+     ScrollAxis aVertical, ScrollAxis aHorizontal, ScrollFlags aScrollFlags) {
+-  if (aTargetFrame->IsHiddenByContentVisibilityOnAnyAncestor()) {
+-    return false;
+-  }
+-
+   // The scroll margin only applies to the whole bounds of the element, so don't
+   // apply it if we get an arbitrary rect / point to scroll to.
+   const nsMargin scrollMargin =
+@@ -4272,6 +4284,13 @@
+    */
+   FlushType flushType = aFlush.mFlushType;
+ 
++  // If this is a layout flush, first update the relevancy of any content
++  // of elements with `content-visibility: auto` so that the values
++  // returned from script queries are up-to-date.
++  if (flushType >= mozilla::FlushType::Layout) {
++    UpdateRelevancyOfContentVisibilityAutoFrames();
++  }
++
+   MOZ_ASSERT(NeedFlush(flushType), "Why did we get called?");
+ 
+   AUTO_PROFILER_MARKER_TEXT(
+@@ -11899,3 +11918,28 @@
+ bool PresShell::IsForcingLayoutForHiddenContent(const nsIFrame* aFrame) const {
+   return mHiddenContentInForcedLayout.Contains(aFrame->GetContent());
+ }
++
++void PresShell::UpdateRelevancyOfContentVisibilityAutoFrames() {
++  if (mContentVisibilityRelevancyToUpdate.isEmpty()) {
++    return;
++  }
++
++  for (nsIFrame* frame : mContentVisibilityAutoFrames) {
++    frame->UpdateIsRelevantContent(mContentVisibilityRelevancyToUpdate);
++  }
++
++  mContentVisibilityRelevancyToUpdate.clear();
++}
++
++void PresShell::ScheduleContentRelevancyUpdate(ContentRelevancyReason aReason) {
++  if (MOZ_UNLIKELY(mIsDestroying)) {
++    return;
++  }
++
++  mContentVisibilityRelevancyToUpdate += aReason;
++
++  SetNeedLayoutFlush();
++  if (nsPresContext* presContext = GetPresContext()) {
++    presContext->RefreshDriver()->EnsureContentRelevancyUpdateHappens();
++  }
++}

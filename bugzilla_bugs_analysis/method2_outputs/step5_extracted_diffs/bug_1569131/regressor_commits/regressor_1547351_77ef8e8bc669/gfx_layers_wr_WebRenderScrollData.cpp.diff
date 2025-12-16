@@ -1,0 +1,77 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/wr/WebRenderScrollData.cpp
+# Commit: 77ef8e8bc669
+# Full Hash: 77ef8e8bc669c9ecab4d94505b11b3cb732446c5
+# Author: Alexis Beingessner <a.beingessner@gmail.com>
+# Date: 2019-07-15 21:39:46
+# Regressor Bug: 1547351
+# File Overlap Count: 2
+# Description:
+#   Bug 1547351 - Automatically set content process render root r=kats
+#   
+#   This implements the idea of automatically setting a content proc's
+#   render root based on the render root enclosing the iframe that
+#   points to it. There was a bit of cleanup in here that was a bit
+# ==============================================================================
+
+diff -r b594f8e47025 -r 77ef8e8bc669 gfx/layers/wr/WebRenderScrollData.cpp
+--- a/gfx/layers/wr/WebRenderScrollData.cpp	Mon Jul 15 13:20:31 2019 +0000
++++ b/gfx/layers/wr/WebRenderScrollData.cpp	Mon Jul 15 13:18:44 2019 +0000
+@@ -158,13 +158,14 @@
+ 
+ size_t WebRenderScrollData::AddMetadata(const ScrollMetadata& aMetadata) {
+   ScrollableLayerGuid::ViewID scrollId = aMetadata.GetMetrics().GetScrollId();
+-  auto insertResult = mScrollIdMap.insert(std::make_pair(scrollId, 0));
+-  if (insertResult.second) {
+-    // Insertion took place, therefore it's a scrollId we hadn't seen before
+-    insertResult.first->second = mScrollMetadatas.Length();
++  auto p = mScrollIdMap.lookupForAdd(scrollId);
++  if (!p) {
++    // It's a scrollId we hadn't seen before
++    bool ok = mScrollIdMap.add(p, scrollId, mScrollMetadatas.Length());
++    MOZ_RELEASE_ASSERT(ok);
+     mScrollMetadatas.AppendElement(aMetadata);
+   }  // else we didn't insert, because it already existed
+-  return insertResult.first->second;
++  return p->value();
+ }
+ 
+ size_t WebRenderScrollData::AddLayerData(
+@@ -193,8 +194,8 @@
+ 
+ Maybe<size_t> WebRenderScrollData::HasMetadataFor(
+     const ScrollableLayerGuid::ViewID& aScrollId) const {
+-  auto it = mScrollIdMap.find(aScrollId);
+-  return (it == mScrollIdMap.end() ? Nothing() : Some(it->second));
++  auto ptr = mScrollIdMap.lookup(aScrollId);
++  return (ptr ? Some(ptr->value()) : Nothing());
+ }
+ 
+ void WebRenderScrollData::SetIsFirstPaint() { mIsFirstPaint = true; }
+@@ -212,10 +213,11 @@
+ 
+ void WebRenderScrollData::ApplyUpdates(const ScrollUpdatesMap& aUpdates,
+                                        uint32_t aPaintSequenceNumber) {
+-  for (const auto& update : aUpdates) {
+-    if (Maybe<size_t> index = HasMetadataFor(update.first)) {
++  for (auto it = aUpdates.iter(); !it.done(); it.next()) {
++    auto& entry = it.get();
++    if (Maybe<size_t> index = HasMetadataFor(entry.key())) {
+       mScrollMetadatas[*index].GetMetrics().UpdatePendingScrollInfo(
+-          update.second);
++          entry.value());
+     }
+   }
+   mPaintSequenceNumber = aPaintSequenceNumber;
+@@ -234,7 +236,8 @@
+   for (size_t i = 0; i < mScrollMetadatas.Length(); i++) {
+     ScrollableLayerGuid::ViewID scrollId =
+         mScrollMetadatas[i].GetMetrics().GetScrollId();
+-    mScrollIdMap.emplace(scrollId, i);
++    bool ok = mScrollIdMap.putNew(scrollId, i);
++    MOZ_RELEASE_ASSERT(ok);
+   }
+   return true;
+ }

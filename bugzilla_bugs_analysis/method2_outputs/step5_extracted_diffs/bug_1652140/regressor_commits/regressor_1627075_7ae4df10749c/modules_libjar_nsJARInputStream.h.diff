@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: modules/libjar/nsJARInputStream.h
+# Commit: 7ae4df10749c
+# Full Hash: 7ae4df10749c176009923591c252c634571c21d1
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2020-07-02 15:21:09
+# Regressor Bug: 1627075
+# File Overlap Count: 1
+# Description:
+#   Bug 1627075 - Route Omnijar requests through StartupCache r=froydnj
+#   
+#   This should be a relatively straightforward patch. Essentially, we implement
+#   a wrapper class (and friends) around nsZipArchive (and friends), which transparently
+#   caches entries from the underlying zip archive in the StartupCache. This will break
+# ==============================================================================
+
+diff -r ece9a4223349 -r 7ae4df10749c modules/libjar/nsJARInputStream.h
+--- a/modules/libjar/nsJARInputStream.h	Thu Jul 02 03:39:46 2020 +0000
++++ b/modules/libjar/nsJARInputStream.h	Thu Jul 02 02:51:41 2020 +0000
+@@ -11,6 +11,7 @@
+ #include "nsJAR.h"
+ #include "nsTArray.h"
+ #include "mozilla/Attributes.h"
++#include "mozilla/Omnijar.h"
+ 
+ #ifdef MOZ_JAR_BROTLI
+ struct BrotliDecoderStateStruct;
+@@ -51,11 +52,11 @@
+  private:
+   ~nsJARInputStream() { Close(); }
+ 
+-  RefPtr<nsZipHandle> mFd;  // handle for reading
+-  uint32_t mOutSize;        // inflated size
+-  uint32_t mInCrc;          // CRC as provided by the zipentry
+-  uint32_t mOutCrc;         // CRC as calculated by me
+-  z_stream mZs;             // zip data structure
++  mozilla::CacheAwareZipHandle mItemHandle;  // handle for reading
++  uint32_t mOutSize;                         // inflated size
++  uint32_t mInCrc;                           // CRC as provided by the zipentry
++  uint32_t mOutCrc;                          // CRC as calculated by me
++  z_stream mZs;                              // zip data structure
+ #ifdef MOZ_JAR_BROTLI
+   BrotliDecoderStateStruct* mBrotliState;  // Brotli decoder state
+ #endif

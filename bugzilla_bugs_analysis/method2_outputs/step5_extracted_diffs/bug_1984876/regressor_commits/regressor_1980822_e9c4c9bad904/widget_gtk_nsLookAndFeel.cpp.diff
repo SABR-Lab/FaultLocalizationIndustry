@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/nsLookAndFeel.cpp
+# Commit: e9c4c9bad904
+# Full Hash: e9c4c9bad904fbba96c6e69baa347200f49814fc
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2025-08-04 21:33:32
+# Regressor Bug: 1980822
+# File Overlap Count: 1
+# Description:
+#   Bug 1980822 - Modernize GSettings interface. r=stransky
+#   
+#   We don't really need to support scripting except for a single shell
+#   test. Expose a much more reduced API for that instead.
+#   
+# ==============================================================================
+
+diff -r 8323476e4964 -r e9c4c9bad904 widget/gtk/nsLookAndFeel.cpp
+--- a/widget/gtk/nsLookAndFeel.cpp	Mon Aug 04 09:36:44 2025 +0000
++++ b/widget/gtk/nsLookAndFeel.cpp	Mon Aug 04 09:37:04 2025 +0000
+@@ -19,6 +19,7 @@
+ #include <fontconfig/fontconfig.h>
+ 
+ #include "GRefPtr.h"
++#include "GSettings.h"
+ #include "GUniquePtr.h"
+ #include "gtk/gtk.h"
+ #include "nsGtkUtils.h"
+@@ -42,7 +43,6 @@
+ #include "gfxFontConstants.h"
+ #include "WidgetUtils.h"
+ #include "nsWindow.h"
+-#include "nsIGSettingsService.h"
+ 
+ #include "mozilla/gfx/2D.h"
+ 
+@@ -1204,21 +1204,9 @@
+       break;
+     case IntID::HourCycle:
+       aResult = []() {
+-        nsCOMPtr<nsIGSettingsService> gsettings =
+-            do_GetService(NS_GSETTINGSSERVICE_CONTRACTID);
+-        if (!gsettings) {
+-          return 0;
+-        }
+-
+-        nsCOMPtr<nsIGSettingsCollection> desktop_settings;
+-        gsettings->GetCollectionForSchema("org.gnome.desktop.interface"_ns,
+-                                          getter_AddRefs(desktop_settings));
+-        if (!desktop_settings) {
+-          return 0;
+-        }
+-
+         nsAutoCString result;
+-        desktop_settings->GetString("clock-format"_ns, result);
++        widget::GSettings::GetString("org.gnome.desktop.interface"_ns,
++                                     "clock-format"_ns, result);
+         if (result == "12h") {
+           return 12;
+         }

@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/ogg/OggCodecState.cpp
+# Commit: 73f2aca7a65b
+# Full Hash: 73f2aca7a65b5f272fb70200f4b92eec6c67b5bc
+# Author: alwu <alwu@mozilla.com>
+# Date: 2023-09-06 03:51:21
+# Regressor Bug: 1850434
+# File Overlap Count: 1
+# Description:
+#   Bug 1850434 - part1 : duration shouldn't be negative. r=media-playback-reviewers,azebrowski
+#   
+#   The reasons of OGG crashing are
+#   1) Duration becomes negative after trimming
+#   2) Invalid negativae duration in the file
+# ==============================================================================
+
+diff -r 3cd76e15e48e -r 73f2aca7a65b dom/media/ogg/OggCodecState.cpp
+--- a/dom/media/ogg/OggCodecState.cpp	Wed Sep 06 03:18:00 2023 +0300
++++ b/dom/media/ogg/OggCodecState.cpp	Wed Sep 06 00:46:40 2023 +0000
+@@ -273,7 +273,12 @@
+   NS_ASSERTION(endTimestamp.IsPositiveOrZero(), "timestamp invalid");
+ 
+   TimeUnit duration = PacketDuration(packet.get());
+-  NS_ASSERTION(duration.IsPositiveOrZero(), "duration invalid");
++  if (!duration.IsPositiveOrZero()) {
++    NS_WARNING(
++        nsPrintfCString("duration invalid! (%s)", duration.ToString().get())
++            .get());
++    duration = TimeUnit::Zero(endTimestamp);
++  }
+ 
+   sample->mTimecode = Time(packet->granulepos);
+   sample->mTime = endTimestamp - duration;
+@@ -1278,6 +1283,9 @@
+     data->mOriginalPresentationWindow =
+         Some(media::TimeInterval{data->mTime, data->mTime + data->mDuration});
+     data->mDuration -= toTrim;
++    if (data->mDuration.IsNegative()) {
++      data->mDuration = TimeUnit::Zero(data->mTime);
++    }
+   }
+ 
+   // Save this packet's granule position in case we need to perform end

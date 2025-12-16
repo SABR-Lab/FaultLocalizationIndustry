@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/svg/SVGObserverUtils.h
+# Commit: b16351df250c
+# Full Hash: b16351df250c572a14efa126f7702fe104ac9fd7
+# Author: Robert Longson <longsonr@gmail.com>
+# Date: 2023-07-22 21:26:48
+# Regressor Bug: 1843945
+# File Overlap Count: 1
+# Description:
+#   Bug 1843945 - optimise SVGObserverUtils r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D183802
+# ==============================================================================
+
+diff -r 7e8063ebfd83 -r b16351df250c layout/svg/SVGObserverUtils.h
+--- a/layout/svg/SVGObserverUtils.h	Sat Jul 22 10:03:30 2023 +0000
++++ b/layout/svg/SVGObserverUtils.h	Sat Jul 22 14:06:38 2023 +0000
+@@ -99,9 +99,15 @@
+   virtual ~SVGRenderingObserver() = default;
+ 
+  public:
++  enum Flags : uint32_t {
++    OBSERVE_ATTRIBUTE_CHANGES = 0x01,
++    OBSERVE_CONTENT_CHANGES = 0x02
++  };
+   using Element = dom::Element;
+ 
+-  SVGRenderingObserver() : mInObserverSet(false) {}
++  SVGRenderingObserver(uint32_t aFlags = OBSERVE_ATTRIBUTE_CHANGES |
++                                         OBSERVE_CONTENT_CHANGES)
++      : mInObserverSet(false), mFlags(aFlags) {}
+ 
+   // nsIMutationObserver
+   NS_DECL_NSIMUTATIONOBSERVER_ATTRIBUTECHANGED
+@@ -162,6 +168,9 @@
+ 
+   // Whether we're in our observed element's observer set at this time.
+   bool mInObserverSet;
++
++  // Flags to control what changes we notify about.
++  uint32_t mFlags;
+ };
+ 
+ class SVGObserverUtils {

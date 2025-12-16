@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/webrender_bindings/RenderCompositorD3D11SWGL.cpp
+# Commit: 54c0d9775ec6
+# Full Hash: 54c0d9775ec6ba1ac06d92a06f2258253c2c26c2
+# Author: Jeff Muizelaar <jmuizelaar@mozilla.com>
+# Date: 2021-06-23 09:53:24
+# Regressor Bug: 1717737
+# File Overlap Count: 1
+# Description:
+#   Bug 1717737 - Probe mapped data to ensure it's writable. r=mattwoodrow
+#   
+#   In bug 1717519 we're seeing access violations when writing
+#   to the destination with SWGL. This does some early writes
+#   to try to catch the problem earlier.
+# ==============================================================================
+
+diff -r 6ce07df62710 -r 54c0d9775ec6 gfx/webrender_bindings/RenderCompositorD3D11SWGL.cpp
+--- a/gfx/webrender_bindings/RenderCompositorD3D11SWGL.cpp	Wed Jun 23 02:29:19 2021 +0000
++++ b/gfx/webrender_bindings/RenderCompositorD3D11SWGL.cpp	Wed Jun 23 02:33:20 2021 +0000
+@@ -229,6 +229,17 @@
+ 
+     *aData = map.mData + aValidRect.min.y * map.mStride + aValidRect.min.x * 4;
+     *aStride = map.mStride;
++    // Ensure our mapped data is accessible by writing to the beginning and end
++    // of the dirty region. See bug 171519
++    uint32_t* probeData = (uint32_t*)map.mData +
++                          aDirtyRect.min.y * (map.mStride / 4) +
++                          aDirtyRect.min.x;
++    *probeData = 0;
++    uint32_t* probeDataEnd = (uint32_t*)map.mData +
++                             (aDirtyRect.max.y - 1) * (map.mStride / 4) +
++                             (aDirtyRect.max.x - 1);
++    *probeDataEnd = 0;
++
+     mValidRect = gfx::Rect(aValidRect.min.x, aValidRect.min.y,
+                            aValidRect.width(), aValidRect.height());
+     return true;
+@@ -295,6 +306,18 @@
+            aValidRect.min.y * mappedSubresource.RowPitch + aValidRect.min.x * 4;
+   *aStride = mappedSubresource.RowPitch;
+ 
++  // Ensure our mapped data is accessible by writing to the beginning and end
++  // of the dirty region. See bug 171519
++  uint32_t* probeData = (uint32_t*)mappedSubresource.pData +
++                        aDirtyRect.min.y * (mappedSubresource.RowPitch / 4) +
++                        aDirtyRect.min.x;
++  *probeData = 0;
++  uint32_t* probeDataEnd =
++      (uint32_t*)mappedSubresource.pData +
++      (aDirtyRect.max.y - 1) * (mappedSubresource.RowPitch / 4) +
++      (aDirtyRect.max.x - 1);
++  *probeDataEnd = 0;
++
+   // Store the new valid rect, so that we can composite only those pixels
+   mValidRect = gfx::Rect(aValidRect.min.x, aValidRect.min.y, aValidRect.width(),
+                          aValidRect.height());

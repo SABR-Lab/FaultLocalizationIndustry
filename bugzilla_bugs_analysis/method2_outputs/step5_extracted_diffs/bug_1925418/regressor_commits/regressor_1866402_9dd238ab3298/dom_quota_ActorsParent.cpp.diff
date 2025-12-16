@@ -1,0 +1,75 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/ActorsParent.cpp
+# Commit: 9dd238ab3298
+# Full Hash: 9dd238ab32980e473daf6a7572beb86157d59c26
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-10-15 16:18:18
+# Regressor Bug: 1866402
+# File Overlap Count: 1
+# Description:
+#   Bug 1866402 - Add support for initializing persistent storage to QuotaManager::OpenStorageDirectory; r=dom-storage-reviewers,jari
+#   
+#   QuotaManager::OpenStorageDirectory can now detect the requested persistence
+#   scope and initialize persistent storage if it's needed.
+#   
+# ==============================================================================
+
+diff -r 0fa1a6bd74cf -r 9dd238ab3298 dom/quota/ActorsParent.cpp
+--- a/dom/quota/ActorsParent.cpp	Tue Oct 15 04:55:54 2024 +0000
++++ b/dom/quota/ActorsParent.cpp	Tue Oct 15 05:12:36 2024 +0000
+@@ -5168,17 +5168,34 @@
+           mStorageInitialized, IsDirectoryLockBlockedByUninitStorageOperation,
+           MakeBackInserter(promises));
+ 
++  RefPtr<UniversalDirectoryLock> persistentStorageDirectoryLock;
++
+   RefPtr<UniversalDirectoryLock> temporaryStorageDirectoryLock;
+ 
+-  if (aInitializeOrigins &&
+-      MatchesBestEffortPersistenceScope(aPersistenceScope)) {
+-    temporaryStorageDirectoryLock = CreateDirectoryLockForInitialization(
+-        *this,
+-        PersistenceScope::CreateFromSet(PERSISTENCE_TYPE_TEMPORARY,
+-                                        PERSISTENCE_TYPE_DEFAULT),
+-        OriginScope::FromNull(), mTemporaryStorageInitialized,
+-        IsDirectoryLockBlockedByUninitStorageOperation,
+-        MakeBackInserter(promises));
++  if (aInitializeOrigins) {
++    if (MatchesPersistentPersistenceScope(aPersistenceScope)) {
++      persistentStorageDirectoryLock = CreateDirectoryLockForInitialization(
++          *this, PersistenceScope::CreateFromValue(PERSISTENCE_TYPE_PERSISTENT),
++          OriginScope::FromNull(), mPersistentStorageInitialized,
++          IsDirectoryLockBlockedByUninitStorageOperation,
++          MakeBackInserter(promises));
++    }
++
++    // We match all best effort persistence types, but the persistence scope is
++    // created only for the temporary and default persistence type because the
++    // repository for the private persistence type is never initialized as part
++    // of temporary initialization. However, some other steps of the temporary
++    // storage initialization need to be done even for the private persistence
++    // type. For example, the initialization of mTemporaryStorageLimit.
++    if (MatchesBestEffortPersistenceScope(aPersistenceScope)) {
++      temporaryStorageDirectoryLock = CreateDirectoryLockForInitialization(
++          *this,
++          PersistenceScope::CreateFromSet(PERSISTENCE_TYPE_TEMPORARY,
++                                          PERSISTENCE_TYPE_DEFAULT),
++          OriginScope::FromNull(), mTemporaryStorageInitialized,
++          IsDirectoryLockBlockedByUninitStorageOperation,
++          MakeBackInserter(promises));
++    }
+   }
+ 
+   RefPtr<UniversalDirectoryLock> universalDirectoryLock =
+@@ -5205,6 +5222,9 @@
+              MaybeInitialize(std::move(storageDirectoryLock), this,
+                              &QuotaManager::InitializeStorage))
+       ->Then(GetCurrentSerialEventTarget(), __func__,
++             MaybeInitialize(std::move(persistentStorageDirectoryLock), this,
++                             &QuotaManager::InitializePersistentStorage))
++      ->Then(GetCurrentSerialEventTarget(), __func__,
+              MaybeInitialize(std::move(temporaryStorageDirectoryLock), this,
+                              &QuotaManager::InitializeTemporaryStorage))
+       ->Then(GetCurrentSerialEventTarget(), __func__,

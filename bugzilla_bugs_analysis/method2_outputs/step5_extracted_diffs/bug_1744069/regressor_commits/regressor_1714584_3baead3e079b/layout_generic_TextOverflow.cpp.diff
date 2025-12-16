@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/TextOverflow.cpp
+# Commit: 3baead3e079b
+# Full Hash: 3baead3e079bc90e7637f7f338a185149a58aa3e
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2022-02-22 09:37:09
+# Regressor Bug: 1714584
+# File Overlap Count: 1
+# Description:
+#   Bug 1714584 - Part 2: Remove nsDisplayList::RemoveBottom() r=mstange
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D138153
+# ==============================================================================
+
+diff -r a2da895a58ce -r 3baead3e079b layout/generic/TextOverflow.cpp
+--- a/layout/generic/TextOverflow.cpp	Tue Feb 22 00:44:25 2022 +0000
++++ b/layout/generic/TextOverflow.cpp	Tue Feb 22 00:44:25 2022 +0000
+@@ -766,9 +766,7 @@
+ void TextOverflow::PruneDisplayListContents(
+     nsDisplayList* aList, const FrameHashtable& aFramesToHide,
+     const LogicalRect& aInsideMarkersArea) {
+-  nsDisplayList saved;
+-  nsDisplayItem* item;
+-  while ((item = aList->RemoveBottom())) {
++  for (nsDisplayItem* item : aList->TakeItems()) {
+     nsIFrame* itemFrame = item->Frame();
+     if (IsFrameDescendantOfAny(itemFrame, aFramesToHide, mBlock)) {
+       item->Destroy(mBuilder);
+@@ -804,9 +802,8 @@
+       }
+     }
+ 
+-    saved.AppendToTop(item);
++    aList->AppendToTop(item);
+   }
+-  aList->AppendToTop(&saved);
+ }
+ 
+ /* static */

@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/public/RootingAPI.h
+# Commit: a0d1fb0a86b0
+# Full Hash: a0d1fb0a86b04c74a8809c35230382f90cdfe779
+# Author: André Bargull <andre.bargull@gmail.com>
+# Date: 2020-01-07 21:57:58
+# Regressor Bug: 1530372
+# File Overlap Count: 1
+# Description:
+#   Bug 1530372 - Part 4: Support nursery allocation for BigInt. r=sfink,jandem
+#   
+#   Most of the code was copied from the String nursery allocation code paths and
+#   then adjusted to work with BigInts. Where applicable, the newly added BigInt
+#   functions were placed right next to the String functions, so it's easier to
+# ==============================================================================
+
+diff -r 9ae1e055de13 -r a0d1fb0a86b0 js/public/RootingAPI.h
+--- a/js/public/RootingAPI.h	Thu Jan 02 13:04:45 2020 +0000
++++ b/js/public/RootingAPI.h	Mon Jan 06 12:49:45 2020 +0000
+@@ -214,10 +214,15 @@
+                                               JSObject* next);
+ JS_FRIEND_API void HeapStringPostWriteBarrier(JSString** objp, JSString* prev,
+                                               JSString* next);
++JS_FRIEND_API void HeapBigIntPostWriteBarrier(JS::BigInt** bip,
++                                              JS::BigInt* prev,
++                                              JS::BigInt* next);
+ JS_FRIEND_API void HeapObjectWriteBarriers(JSObject** objp, JSObject* prev,
+                                            JSObject* next);
+ JS_FRIEND_API void HeapStringWriteBarriers(JSString** objp, JSString* prev,
+                                            JSString* next);
++JS_FRIEND_API void HeapBigIntWriteBarriers(JS::BigInt** bip, JS::BigInt* prev,
++                                           JS::BigInt* next);
+ JS_FRIEND_API void HeapScriptWriteBarriers(JSScript** objp, JSScript* prev,
+                                            JSScript* next);
+ 
+@@ -751,6 +756,15 @@
+   }
+ };
+ 
++template <>
++struct BarrierMethods<JS::BigInt*>
++    : public detail::PtrBarrierMethodsBase<JS::BigInt> {
++  static void postWriteBarrier(JS::BigInt** vp, JS::BigInt* prev,
++                               JS::BigInt* next) {
++    JS::HeapBigIntPostWriteBarrier(vp, prev, next);
++  }
++};
++
+ // Provide hash codes for Cell kinds that may be relocated and, thus, not have
+ // a stable address to use as the base for a hash code. Instead of the address,
+ // this hasher uses Cell::getUniqueId to provide exact matches and as a base

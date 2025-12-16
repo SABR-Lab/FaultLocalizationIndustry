@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/forms/nsCheckboxRadioFrame.cpp
+# Commit: 4b595e1843aa
+# Full Hash: 4b595e1843aa64b05f111f363838f3adea239f3a
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2024-09-19 21:27:30
+# Regressor Bug: 1918838
+# File Overlap Count: 1
+# Description:
+#   Bug 1918838 - Make CSS zoom apply to themed widgets properly. r=dshin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D222320
+# ==============================================================================
+
+diff -r 68a97b80a5b7 -r 4b595e1843aa layout/forms/nsCheckboxRadioFrame.cpp
+--- a/layout/forms/nsCheckboxRadioFrame.cpp	Thu Sep 19 09:23:28 2024 +0000
++++ b/layout/forms/nsCheckboxRadioFrame.cpp	Thu Sep 19 09:56:50 2024 +0000
+@@ -30,10 +30,10 @@
+ NS_QUERYFRAME_TAIL_INHERITING(nsAtomicContainerFrame)
+ 
+ nscoord nsCheckboxRadioFrame::DefaultSize() {
+-  if (StyleDisplay()->HasAppearance()) {
+-    return PresContext()->Theme()->GetCheckboxRadioPrefSize();
+-  }
+-  return CSSPixel::ToAppUnits(13);
++  const CSSCoord size = StyleDisplay()->HasAppearance()
++                            ? PresContext()->Theme()->GetCheckboxRadioPrefSize()
++                            : CSSCoord(13.0f);
++  return CSSPixel::ToAppUnits(Style()->EffectiveZoom().Zoom(size));
+ }
+ 
+ /* virtual */
+@@ -92,7 +92,8 @@
+   // than the margin edge).
+   // For "inverted" lines (typically in writing-mode:vertical-lr), use the
+   // block-start end instead.
+-  auto bp = CSSPixel::ToAppUnits(2);  // See kCheckboxRadioBorderWidth in Theme
++  // See kCheckboxRadioBorderWidth in Theme.cpp
++  auto bp = CSSPixel::ToAppUnits(Style()->EffectiveZoom().Zoom(2.0f));
+   return Some(aWM.IsLineInverted() ? std::min(bp, BSize(aWM))
+                                    : std::max(0, BSize(aWM) - bp));
+ }

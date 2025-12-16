@@ -1,0 +1,29 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/WaylandBuffer.cpp
+# Commit: 52438b61a819
+# Full Hash: 52438b61a819555c1fd7eab48fb7bd8dfe17902c
+# Author: stransky <stransky@redhat.com>
+# Date: 2025-01-28 04:37:39
+# Description:
+#   Bug 1943736 [Wayland] Don't assert if wl_buffer is already deleted at BufferDetachedCallbackHandler() r=emilio
+#   
+#   No need that assert if wl_buffer is deleted at BufferDetachedCallbackHandler(). It's enough that WaylandBuffer is still live.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D235581
+# ==============================================================================
+
+diff -r bb65a5456898 -r 52438b61a819 widget/gtk/WaylandBuffer.cpp
+--- a/widget/gtk/WaylandBuffer.cpp	Mon Jan 27 11:00:12 2025 +0000
++++ b/widget/gtk/WaylandBuffer.cpp	Mon Jan 27 11:10:28 2025 +0000
+@@ -221,7 +221,8 @@
+   LOGWAYLAND("WaylandBuffer::BufferDetachedCallbackHandler() [%p] aBuffer [%p]",
+              (void*)this, aBuffer);
+ 
+-  MOZ_DIAGNOSTIC_ASSERT(aBuffer == mWLBuffer, "Different buffer released?");
++  MOZ_DIAGNOSTIC_ASSERT(aBuffer == mWLBuffer || !mWLBuffer,
++                        "Different buffer released?");
+ 
+   // BufferDetachedCallbackHandler() should be caled by Wayland compostor
+   // on main thread only.

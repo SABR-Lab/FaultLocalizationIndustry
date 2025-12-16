@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/platforms/ffmpeg/ffvpx/FFVPXRuntimeLinker.h
+# Commit: 9b4ea6ecadd1
+# Full Hash: 9b4ea6ecadd1e56b9a279feab220a8bfab36809c
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2024-02-28 16:14:38
+# Regressor Bug: 1879873
+# File Overlap Count: 1
+# Description:
+#   Bug 1879873 - Directly use tx instead of the older avfft interface. r=karlt,media-playback-reviewers
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D202156
+# ==============================================================================
+
+diff -r 7c71c3d1a738 -r 9b4ea6ecadd1 dom/media/platforms/ffmpeg/ffvpx/FFVPXRuntimeLinker.h
+--- a/dom/media/platforms/ffmpeg/ffvpx/FFVPXRuntimeLinker.h	Wed Feb 28 12:50:27 2024 +0000
++++ b/dom/media/platforms/ffmpeg/ffvpx/FFVPXRuntimeLinker.h	Wed Feb 28 12:50:27 2024 +0000
+@@ -11,8 +11,12 @@
+ #include "PlatformEncoderModule.h"
+ #include "mozilla/StaticMutex.h"
+ #include "mozilla/ThreadSafety.h"
++#include "ffvpx/tx.h"
+ 
+-struct FFmpegRDFTFuncs;
++struct FFmpegFFTFuncs {
++  decltype(av_tx_init)* init;
++  decltype(av_tx_uninit)* uninit;
++};
+ 
+ namespace mozilla {
+ 
+@@ -23,7 +27,7 @@
+   static already_AddRefed<PlatformEncoderModule> CreateEncoder();
+ 
+   // Call (on any thread) after Init().
+-  static void GetRDFTFuncs(FFmpegRDFTFuncs* aOutFuncs);
++  static void GetFFTFuncs(FFmpegFFTFuncs* aOutFuncs);
+ 
+  private:
+   // Provide critical-section for Init() and sLinkStatus.

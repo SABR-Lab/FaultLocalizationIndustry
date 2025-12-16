@@ -1,0 +1,83 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/CompositionTransaction.cpp
+# Commit: 1466d7d61102
+# Full Hash: 1466d7d6110279cf167ab8b1567be693df5d7c3c
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2020-03-03 09:50:30
+# Regressor Bug: 1618089
+# File Overlap Count: 2
+# Description:
+#   Bug 1618089 - part 7: Make some related methods use `EditorDOMPointInText` for arguments or result r=m_kato
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D64338
+# ==============================================================================
+
+diff -r 079f4b05ead2 -r 1466d7d61102 editor/libeditor/CompositionTransaction.cpp
+--- a/editor/libeditor/CompositionTransaction.cpp	Tue Mar 03 02:19:59 2020 +0000
++++ b/editor/libeditor/CompositionTransaction.cpp	Tue Mar 03 01:15:38 2020 +0000
+@@ -23,43 +23,43 @@
+ 
+ // static
+ already_AddRefed<CompositionTransaction> CompositionTransaction::Create(
+-    EditorBase& aEditorBase, const nsAString& aStringToInsert, Text& aTextNode,
+-    uint32_t aOffset) {
++    EditorBase& aEditorBase, const nsAString& aStringToInsert,
++    const EditorDOMPointInText& aPointToInsert) {
++  MOZ_ASSERT(aPointToInsert.IsSetAndValid());
++
+   TextComposition* composition = aEditorBase.GetComposition();
+   MOZ_RELEASE_ASSERT(composition);
+   // XXX Actually, we get different text node and offset from editor in some
+   //     cases.  If composition stores text node, we should use it and offset
+   //     in it.
+-  Text* textNode = composition->GetContainerTextNode();
+-  uint32_t offset;
+-  if (textNode) {
+-    offset = composition->XPOffsetInTextNode();
++  EditorDOMPointInText pointToInsert;
++  if (Text* textNode = composition->GetContainerTextNode()) {
++    pointToInsert.Set(textNode, composition->XPOffsetInTextNode());
+     NS_WARNING_ASSERTION(
+-        &aTextNode == composition->GetContainerTextNode(),
++        pointToInsert.GetContainerAsText() ==
++            composition->GetContainerTextNode(),
+         "The editor tries to insert composition string into different node");
+     NS_WARNING_ASSERTION(
+-        aOffset == composition->XPOffsetInTextNode(),
++        pointToInsert.Offset() == composition->XPOffsetInTextNode(),
+         "The editor tries to insert composition string into different offset");
+   } else {
+-    textNode = &aTextNode;
+-    offset = aOffset;
++    pointToInsert = aPointToInsert;
+   }
+-  RefPtr<CompositionTransaction> transaction = new CompositionTransaction(
+-      aEditorBase, aStringToInsert, *textNode, offset);
++  RefPtr<CompositionTransaction> transaction =
++      new CompositionTransaction(aEditorBase, aStringToInsert, pointToInsert);
+   // XXX Now, it might be better to modify the text node information of
+   //     the TextComposition instance in DoTransaction() because updating
+   //     the information before changing actual DOM tree is pretty odd.
+-  composition->OnCreateCompositionTransaction(aStringToInsert, textNode,
+-                                              offset);
++  composition->OnCreateCompositionTransaction(
++      aStringToInsert, pointToInsert.ContainerAsText(), pointToInsert.Offset());
+   return transaction.forget();
+ }
+ 
+-CompositionTransaction::CompositionTransaction(EditorBase& aEditorBase,
+-                                               const nsAString& aStringToInsert,
+-                                               Text& aTextNode,
+-                                               uint32_t aOffset)
+-    : mTextNode(&aTextNode),
+-      mOffset(aOffset),
++CompositionTransaction::CompositionTransaction(
++    EditorBase& aEditorBase, const nsAString& aStringToInsert,
++    const EditorDOMPointInText& aPointToInsert)
++    : mTextNode(aPointToInsert.ContainerAsText()),
++      mOffset(aPointToInsert.Offset()),
+       mReplaceLength(aEditorBase.GetComposition()->XPLengthInTextNode()),
+       mRanges(aEditorBase.GetComposition()->GetRanges()),
+       mStringToInsert(aStringToInsert),

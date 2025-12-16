@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/HttpBackgroundChannelChild.cpp
+# Commit: d59b42f58f86
+# Full Hash: d59b42f58f861e049c1270035ea7568acc0605b9
+# Author: Junior Hsu <juhsu@mozilla.com>
+# Date: 2020-06-30 10:00:42
+# Regressor Bug: 1633935
+# File Overlap Count: 1
+# Description:
+#   Bug 1633935 - P3 send OS*R and ODA via pHttpChannel for multipart channel, r=mayhemer,necko-reviewers
+#   
+#   Depends on D76969
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D76970
+# ==============================================================================
+
+diff -r cbcd3ee87d28 -r d59b42f58f86 netwerk/protocol/http/HttpBackgroundChannelChild.cpp
+--- a/netwerk/protocol/http/HttpBackgroundChannelChild.cpp	Tue Jun 30 00:32:38 2020 +0000
++++ b/netwerk/protocol/http/HttpBackgroundChannelChild.cpp	Tue Jun 30 00:32:53 2020 +0000
+@@ -91,11 +91,12 @@
+   return !mChannelChild;
+ }
+ 
+-void HttpBackgroundChannelChild::OnStartRequestReceived() {
++void HttpBackgroundChannelChild::OnStartRequestReceived(
++    Maybe<uint32_t> aMultiPartID) {
+   LOG(("HttpBackgroundChannelChild::OnStartRequestReceived [this=%p]\n", this));
+   MOZ_ASSERT(OnSocketThread());
+   MOZ_ASSERT(mChannelChild);
+-  MOZ_ASSERT(!mStartReceived);  // Should only be called once.
++  MOZ_ASSERT(!mStartReceived || *aMultiPartID > 0);
+ 
+   mStartReceived = true;
+ 
+@@ -157,7 +158,7 @@
+                                        aRequestHeaders, aArgs);
+   // Allow to queue other runnable since OnStartRequest Event already hits the
+   // child's mEventQ.
+-  OnStartRequestReceived();
++  OnStartRequestReceived(aArgs.multiPartID());
+ 
+   return IPC_OK();
+ }

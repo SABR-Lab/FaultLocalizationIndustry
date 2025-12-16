@@ -1,0 +1,86 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/cubeb-coreaudio/src/backend/aggregate_device.rs
+# Commit: ad954710c53f
+# Full Hash: ad954710c53fa84879169b4f3d7994bb5f2ab714
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2024-06-03 16:07:28
+# Regressor Bug: 1890186
+# File Overlap Count: 5
+# Description:
+#   Bug 1890186: Update cubeb-coreaudio-rs to 1796ace5bd. r=cubeb-reviewers,padenot
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D212311
+# ==============================================================================
+
+diff -r 8952a815f4b4 -r ad954710c53f third_party/rust/cubeb-coreaudio/src/backend/aggregate_device.rs
+--- a/third_party/rust/cubeb-coreaudio/src/backend/aggregate_device.rs	Mon Jun 03 13:31:38 2024 +0300
++++ b/third_party/rust/cubeb-coreaudio/src/backend/aggregate_device.rs	Mon Jun 03 10:03:39 2024 +0000
+@@ -185,9 +185,7 @@
+         let (lock, cvar) = &*condvar_pair;
+         let guard = lock.lock().unwrap();
+         let (_guard, timeout_res) = cvar
+-            .wait_timeout_while(guard, waiting_time, |()| {
+-                !audiounit_get_devices().contains(&device)
+-            })
++            .wait_timeout_while(guard, waiting_time, |()| !get_devices().contains(&device))
+             .unwrap();
+         if timeout_res.timed_out() {
+             cubeb_log!(
+@@ -396,8 +394,8 @@
+         assert_ne!(input_id, output_id);
+         debug_assert_running_serially();
+ 
+-        let output_sub_devices = Self::get_sub_devices(output_id)?;
+-        let input_sub_devices = Self::get_sub_devices(input_id)?;
++        let output_sub_devices = Self::get_sub_devices_or_self(output_id)?;
++        let input_sub_devices = Self::get_sub_devices_or_self(input_id)?;
+ 
+         unsafe {
+             let sub_devices = CFArrayCreateMutable(ptr::null(), 0, &kCFTypeArrayCallBacks);
+@@ -445,16 +443,10 @@
+         let mut size: usize = 0;
+         let status = audio_object_get_property_data_size(device_id, &address, &mut size);
+ 
+-        if status == kAudioHardwareUnknownPropertyError as OSStatus {
+-            // Return a vector containing the device itself if the device has no sub devices.
+-            sub_devices.push(device_id);
+-            return Ok(sub_devices);
+-        } else if status != NO_ERR {
++        if status != NO_ERR {
+             return Err(Error::from(status));
+         }
+ 
+-        assert_ne!(size, 0);
+-
+         let count = size / mem::size_of::<AudioObjectID>();
+         sub_devices = allocate_array(count);
+         let status = audio_object_get_property_data(
+@@ -471,6 +463,17 @@
+         }
+     }
+ 
++    pub fn get_sub_devices_or_self(
++        device_id: AudioDeviceID,
++    ) -> std::result::Result<Vec<AudioObjectID>, Error> {
++        AggregateDevice::get_sub_devices(device_id).or_else(|e| match e {
++            Error::OS(status) if status == kAudioHardwareUnknownPropertyError as OSStatus => {
++                Ok(vec![device_id])
++            }
++            _ => Err(e),
++        })
++    }
++
+     pub fn get_master_device_uid(device_id: AudioDeviceID) -> std::result::Result<String, Error> {
+         debug_assert_running_serially();
+         let address = AudioObjectPropertyAddress {
+@@ -515,7 +518,7 @@
+         };
+ 
+         // The master device will be the 1st sub device of the primary device.
+-        let output_sub_devices = Self::get_sub_devices(primary_id)?;
++        let output_sub_devices = Self::get_sub_devices_or_self(primary_id)?;
+         assert!(!output_sub_devices.is_empty());
+         let master_sub_device_uid = get_device_global_uid(output_sub_devices[0]).unwrap();
+         let master_sub_device = master_sub_device_uid.get_raw();

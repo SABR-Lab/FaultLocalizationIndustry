@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/internal_types.rs
+# Commit: 0edb6b6f17b2
+# Full Hash: 0edb6b6f17b24c737d053df19730e9c9e61e17ca
+# Author: Glenn Watson <git@intuitionlibrary.com>
+# Date: 2020-12-18 04:07:40
+# Regressor Bug: 1682365
+# File Overlap Count: 1
+# Description:
+#   Bug 1682365 - Pt 2 - Remove texture array usage from render task graph. r=nical
+#   
+#   With this change, all color/alpha intermediate surfaces are individual
+#   textures, rather than texture arrays.
+#   
+# ==============================================================================
+
+diff -r ee0de0eac18d -r 0edb6b6f17b2 gfx/wr/webrender/src/internal_types.rs
+--- a/gfx/wr/webrender/src/internal_types.rs	Thu Dec 17 22:26:08 2020 +0000
++++ b/gfx/wr/webrender/src/internal_types.rs	Thu Dec 17 22:26:10 2020 +0000
+@@ -265,7 +265,7 @@
+     /// Equivalent to `None`, allowing us to avoid using `Option`s everywhere.
+     Invalid,
+     /// An entry in the texture cache.
+-    TextureCache(CacheTextureId, ImageBufferKind, Swizzle),
++    TextureCache(CacheTextureId, Swizzle),
+     /// An external image texture, mananged by the embedding.
+     External(DeferredResolveIndex, ImageBufferKind),
+     /// Select a dummy 1x1 white texture. This can be used by image
+@@ -276,12 +276,12 @@
+ impl TextureSource {
+     pub fn image_buffer_kind(&self) -> ImageBufferKind {
+         match *self {
+-            TextureSource::TextureCache(_, image_buffer_kind, _) => image_buffer_kind,
++            TextureSource::TextureCache(..) => ImageBufferKind::Texture2D,
+ 
+             TextureSource::External(_, image_buffer_kind) => image_buffer_kind,
+ 
+             // Render tasks use texture arrays for now.
+-            TextureSource::Dummy => ImageBufferKind::Texture2DArray,
++            TextureSource::Dummy => ImageBufferKind::Texture2D,
+ 
+             TextureSource::Invalid => ImageBufferKind::Texture2D,
+         }

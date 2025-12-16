@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/WorkerPrivate.h
+# Commit: bd7c4e7e5994
+# Full Hash: bd7c4e7e59946c7503a98d067ef001a8f5dfc548
+# Author: Andrew Sutherland <asutherland@asutherland.org>
+# Date: 2020-05-14 21:11:14
+# Regressor Bug: 1594572
+# File Overlap Count: 1
+# Description:
+#   Bug 1634259 - Improve worker shutdown edge case handling. r=perry
+#   
+#   Bug 1594572 attempted to fix a shutdown edge-case where a worker that was
+#   started late enough would fail to create a PBackground connection and
+#   early return.  This early return, however, left the worker never scheduled
+# ==============================================================================
+
+diff -r 80ba3f3cfaf9 -r bd7c4e7e5994 dom/workers/WorkerPrivate.h
+--- a/dom/workers/WorkerPrivate.h	Thu May 14 13:42:38 2020 +0000
++++ b/dom/workers/WorkerPrivate.h	Thu May 14 07:44:44 2020 +0000
+@@ -214,6 +214,22 @@
+     return std::move(mDefaultLocale);
+   }
+ 
++  /**
++   * Invoked by WorkerThreadPrimaryRunnable::Run if it already called
++   * SetWorkerPrivateInWorkerThread but has to bail out on initialization before
++   * calling DoRunLoop because PBackground failed to initialize or something
++   * like that.  Note that there's currently no point earlier than this that
++   * failure can be reported.
++   *
++   * When this happens, the worker will need to be deleted, plus the call to
++   * SetWorkerPrivateInWorkerThread will have scheduled all the
++   * mPreStartRunnables which need to be cleaned up after, as well as any
++   * scheduled control runnables.  We're somewhat punting on debugger runnables
++   * for now, which may leak, but the intent is to moot this whole scenario via
++   * shutdown blockers, so we don't want the extra complexity right now.
++   */
++  void RunLoopNeverRan();
++
+   MOZ_CAN_RUN_SCRIPT
+   void DoRunLoop(JSContext* aCx);
+ 

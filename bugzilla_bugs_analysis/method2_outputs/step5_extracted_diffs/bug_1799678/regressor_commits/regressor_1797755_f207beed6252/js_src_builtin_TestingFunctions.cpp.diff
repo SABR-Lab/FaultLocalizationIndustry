@@ -1,0 +1,89 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/builtin/TestingFunctions.cpp
+# Commit: f207beed6252
+# Full Hash: f207beed6252d85e5a64cc768eaef9d8a47b4912
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2022-10-28 04:43:55
+# Regressor Bug: 1797755
+# File Overlap Count: 1
+# Description:
+#   Bug 1797755 - Part 4: Remove option to set maximum mark stack capacity in release builds r=sfink
+#   
+#   Currently we have a GC parameter that allows setting a maximum mark stack
+#   capacity. This is only ever used by test code, not in the browser. This
+#   requires extra unnecessary work in release builds if we move to a different
+# ==============================================================================
+
+diff -r 4746d15d7a9f -r f207beed6252 js/src/builtin/TestingFunctions.cpp
+--- a/js/src/builtin/TestingFunctions.cpp	Thu Oct 27 18:23:03 2022 +0000
++++ b/js/src/builtin/TestingFunctions.cpp	Thu Oct 27 18:23:03 2022 +0000
+@@ -56,6 +56,7 @@
+ #include "frontend/CompilationStencil.h"  // frontend::CompilationStencil
+ #include "gc/Allocator.h"
+ #include "gc/GC.h"
++#include "gc/GCLock.h"
+ #include "gc/Zone.h"
+ #include "jit/BaselineJIT.h"
+ #include "jit/Disassemble.h"
+@@ -758,12 +759,6 @@
+   }
+ 
+   uint32_t value = floor(d);
+-  if (param == JSGC_MARK_STACK_LIMIT && JS::IsIncrementalGCInProgress(cx)) {
+-    JS_ReportErrorASCII(
+-        cx, "attempt to set markStackLimit while a GC is in progress");
+-    return false;
+-  }
+-
+   bool ok = cx->runtime()->gc.setParameter(param, value);
+   if (!ok) {
+     JS_ReportErrorASCII(cx, "Parameter value out of range");
+@@ -2424,6 +2419,33 @@
+   return true;
+ }
+ 
++static bool SetMarkStackLimit(JSContext* cx, unsigned argc, Value* vp) {
++  CallArgs args = CallArgsFromVp(argc, vp);
++  if (args.length() != 1) {
++    RootedObject callee(cx, &args.callee());
++    ReportUsageErrorASCII(cx, callee, "Wrong number of arguments");
++    return false;
++  }
++
++  int32_t value;
++  if (!ToInt32(cx, args[0], &value) || value <= 0) {
++    JS_ReportErrorASCII(cx, "Bad argument to SetMarkStackLimit");
++    return false;
++  }
++
++  if (JS::IsIncrementalGCInProgress(cx)) {
++    JS_ReportErrorASCII(
++        cx, "Attempt to set markStackLimit while a GC is in progress");
++    return false;
++  }
++
++  JSRuntime* runtime = cx->runtime();
++  AutoLockGC lock(runtime);
++  runtime->gc.setMarkStackLimit(value, lock);
++  args.rval().setUndefined();
++  return true;
++}
++
+ #endif /* JS_GC_ZEAL */
+ 
+ static bool GCState(JSContext* cx, unsigned argc, Value* vp) {
+@@ -8377,6 +8399,12 @@
+ "dumpGCArenaInfo()",
+ "  Prints information about the different GC things and how they are arranged\n"
+ "  in arenas.\n"),
++
++    JS_FN_HELP("setMarkStackLimit", SetMarkStackLimit, 1, 0,
++"markStackLimit(limit)",
++"  Sets a limit on the number of words used for the mark stack. Used to test OOM"
++"  handling during marking.\n"),
++
+ #endif
+ 
+     JS_FN_HELP("gcstate", GCState, 0, 0,

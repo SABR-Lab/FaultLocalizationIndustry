@@ -1,0 +1,28 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/find/nsFind.cpp
+# Commit: c51bc6c076a9
+# Full Hash: c51bc6c076a9d418078ab86c919f56420a30d339
+# Author: Jan-Niklas Jaeschke <jjaschke@mozilla.com>
+# Date: 2025-03-07 21:43:55
+# Description:
+#   Bug 1949877 - nsFind: Return null if boundary points are removed from the DOM tree. r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D240494
+# ==============================================================================
+
+diff -r bdf0a26f9ce0 -r c51bc6c076a9 toolkit/components/find/nsFind.cpp
+--- a/toolkit/components/find/nsFind.cpp	Fri Mar 07 08:36:17 2025 +0000
++++ b/toolkit/components/find/nsFind.cpp	Fri Mar 07 09:09:24 2025 +0000
+@@ -611,6 +611,10 @@
+ already_AddRefed<nsRange> nsFind::FindFromRangeBoundaries(
+     const nsAString& aPatText, const mozilla::RangeBoundary& aStartPoint,
+     const mozilla::RangeBoundary& aEndPoint) {
++  if (!aStartPoint.IsSetAndInComposedDoc() ||
++      !aEndPoint.IsSetAndInComposedDoc()) {
++    return nullptr;
++  }
+   MOZ_ASSERT(aStartPoint.IsSetAndValid());
+   MOZ_ASSERT(aEndPoint.IsSetAndValid());
+   // set up node index cache. If there is no cache given from the outside

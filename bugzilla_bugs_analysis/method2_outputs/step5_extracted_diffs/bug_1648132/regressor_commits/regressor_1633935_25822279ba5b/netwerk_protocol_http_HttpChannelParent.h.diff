@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/HttpChannelParent.h
+# Commit: 25822279ba5b
+# Full Hash: 25822279ba5b7b695bd9173969877e8d5ba19000
+# Author: Junior Hsu <juhsu@mozilla.com>
+# Date: 2020-06-24 09:31:07
+# Regressor Bug: 1633935
+# File Overlap Count: 1
+# Description:
+#   Bug 1633935 - P12 top-level IPC stream filter should happen before OnStartRequest, r=mayhemer,necko-reviewers
+#   
+#   The WebRequest will suspend the channel in nsHttpChannel::PrepareToConnect(), apply the stream filter, send the main thread IPC  and resume.
+#   That is, PHttpChannel::AttachStreamFilter should be handled in Child before OnStartRequest goes to listener.
+#   
+# ==============================================================================
+
+diff -r e87b11c172b9 -r 25822279ba5b netwerk/protocol/http/HttpChannelParent.h
+--- a/netwerk/protocol/http/HttpChannelParent.h	Tue Jun 23 16:58:38 2020 +0000
++++ b/netwerk/protocol/http/HttpChannelParent.h	Tue Jun 23 16:58:40 2020 +0000
+@@ -134,6 +134,9 @@
+   // BeginConnect.
+   void OverrideReferrerInfoDuringBeginConnect(nsIReferrerInfo* aReferrerInfo);
+ 
++  bool AttachStreamFilter(
++      Endpoint<extensions::PStreamFilterParent>&& aEndpoint);
++
+  protected:
+   // used to connect redirected-to channel in parent with just created
+   // ChildChannel.  Used during redirects.
+@@ -356,6 +359,12 @@
+   // Used to ensure methods can't be called before OnStartRequest.
+   uint8_t mAfterOnStartRequestBegun : 1;
+ 
++  // Set if the channel is attached with a stream filter and will send
++  // OnStartRequestSent to keep the order with OnStartRequest.
++  // AttachStreamFilter should be handled before OnStartRequest goes to the
++  // listener in child process, which could be racy with OnStartRequest.
++  uint8_t mStreamFilterAttached : 1;
++
+   // Number of events to wait before actually invoking AsyncOpen on the main
+   // channel. For each asynchronous step required before InvokeAsyncOpen, should
+   // increase 1 to mAsyncOpenBarrier and invoke TryInvokeAsyncOpen after

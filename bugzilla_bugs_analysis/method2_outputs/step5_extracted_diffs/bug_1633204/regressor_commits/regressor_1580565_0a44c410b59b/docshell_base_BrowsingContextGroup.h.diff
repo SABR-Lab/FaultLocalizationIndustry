@@ -1,0 +1,96 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/BrowsingContextGroup.h
+# Commit: 0a44c410b59b
+# Full Hash: 0a44c410b59bbc54bfd80ce598562e4362961d7e
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-04-24 09:51:27
+# Regressor Bug: 1580565
+# File Overlap Count: 3
+# Description:
+#   Bug 1580565 - Part 4: Use WindowContext to manage BrowsingContext cached status, r=farre
+#   
+#   The existing infrastructure which stored cached BrowsingContexts on the
+#   BrowsingContextGroup was added before WindowContexts were added, and can cause
+#   racing issues with partially discarded trees during process switches.
+# ==============================================================================
+
+diff -r 20dbcfc9eacc -r 0a44c410b59b docshell/base/BrowsingContextGroup.h
+--- a/docshell/base/BrowsingContextGroup.h	Thu Apr 23 21:52:44 2020 +0000
++++ b/docshell/base/BrowsingContextGroup.h	Thu Apr 23 21:52:47 2020 +0000
+@@ -21,6 +21,7 @@
+ namespace dom {
+ 
+ class BrowsingContext;
++class WindowContext;
+ class ContentParent;
+ 
+ // A BrowsingContextGroup represents the Unit of Related Browsing Contexts in
+@@ -47,16 +48,10 @@
+   // Force the given ContentParent to subscribe to our BrowsingContextGroup.
+   void EnsureSubscribed(ContentParent* aProcess);
+ 
+-  // Methods interacting with cached contexts.
+-  bool IsContextCached(BrowsingContext* aContext) const;
+-  void CacheContext(BrowsingContext* aContext);
+-  void CacheContexts(const BrowsingContext::Children& aContexts);
+-  bool EvictCachedContext(BrowsingContext* aContext);
+-
+   // Get a reference to the list of toplevel contexts in this
+   // BrowsingContextGroup.
+-  BrowsingContext::Children& Toplevels() { return mToplevels; }
+-  void GetToplevels(BrowsingContext::Children& aToplevels) {
++  nsTArray<RefPtr<BrowsingContext>>& Toplevels() { return mToplevels; }
++  void GetToplevels(nsTArray<RefPtr<BrowsingContext>>& aToplevels) {
+     aToplevels.AppendElements(mToplevels);
+   }
+ 
+@@ -67,26 +62,10 @@
+   BrowsingContextGroup();
+ 
+   static already_AddRefed<BrowsingContextGroup> Select(
+-      BrowsingContext* aParent, BrowsingContext* aOpener) {
+-    if (aParent) {
+-      return do_AddRef(aParent->Group());
+-    }
+-    if (aOpener) {
+-      return do_AddRef(aOpener->Group());
+-    }
+-    return MakeAndAddRef<BrowsingContextGroup>();
+-  }
++      WindowContext* aParent, BrowsingContext* aOpener);
+ 
+   static already_AddRefed<BrowsingContextGroup> Select(uint64_t aParentId,
+-                                                       uint64_t aOpenerId) {
+-    RefPtr<BrowsingContext> parent = BrowsingContext::Get(aParentId);
+-    MOZ_RELEASE_ASSERT(parent || aParentId == 0);
+-
+-    RefPtr<BrowsingContext> opener = BrowsingContext::Get(aOpenerId);
+-    MOZ_RELEASE_ASSERT(opener || aOpenerId == 0);
+-
+-    return Select(parent, opener);
+-  }
++                                                       uint64_t aOpenerId);
+ 
+   // For each 'ContentParent', except for 'aExcludedParent',
+   // associated with this group call 'aCallback'.
+@@ -148,7 +127,7 @@
+   nsTHashtable<nsRefPtrHashKey<BrowsingContext>> mContexts;
+ 
+   // The set of toplevel browsing contexts in the current BrowsingContextGroup.
+-  BrowsingContext::Children mToplevels;
++  nsTArray<RefPtr<BrowsingContext>> mToplevels;
+ 
+   // DocGroups are thread-safe, and not able to be cycle collected,
+   // but we still keep strong pointers. When all Documents are removed
+@@ -158,9 +137,6 @@
+ 
+   ContentParents mSubscribers;
+ 
+-  // Map of cached contexts that need to stay alive due to bfcache.
+-  nsTHashtable<nsRefPtrHashKey<BrowsingContext>> mCachedContexts;
+-
+   // A queue to store postMessage events during page load, the queue will be
+   // flushed once the page is loaded
+   RefPtr<mozilla::ThrottledEventQueue> mPostMessageEventQueue;

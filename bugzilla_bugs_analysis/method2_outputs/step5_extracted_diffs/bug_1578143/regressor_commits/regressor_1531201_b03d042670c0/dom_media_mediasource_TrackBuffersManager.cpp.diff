@@ -1,0 +1,37 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasource/TrackBuffersManager.cpp
+# Commit: b03d042670c0
+# Full Hash: b03d042670c0d5241e8e57e5af9706e2a57b4c08
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2019-02-28 10:55:23
+# Regressor Bug: 1531201
+# File Overlap Count: 1
+# Description:
+#   Bug 1531201 - Don't assume all frames' time is greater than 0. r=gerald
+#   
+#   We now allow frames to have a negative time (so that they can be decoded and trimmed).
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D21474
+# ==============================================================================
+
+diff -r 4dcf351df9b8 -r b03d042670c0 dom/media/mediasource/TrackBuffersManager.cpp
+--- a/dom/media/mediasource/TrackBuffersManager.cpp	Tue Feb 19 19:08:32 2019 +0000
++++ b/dom/media/mediasource/TrackBuffersManager.cpp	Thu Feb 28 02:34:04 2019 +0000
+@@ -521,9 +521,12 @@
+   if (lastKeyFrameIndex > 0) {
+     MSE_DEBUG("Step1. Evicting %" PRId64 " bytes prior currentTime",
+               aSizeToEvict - toEvict);
+-    CodedFrameRemoval(TimeInterval(
+-        TimeUnit::Zero(),
+-        buffer[lastKeyFrameIndex]->mTime - TimeUnit::FromMicroseconds(1)));
++    TimeUnit start = track.mBufferedRanges[0].mStart;
++    TimeUnit end =
++        buffer[lastKeyFrameIndex]->mTime - TimeUnit::FromMicroseconds(1);
++    if (end > start) {
++      CodedFrameRemoval(TimeInterval(start, end));
++    }
+   }
+ 
+   if (mSizeSourceBuffer <= finalSize) {

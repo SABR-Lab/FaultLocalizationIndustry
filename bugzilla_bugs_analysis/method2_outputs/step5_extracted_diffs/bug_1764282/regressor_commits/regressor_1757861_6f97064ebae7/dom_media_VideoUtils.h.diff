@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/VideoUtils.h
+# Commit: 6f97064ebae7
+# Full Hash: 6f97064ebae745b0a85cab06a1e81782ef66c2f1
+# Author: Zaggy1024 <Zaggy1024@gmail.com>
+# Date: 2022-04-11 09:48:30
+# Regressor Bug: 1757861
+# File Overlap Count: 1
+# Description:
+#   Bug 1757861 - Part 2 - Add AV1 codec string parsing for MediaCapabilities, etc. decoding support checks. r=alwu
+#   
+#   This adds both av1C and AV1 sequence header OBU parsing, which is used by MediaChangeMonitor to determine whether a new decoder is needed when the codec configuration changes during playback.
+#   
+#   AV1 codec strings from MediaCapabilities, HTMLVideoElement.canPlayType and MediaSource.isTypeSupported will be converted to av1C format with a sequence header attached and passed to decoders to initialize them, allowing better detection of codec support in software or hardware to be implemented.
+# ==============================================================================
+
+diff -r 08bf7c943aa2 -r 6f97064ebae7 dom/media/VideoUtils.h
+--- a/dom/media/VideoUtils.h	Mon Apr 11 02:38:03 2022 +0000
++++ b/dom/media/VideoUtils.h	Mon Apr 11 02:38:04 2022 +0000
+@@ -244,6 +244,9 @@
+     return mPrimaries == aOther.mPrimaries && mTransfer == aOther.mTransfer &&
+            mMatrix == aOther.mMatrix && mRange == aOther.mRange;
+   }
++  bool operator!=(const VideoColorSpace& aOther) const {
++    return !(*this == aOther);
++  }
+ };
+ 
+ // Extracts the VPX codecs parameter string.
+@@ -257,6 +260,15 @@
+                             uint8_t& aChromaSubsampling,
+                             VideoColorSpace& aColorSpace);
+ 
++// Extracts AV1 codecs parameter string.
++// See https://aomediacodec.github.io/av1-isobmff/#codecsparam
++// Returns false if the codec is invalid.
++bool ExtractAV1CodecDetails(const nsAString& aCodec, uint8_t& aProfile,
++                            uint8_t& aLevel, uint8_t& aTier, uint8_t& aBitDepth,
++                            bool& aMonochrome, bool& aSubsamplingX,
++                            bool& aSubsamplingY, uint8_t& aChromaSamplePosition,
++                            VideoColorSpace& aColorSpace);
++
+ // Use a cryptographic quality PRNG to generate raw random bytes
+ // and convert that to a base64 string.
+ nsresult GenerateRandomName(nsCString& aOutSalt, uint32_t aLength);

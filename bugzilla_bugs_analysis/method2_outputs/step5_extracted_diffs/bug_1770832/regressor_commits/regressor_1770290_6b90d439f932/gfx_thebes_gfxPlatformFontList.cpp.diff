@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxPlatformFontList.cpp
+# Commit: 6b90d439f932
+# Full Hash: 6b90d439f932c1cd1d6b47565ffd562179c267c1
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2022-05-23 21:35:27
+# Regressor Bug: 1770290
+# File Overlap Count: 1
+# Description:
+#   Bug 1770290 - Ensure the InitFontList thread is joined before destroying gfxPlatformFontList. r=lsalzman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D147099
+# ==============================================================================
+
+diff -r b08121c50333 -r 6b90d439f932 gfx/thebes/gfxPlatformFontList.cpp
+--- a/gfx/thebes/gfxPlatformFontList.cpp	Mon May 23 17:19:38 2022 +0000
++++ b/gfx/thebes/gfxPlatformFontList.cpp	Mon May 23 17:28:14 2022 +0000
+@@ -304,6 +304,13 @@
+ }
+ 
+ gfxPlatformFontList::~gfxPlatformFontList() {
++  // Ensure there isn't still an InitFontList thread running, as we can't
++  // destroy the gfxPlatformFontList out from under it.
++  if (sInitFontListThread && !IsInitFontListThread()) {
++    PR_JoinThread(sInitFontListThread);
++    sInitFontListThread = nullptr;
++  }
++
+   mSharedCmaps.Clear();
+   ClearLangGroupPrefFontsLocked();
+ 

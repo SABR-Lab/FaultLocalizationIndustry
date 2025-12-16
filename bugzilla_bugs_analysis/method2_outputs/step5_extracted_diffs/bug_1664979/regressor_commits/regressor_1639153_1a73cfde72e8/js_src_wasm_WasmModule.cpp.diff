@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmModule.cpp
+# Commit: 1a73cfde72e8
+# Full Hash: 1a73cfde72e8f4d19bdcfdbffa9fbc78bba01e24
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2021-09-28 09:54:33
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Introduce indirect stubs to optimize call_indirect. r=lth
+#   
+#   This patch introduces indirect stubs.
+#   An indirect stub is a stub that takes care of any switching activities needed for call_indirect.
+#   Before this patch, we have to conservatively assume that any call_indirect's target can be from a foreign instance,
+# ==============================================================================
+
+diff -r da3c5d8492db -r 1a73cfde72e8 js/src/wasm/WasmModule.cpp
+--- a/js/src/wasm/WasmModule.cpp	Tue Sep 28 05:16:23 2021 +0000
++++ b/js/src/wasm/WasmModule.cpp	Tue Sep 28 05:24:15 2021 +0000
+@@ -188,7 +188,7 @@
+     auto stubs1 = code().codeTier(Tier::Baseline).lazyStubs().lock();
+     auto stubs2 = code().codeTier(Tier::Optimized).lazyStubs().lock();
+ 
+-    MOZ_ASSERT(stubs2->empty());
++    MOZ_ASSERT(stubs2->entryStubsEmpty());
+ 
+     Uint32Vector funcExportIndices;
+     for (size_t i = 0; i < metadataTier1.funcExports.length(); i++) {
+@@ -196,7 +196,7 @@
+       if (fe.hasEagerStubs()) {
+         continue;
+       }
+-      if (!stubs1->hasStub(fe.funcIndex())) {
++      if (!stubs1->hasEntryStub(fe.funcIndex())) {
+         continue;
+       }
+       if (!funcExportIndices.emplaceBack(i)) {

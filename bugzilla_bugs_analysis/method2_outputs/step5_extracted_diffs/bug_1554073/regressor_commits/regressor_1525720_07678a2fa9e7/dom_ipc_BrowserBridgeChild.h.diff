@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/BrowserBridgeChild.h
+# Commit: 07678a2fa9e7
+# Full Hash: 07678a2fa9e7cb164b2d3b07b8c61653253b7540
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2019-05-23 04:41:59
+# Regressor Bug: 1525720
+# File Overlap Count: 1
+# Description:
+#   Bug 1525720, part 6 - Move BrowserBridgeChild creation to ContentChild. r=farre
+#   
+#   This makes it symmetrical to how BrowserParent is created by ContentParent.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D31436
+# ==============================================================================
+
+diff -r 757b4f595cc4 -r 07678a2fa9e7 dom/ipc/BrowserBridgeChild.h
+--- a/dom/ipc/BrowserBridgeChild.h	Wed May 15 12:33:42 2019 -0500
++++ b/dom/ipc/BrowserBridgeChild.h	Wed Apr 24 23:52:47 2019 -0500
+@@ -13,6 +13,7 @@
+ namespace mozilla {
+ namespace dom {
+ class BrowsingContext;
++class ContentChild;
+ 
+ /**
+  * BrowserBridgeChild implements the child actor part of the PBrowserBridge
+@@ -34,10 +35,6 @@
+   // XXX(nika): We should have a load context here. (bug 1532664)
+   nsILoadContext* GetLoadContext() { return nullptr; }
+ 
+-  static already_AddRefed<BrowserBridgeChild> Create(
+-      nsFrameLoader* aFrameLoader, const TabContext& aContext,
+-      const nsString& aRemoteType, BrowsingContext* aBrowsingContext);
+-
+   void UpdateDimensions(const nsIntRect& aRect,
+                         const mozilla::ScreenIntSize& aSize);
+ 
+@@ -54,8 +51,12 @@
+   static BrowserBridgeChild* GetFrom(nsIContent* aContent);
+ 
+  protected:
++  friend class ContentChild;
+   friend class PBrowserBridgeChild;
+ 
++  BrowserBridgeChild(nsFrameLoader* aFrameLoader,
++                     BrowsingContext* aBrowsingContext);
++
+   mozilla::ipc::IPCResult RecvSetLayersId(
+       const mozilla::layers::LayersId& aLayersId);
+ 
+@@ -67,8 +68,6 @@
+   void ActorDestroy(ActorDestroyReason aWhy) override;
+ 
+  private:
+-  explicit BrowserBridgeChild(nsFrameLoader* aFrameLoader,
+-                              BrowsingContext* aBrowsingContext);
+   ~BrowserBridgeChild();
+ 
+   mozilla::layers::LayersId mLayersId;

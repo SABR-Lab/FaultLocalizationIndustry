@@ -1,0 +1,70 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: xpcom/threads/ThreadEventTarget.h
+# Commit: d04f7a7ec375
+# Full Hash: d04f7a7ec375bc4bf08b39875f86608a8920691e
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-04-07 03:19:44
+# Regressor Bug: 1695580
+# File Overlap Count: 1
+# Description:
+#   Bug 1695580 - In xpcom, cancel pending DelayedRunnable timers on shutdown. r=KrisWright
+#   
+#   Because DelayedRunnables are fire-and-forget, there is no way for a targeted
+#   EventTarget to clean them up on shutdown. Thus if a timer fires after
+#   EventTarget shutdown it will fail to dispatch the timer event, and avoid
+# ==============================================================================
+
+diff -r 2103cd9e58b7 -r d04f7a7ec375 xpcom/threads/ThreadEventTarget.h
+--- a/xpcom/threads/ThreadEventTarget.h	Tue Apr 06 12:16:11 2021 +0000
++++ b/xpcom/threads/ThreadEventTarget.h	Tue Apr 06 12:16:11 2021 +0000
+@@ -10,19 +10,31 @@
+ #include "mozilla/MemoryReporting.h"
+ #include "mozilla/Mutex.h"
+ #include "mozilla/SynchronizedEventQueue.h"  // for ThreadTargetSink
++#include "nsIDelayedRunnableObserver.h"
+ #include "nsISerialEventTarget.h"
+ 
+ namespace mozilla {
++class DelayedRunnable;
+ 
+ // ThreadEventTarget handles the details of posting an event to a thread. It can
+ // be used with any ThreadTargetSink implementation.
+-class ThreadEventTarget final : public nsISerialEventTarget {
++class ThreadEventTarget final : public nsISerialEventTarget,
++                                public nsIDelayedRunnableObserver {
+  public:
+   ThreadEventTarget(ThreadTargetSink* aSink, bool aIsMainThread);
+ 
+   NS_DECL_THREADSAFE_ISUPPORTS
+   NS_DECL_NSIEVENTTARGET_FULL
+ 
++  // nsIDelayedRunnableObserver
++  void OnDelayedRunnableCreated(DelayedRunnable* aRunnable) override;
++  void OnDelayedRunnableScheduled(DelayedRunnable* aRunnable) override;
++  void OnDelayedRunnableRan(DelayedRunnable* aRunnable) override;
++
++  // Notification from, and on, the owner thread that it is shutting down.
++  // Cancels any scheduled DelayedRunnables.
++  void NotifyShutdown();
++
+   // Disconnects the target so that it can no longer post events.
+   void Disconnect(const MutexAutoLock& aProofOfLock) {
+     mSink->Disconnect(aProofOfLock);
+@@ -43,10 +55,14 @@
+   }
+ 
+  private:
+-  ~ThreadEventTarget() = default;
++  ~ThreadEventTarget();
+ 
+   RefPtr<ThreadTargetSink> mSink;
+   bool mIsMainThread;
++
++  // DelayedRunnables (from DelayedDispatch) that are managed by their
++  // respective timers, but have not yet run. Accessed only on this nsThread.
++  nsTArray<RefPtr<mozilla::DelayedRunnable>> mScheduledDelayedRunnables;
+ };
+ 
+ }  // namespace mozilla

@@ -1,0 +1,104 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: xpcom/threads/nsThreadManager.cpp
+# Commit: 36ef70762b74
+# Full Hash: 36ef70762b74b3c6b8bd0f26c57ab4b54467f64b
+# Author: Bill McCloskey <billm@mozilla.com>
+# Date: 2017-08-17 23:17:14
+# Regressor Bug: 1382922
+# File Overlap Count: 3
+# Description:
+#   Bug 1382922 - Refactor event queue to allow multiple implementations (r=erahm)
+#   
+#   This patch refactors the nsThread event queue to clean it up and to make it easier to restructure. The fundamental concepts are as follows:
+#   
+#   Each nsThread will have a pointer to a refcounted SynchronizedEventQueue. A SynchronizedEQ takes care of doing the locking and condition variable work when posting and popping events. For the actual storage of events, it delegates to an AbstractEventQueue data structure. It keeps a UniquePtr to the AbstractEventQueue that it uses for storage.
+# ==============================================================================
+
+diff -r ca6618d0bc17 -r 36ef70762b74 xpcom/threads/nsThreadManager.cpp
+--- a/xpcom/threads/nsThreadManager.cpp	Tue Aug 01 12:55:21 2017 -0400
++++ b/xpcom/threads/nsThreadManager.cpp	Tue Jun 20 19:42:13 2017 -0700
+@@ -11,9 +11,12 @@
+ #include "nsTArray.h"
+ #include "nsAutoPtr.h"
+ #include "mozilla/AbstractThread.h"
++#include "mozilla/EventQueue.h"
+ #include "mozilla/Preferences.h"
+ #include "mozilla/SystemGroup.h"
++#include "mozilla/ThreadEventQueue.h"
+ #include "mozilla/ThreadLocal.h"
++#include "PrioritizedEventQueue.h"
+ #ifdef MOZ_CANARY
+ #include <fcntl.h>
+ #include <unistd.h>
+@@ -96,8 +99,25 @@
+                    0;
+ #endif
+ 
++  using MainThreadQueueT = PrioritizedEventQueue<EventQueue>;
++
++  nsCOMPtr<nsIIdlePeriod> idlePeriod = new MainThreadIdlePeriod();
++  auto prioritized = MakeUnique<MainThreadQueueT>(MakeUnique<EventQueue>(),
++                                                  MakeUnique<EventQueue>(),
++                                                  MakeUnique<EventQueue>(),
++                                                  MakeUnique<EventQueue>(),
++                                                  idlePeriod.forget());
++
++  // Save a reference temporarily so we can set some state on it.
++  MainThreadQueueT* prioritizedRef = prioritized.get();
++  RefPtr<ThreadEventQueue<MainThreadQueueT>> queue =
++    new ThreadEventQueue<MainThreadQueueT>(Move(prioritized));
++
+   // Setup "main" thread
+-  mMainThread = new nsThread(nsThread::MAIN_THREAD, 0);
++  mMainThread = new nsThread(WrapNotNull(queue), nsThread::MAIN_THREAD, 0);
++
++  prioritizedRef->SetMutexRef(queue->MutexRef());
++  prioritizedRef->SetNextIdleDeadlineRef(mMainThread->NextIdleDeadlineRef());
+ 
+   nsresult rv = mMainThread->InitCurrentThread();
+   if (NS_FAILED(rv)) {
+@@ -105,11 +125,6 @@
+     return rv;
+   }
+ 
+-  {
+-    nsCOMPtr<nsIIdlePeriod> idlePeriod = new MainThreadIdlePeriod();
+-    mMainThread->RegisterIdlePeriod(idlePeriod.forget());
+-  }
+-
+   // We need to keep a pointer to the current thread, so we can satisfy
+   // GetIsMainThread calls that occur post-Shutdown.
+   mMainThread->GetPRThread(&mMainPRThread);
+@@ -244,7 +259,9 @@
+   }
+ 
+   // OK, that's fine.  We'll dynamically create one :-)
+-  RefPtr<nsThread> thread = new nsThread(nsThread::NOT_MAIN_THREAD, 0);
++  RefPtr<ThreadEventQueue<EventQueue>> queue =
++    new ThreadEventQueue<EventQueue>(MakeUnique<EventQueue>());
++  RefPtr<nsThread> thread = new nsThread(WrapNotNull(queue), nsThread::NOT_MAIN_THREAD, 0);
+   if (!thread || NS_FAILED(thread->InitCurrentThread())) {
+     return nullptr;
+   }
+@@ -272,7 +289,9 @@
+     return NS_ERROR_NOT_INITIALIZED;
+   }
+ 
+-  RefPtr<nsThread> thr = new nsThread(nsThread::NOT_MAIN_THREAD, aStackSize);
++  RefPtr<ThreadEventQueue<EventQueue>> queue =
++    new ThreadEventQueue<EventQueue>(MakeUnique<EventQueue>());
++  RefPtr<nsThread> thr = new nsThread(WrapNotNull(queue), nsThread::NOT_MAIN_THREAD, aStackSize);
+   nsresult rv = thr->Init(aName);  // Note: blocks until the new thread has been set up
+   if (NS_FAILED(rv)) {
+     return rv;
+@@ -428,7 +447,7 @@
+     return;
+   }
+   InputEventStatistics::Get().SetEnable(true);
+-  mMainThread->EnableEventPrioritization();
++  mMainThread->EnableInputEventPrioritization();
+ }
+ 
+ NS_IMETHODIMP

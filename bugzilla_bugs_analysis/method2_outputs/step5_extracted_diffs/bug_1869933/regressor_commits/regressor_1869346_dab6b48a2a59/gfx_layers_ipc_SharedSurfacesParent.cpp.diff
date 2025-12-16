@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/SharedSurfacesParent.cpp
+# Commit: dab6b48a2a59
+# Full Hash: dab6b48a2a592a441229e88c88b1aa2570f2171d
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2023-12-12 04:37:49
+# Regressor Bug: 1869346
+# File Overlap Count: 5
+# Description:
+#   Bug 1869346 - Rework how canvas accesses shared surfaces in the compositor process. r=gfx-reviewers,lsalzman
+#   
+#   This patch adds plumbing to allow sharing ExternalImageId via
+#   SurfaceDescriptor. This will be used in a future patch by WebGL and
+#   WebGPU to avoid extra copies. It also refactors how CanvasTranslator
+# ==============================================================================
+
+diff -r af13afc7d44f -r dab6b48a2a59 gfx/layers/ipc/SharedSurfacesParent.cpp
+--- a/gfx/layers/ipc/SharedSurfacesParent.cpp	Mon Dec 11 20:19:47 2023 +0000
++++ b/gfx/layers/ipc/SharedSurfacesParent.cpp	Mon Dec 11 20:44:44 2023 +0000
+@@ -206,6 +206,8 @@
+     return;
+   }
+ 
++  auto* renderThread = wr::RenderThread::Get();
++
+   // Note that the destruction of a parent may not be cheap if it still has a
+   // lot of surfaces still bound that require unmapping.
+   for (auto i = sInstance->mSurfaces.Iter(); !i.Done(); i.Next()) {
+@@ -217,8 +219,9 @@
+     if (surface->HasCreatorRef() &&
+         surface->RemoveConsumer(/* aForCreator */ true)) {
+       RemoveTrackingLocked(surface, lock);
+-      wr::RenderThread::Get()->UnregisterExternalImage(
+-          wr::ToExternalImageId(i.Key()));
++      if (renderThread) {
++        renderThread->UnregisterExternalImage(wr::ToExternalImageId(i.Key()));
++      }
+       i.Remove();
+     }
+   }

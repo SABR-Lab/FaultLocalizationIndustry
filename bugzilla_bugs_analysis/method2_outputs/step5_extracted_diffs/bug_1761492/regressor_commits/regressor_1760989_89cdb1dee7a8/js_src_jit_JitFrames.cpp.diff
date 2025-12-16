@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/JitFrames.cpp
+# Commit: 89cdb1dee7a8
+# Full Hash: 89cdb1dee7a85d6fcdc8ce81c495e4cf0c306dd3
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2022-03-24 21:54:20
+# Regressor Bug: 1760989
+# File Overlap Count: 1
+# Description:
+#   Bug 1760989 part 3 - Use ResumeMode in bailouts, other places. r=iain
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D141854
+# ==============================================================================
+
+diff -r d6b5689a4248 -r 89cdb1dee7a8 js/src/jit/JitFrames.cpp
+--- a/js/src/jit/JitFrames.cpp	Thu Mar 24 10:08:17 2022 +0000
++++ b/js/src/jit/JitFrames.cpp	Thu Mar 24 10:08:18 2022 +0000
+@@ -1817,6 +1817,10 @@
+   return resumePoint()->pcOffset();
+ }
+ 
++ResumeMode SnapshotIterator::resumeMode() const {
++  return resumePoint()->mode();
++}
++
+ void SnapshotIterator::skipInstruction() {
+   MOZ_ASSERT(snapshot_.numAllocationsRead() == 0);
+   size_t numOperands = instruction()->numOperands();
+@@ -2043,18 +2047,23 @@
+ 
+   size_t i = 1;
+   for (; i <= remaining && si_.moreFrames(); i++) {
++    ResumeMode mode = si_.resumeMode();
+     MOZ_ASSERT(IsIonInlinableOp(JSOp(*pc_)));
+ 
+     // Recover the number of actual arguments from the script.
+     if (IsInvokeOp(JSOp(*pc_))) {
++      MOZ_ASSERT(mode == ResumeMode::InlinedStandardCall ||
++                 mode == ResumeMode::InlinedFunCall);
+       numActualArgs_ = GET_ARGC(pc_);
+-      if (JSOp(*pc_) == JSOp::FunCall && numActualArgs_ > 0) {
++      if (mode == ResumeMode::InlinedFunCall && numActualArgs_ > 0) {
+         numActualArgs_--;
+       }
+     } else if (IsGetPropPC(pc_) || IsGetElemPC(pc_)) {
++      MOZ_ASSERT(mode == ResumeMode::InlinedAccessor);
+       numActualArgs_ = 0;
+     } else {
+       MOZ_RELEASE_ASSERT(IsSetPropPC(pc_));
++      MOZ_ASSERT(mode == ResumeMode::InlinedAccessor);
+       numActualArgs_ = 1;
+     }
+ 

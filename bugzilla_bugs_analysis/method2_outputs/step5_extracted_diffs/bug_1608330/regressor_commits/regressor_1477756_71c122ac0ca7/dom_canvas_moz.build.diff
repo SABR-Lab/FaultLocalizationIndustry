@@ -1,0 +1,86 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/moz.build
+# Commit: 71c122ac0ca7
+# Full Hash: 71c122ac0ca73391866b1ef19f4f82bc2d28568b
+# Author: David Parks <davidp99@gmail.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Initial out-of-process WebGL implementation. r=mccr8,handyman
+#   
+#   Splits WebGLContext into ClientWebGLContext and HostWebGLContext.  The Client enables the JS-control of a WebGL context in a content procecss while the Host executes the WebGL graphics operations (via a WebGLContext that maintains much of the existing code) in the compositor process.  At this point, the cross-process behavior is disabled -- this series of patches is an incremental step toward that final goal.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D54018
+# ==============================================================================
+
+diff -r 5cbf5bb11c58 -r 71c122ac0ca7 dom/canvas/moz.build
+--- a/dom/canvas/moz.build	Wed Jan 08 21:52:03 2020 +0000
++++ b/dom/canvas/moz.build	Wed Jan 08 22:19:14 2020 +0000
+@@ -59,7 +59,16 @@
+     'ImageData.h',
+     'ImageUtils.h',
+     'OffscreenCanvas.h',
++    'ProducerConsumerQueue.h',
+     'TextMetrics.h',
++    'WebGLChild.h',
++    'WebGLCommandQueue.h',
++    'WebGLContextEndpoint.h',
++    'WebGLCrossProcessCommandQueue.h',
++    'WebGLErrorQueue.h',
++    'WebGLParent.h',
++    'WebGLShaderPrecisionFormat.h',
++    'WebGLTypes.h',
+     'WebGLVertexArrayObject.h',
+ ]
+ 
+@@ -82,6 +91,10 @@
+ # WebGL Sources
+ UNIFIED_SOURCES += [
+     'CacheInvalidator.cpp',
++    'ClientWebGLContext.cpp',
++    'ClientWebGLExtensions.cpp',
++    'HostWebGLContext.cpp',
++    'ProducerConsumerQueue.cpp',
+     'TexUnpackBlob.cpp',
+     'WebGL1Context.cpp',
+     'WebGL2Context.cpp',
+@@ -100,6 +113,7 @@
+     'WebGL2ContextVAOs.cpp',
+     'WebGLActiveInfo.cpp',
+     'WebGLBuffer.cpp',
++    'WebGLChild.cpp',
+     'WebGLContext.cpp',
+     'WebGLContextBuffers.cpp',
+     'WebGLContextDraw.cpp',
+@@ -113,6 +127,8 @@
+     'WebGLContextValidate.cpp',
+     'WebGLContextVertexArray.cpp',
+     'WebGLContextVertices.cpp',
++    'WebGLCrossProcessCommandQueue.cpp',
++    'WebGLErrorQueue.cpp',
+     'WebGLExtensionBlendMinMax.cpp',
+     'WebGLExtensionColorBufferFloat.cpp',
+     'WebGLExtensionColorBufferHalfFloat.cpp',
+@@ -148,7 +164,7 @@
+     'WebGLFormats.cpp',
+     'WebGLFramebuffer.cpp',
+     'WebGLMemoryTracker.cpp',
+-    'WebGLObjectModel.cpp',
++    'WebGLParent.cpp',
+     'WebGLProgram.cpp',
+     'WebGLQuery.cpp',
+     'WebGLRenderbuffer.cpp',
+@@ -174,6 +190,10 @@
+     'MurmurHash3.cpp',
+ ]
+ 
++IPDL_SOURCES += [
++    'PWebGL.ipdl',
++]
++
+ # Suppress warnings from third-party code.
+ if CONFIG['CC_TYPE'] in ('clang', 'gcc'):
+     SOURCES['MurmurHash3.cpp'].flags += ['-Wno-implicit-fallthrough']

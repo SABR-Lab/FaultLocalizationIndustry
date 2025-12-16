@@ -1,0 +1,36 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasink/AudioSinkWrapper.cpp
+# Commit: f615d0de8351
+# Full Hash: f615d0de83510fa897b6e76de46dfb68eea8d0bd
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2022-05-24 21:44:48
+# Regressor Bug: 1743834
+# File Overlap Count: 1
+# Description:
+#   Bug 1743834 - Handle the fact that it is possible to not have the ended promise on AudioSink shutdown, when muting. r=alwu
+#   
+#   It can be resolved from the audio callback thread, which isn't synchronized with
+#   the MDSM thread event loop.
+#   
+# ==============================================================================
+
+diff -r c420936bf587 -r f615d0de8351 dom/media/mediasink/AudioSinkWrapper.cpp
+--- a/dom/media/mediasink/AudioSinkWrapper.cpp	Tue May 24 13:09:11 2022 +0000
++++ b/dom/media/mediasink/AudioSinkWrapper.cpp	Tue May 24 13:09:11 2022 +0000
+@@ -176,8 +176,12 @@
+       }
+       Maybe<MozPromiseHolder<MediaSink::EndedPromise>> rv =
+           mAudioSink->Shutdown(ShutdownCause::Muting);
+-      MOZ_ASSERT(rv.isSome());
+-      mEndedPromiseHolder = std::move(rv.ref());
++      // There will generally be a promise here, except if the stream has
++      // errored out, or if it has just finished. In both cases, the promise has
++      // been handled appropriately, there is nothing to do.
++      if (rv.isSome()) {
++        mEndedPromiseHolder = std::move(rv.ref());
++      }
+       mAudioSink = nullptr;
+     }
+   } else {

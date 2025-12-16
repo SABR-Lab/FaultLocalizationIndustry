@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/wr/WebRenderScrollData.cpp
+# Commit: c09a51622e98
+# Full Hash: c09a51622e988e81077c75e3aaa5a49df66284b3
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2019-03-22 16:44:08
+# Regressor Bug: 1441308
+# File Overlap Count: 2
+# Description:
+#   Bug 1441308 - Core renderroot splitting changes r=kats,sotaro
+#   
+#   This is a large patch that contains all of the core changes for
+#   renderroot splitting.
+#   
+# ==============================================================================
+
+diff -r 737807563dd5 -r c09a51622e98 gfx/layers/wr/WebRenderScrollData.cpp
+--- a/gfx/layers/wr/WebRenderScrollData.cpp	Thu Mar 21 23:14:26 2019 +0000
++++ b/gfx/layers/wr/WebRenderScrollData.cpp	Fri Mar 22 03:15:14 2019 +0000
+@@ -21,7 +21,8 @@
+     : mDescendantCount(-1),
+       mTransformIsPerspective(false),
+       mEventRegionsOverride(EventRegionsOverride::NoOverride),
+-      mFixedPosScrollContainerId(ScrollableLayerGuid::NULL_SCROLL_ID) {}
++      mFixedPosScrollContainerId(ScrollableLayerGuid::NULL_SCROLL_ID),
++      mRenderRoot(wr::RenderRoot::Default) {}
+ 
+ WebRenderLayerScrollData::~WebRenderLayerScrollData() {}
+ 
+@@ -32,11 +33,13 @@
+ void WebRenderLayerScrollData::Initialize(
+     WebRenderScrollData& aOwner, nsDisplayItem* aItem, int32_t aDescendantCount,
+     const ActiveScrolledRoot* aStopAtAsr,
+-    const Maybe<gfx::Matrix4x4>& aAncestorTransform) {
++    const Maybe<gfx::Matrix4x4>& aAncestorTransform,
++    wr::RenderRoot aRenderRoot) {
+   MOZ_ASSERT(aDescendantCount >= 0);  // Ensure value is valid
+   MOZ_ASSERT(mDescendantCount ==
+              -1);  // Don't allow re-setting an already set value
+   mDescendantCount = aDescendantCount;
++  mRenderRoot = aRenderRoot;
+ 
+   MOZ_ASSERT(aItem);
+   aItem->UpdateScrollData(&aOwner, this);
+@@ -188,10 +191,6 @@
+   return (it == mScrollIdMap.end() ? Nothing() : Some(it->second));
+ }
+ 
+-void WebRenderScrollData::SetFocusTarget(const FocusTarget& aFocusTarget) {
+-  mFocusTarget = aFocusTarget;
+-}
+-
+ void WebRenderScrollData::SetIsFirstPaint() { mIsFirstPaint = true; }
+ 
+ bool WebRenderScrollData::IsFirstPaint() const { return mIsFirstPaint; }

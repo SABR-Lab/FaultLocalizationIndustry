@@ -1,0 +1,51 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/linux/SandboxFilter.cpp
+# Commit: aa459bed7de4
+# Full Hash: aa459bed7de4933200480c8af1f6af4725f8bf16
+# Author: Jed Davis <jld@mozilla.com>
+# Date: 2020-03-13 09:53:22
+# Description:
+#   Bug 1621686 - Fix socket process sandbox's handling of prctl to prevent crash on kernels before 3.17. r=gcp,mjf
+#   
+#   The special handling of PR_SET_NO_NEW_PRIVS can't be overridden with
+#   Allow(); otherwise every thread in the process will repeatedly apply
+#   copies of the policy to itself until it reaches whatever limits the
+# ==============================================================================
+
+diff -r 309c896d7f8e -r aa459bed7de4 security/sandbox/linux/SandboxFilter.cpp
+--- a/security/sandbox/linux/SandboxFilter.cpp	Thu Mar 12 23:38:09 2020 +0000
++++ b/security/sandbox/linux/SandboxFilter.cpp	Thu Mar 12 13:46:46 2020 +0000
+@@ -603,6 +603,11 @@
+ 
+         // prctl
+       case __NR_prctl: {
++        // WARNING: do not handle __NR_prctl directly in subclasses;
++        // override PrctlPolicy instead.  The special handling of
++        // PR_SET_NO_NEW_PRIVS is used to detect that a thread already
++        // has the policy applied; see also bug 1257361.
++
+         if (SandboxInfo::Get().Test(SandboxInfo::kHasSeccompTSync)) {
+           return PrctlPolicy();
+         }
+@@ -1536,14 +1541,16 @@
+     }
+   }
+ 
++  ResultExpr PrctlPolicy() const override {
++    // FIXME: bug 1619661
++    return Allow();
++  }
++
+   ResultExpr EvaluateSyscall(int sysno) const override {
+     switch (sysno) {
+       case __NR_getrusage:
+         return Allow();
+ 
+-      case __NR_prctl:
+-        return Allow();
+-
+       case __NR_ioctl: {
+         static const unsigned long kTypeMask = _IOC_TYPEMASK << _IOC_TYPESHIFT;
+         static const unsigned long kTtyIoctls = TIOCSTI & kTypeMask;

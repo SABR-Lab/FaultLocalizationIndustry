@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/cache/FileUtils.h
+# Commit: 74d480f1bfa8
+# Full Hash: 74d480f1bfa8f5d63e71818e9ee4dcfe8095a973
+# Author: Tom Tung <ttung@mozilla.com>
+# Date: 2019-10-02 16:35:54
+# Regressor Bug: 1581067
+# File Overlap Count: 1
+# Description:
+#   Bug 1581067 - P5 - Only remove the temporary body files & body directories when it's in the initializing stage; r=asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D47770
+# ==============================================================================
+
+diff -r 0a3fd8b7865a -r 74d480f1bfa8 dom/cache/FileUtils.h
+--- a/dom/cache/FileUtils.h	Tue Oct 01 13:08:15 2019 +0000
++++ b/dom/cache/FileUtils.h	Wed Oct 02 10:38:55 2019 +0000
+@@ -58,9 +58,15 @@
+ nsresult BodyDeleteOrphanedFiles(const QuotaInfo& aQuotaInfo, nsIFile* aBaseDir,
+                                  nsTArray<nsID>& aKnownBodyIdList);
+ 
++// If aCanRemoveFiles is true, that means we are safe to touch the files which
++// can be accessed in other threads.
++// If it's not, that means we cannot remove the files which are possible to
++// created by other threads. Note that if the files are not expected, we should
++// be safe to remove them in any case.
+ template <typename Func>
+ nsresult BodyTraverseFiles(const QuotaInfo& aQuotaInfo, nsIFile* aBodyDir,
+                            const Func& aHandleFileFunc,
++                           const bool aCanRemoveFiles,
+                            const bool aTrackQuota = true);
+ 
+ nsresult CreateMarkerFile(const QuotaInfo& aQuotaInfo);

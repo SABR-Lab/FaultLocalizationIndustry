@@ -1,0 +1,86 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: xpcom/threads/nsThreadManager.cpp
+# Commit: 3e501ab00f18
+# Full Hash: 3e501ab00f1855046db1f8db6be58fb35f7c6adc
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-04-07 03:19:44
+# Regressor Bug: 1695580
+# File Overlap Count: 1
+# Description:
+#   Bug 1695580 - In xpcom, cancel pending DelayedRunnable timers on shutdown. r=KrisWright
+#   
+#   Because DelayedRunnables are fire-and-forget, there is no way for a targeted
+#   EventTarget to clean them up on shutdown. Thus if a timer fires after
+#   EventTarget shutdown it will fail to dispatch the timer event, and avoid
+# ==============================================================================
+
+diff -r 2a88ea548a86 -r 3e501ab00f18 xpcom/threads/nsThreadManager.cpp
+--- a/xpcom/threads/nsThreadManager.cpp	Tue Apr 06 20:15:10 2021 +0000
++++ b/xpcom/threads/nsThreadManager.cpp	Tue Apr 06 20:15:11 2021 +0000
+@@ -51,6 +51,9 @@
+   already_AddRefed<nsISerialEventTarget> CreateBackgroundTaskQueue(
+       const char* aName);
+ 
++  using CancelPromise = TaskQueue::CancelPromise::AllPromiseType;
++  RefPtr<CancelPromise> CancelBackgroundDelayedRunnables();
++
+   void BeginShutdown(nsTArray<RefPtr<ShutdownPromise>>&);
+   void FinishShutdown();
+ 
+@@ -62,6 +65,7 @@
+ 
+   Mutex mMutex;
+   nsTArray<RefPtr<TaskQueue>> mTaskQueues;
++  bool mIsBackgroundDelayedRunnablesCanceled;
+ };
+ 
+ NS_IMPL_ISUPPORTS(BackgroundEventTarget, nsIEventTarget)
+@@ -198,6 +202,19 @@
+   return queue.forget();
+ }
+ 
++auto BackgroundEventTarget::CancelBackgroundDelayedRunnables()
++    -> RefPtr<CancelPromise> {
++  MOZ_ASSERT(NS_IsMainThread());
++  MutexAutoLock lock(mMutex);
++  mIsBackgroundDelayedRunnablesCanceled = true;
++  nsTArray<RefPtr<TaskQueue::CancelPromise>> promises;
++  for (const auto& tq : mTaskQueues) {
++    promises.AppendElement(tq->CancelDelayedRunnables());
++  }
++  return TaskQueue::CancelPromise::All(GetMainThreadSerialEventTarget(),
++                                       promises);
++}
++
+ extern "C" {
+ // This uses the C language linkage because it's exposed to Rust
+ // via the xpcom/rust/moz_task crate.
+@@ -402,6 +419,8 @@
+   // in-flight asynchronous thread shutdowns to complete.
+   mMainThread->WaitForAllAsynchronousShutdowns();
+ 
++  mMainThread->mEventTarget->NotifyShutdown();
++
+   // In case there are any more events somehow...
+   NS_ProcessPendingEvents(mMainThread);
+ 
+@@ -490,6 +509,17 @@
+   return mBackgroundEventTarget->CreateBackgroundTaskQueue(aName);
+ }
+ 
++void nsThreadManager::CancelBackgroundDelayedRunnables() {
++  if (!mInitialized) {
++    return;
++  }
++
++  bool canceled = false;
++  mBackgroundEventTarget->CancelBackgroundDelayedRunnables()->Then(
++      GetMainThreadSerialEventTarget(), __func__, [&] { canceled = true; });
++  ::SpinEventLoopUntil([&]() { return canceled; });
++}
++
+ nsThread* nsThreadManager::GetCurrentThread() {
+   // read thread local storage
+   void* data = PR_GetThreadPrivate(mCurThreadIndex);

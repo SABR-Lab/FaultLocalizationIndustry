@@ -1,0 +1,34 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: image/DynamicImage.cpp
+# Commit: 451701e88d92
+# Full Hash: 451701e88d92935b77385235832865dabe8c2942
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2019-05-03 12:59:14
+# Regressor Bug: 1547792
+# File Overlap Count: 1
+# Description:
+#   Bug 1547792 - AspectRatio should be a single ratio, not a size. r=dholbert
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D29244
+# ==============================================================================
+
+diff -r 020e530d49b3 -r 451701e88d92 image/DynamicImage.cpp
+--- a/image/DynamicImage.cpp	Wed Apr 24 19:36:17 2019 +0000
++++ b/image/DynamicImage.cpp	Thu May 02 23:28:21 2019 +0000
+@@ -104,11 +104,9 @@
+   return NS_OK;
+ }
+ 
+-NS_IMETHODIMP
+-DynamicImage::GetIntrinsicRatio(nsSize* aSize) {
+-  IntSize intSize(mDrawable->Size());
+-  *aSize = nsSize(intSize.width, intSize.height);
+-  return NS_OK;
++Maybe<AspectRatio> DynamicImage::GetIntrinsicRatio() {
++  auto size = mDrawable->Size();
++  return Some(AspectRatio::FromSize(size.width, size.height));
+ }
+ 
+ NS_IMETHODIMP_(Orientation)

@@ -1,0 +1,108 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/gl/SharedSurfaceANGLE.h
+# Commit: dd00e2da3a0f
+# Full Hash: dd00e2da3a0f11a7cc0af9e5ece21a339f4393eb
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-06-11 04:04:33
+# Regressor Bug: 1632249
+# File Overlap Count: 1
+# Description:
+#   Bug 1632249 - Support compositing out-of-process WebGL. r=handyman,lsalzman,nical,geckoview-reviewers,agi,imanol
+#   
+#   * Majorly simplity CanvasRenderer
+#   * Replace GLScreenBuffer with trivial GLSwapChain
+#   * Use descriptor structs so that future SharedSurface changes aren't so painful
+# ==============================================================================
+
+diff -r 69cc1de6f754 -r dd00e2da3a0f gfx/gl/SharedSurfaceANGLE.h
+--- a/gfx/gl/SharedSurfaceANGLE.h	Wed Jun 10 21:57:19 2020 +0000
++++ b/gfx/gl/SharedSurfaceANGLE.h	Wed Jun 10 22:21:02 2020 +0000
+@@ -18,33 +18,22 @@
+ class GLContext;
+ class GLLibraryEGL;
+ 
+-class SharedSurface_ANGLEShareHandle : public SharedSurface {
++class SharedSurface_ANGLEShareHandle final : public SharedSurface {
+  public:
+-  static UniquePtr<SharedSurface_ANGLEShareHandle> Create(
+-      GLContext* gl, EGLConfig config, const gfx::IntSize& size, bool hasAlpha);
+-
+-  static SharedSurface_ANGLEShareHandle* Cast(SharedSurface* surf) {
+-    MOZ_ASSERT(surf->mType == SharedSurfaceType::EGLSurfaceANGLE);
+-
+-    return (SharedSurface_ANGLEShareHandle*)surf;
+-  }
+-
+- protected:
+   GLLibraryEGL* const mEGL;
+   const EGLSurface mPBuffer;
+-
+- public:
+   const HANDLE mShareHandle;
++  const RefPtr<IDXGIKeyedMutex> mKeyedMutex;
+ 
+- protected:
+-  RefPtr<IDXGIKeyedMutex> mKeyedMutex;
++  static UniquePtr<SharedSurface_ANGLEShareHandle> Create(
++      const SharedSurfaceDesc&);
+ 
+-  SharedSurface_ANGLEShareHandle(GLContext* gl, GLLibraryEGL* egl,
+-                                 const gfx::IntSize& size, bool hasAlpha,
++ private:
++  SharedSurface_ANGLEShareHandle(const SharedSurfaceDesc&, GLLibraryEGL* egl,
+                                  EGLSurface pbuffer, HANDLE shareHandle,
+                                  const RefPtr<IDXGIKeyedMutex>& keyedMutex);
+ 
+-  EGLDisplay Display();
++  EGLDisplay Display() const;
+ 
+  public:
+   virtual ~SharedSurface_ANGLEShareHandle();
+@@ -57,36 +46,23 @@
+   virtual void ProducerReadAcquireImpl() override;
+   virtual void ProducerReadReleaseImpl() override;
+ 
+-  virtual bool ToSurfaceDescriptor(
+-      layers::SurfaceDescriptor* const out_descriptor) override;
++  Maybe<layers::SurfaceDescriptor> ToSurfaceDescriptor() override;
+ 
+   virtual bool ReadbackBySharedHandle(
+       gfx::DataSourceSurface* out_surface) override;
+ };
+ 
+-class SurfaceFactory_ANGLEShareHandle : public SurfaceFactory {
+- protected:
+-  GLContext* const mProdGL;
+-  GLLibraryEGL* const mEGL;
+-  const EGLConfig mConfig;
+-
++class SurfaceFactory_ANGLEShareHandle final : public SurfaceFactory {
+  public:
+-  static UniquePtr<SurfaceFactory_ANGLEShareHandle> Create(
+-      GLContext* gl, const SurfaceCaps& caps,
+-      const RefPtr<layers::LayersIPCChannel>& allocator,
+-      const layers::TextureFlags& flags);
++  static UniquePtr<SurfaceFactory_ANGLEShareHandle> Create(GLContext& gl);
+ 
+- protected:
+-  SurfaceFactory_ANGLEShareHandle(
+-      GLContext* gl, const SurfaceCaps& caps,
+-      const RefPtr<layers::LayersIPCChannel>& allocator,
+-      const layers::TextureFlags& flags, GLLibraryEGL* egl, EGLConfig config);
++ private:
++  explicit SurfaceFactory_ANGLEShareHandle(const PartialSharedSurfaceDesc& desc)
++      : SurfaceFactory(desc) {}
+ 
+-  virtual UniquePtr<SharedSurface> CreateShared(
+-      const gfx::IntSize& size) override {
+-    bool hasAlpha = mReadCaps.alpha;
+-    return SharedSurface_ANGLEShareHandle::Create(mProdGL, mConfig, size,
+-                                                  hasAlpha);
++  virtual UniquePtr<SharedSurface> CreateSharedImpl(
++      const SharedSurfaceDesc& desc) override {
++    return SharedSurface_ANGLEShareHandle::Create(desc);
+   }
+ };
+ 

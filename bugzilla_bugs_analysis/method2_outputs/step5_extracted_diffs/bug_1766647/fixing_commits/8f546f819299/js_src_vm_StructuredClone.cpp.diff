@@ -1,0 +1,31 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/StructuredClone.cpp
+# Commit: 8f546f819299
+# Full Hash: 8f546f81929996393b926d6ae3361927f2327d55
+# Author: Kagami Sascha Rosylight <krosylight@mozilla.com>
+# Date: 2022-04-29 09:48:42
+# Description:
+#   Bug 1766647 - Check readString result in JS_ReadString r=sfink
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D144887
+# ==============================================================================
+
+diff -r c9f1677401ed -r 8f546f819299 js/src/vm/StructuredClone.cpp
+--- a/js/src/vm/StructuredClone.cpp	Thu Apr 28 21:58:09 2022 +0000
++++ b/js/src/vm/StructuredClone.cpp	Thu Apr 28 21:59:17 2022 +0000
+@@ -3613,8 +3613,11 @@
+   }
+ 
+   if (tag == SCTAG_STRING) {
+-    str.set(r->readString(data));
+-    return true;
++    if (JSString* s = r->readString(data)) {
++      str.set(s);
++      return true;
++    }
++    return false;
+   }
+ 
+   JS_ReportErrorNumberASCII(r->context(), GetErrorMessage, nullptr,

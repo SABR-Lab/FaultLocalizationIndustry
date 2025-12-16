@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasource/SourceBufferResource.cpp
+# Commit: 2e64d8db2b4b
+# Full Hash: 2e64d8db2b4b630e990903a57bc75c0bfbaca237
+# Author: Chris Pearce <cpearce@mozilla.com>
+# Date: 2019-06-14 10:00:22
+# Regressor Bug: 1558364
+# File Overlap Count: 1
+# Description:
+#   Bug 1558364 - Add MediaSpan and use it for TrackBuffersManager::mInputBuffer. r=jya
+#   
+#   As seen in this profile of a Twitch replay: https://perfht.ml/2K9Ydb3 we can
+#   often end up spending time in TrackBuffersManager::CodedFrameProcessing()
+#   shaving off bytes from the front off TrackBuffersManager::mInputBuffer. This
+# ==============================================================================
+
+diff -r 1eba4a29505b -r 2e64d8db2b4b dom/media/mediasource/SourceBufferResource.cpp
+--- a/dom/media/mediasource/SourceBufferResource.cpp	Thu Jun 13 22:27:30 2019 +0000
++++ b/dom/media/mediasource/SourceBufferResource.cpp	Fri Jun 14 00:31:02 2019 +0000
+@@ -79,21 +79,21 @@
+ }
+ 
+ uint32_t SourceBufferResource::EvictData(uint64_t aPlaybackOffset,
+-                                         int64_t aThreshold, ErrorResult& aRv) {
++                                         int64_t aThreshold) {
+   MOZ_ASSERT(OnThread());
+   SBR_DEBUG("EvictData(aPlaybackOffset=%" PRIu64
+             ","
+             "aThreshold=%" PRId64 ")",
+             aPlaybackOffset, aThreshold);
+-  uint32_t result = mInputBuffer.Evict(aPlaybackOffset, aThreshold, aRv);
++  uint32_t result = mInputBuffer.Evict(aPlaybackOffset, aThreshold);
+   return result;
+ }
+ 
+-void SourceBufferResource::EvictBefore(uint64_t aOffset, ErrorResult& aRv) {
++void SourceBufferResource::EvictBefore(uint64_t aOffset) {
+   MOZ_ASSERT(OnThread());
+   SBR_DEBUG("EvictBefore(aOffset=%" PRIu64 ")", aOffset);
+ 
+-  mInputBuffer.EvictBefore(aOffset, aRv);
++  mInputBuffer.EvictBefore(aOffset);
+ }
+ 
+ uint32_t SourceBufferResource::EvictAll() {
+@@ -103,9 +103,13 @@
+ }
+ 
+ void SourceBufferResource::AppendData(MediaByteBuffer* aData) {
++  AppendData(MediaSpan(aData));
++}
++
++void SourceBufferResource::AppendData(const MediaSpan& aData) {
+   MOZ_ASSERT(OnThread());
+-  SBR_DEBUG("AppendData(aData=%p, aLength=%zu)", aData->Elements(),
+-            aData->Length());
++  SBR_DEBUG("AppendData(aData=%p, aLength=%zu)", aData.Elements(),
++            aData.Length());
+   mInputBuffer.AppendItem(aData);
+   mEnded = false;
+ }

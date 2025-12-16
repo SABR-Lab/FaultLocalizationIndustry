@@ -1,0 +1,98 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/angle/checkout/src/libANGLE/Image.cpp
+# Commit: 13282d7a47a5
+# Full Hash: 13282d7a47a57a73be8d060efd9645b4d642f03e
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2019-09-08 09:46:52
+# Regressor Bug: 1578576
+# File Overlap Count: 4
+# Description:
+#   Bug 1578576 - Part 2: Update to ANGLE 3865 r=jgilbert
+#   
+#   Depends on D44561
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44579
+# ==============================================================================
+
+diff -r 3064469c073d -r 13282d7a47a5 gfx/angle/checkout/src/libANGLE/Image.cpp
+--- a/gfx/angle/checkout/src/libANGLE/Image.cpp	Sat Sep 07 13:36:46 2019 +0000
++++ b/gfx/angle/checkout/src/libANGLE/Image.cpp	Sat Sep 07 13:38:36 2019 +0000
+@@ -41,15 +41,14 @@
+     else
+     {
+         ASSERT(layer == 0);
+-        return gl::ImageIndex::MakeFromTarget(target, mip);
++        return gl::ImageIndex::MakeFromTarget(target, mip, 1);
+     }
+ }
+ 
+ const Display *DisplayFromContext(const gl::Context *context)
+ {
+-    return (context ? context->getCurrentDisplay() : nullptr);
++    return (context ? context->getDisplay() : nullptr);
+ }
+-
+ }  // anonymous namespace
+ 
+ ImageSibling::ImageSibling() : FramebufferAttachmentObject(), mSourcesOf(), mTargetOf() {}
+@@ -129,6 +128,18 @@
+     return mTargetOf->isRenderable(context);
+ }
+ 
++void ImageSibling::notifySiblings(angle::SubjectMessage message)
++{
++    if (mTargetOf.get())
++    {
++        mTargetOf->notifySiblings(this, message);
++    }
++    for (Image *source : mSourcesOf)
++    {
++        source->notifySiblings(this, message);
++    }
++}
++
+ ExternalImageSibling::ExternalImageSibling(rx::EGLImplFactory *factory,
+                                            const gl::Context *context,
+                                            EGLenum target,
+@@ -240,6 +251,9 @@
+     // no siblings left.
+     ASSERT(mState.targets.empty());
+ 
++    // Make sure the implementation gets a chance to clean up before we delete the source.
++    mImplementation->onDestroy(display);
++
+     // Tell the source that it is no longer used by this image
+     if (mState.source != nullptr)
+     {
+@@ -255,8 +269,6 @@
+ 
+         mState.source = nullptr;
+     }
+-
+-    mImplementation->onDestroy(display);
+ }
+ 
+ Image::~Image()
+@@ -412,4 +424,20 @@
+     return mState.source->setInitState(mState.imageIndex, initState);
+ }
+ 
++void Image::notifySiblings(const ImageSibling *notifier, angle::SubjectMessage message)
++{
++    if (mState.source && mState.source != notifier)
++    {
++        mState.source->onSubjectStateChange(rx::kTextureImageSiblingMessageIndex, message);
++    }
++
++    for (ImageSibling *target : mState.targets)
++    {
++        if (target != notifier)
++        {
++            target->onSubjectStateChange(rx::kTextureImageSiblingMessageIndex, message);
++        }
++    }
++}
++
+ }  // namespace egl

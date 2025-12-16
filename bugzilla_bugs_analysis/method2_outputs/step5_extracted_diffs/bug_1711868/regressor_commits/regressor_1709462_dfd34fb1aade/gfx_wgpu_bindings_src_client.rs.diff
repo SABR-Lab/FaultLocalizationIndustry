@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wgpu_bindings/src/client.rs
+# Commit: dfd34fb1aade
+# Full Hash: dfd34fb1aade1295579715b1c21f1e51bbfe370e
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-05-18 21:36:28
+# Regressor Bug: 1709462
+# File Overlap Count: 2
+# Description:
+#   Bug 1709462 - Fix freeing of WebGPU bind group layouts r=jimb
+#   
+#   When the pipeline layout is implicit at pipeline creation,
+#   we collect the IDs of BGLs, to be able to produce GPUBindGroupLayout
+#   object upon user request. However, the produced object didn't know if
+# ==============================================================================
+
+diff -r 5c6f0950714d -r dfd34fb1aade gfx/wgpu_bindings/src/client.rs
+--- a/gfx/wgpu_bindings/src/client.rs	Tue May 18 16:24:49 2021 +0000
++++ b/gfx/wgpu_bindings/src/client.rs	Tue May 18 16:26:27 2021 +0000
+@@ -871,6 +871,7 @@
+     device_id: id::DeviceId,
+     desc: &ComputePipelineDescriptor,
+     bb: &mut ByteBuf,
++    implicit_pipeline_layout_id: *mut Option<id::PipelineLayoutId>,
+     implicit_bind_group_layout_ids: *mut Option<id::BindGroupLayoutId>,
+ ) -> id::ComputePipelineId {
+     let backend = device_id.backend();
+@@ -887,6 +888,7 @@
+         Some(_) => None,
+         None => {
+             let implicit = ImplicitLayout::new(identities.select(backend), backend);
++            ptr::write(implicit_pipeline_layout_id, Some(implicit.pipeline));
+             for (i, bgl_id) in implicit.bind_groups.iter().enumerate() {
+                 *implicit_bind_group_layout_ids.add(i) = Some(*bgl_id);
+             }
+@@ -905,6 +907,7 @@
+     device_id: id::DeviceId,
+     desc: &RenderPipelineDescriptor,
+     bb: &mut ByteBuf,
++    implicit_pipeline_layout_id: *mut Option<id::PipelineLayoutId>,
+     implicit_bind_group_layout_ids: *mut Option<id::BindGroupLayoutId>,
+ ) -> id::RenderPipelineId {
+     let backend = device_id.backend();
+@@ -925,6 +928,7 @@
+         Some(_) => None,
+         None => {
+             let implicit = ImplicitLayout::new(identities.select(backend), backend);
++            ptr::write(implicit_pipeline_layout_id, Some(implicit.pipeline));
+             for (i, bgl_id) in implicit.bind_groups.iter().enumerate() {
+                 *implicit_bind_group_layout_ids.add(i) = Some(*bgl_id);
+             }

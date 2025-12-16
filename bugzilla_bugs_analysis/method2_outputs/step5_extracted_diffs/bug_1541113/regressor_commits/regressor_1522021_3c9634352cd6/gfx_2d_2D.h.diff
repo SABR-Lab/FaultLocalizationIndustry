@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/2d/2D.h
+# Commit: 3c9634352cd6
+# Full Hash: 3c9634352cd66e1debc3beeedd53130d16474db2
+# Author: Jeff Muizelaar <jrmuizel@gmail.com>
+# Date: 2019-01-28 04:51:03
+# Regressor Bug: 1522021
+# File Overlap Count: 1
+# Description:
+#   Bug 1522021. Propagate input size to CreateSimilarDrawTarget for filters. r=mstange
+#   
+#   This lets us avoid drawing the complete input for ever tile when
+#   drawing filters into a tile.
+#   
+# ==============================================================================
+
+diff -r 747303cab27a -r 3c9634352cd6 gfx/2d/2D.h
+--- a/gfx/2d/2D.h	Sun Jan 27 22:06:38 2019 +0000
++++ b/gfx/2d/2D.h	Sun Jan 27 23:36:04 2019 +0000
+@@ -1311,6 +1311,20 @@
+       const IntSize &aSize, SurfaceFormat aFormat) const = 0;
+ 
+   /**
++   * Create a DrawTarget whose snapshot is optimized for use with this
++   * DrawTarget and aFilter.
++   * @param aSource is the FilterNode that that will be attached to this
++   * surface.
++   * @param aSourceRect is the source rect that will be passed to DrawFilter
++   * @param aDestPoint is the dest point that will be passed to DrawFilter.
++   */
++  virtual already_AddRefed<DrawTarget> CreateSimilarDrawTargetForFilter(
++      const IntSize &aSize, SurfaceFormat aFormat, FilterNode *aFilter,
++      FilterNode *aSource, const Rect &aSourceRect, const Point &aDestPoint) {
++    return CreateSimilarDrawTarget(aSize, aFormat);
++  }
++
++  /**
+    * Returns false if CreateSimilarDrawTarget would return null with the same
+    * parameters. May return true even in cases where CreateSimilarDrawTarget
+    * return null (i.e. this function returning false has meaning, but returning

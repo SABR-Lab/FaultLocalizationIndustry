@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/mac/GeckoTextMarker.h
+# Commit: bb7606e92697
+# Full Hash: bb7606e92697cbf94bd0b7fe0710acd53041cfa5
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2020-11-21 21:37:46
+# Regressor Bug: 1672700
+# File Overlap Count: 1
+# Description:
+#   Bug 1672700 - Make mozTextAccessible attribute getters use GeckoTextMarker. r=morgan
+#   
+#   This allows `contenteditable` textboxes to work correctly with flattened text values.
+#   
+#   The attribute setters, aside from AXValue, don't work in Chrome or Safari with aria textboxes,
+# ==============================================================================
+
+diff -r 1ad690f5f41a -r bb7606e92697 accessible/mac/GeckoTextMarker.h
+--- a/accessible/mac/GeckoTextMarker.h	Sat Nov 21 04:13:43 2020 +0000
++++ b/accessible/mac/GeckoTextMarker.h	Sat Nov 21 04:13:45 2020 +0000
+@@ -59,8 +59,6 @@
+   }
+ 
+  private:
+-  uint32_t CharacterCount(const AccessibleOrProxy& aContainer);
+-
+   bool IsEditableRoot();
+ };
+ 
+@@ -70,6 +68,8 @@
+                        const GeckoTextMarker& aEnd)
+       : mStart(aStart), mEnd(aEnd) {}
+ 
++  GeckoTextMarkerRange() {}
++
+   GeckoTextMarkerRange(AccessibleOrProxy aDoc,
+                        AXTextMarkerRangeRef aTextMarkerRange);
+ 
+@@ -101,6 +101,13 @@
+    */
+   MOZ_CAN_RUN_SCRIPT_BOUNDARY void Select() const;
+ 
++  /**
++   * Crops the range if it overlaps the given accessible element boundaries.
++   * Return true if successfully cropped. false if the range does not intersect
++   * with the container.
++   */
++  bool Crop(const AccessibleOrProxy& aContainer);
++
+   GeckoTextMarker mStart;
+   GeckoTextMarker mEnd;
+ };

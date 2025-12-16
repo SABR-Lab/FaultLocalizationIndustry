@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/remoteworkers/RemoteWorkerManager.h
+# Commit: 2cf5cad90099
+# Full Hash: 2cf5cad900992236d596bfb329099742ff15f689
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2024-06-20 04:08:16
+# Regressor Bug: 1728331
+# File Overlap Count: 1
+# Description:
+#   Bug 1728331 - Part 4: Make ContentParent KeepAlives explicit with RAII references, r=smaug,dom-worker-reviewers,asuth
+#   
+#   This is a fairly significant patch, however it would be difficult to break it
+#   down into smaller patches:
+#   
+# ==============================================================================
+
+diff -r d920c2d72d00 -r 2cf5cad90099 dom/workers/remoteworkers/RemoteWorkerManager.h
+--- a/dom/workers/remoteworkers/RemoteWorkerManager.h	Wed Jun 19 20:14:49 2024 +0000
++++ b/dom/workers/remoteworkers/RemoteWorkerManager.h	Wed Jun 19 20:14:50 2024 +0000
+@@ -61,19 +61,24 @@
+   RemoteWorkerManager();
+   ~RemoteWorkerManager();
+ 
+-  RemoteWorkerServiceParent* SelectTargetActor(const RemoteWorkerData& aData,
+-                                               base::ProcessId aProcessId);
++  struct TargetActorAndKeepAlive {
++    RefPtr<RemoteWorkerServiceParent> mActor;
++    UniqueThreadsafeContentParentKeepAlive mKeepAlive;
++  };
+ 
+-  RemoteWorkerServiceParent* SelectTargetActorInternal(
++  TargetActorAndKeepAlive SelectTargetActor(const RemoteWorkerData& aData,
++                                            base::ProcessId aProcessId);
++
++  TargetActorAndKeepAlive SelectTargetActorInternal(
+       const RemoteWorkerData& aData, base::ProcessId aProcessId) const;
+ 
+   void LaunchInternal(RemoteWorkerController* aController,
+                       RemoteWorkerServiceParent* aTargetActor,
+-                      const RemoteWorkerData& aData,
+-                      bool aRemoteWorkerAlreadyRegistered = false);
++                      UniqueThreadsafeContentParentKeepAlive aKeepAlive,
++                      const RemoteWorkerData& aData);
+ 
+   using LaunchProcessPromise =
+-      MozPromise<RefPtr<RemoteWorkerServiceParent>, nsresult, true>;
++      MozPromise<TargetActorAndKeepAlive, nsresult, true>;
+   RefPtr<LaunchProcessPromise> LaunchNewContentProcess(
+       const RemoteWorkerData& aData);
+ 

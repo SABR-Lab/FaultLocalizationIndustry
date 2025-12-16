@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit-test/tests/warp/scalar-replace-array-construct-array-02.js
+# Commit: 2a27eb3a670a
+# Full Hash: 2a27eb3a670a7778460c2acdf218c000d6a6f91a
+# Author: André Bargull <andre.bargull@gmail.com>
+# Date: 2021-11-10 09:24:53
+# Regressor Bug: 1739650
+# File Overlap Count: 1
+# Description:
+#   Bug 1739650 - Part 2: Support array scalar replacement for MConstructArray. r=iain
+#   
+#   And also support array scalar replacement for `MConstructArray`.
+#   
+#   Depends on D130480
+# ==============================================================================
+
+diff -r 5806df2b62db -r 2a27eb3a670a js/src/jit-test/tests/warp/scalar-replace-array-construct-array-02.js
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/js/src/jit-test/tests/warp/scalar-replace-array-construct-array-02.js	Tue Nov 09 16:30:03 2021 +0000
+@@ -0,0 +1,26 @@
++setJitCompilerOption("inlining.bytecode-max-length", 200);
++
++class Bar {
++  constructor(x, y) {
++    this.value = x + y;
++  }
++}
++
++class Foo extends Bar {
++  constructor(...args) {
++    args[0] = 3;
++    super(...args);
++  }
++}
++
++// |Foo| must be small enough to be inlinable.
++assertEq(isSmallFunction(Foo), true);
++
++with ({}) {}
++
++var sum = 0;
++for (var i = 0; i < 100; i++) {
++  let obj = new Foo(1, 2);
++  sum += obj.value;
++}
++assertEq(sum, 500);

@@ -1,0 +1,89 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentParent.h
+# Commit: 77d15266af3c
+# Full Hash: 77d15266af3c0a014051fb57f50356e4acd9e880
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-06-18 04:43:29
+# Regressor Bug: 1646088
+# File Overlap Count: 2
+# Description:
+#   Bug 1646088 - Part 1: Keep processes alive during process switches, r=kmag
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D79888
+# ==============================================================================
+
+diff -r fa227b47dac7 -r 77d15266af3c dom/ipc/ContentParent.h
+--- a/dom/ipc/ContentParent.h	Wed Jun 17 09:41:24 2020 +0000
++++ b/dom/ipc/ContentParent.h	Wed Jun 17 15:43:35 2020 +0000
+@@ -214,6 +214,28 @@
+       ContentParent* aOpener = nullptr, bool aPreferUsed = false);
+ 
+   /**
++   * Get or create a content process, but without waiting for the process
++   * launch to have completed. The returned `ContentParent` may still be in the
++   * "Launching" state.
++   *
++   * Can return `nullptr` in the case of an error.
++   *
++   * Use the `WaitForLaunchAsync` or `WaitForLaunchSync` methods to wait for
++   * the process to be fully launched.
++   */
++  static already_AddRefed<ContentParent> GetNewOrUsedLaunchingBrowserProcess(
++      Element* aFrameElement, const nsAString& aRemoteType,
++      hal::ProcessPriority aPriority =
++          hal::ProcessPriority::PROCESS_PRIORITY_FOREGROUND,
++      ContentParent* aOpener = nullptr, bool aPreferUsed = false);
++
++  RefPtr<ContentParent::LaunchPromise> WaitForLaunchAsync(
++      hal::ProcessPriority aPriority =
++          hal::ProcessPriority::PROCESS_PRIORITY_FOREGROUND);
++  bool WaitForLaunchSync(hal::ProcessPriority aPriority =
++                             hal::ProcessPriority::PROCESS_PRIORITY_FOREGROUND);
++
++  /**
+    * Get or create a content process for a JS plugin. aPluginID is the id of the
+    * JS plugin
+    * (@see nsFakePlugin::mId). There is a maximum of one process per JS plugin.
+@@ -357,6 +379,11 @@
+   /** Notify that a tab was destroyed during normal operation. */
+   void NotifyTabDestroyed(const TabId& aTabId, bool aNotifiedDestroying);
+ 
++  // Manage the set of `KeepAlive`s on this ContentParent which are preventing
++  // it from being destroyed.
++  void AddKeepAlive();
++  void RemoveKeepAlive();
++
+   TestShellParent* CreateTestShell();
+ 
+   bool DestroyTestShell(TestShellParent* aTestShell);
+@@ -751,18 +778,9 @@
+   // Common implementation of LaunchSubprocess{Sync,Async}.
+   // Return `true` in case of success, `false` if launch was
+   // aborted because of shutdown.
+-  bool BeginSubprocessLaunch(bool aIsSync, ProcessPriority aPriority);
++  bool BeginSubprocessLaunch(ProcessPriority aPriority);
+   void LaunchSubprocessReject();
+   bool LaunchSubprocessResolve(bool aIsSync, ProcessPriority aPriority);
+-  // Return `nullptr` in case of error.
+-  // Return a `ContentParent` in case of success. This `ContentParent`
+-  // may either be ready and initialized or in the process of initializing
+-  // asynchronously. In the latter case, the caller is responsible for
+-  // finishing initialization.
+-  static already_AddRefed<ContentParent> GetNewOrUsedBrowserProcessInternal(
+-      Element* aFrameElement, const nsAString& aRemoteType,
+-      ProcessPriority aPriority, ContentParent* aOpener, bool aPreferUsed,
+-      bool aIsSync);
+ 
+   // Common initialization after sub process launch.
+   bool InitInternal(ProcessPriority aPriority);
+@@ -1403,6 +1421,8 @@
+   // NotifyTabDestroying() but not called NotifyTabDestroyed().
+   int32_t mNumDestroyingTabs;
+ 
++  uint32_t mNumKeepaliveCalls;
++
+   // The process starts in the LAUNCHING state, and transitions to
+   // ALIVE once it can accept IPC messages.  It remains ALIVE only
+   // while remote content is being actively used from this process.

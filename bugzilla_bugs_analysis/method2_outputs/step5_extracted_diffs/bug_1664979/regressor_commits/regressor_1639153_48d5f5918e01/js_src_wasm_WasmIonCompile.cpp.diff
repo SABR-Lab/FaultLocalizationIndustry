@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmIonCompile.cpp
+# Commit: 48d5f5918e01
+# Full Hash: 48d5f5918e01a7a292ba4cca6e6ffffa055b986d
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-10-31 21:05:17
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 1: Reserve two slots after stack arguments for the future tls preservation. r=lth
+#   
+#   We are going to remove Frame::tls and support trampolines for indirect calls, so we need to get rid of using Frame::tls.
+#   In this and the followup patches I will iteratively remove all dependencies of Frame::tls and remove it eventually.
+#   
+# ==============================================================================
+
+diff -r 5995c2f5c003 -r 48d5f5918e01 js/src/wasm/WasmIonCompile.cpp
+--- a/js/src/wasm/WasmIonCompile.cpp	Sat Oct 31 12:37:34 2020 +0200
++++ b/js/src/wasm/WasmIonCompile.cpp	Sat Oct 31 09:56:04 2020 +0000
+@@ -67,7 +67,7 @@
+ 
+ class CallCompileState {
+   // A generator object that is passed each argument as it is compiled.
+-  ABIArgGenerator abi_;
++  WasmABIArgGenerator abi_;
+ 
+   // Accumulates the register arguments while compiling arguments.
+   MWasmCall::Args regArgs_;
+@@ -167,7 +167,7 @@
+       return false;
+     }
+ 
+-    for (ABIArgIter i(args); !i.done(); i++) {
++    for (WasmABIArgIter i(args); !i.done(); i++) {
+       MWasmParameter* ins = MWasmParameter::New(alloc(), *i, i.mirType());
+       curBlock_->add(ins);
+       if (args.isSyntheticStackResultPointerArg(i.index())) {

@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/CanonicalBrowsingContext.cpp
+# Commit: e55eb174b342
+# Full Hash: e55eb174b342c4ded8f84304980a866ba810eabd
+# Author: Peter Van der Beken <peterv@propagandism.org>
+# Date: 2021-12-16 16:31:55
+# Regressor Bug: 1742865
+# File Overlap Count: 1
+# Description:
+#   Bug 1742865 - Handle meta refresh correctly with session history in the parent. r=smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D132837
+# ==============================================================================
+
+diff -r cfb3ff7ce730 -r e55eb174b342 docshell/base/CanonicalBrowsingContext.cpp
+--- a/docshell/base/CanonicalBrowsingContext.cpp	Thu Dec 16 11:12:53 2021 +0200
++++ b/docshell/base/CanonicalBrowsingContext.cpp	Thu Dec 16 08:19:45 2021 +0000
+@@ -797,7 +797,6 @@
+             RemoveDynEntriesFromActiveSessionHistoryEntry();
+           }
+         }
+-        mActiveEntry = newActiveEntry;
+ 
+         if (LOAD_TYPE_HAS_FLAGS(aLoadType,
+                                 nsIWebNavigation::LOAD_FLAGS_REPLACE_HISTORY)) {
+@@ -808,8 +807,16 @@
+           // should append instead.
+           addEntry = index < 0;
+           if (!addEntry) {
+-            shistory->ReplaceEntry(index, mActiveEntry);
++            shistory->ReplaceEntry(index, newActiveEntry);
+           }
++          mActiveEntry = newActiveEntry;
++        } else if (LOAD_TYPE_HAS_FLAGS(
++                       aLoadType, nsIWebNavigation::LOAD_FLAGS_IS_REFRESH) &&
++                   !ShouldAddEntryForRefresh(newActiveEntry)) {
++          addEntry = false;
++          mActiveEntry->ReplaceWith(*newActiveEntry);
++        } else {
++          mActiveEntry = newActiveEntry;
+         }
+ 
+         if (loadFromSessionHistory) {
+@@ -841,7 +848,10 @@
+         } else if (addEntry) {
+           if (mActiveEntry) {
+             if (LOAD_TYPE_HAS_FLAGS(
+-                    aLoadType, nsIWebNavigation::LOAD_FLAGS_REPLACE_HISTORY)) {
++                    aLoadType, nsIWebNavigation::LOAD_FLAGS_REPLACE_HISTORY) ||
++                (LOAD_TYPE_HAS_FLAGS(aLoadType,
++                                     nsIWebNavigation::LOAD_FLAGS_IS_REFRESH) &&
++                 !ShouldAddEntryForRefresh(newActiveEntry))) {
+               // FIXME We need to make sure that when we create the info we
+               //       make a copy of the shared state.
+               mActiveEntry->ReplaceWith(*newActiveEntry);

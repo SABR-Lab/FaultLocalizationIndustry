@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: browser/base/content/test/zoom/browser_zoom_commands.js
+# Commit: 4230bdcf07ae
+# Full Hash: 4230bdcf07ae69e03a9e241f10c201c38e6ca995
+# Author: Mike Conley <mconley@mozilla.com>
+# Date: 2022-06-23 03:54:50
+# Regressor Bug: 1773865
+# File Overlap Count: 1
+# Description:
+#   Bug 1773865 - Dispatch an event on the window document when a pinch zoom gesture ends. r=botond,smaug,NeilDeakin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D149283
+# ==============================================================================
+
+diff -r d1ddb1ce916b -r 4230bdcf07ae browser/base/content/test/zoom/browser_zoom_commands.js
+--- a/browser/base/content/test/zoom/browser_zoom_commands.js	Wed Jun 22 16:08:22 2022 +0000
++++ b/browser/base/content/test/zoom/browser_zoom_commands.js	Wed Jun 22 16:15:57 2022 +0000
+@@ -60,6 +60,10 @@
+   const TEST_PAGE_URL =
+     "data:text/html;charset=utf-8,<body>test_zoom_levels</body>";
+ 
++  const winUtils = Services.wm.getMostRecentWindow("").windowUtils;
++  const layerManager = winUtils.layerManagerType;
++  const softwareWebRenderEnabled = layerManager == "WebRender (Software)";
++
+   await BrowserTestUtils.withNewTab(TEST_PAGE_URL, async browser => {
+     let currentZoom = await FullZoomHelper.getGlobalValue();
+     Assert.equal(
+@@ -79,6 +83,15 @@
+     // and the other without.
+     for (let textZoom of [true, false]) {
+       info(`Running variation with textZoom set to ${textZoom}`);
++
++      if (!textZoom && softwareWebRenderEnabled) {
++        todo(
++          false,
++          "Skipping full zoom when using software WebRender (bug 1775498)"
++        );
++        continue;
++      }
++
+       await SpecialPowers.pushPrefEnv({
+         set: [["browser.zoom.full", !textZoom]],
+       });

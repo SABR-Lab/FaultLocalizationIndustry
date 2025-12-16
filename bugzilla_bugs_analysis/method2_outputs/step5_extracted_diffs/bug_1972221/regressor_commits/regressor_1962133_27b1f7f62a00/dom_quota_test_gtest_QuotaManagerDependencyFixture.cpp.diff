@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/test/gtest/QuotaManagerDependencyFixture.cpp
+# Commit: 27b1f7f62a00
+# Full Hash: 27b1f7f62a00d003b61e7d3265ec1c7587f221fa
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2025-06-11 18:38:51
+# Regressor Bug: 1962133
+# File Overlap Count: 10
+# Description:
+#   Bug 1962133 - QM: Introduce OriginStateMetadata struct for origin metadata header; r=dom-storage-reviewers,hsingh
+#   
+#   This patch introduces a new OriginStateMetadata struct to represent origin
+#   state separately from the other OriginMetadata fields. This prepares the origin
+#   metadata loading and saving code for adding a new field like the accessed flag.
+# ==============================================================================
+
+diff -r 2d9e785ad3e5 -r 27b1f7f62a00 dom/quota/test/gtest/QuotaManagerDependencyFixture.cpp
+--- a/dom/quota/test/gtest/QuotaManagerDependencyFixture.cpp	Wed Jun 11 07:39:03 2025 +0000
++++ b/dom/quota/test/gtest/QuotaManagerDependencyFixture.cpp	Wed Jun 11 07:47:39 2025 +0000
+@@ -414,6 +414,21 @@
+ }
+ 
+ // static
++Maybe<OriginStateMetadata>
++QuotaManagerDependencyFixture::GetOriginStateMetadata(
++    const OriginMetadata& aOriginMetadata) {
++  const auto result =
++      PerformOnIOThread([aOriginMetadata]() -> Maybe<OriginStateMetadata> {
++        QuotaManager* quotaManager = QuotaManager::Get();
++        MOZ_RELEASE_ASSERT(quotaManager);
++
++        return quotaManager->GetOriginStateMetadata(aOriginMetadata);
++      });
++
++  return result;
++}
++
++// static
+ uint64_t QuotaManagerDependencyFixture::TotalDirectoryIterations() {
+   const auto result = PerformOnIOThread([]() -> uint64_t {
+     QuotaManager* quotaManager = QuotaManager::Get();

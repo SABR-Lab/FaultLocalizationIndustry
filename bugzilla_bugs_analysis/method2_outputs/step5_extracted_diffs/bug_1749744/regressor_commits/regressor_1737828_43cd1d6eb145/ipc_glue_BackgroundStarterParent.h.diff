@@ -1,0 +1,70 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: ipc/glue/BackgroundStarterParent.h
+# Commit: 43cd1d6eb145
+# Full Hash: 43cd1d6eb1459ae16207f4c9396cf5113a7b034a
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2022-01-11 03:49:34
+# Regressor Bug: 1737828
+# File Overlap Count: 2
+# Description:
+#   Bug 1737828 - Avoid the main thread when starting PBackground, r=asuth,ipc-reviewers,necko-reviewers,kershaw,handyman
+#   
+#   This patch avoids requiring the main thread to create PBackground instances by
+#   instead using a background starter TaskQueue, and sending messages from a
+#   PBackgroundStarter actor hosted on that thread to the target background thread
+# ==============================================================================
+
+diff -r 400d19ddbff7 -r 43cd1d6eb145 ipc/glue/BackgroundStarterParent.h
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/ipc/glue/BackgroundStarterParent.h	Mon Jan 10 20:09:14 2022 +0000
+@@ -0,0 +1,48 @@
++/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
++/* vim: set ts=8 sts=2 et sw=2 tw=80: */
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
++ * You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++#ifndef mozilla_ipc_BackgroundStarterParent_h
++#define mozilla_ipc_BackgroundStarterParent_h
++
++#include "mozilla/ipc/PBackgroundStarterParent.h"
++#include "mozilla/dom/ContentParent.h"
++#include "nsISupportsImpl.h"
++
++namespace mozilla::ipc {
++
++class BackgroundStarterParent final : public PBackgroundStarterParent {
++ public:
++  NS_INLINE_DECL_THREADSAFE_REFCOUNTING_WITH_DELETE_ON_MAIN_THREAD(
++      BackgroundStarterParent, override)
++
++  // Implemented in BackgroundImpl.cpp
++  BackgroundStarterParent(mozilla::dom::ContentParent* aContent,
++                          bool aCrossProcess);
++
++  void SetLiveActorArray(nsTArray<IToplevelProtocol*>* aLiveActorArray);
++
++ private:
++  friend class PBackgroundStarterParent;
++  ~BackgroundStarterParent() = default;
++
++  // Implemented in BackgroundImpl.cpp
++  void ActorDestroy(ActorDestroyReason aReason) override;
++
++  // Implemented in BackgroundImpl.cpp
++  IPCResult RecvInitBackground(Endpoint<PBackgroundParent>&& aEndpoint);
++
++  const bool mCrossProcess;
++
++  RefPtr<mozilla::dom::ContentParent> mContent;
++
++  // Set when the actor is opened successfully and used to handle shutdown
++  // hangs. Only touched on the background thread.
++  nsTArray<IToplevelProtocol*>* mLiveActorArray = nullptr;
++};
++
++}  // namespace mozilla::ipc
++
++#endif  // mozilla_ipc_BackgroundStarterParent_h

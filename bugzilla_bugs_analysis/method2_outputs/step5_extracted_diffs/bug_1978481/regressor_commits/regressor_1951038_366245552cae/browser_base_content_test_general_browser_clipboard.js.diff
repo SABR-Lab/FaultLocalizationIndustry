@@ -1,0 +1,65 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: browser/base/content/test/general/browser_clipboard.js
+# Commit: 366245552cae
+# Full Hash: 366245552cae536ef883be806322395dc47b759d
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2025-06-17 09:24:05
+# Regressor Bug: 1951038
+# File Overlap Count: 1
+# Description:
+#   Bug 1951038 - Get rid of the legacy white-space normalizer of `HTMLEditor` and the pref r=m_kato
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D253589
+# ==============================================================================
+
+diff -r b13b0a530402 -r 366245552cae browser/base/content/test/general/browser_clipboard.js
+--- a/browser/base/content/test/general/browser_clipboard.js	Tue Jun 17 00:10:27 2025 +0000
++++ b/browser/base/content/test/general/browser_clipboard.js	Tue Jun 17 00:37:22 2025 +0000
+@@ -8,10 +8,6 @@
+   "</body>";
+ 
+ add_task(async function () {
+-  const kNewWhiteSpaceNormalizerEnabled = Services.prefs.getBoolPref(
+-    "editor.white_space_normalization.blink_compatible"
+-  );
+-
+   let tab = BrowserTestUtils.addTab(gBrowser);
+   let browser = gBrowser.getBrowserForTab(tab);
+ 
+@@ -279,24 +275,16 @@
+   await pastePromise;
+ 
+   // The new content should now include an image.
+-  await SpecialPowers.spawn(
+-    browser,
+-    [kNewWhiteSpaceNormalizerEnabled],
+-    aNewWhiteSpaceNormalizerEnabled => {
+-      var main = content.document.getElementById("main");
+-      Assert.equal(
+-        main.innerHTML,
+-        aNewWhiteSpaceNormalizerEnabled
+-          ? '<i>Italic</i>&nbsp;<img id="img" tabindex="1" ' +
+-              'src="http://example.org/browser/browser/base/content/test/general/moz.png">' +
+-              "Test <b>Bold</b> After<b></b>"
+-          : '<i>Italic</i> <img id="img" tabindex="1" ' +
+-              'src="http://example.org/browser/browser/base/content/test/general/moz.png">' +
+-              "Test <b>Bold</b> After<b></b>",
+-        "Paste after copy image"
+-      );
+-    }
+-  );
++  await SpecialPowers.spawn(browser, [], () => {
++    var main = content.document.getElementById("main");
++    Assert.equal(
++      main.innerHTML,
++      '<i>Italic</i>&nbsp;<img id="img" tabindex="1" ' +
++        'src="http://example.org/browser/browser/base/content/test/general/moz.png">' +
++        "Test <b>Bold</b> After<b></b>",
++      "Paste after copy image"
++    );
++  });
+ 
+   gBrowser.removeCurrentTab();
+ });

@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/Marking.cpp
+# Commit: ec72f104edbf
+# Full Hash: ec72f104edbfe88e22e2ebd778cc7890c21fd2ce
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2021-03-06 09:33:16
+# Regressor Bug: 1689413
+# File Overlap Count: 1
+# Description:
+#   Bug 1689413 part 9 - Move proto from ObjectGroup to BaseShape. r=jonco
+#   
+#   The ObjectGroup still stores the proto as well but we don't really use it anymore.
+#   This is simpler than removing the group's proto now because that would result in
+#   "empty" groups and the group table then doesn't make sense anymore.
+# ==============================================================================
+
+diff -r cad616508f73 -r ec72f104edbf js/src/gc/Marking.cpp
+--- a/js/src/gc/Marking.cpp	Sat Mar 06 01:05:22 2021 +0000
++++ b/js/src/gc/Marking.cpp	Sat Mar 06 01:05:22 2021 +0000
+@@ -1560,14 +1560,14 @@
+ }
+ 
+ void js::ObjectGroup::traceChildren(JSTracer* trc) {
+-  if (proto().isObject()) {
+-    TraceEdge(trc, &proto(), "group_proto");
++  if (protoDeprecated().isObject()) {
++    TraceEdge(trc, &protoDeprecated(), "group_proto");
+   }
+ }
+ 
+ void js::GCMarker::lazilyMarkChildren(ObjectGroup* group) {
+-  if (group->proto().isObject()) {
+-    markAndTraverseEdge(group, group->proto().toObject());
++  if (group->protoDeprecated().isObject()) {
++    markAndTraverseEdge(group, group->protoDeprecated().toObject());
+   }
+ }
+ 
+@@ -1576,6 +1576,10 @@
+   if (JSObject* global = realm()->unsafeUnbarrieredMaybeGlobal()) {
+     TraceManuallyBarrieredEdge(trc, &global, "baseshape_global");
+   }
++
++  if (proto_.isObject()) {
++    TraceEdge(trc, &proto_, "baseshape_proto");
++  }
+ }
+ 
+ void JS::BigInt::traceChildren(JSTracer* trc) {}

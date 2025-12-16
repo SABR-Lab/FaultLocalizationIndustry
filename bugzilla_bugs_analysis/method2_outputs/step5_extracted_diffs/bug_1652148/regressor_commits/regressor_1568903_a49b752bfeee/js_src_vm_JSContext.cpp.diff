@@ -1,0 +1,36 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/JSContext.cpp
+# Commit: a49b752bfeee
+# Full Hash: a49b752bfeee7bad15263a3365ea2de56799b95a
+# Author: André Bargull <andre.bargull@gmail.com>
+# Date: 2019-11-23 09:47:42
+# Regressor Bug: 1568903
+# File Overlap Count: 1
+# Description:
+#   Bug 1568903 - Part 2: Move ErrorObject parts from jsexn.cpp to ErrorObject.cpp. r=jorendorff
+#   
+#   The ErrorObject classes are already declared in ErrorObject.h, so it seems
+#   useful to also move their definitions into the corresponding cpp file.
+#   
+# ==============================================================================
+
+diff -r 12503fb17ac5 -r a49b752bfeee js/src/vm/JSContext.cpp
+--- a/js/src/vm/JSContext.cpp	Fri Nov 22 18:11:48 2019 +0000
++++ b/js/src/vm/JSContext.cpp	Fri Nov 22 18:12:10 2019 +0000
+@@ -1403,13 +1403,9 @@
+   check(v);
+ }
+ 
+-static const size_t MAX_REPORTED_STACK_DEPTH = 1u << 7;
+-
+ void JSContext::setPendingExceptionAndCaptureStack(HandleValue value) {
+   RootedObject stack(this);
+-  if (!CaptureCurrentStack(
+-          this, &stack,
+-          JS::StackCapture(JS::MaxFrames(MAX_REPORTED_STACK_DEPTH)))) {
++  if (!CaptureStack(this, &stack)) {
+     clearPendingException();
+   }
+ 

@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/webscheduling/WebTaskScheduler.h
+# Commit: 78181c32bdc6
+# Full Hash: 78181c32bdc6b1d66eac04f3ce11a2902f477823
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2025-02-27 21:52:52
+# Regressor Bug: 1920115
+# File Overlap Count: 2
+# Description:
+#   Bug 1920115 - Add the setup for WebTaskSchedulingState r=jjaschke,dom-core,arai
+#   
+#   Spec: https://wicg.github.io/scheduling-apis/#scheduling-state
+#   
+#   This patch add the setup for WebTaskSchedulingState so that it
+# ==============================================================================
+
+diff -r 912cf1adac80 -r 78181c32bdc6 dom/webscheduling/WebTaskScheduler.h
+--- a/dom/webscheduling/WebTaskScheduler.h	Thu Feb 27 16:17:34 2025 +0000
++++ b/dom/webscheduling/WebTaskScheduler.h	Thu Feb 27 16:17:35 2025 +0000
+@@ -20,6 +20,36 @@
+ #include "mozilla/dom/WebTaskSchedulingBinding.h"
+ 
+ namespace mozilla::dom {
++// https://wicg.github.io/scheduling-apis/#scheduling-state
++class WebTaskSchedulingState {
++ public:
++  NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(WebTaskSchedulingState)
++  NS_DECL_CYCLE_COLLECTION_NATIVE_CLASS(WebTaskSchedulingState)
++
++  void Reset() {
++    mAbortSource = nullptr;
++    mPrioritySource = nullptr;
++  }
++
++  void SetAbortSource(AbortSignal* aAbortSource) {
++    mAbortSource = aAbortSource;
++  }
++
++  AbortSignal* GetAbortSource() { return mAbortSource; }
++  AbortSignal* GetPrioritySource() { return mPrioritySource; }
++
++  void SetPrioritySource(AbortSignal* aPrioritySource) {
++    MOZ_ASSERT(aPrioritySource->IsTaskSignal());
++    mPrioritySource = aPrioritySource;
++  }
++
++ private:
++  ~WebTaskSchedulingState() = default;
++
++  RefPtr<AbortSignal> mAbortSource;
++  RefPtr<AbortSignal> mPrioritySource;
++};
++
+ class WebTaskQueue;
+ class WebTask : public LinkedListElement<RefPtr<WebTask>>,
+                 public AbortFollower,

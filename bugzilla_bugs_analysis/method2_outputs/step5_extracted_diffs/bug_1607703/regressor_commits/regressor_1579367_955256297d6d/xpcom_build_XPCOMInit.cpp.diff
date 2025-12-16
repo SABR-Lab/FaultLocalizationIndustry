@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: xpcom/build/XPCOMInit.cpp
+# Commit: 955256297d6d
+# Full Hash: 955256297d6dc83d52eb77a202c9c320622c0d13
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2019-11-05 16:16:12
+# Regressor Bug: 1579367
+# File Overlap Count: 1
+# Description:
+#   Bug 1579367 - Initialize XPCJSContext explicitly, after loading user prefs. r=kmag
+#   
+#   This way we get the correct values for start-up prefs in the parent process.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D51061
+# ==============================================================================
+
+diff -r 68e7fb2885b0 -r 955256297d6d xpcom/build/XPCOMInit.cpp
+--- a/xpcom/build/XPCOMInit.cpp	Tue Nov 05 08:19:10 2019 +0200
++++ b/xpcom/build/XPCOMInit.cpp	Tue Nov 05 06:29:13 2019 +0000
+@@ -249,7 +249,8 @@
+ // Note that on OSX, aBinDirectory will point to .app/Contents/Resources/browser
+ EXPORT_XPCOM_API(nsresult)
+ NS_InitXPCOM(nsIServiceManager** aResult, nsIFile* aBinDirectory,
+-             nsIDirectoryServiceProvider* aAppFileLocationProvider) {
++             nsIDirectoryServiceProvider* aAppFileLocationProvider,
++             bool aInitJSContext) {
+   static bool sInitialized = false;
+   if (sInitialized) {
+     return NS_ERROR_FAILURE;
+@@ -460,7 +461,6 @@
+   // Init SharedThreadPool (which needs the service manager).
+   SharedThreadPool::InitStatics();
+ 
+-  mozilla::ScriptPreloader::GetSingleton();
+   mozilla::scache::StartupCache::GetSingleton();
+   mozilla::AvailableMemoryTracker::Init();
+ 
+@@ -484,6 +484,10 @@
+       loop->thread_name().c_str(), loop->transient_hang_timeout(),
+       loop->permanent_hang_timeout());
+ 
++  if (aInitJSContext) {
++    xpc::InitializeJSContext();
++  }
++
+   return NS_OK;
+ }
+ 

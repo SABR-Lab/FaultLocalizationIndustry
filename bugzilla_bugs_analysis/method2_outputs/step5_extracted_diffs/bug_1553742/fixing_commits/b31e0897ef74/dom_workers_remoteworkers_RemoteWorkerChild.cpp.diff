@@ -1,0 +1,38 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/remoteworkers/RemoteWorkerChild.cpp
+# Commit: b31e0897ef74
+# Full Hash: b31e0897ef74a390bc63e38c98e6960946e91d65
+# Author: Christoph Kerschbaumer <ckerschb@christophkerschbaumer.com>
+# Date: 2019-05-29 21:50:20
+# Description:
+#   Bug 1553742: Null Check CSP before calling CSPToCSPInfo to avoid half initialized state of cspinfo. r=baku,mccr8
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D32990
+# ==============================================================================
+
+diff -r c6c250b477a0 -r b31e0897ef74 dom/workers/remoteworkers/RemoteWorkerChild.cpp
+--- a/dom/workers/remoteworkers/RemoteWorkerChild.cpp	Wed May 29 16:01:37 2019 +0000
++++ b/dom/workers/remoteworkers/RemoteWorkerChild.cpp	Wed May 29 15:42:13 2019 +0000
+@@ -249,15 +249,14 @@
+     Maybe<mozilla::ipc::CSPInfo> cspInfo = clientInfo.ref().GetCspInfo();
+     if (cspInfo.isSome()) {
+       info.mCSP = CSPInfoToCSP(cspInfo.ref(), nullptr);
++      info.mCSPInfo = new CSPInfo();
++      rv = CSPToCSPInfo(info.mCSP, info.mCSPInfo);
++      if (NS_WARN_IF(NS_FAILED(rv))) {
++        return rv;
++      }
+     }
+   }
+ 
+-  info.mCSPInfo = new CSPInfo();
+-  rv = CSPToCSPInfo(info.mCSP, info.mCSPInfo);
+-  if (NS_WARN_IF(NS_FAILED(rv))) {
+-    return rv;
+-  }
+-
+   rv = info.SetPrincipalsAndCSPOnMainThread(
+       info.mPrincipal, info.mStoragePrincipal, info.mLoadGroup, info.mCSP);
+   if (NS_WARN_IF(NS_FAILED(rv))) {

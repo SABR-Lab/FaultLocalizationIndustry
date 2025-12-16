@@ -1,0 +1,75 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/Document.cpp
+# Commit: fbf55a44d7fb
+# Full Hash: fbf55a44d7fb72908eeb5d041b70ce2c503a2532
+# Author: Anny Gakhokidze <agakhokidze@mozilla.com>
+# Date: 2020-04-15 04:09:17
+# Regressor Bug: 1594529
+# File Overlap Count: 1
+# Description:
+#   Bug 1594529 - Create LoadInfo for subdocuments directly in parent process with DocumentChannel. r=mattwoodrow,nika
+#   
+#   Currently, with Fission enabled we are not able to create a proper LoadInfo
+#   object when doing a subdocument load because we do not have access to a loading
+#   context if the load is happening inside of an OOP frame. To solve this problem,
+# ==============================================================================
+
+diff -r 4ba9a230586a -r fbf55a44d7fb dom/base/Document.cpp
+--- a/dom/base/Document.cpp	Mon Apr 13 22:41:37 2020 +0000
++++ b/dom/base/Document.cpp	Mon Apr 13 23:00:43 2020 +0000
+@@ -3243,6 +3243,11 @@
+       if (!mUpgradeInsecurePreloads) {
+         mUpgradeInsecurePreloads = mUpgradeInsecureRequests;
+       }
++      // Update csp settings in the parent process
++      if (auto* wgc = GetWindowGlobalChild()) {
++        wgc->SendUpdateDocumentCspSettings(mBlockAllMixedContent,
++                                           mUpgradeInsecureRequests);
++      }
+     }
+     return;
+   }
+@@ -14948,6 +14953,10 @@
+     nsCOMPtr<nsILoadInfo> loadInfo = mChannel->LoadInfo();
+     loadInfo->SetDocumentHasUserInteracted(true);
+   }
++  // Tell the parent process about user interaction
++  if (auto* wgc = GetWindowGlobalChild()) {
++    wgc->SendUpdateDocumentHasUserInteracted(true);
++  }
+ 
+   MaybeAllowStorageForOpenerAfterUserInteraction();
+ }
+@@ -16095,6 +16104,17 @@
+             ? net::CookieJarSettings::Create(
+                   inProcessParent->CookieJarSettings()->GetCookieBehavior())
+             : net::CookieJarSettings::Create();
++
++    if (auto* wgc = GetWindowGlobalChild()) {
++      net::CookieJarSettingsArgs csArgs;
++      net::CookieJarSettings::Cast(mCookieJarSettings)->Serialize(csArgs);
++      // Update cookie settings in the parent process
++      if (!wgc->SendUpdateCookieJarSettings(csArgs)) {
++        NS_WARNING(
++            "Failed to update document's cookie jar settings on the "
++            "WindowGlobalParent");
++      }
++    }
+   }
+ 
+   return mCookieJarSettings;
+@@ -16136,10 +16156,8 @@
+ 
+   // Asynchronously tell the parent process that we are, or are no longer, the
+   // initial document. This happens async.
+-  if (RefPtr<nsPIDOMWindowInner> inner = GetInnerWindow()) {
+-    if (RefPtr<WindowGlobalChild> wgc = inner->GetWindowGlobalChild()) {
+-      wgc->SendSetIsInitialDocument(aIsInitialDocument);
+-    }
++  if (auto* wgc = GetWindowGlobalChild()) {
++    wgc->SendSetIsInitialDocument(aIsInitialDocument);
+   }
+ }
+ 

@@ -1,0 +1,177 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/cairo/cairo/src/cairo-misc.c
+# Commit: 3cdfb39376b7
+# Full Hash: 3cdfb39376b736597fe658a322389117686b7e82
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2024-05-07 09:13:07
+# Regressor Bug: 1892913
+# File Overlap Count: 3
+# Description:
+#   Bug 1892913 - patch 1 - Update cairo source to 1.18.0 r=gfx-reviewers,lsalzman
+#   
+#   Wholesale replacement of files in gfx/cairo/cairo with contents of the 1.18.0 release tarball,
+#   omitting subdirectories that are not part of the core library build.
+#   
+# ==============================================================================
+
+diff -r 9daa351f875b -r 3cdfb39376b7 gfx/cairo/cairo/src/cairo-misc.c
+--- a/gfx/cairo/cairo/src/cairo-misc.c	Mon May 06 19:22:35 2024 +0000
++++ b/gfx/cairo/cairo/src/cairo-misc.c	Mon May 06 19:25:12 2024 +0000
+@@ -38,8 +38,6 @@
+  *      Adrian Johnson <ajohnson@redneon.com>
+  */
+ 
+-#define _GNU_SOURCE 1	/* strtod_l() */
+-
+ #include "cairoint.h"
+ #include "cairo-error-private.h"
+ 
+@@ -176,13 +174,16 @@
+ 	return "error occurred in the Windows Graphics Device Interface";
+     case CAIRO_STATUS_TAG_ERROR:
+ 	return "invalid tag name, attributes, or nesting";
++    case CAIRO_STATUS_DWRITE_ERROR:
++	return "Window Direct Write error";
++    case CAIRO_STATUS_SVG_FONT_ERROR:
++	return "error occured while rendering an OpenType-SVG font";
+     default:
+     case CAIRO_STATUS_LAST_STATUS:
+ 	return "<unknown error status>";
+     }
+ }
+ 
+-
+ /**
+  * cairo_glyph_allocate:
+  * @num_glyphs: number of glyphs to allocate
+@@ -211,7 +212,6 @@
+ 
+     return _cairo_malloc_ab (num_glyphs, sizeof (cairo_glyph_t));
+ }
+-slim_hidden_def (cairo_glyph_allocate);
+ 
+ /**
+  * cairo_glyph_free:
+@@ -231,7 +231,6 @@
+ {
+     free (glyphs);
+ }
+-slim_hidden_def (cairo_glyph_free);
+ 
+ /**
+  * cairo_text_cluster_allocate:
+@@ -261,7 +260,6 @@
+ 
+     return _cairo_malloc_ab (num_clusters, sizeof (cairo_text_cluster_t));
+ }
+-slim_hidden_def (cairo_text_cluster_allocate);
+ 
+ /**
+  * cairo_text_cluster_free:
+@@ -281,8 +279,6 @@
+ {
+     free (clusters);
+ }
+-slim_hidden_def (cairo_text_cluster_free);
+-
+ 
+ /* Private stuff */
+ 
+@@ -404,10 +400,10 @@
+     case CAIRO_OPERATOR_DEST_IN:
+     case CAIRO_OPERATOR_DEST_ATOP:
+ 	return FALSE;
++    default:
++	ASSERT_NOT_REACHED;
++	return FALSE; /* squelch warning */
+     }
+-
+-    ASSERT_NOT_REACHED;
+-    return FALSE;
+ }
+ 
+ /**
+@@ -459,18 +455,16 @@
+     case CAIRO_OPERATOR_DEST_IN:
+     case CAIRO_OPERATOR_DEST_ATOP:
+ 	return FALSE;
++    default:
++	ASSERT_NOT_REACHED;
++	return FALSE; /* squelch warning */
+     }
+-
+-    ASSERT_NOT_REACHED;
+-    return FALSE;
+ }
+ 
+ uint32_t
+ _cairo_operator_bounded_by_either (cairo_operator_t op)
+ {
+     switch (op) {
+-    default:
+-	ASSERT_NOT_REACHED;
+     case CAIRO_OPERATOR_OVER:
+     case CAIRO_OPERATOR_ATOP:
+     case CAIRO_OPERATOR_DEST:
+@@ -503,6 +497,9 @@
+     case CAIRO_OPERATOR_DEST_IN:
+     case CAIRO_OPERATOR_DEST_ATOP:
+ 	return 0;
++    default:
++	ASSERT_NOT_REACHED;
++	return FALSE; /* squelch warning */
+     }
+ 
+ }
+@@ -887,6 +884,33 @@
+ }
+ #endif
+ 
++#ifndef HAVE_STRNDUP
++char *
++_cairo_strndup (const char *s, size_t n)
++{
++    const char *end;
++    size_t len;
++    char *sdup;
++
++    if (s == NULL)
++	return NULL;
++
++    end = memchr (s, 0, n);
++    if (end)
++	len = end - s;
++    else
++	len = n;
++
++    sdup = (char *) _cairo_malloc (len + 1);
++    if (sdup != NULL) {
++	memcpy (sdup, s, len);
++	sdup[len] = '\0';
++    }
++
++    return sdup;
++}
++#endif
++
+ /**
+  * _cairo_fopen:
+  * @filename: filename to open
+@@ -948,15 +972,6 @@
+ 
+ #ifdef _WIN32
+ 
+-#define WIN32_LEAN_AND_MEAN
+-/* We require Windows 2000 features such as ETO_PDY */
+-#if !defined(WINVER) || (WINVER < 0x0500)
+-# define WINVER 0x0500
+-#endif
+-#if !defined(_WIN32_WINNT) || (_WIN32_WINNT < 0x0500)
+-# define _WIN32_WINNT 0x0500
+-#endif
+-
+ #include <windows.h>
+ #include <io.h>
+ 

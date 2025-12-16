@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/platforms/agnostic/eme/EMEDecoderModule.cpp
+# Commit: e3f920da2232
+# Full Hash: e3f920da22320921473f385cb060ed7978d67df9
+# Author: Dan Glastonbury <dan.glastonbury@gmail.com>
+# Date: 2020-10-21 09:51:28
+# Regressor Bug: 1595994
+# File Overlap Count: 1
+# Description:
+#   Bug 1595994 - P3: Only create PDMs that are supported in the current process. r=kamidphish
+#   
+#   Depends on D52797
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D54876
+# ==============================================================================
+
+diff -r 44471f99280c -r e3f920da2232 dom/media/platforms/agnostic/eme/EMEDecoderModule.cpp
+--- a/dom/media/platforms/agnostic/eme/EMEDecoderModule.cpp	Tue Oct 20 23:23:58 2020 +0000
++++ b/dom/media/platforms/agnostic/eme/EMEDecoderModule.cpp	Tue Oct 20 23:24:27 2020 +0000
+@@ -9,6 +9,7 @@
+ #include <inttypes.h>
+ 
+ #include "Adts.h"
++#include "BlankDecoderModule.h"
+ #include "ChromiumCDMVideoDecoder.h"
+ #include "DecryptThroughputLimit.h"
+ #include "GMPDecoderModule.h"
+@@ -26,7 +27,6 @@
+ namespace mozilla {
+ 
+ typedef MozPromiseRequestHolder<DecryptPromise> DecryptPromiseRequestHolder;
+-extern already_AddRefed<PlatformDecoderModule> CreateBlankDecoderModule();
+ 
+ DDLoggedTypeDeclNameAndBase(EMEDecryptor, MediaDataDecoder);
+ 
+@@ -378,7 +378,7 @@
+ 
+   if (StaticPrefs::media_eme_video_blank()) {
+     EME_LOG("EMEDecoderModule::CreateVideoDecoder() creating a blank decoder.");
+-    RefPtr<PlatformDecoderModule> m(CreateBlankDecoderModule());
++    RefPtr<PlatformDecoderModule> m(BlankDecoderModule::Create());
+     return m->CreateVideoDecoder(aParams);
+   }
+ 
+@@ -410,7 +410,7 @@
+ 
+   if (StaticPrefs::media_eme_audio_blank()) {
+     EME_LOG("EMEDecoderModule::CreateAudioDecoder() creating a blank decoder.");
+-    RefPtr<PlatformDecoderModule> m(CreateBlankDecoderModule());
++    RefPtr<PlatformDecoderModule> m(BlankDecoderModule::Create());
+     return m->CreateAudioDecoder(aParams);
+   }
+ 

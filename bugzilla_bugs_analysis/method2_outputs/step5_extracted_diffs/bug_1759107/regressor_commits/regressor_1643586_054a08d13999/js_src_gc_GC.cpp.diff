@@ -1,0 +1,36 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/GC.cpp
+# Commit: 054a08d13999
+# Full Hash: 054a08d139993a42ff2de423e1dab2633baadba6
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2022-03-04 04:18:28
+# Regressor Bug: 1643586
+# File Overlap Count: 1
+# Description:
+#   Bug 1643586 - Part 5: Replace heap state checks that rely on there being a JSContext for the thread r=jandem
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D140192
+# ==============================================================================
+
+diff -r b29a261a06ec -r 054a08d13999 js/src/gc/GC.cpp
+--- a/js/src/gc/GC.cpp	Thu Mar 03 17:49:17 2022 +0000
++++ b/js/src/gc/GC.cpp	Thu Mar 03 17:49:18 2022 +0000
+@@ -1570,14 +1570,11 @@
+                                           const HeapThreshold& threshold,
+                                           JS::GCReason reason) {
+   // Ignore malloc during sweeping, for example when we resize hash tables.
+-  if (!CurrentThreadCanAccessRuntime(rt)) {
+-    MOZ_ASSERT(JS::RuntimeHeapIsBusy());
++  if (heapState() != JS::HeapState::Idle) {
+     return false;
+   }
+ 
+-  if (rt->heapState() != JS::HeapState::Idle) {
+-    return false;
+-  }
++  MOZ_ASSERT(CurrentThreadCanAccessRuntime(rt));
+ 
+   TriggerResult trigger = checkHeapThreshold(zone, heap, threshold);
+   if (!trigger.shouldTrigger) {

@@ -1,0 +1,131 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/QuotaManager.h
+# Commit: d63dac1ee4d4
+# Full Hash: d63dac1ee4d471defff484dae5a3535e1f8ba072
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-10-10 22:03:45
+# Regressor Bug: 1866402
+# File Overlap Count: 1
+# Description:
+#   Bug 1866402 - Make it possible to initialize temporary origins without ensuring origin directories; r=dom-storage-reviewers,jari
+#   
+#   LSNG already uses some QuotaManager APIs to achieve that origin directories are
+#   not created if they don't exist during datastore preparation, but the feature
+#   is not easy to use and it's also not generalized enough for use in other quota
+# ==============================================================================
+
+diff -r 2ab08c49f2b1 -r d63dac1ee4d4 dom/quota/QuotaManager.h
+--- a/dom/quota/QuotaManager.h	Thu Oct 10 12:22:54 2024 +0000
++++ b/dom/quota/QuotaManager.h	Thu Oct 10 12:22:55 2024 +0000
+@@ -158,36 +158,19 @@
+   }
+ 
+   /**
+-   * For initialization of an origin where the directory already exists. This is
+-   * used by EnsureTemporaryStorageIsInitializedInternal/InitializeRepository
+-   * once it has tallied origin usage by calling each of the QuotaClient
+-   * InitOrigin methods.
++   * For initialization of an origin where the directory either exists or it
++   * does not. The directory exists case is used by InitializeOrigin once it
++   * has tallied origin usage by calling each of the QuotaClient InitOrigin
++   * methods. It's also used by LoadQuota when quota information is available
++   * from the cache. EnsureTemporaryStorageIsInitializedInternal calls this
++   * either if the directory exists or it does not depending on requirements
++   * of a particular quota client. The special case when origin directory is
++   * not created during origin initialization is currently utilized only by
++   * LSNG.
+    */
+   void InitQuotaForOrigin(const FullOriginMetadata& aFullOriginMetadata,
+                           const ClientUsageArray& aClientUsages,
+-                          uint64_t aUsageBytes);
+-
+-  /**
+-   * For use in special-cases like LSNG where we need to be able to know that
+-   * there is no data stored for an origin. LSNG knows that there is 0 usage for
+-   * its storage of an origin and wants to make sure there is a QuotaObject
+-   * tracking this. This method will create a non-persisted, 0-usage,
+-   * mDirectoryExists=false OriginInfo if there isn't already an OriginInfo. If
+-   * an OriginInfo already exists, it will be left as-is, because that implies a
+-   * different client has usages for the origin (and there's no need to add
+-   * LSNG's 0 usage to the QuotaObject).
+-   */
+-  void EnsureQuotaForOrigin(const OriginMetadata& aOriginMetadata);
+-
+-  /**
+-   * For use when creating an origin directory. It's possible that origin usage
+-   * is already being tracked due to a call to EnsureQuotaForOrigin, and in that
+-   * case we need to update the existing OriginInfo rather than create a new
+-   * one.
+-   *
+-   * @return last access time of the origin.
+-   */
+-  int64_t NoteOriginDirectoryCreated(const OriginMetadata& aOriginMetadata);
++                          uint64_t aUsageBytes, bool aDirectoryExists = true);
+ 
+   // XXX clients can use QuotaObject instead of calling this method directly.
+   void DecreaseUsageForClient(const ClientMetadata& aClientMetadata,
+@@ -219,6 +202,8 @@
+ 
+   void UnloadQuota();
+ 
++  void RemoveOriginFromCache(const OriginMetadata& aOriginMetadata);
++
+   already_AddRefed<QuotaObject> GetQuotaObject(
+       PersistenceType aPersistenceType, const OriginMetadata& aOriginMetadata,
+       Client::Type aClientType, nsIFile* aFile, int64_t aFileSize = -1,
+@@ -236,6 +221,10 @@
+ 
+   void PersistOrigin(const OriginMetadata& aOriginMetadata);
+ 
++  template <typename F>
++  auto WithOriginInfo(const OriginMetadata& aOriginMetadata, F aFunction)
++      -> std::invoke_result_t<F, const RefPtr<OriginInfo>&>;
++
+   using DirectoryLockIdTableArray =
+       AutoTArray<Client::DirectoryLockIdTable, Client::TYPE_MAX>;
+   void AbortOperationsForLocks(const DirectoryLockIdTableArray& aLockIds);
+@@ -250,6 +239,9 @@
+   Result<bool, nsresult> DoesOriginDirectoryExist(
+       const OriginMetadata& aOriginMetadata) const;
+ 
++  Result<nsCOMPtr<nsIFile>, nsresult> GetOrCreateTemporaryOriginDirectory(
++      const OriginMetadata& aOriginMetadata);
++
+   static nsresult CreateDirectoryMetadata(
+       nsIFile& aDirectory, int64_t aTimestamp,
+       const OriginMetadata& aOriginMetadata);
+@@ -334,6 +326,8 @@
+   template <typename P>
+   void CollectPendingOriginsForListing(P aPredicate);
+ 
++  bool IsPendingOrigin(const OriginMetadata& aOriginMetadata) const;
++
+   RefPtr<BoolPromise> InitializeStorage();
+ 
+   RefPtr<BoolPromise> InitializeStorage(
+@@ -388,11 +382,12 @@
+       const OriginMetadata& aOriginMetadata);
+ 
+   RefPtr<BoolPromise> InitializeTemporaryOrigin(
+-      PersistenceType aPersistenceType, const PrincipalInfo& aPrincipalInfo);
++      PersistenceType aPersistenceType, const PrincipalInfo& aPrincipalInfo,
++      bool aCreateIfNonExistent);
+ 
+   RefPtr<BoolPromise> InitializeTemporaryOrigin(
+       PersistenceType aPersistenceType, const PrincipalInfo& aPrincipalInfo,
+-      RefPtr<UniversalDirectoryLock> aDirectoryLock);
++      bool aCreateIfNonExistent, RefPtr<UniversalDirectoryLock> aDirectoryLock);
+ 
+   RefPtr<BoolPromise> TemporaryOriginInitialized(
+       PersistenceType aPersistenceType, const PrincipalInfo& aPrincipalInfo);
+@@ -407,7 +402,7 @@
+   // indicating whether the directory was newly created.
+   Result<std::pair<nsCOMPtr<nsIFile>, bool>, nsresult>
+   EnsureTemporaryOriginIsInitializedInternal(
+-      const OriginMetadata& aOriginMetadata);
++      const OriginMetadata& aOriginMetadata, bool aCreateIfNonExistent);
+ 
+   RefPtr<BoolPromise> InitializePersistentClient(
+       const PrincipalInfo& aPrincipalInfo, Client::Type aClientType);

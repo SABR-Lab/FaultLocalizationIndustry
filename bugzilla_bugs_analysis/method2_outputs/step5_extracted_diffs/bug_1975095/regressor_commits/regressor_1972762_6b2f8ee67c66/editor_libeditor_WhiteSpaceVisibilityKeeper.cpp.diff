@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/WhiteSpaceVisibilityKeeper.cpp
+# Commit: 6b2f8ee67c66
+# Full Hash: 6b2f8ee67c667e556f3618e3d5d9ed77c2134c1d
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2025-06-27 16:09:56
+# Regressor Bug: 1972762
+# File Overlap Count: 1
+# Description:
+#   Bug 1972762 - part 7: Make `WhiteSpaceVisibilityKeeper::NormalizeVisibleWhiteSpacesWithoutDeletingInvisibleWhiteSpaces` stop using `nsTextFragment::CharAt` within the loops r=m_kato
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D254480
+# ==============================================================================
+
+diff -r 2f067d7e0d5c -r 6b2f8ee67c66 editor/libeditor/WhiteSpaceVisibilityKeeper.cpp
+--- a/editor/libeditor/WhiteSpaceVisibilityKeeper.cpp	Fri Jun 27 06:48:25 2025 +0000
++++ b/editor/libeditor/WhiteSpaceVisibilityKeeper.cpp	Fri Jun 27 06:51:54 2025 +0000
+@@ -2273,22 +2273,22 @@
+   if (whiteSpaceOffset.isNothing()) {
+     return NS_OK;
+   }
++  nsTextFragment::WhitespaceOptions whitespaceOptions{
++      nsTextFragment::WhitespaceOption::FormFeedIsSignificant,
++      nsTextFragment::WhitespaceOption::TreatNBSPAsCollapsible};
++  if (isNewLinePreformatted) {
++    whitespaceOptions += nsTextFragment::WhitespaceOption::NewLineIsSignificant;
++  }
+   const uint32_t firstOffset = [&]() {
+-    for (const uint32_t offset : Reversed(IntegerRange(*whiteSpaceOffset))) {
+-      if (!IsCollapsibleCharOrNBSP(textNode.TextFragment().CharAt(offset))) {
+-        return offset + 1u;
+-      }
+-    }
+-    return 0u;
++    const uint32_t offset = textNode.TextFragment().RFindNonWhitespaceChar(
++        whitespaceOptions, *whiteSpaceOffset - 1);
++    return offset == nsTextFragment::kNotFound ? 0u : offset + 1u;
+   }();
+   const uint32_t endOffset = [&]() {
+-    for (const uint32_t offset :
+-         IntegerRange(*whiteSpaceOffset + 1, textNode.TextDataLength())) {
+-      if (!IsCollapsibleCharOrNBSP(textNode.TextFragment().CharAt(offset))) {
+-        return offset;
+-      }
+-    }
+-    return textNode.TextDataLength();
++    const uint32_t offset = textNode.TextFragment().FindNonWhitespaceChar(
++        whitespaceOptions, *whiteSpaceOffset + 1);
++    return offset == nsTextFragment::kNotFound ? textNode.TextDataLength()
++                                               : offset;
+   }();
+   nsAutoString normalizedString;
+   const char16_t precedingChar =

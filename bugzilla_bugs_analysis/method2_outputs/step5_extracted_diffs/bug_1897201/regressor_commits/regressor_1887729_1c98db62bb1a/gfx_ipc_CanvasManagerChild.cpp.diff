@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/ipc/CanvasManagerChild.cpp
+# Commit: 1c98db62bb1a
+# Full Hash: 1c98db62bb1a20d26f812d28d86672158450e71c
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2024-03-28 21:36:34
+# Regressor Bug: 1887729
+# File Overlap Count: 2
+# Description:
+#   Bug 1887729 - Implement context lost/restored support for CanvasRenderingContext2D. r=webidl,gfx-reviewers,smaug,lsalzman
+#   
+#   Remote canvas can run in the GPU process, and if the GPU process
+#   crashes, we need to notify the application using canvas. Historically we
+#   just failed, and the application may have been able to continue drawing
+# ==============================================================================
+
+diff -r 315bfe14fe3f -r 1c98db62bb1a gfx/ipc/CanvasManagerChild.cpp
+--- a/gfx/ipc/CanvasManagerChild.cpp	Thu Mar 28 14:21:58 2024 +0000
++++ b/gfx/ipc/CanvasManagerChild.cpp	Thu Mar 28 14:50:20 2024 +0000
+@@ -55,6 +55,10 @@
+     mCanvasChild->Destroy();
+     mCanvasChild = nullptr;
+   }
++
++  if (auto* shutdownManager = CanvasShutdownManager::Get()) {
++    shutdownManager->OnRemoteCanvasLost();
++  }
+ }
+ 
+ void CanvasManagerChild::Destroy() {
+@@ -140,6 +144,7 @@
+   }
+ 
+   manager->SendInitialize(manager->Id());
++  shutdownManager->OnRemoteCanvasRestored();
+   sLocalManager.set(manager);
+   return manager;
+ }

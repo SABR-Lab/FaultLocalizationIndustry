@@ -1,0 +1,43 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/PlainObject-inl.h
+# Commit: 38aa248ef576
+# Full Hash: 38aa248ef5760830f21cc9c92f4182b8ae1ed81f
+# Author: André Bargull <andre.bargull@gmail.com>
+# Date: 2021-07-16 21:43:02
+# Description:
+#   Bug 1718842: Use correct compartment and realm for group objects. r=iain
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D119025
+# ==============================================================================
+
+diff -r abf91c0aeefd -r 38aa248ef576 js/src/vm/PlainObject-inl.h
+--- a/js/src/vm/PlainObject-inl.h	Fri Jul 16 20:35:55 2021 +0300
++++ b/js/src/vm/PlainObject-inl.h	Fri Jul 16 17:31:30 2021 +0000
+@@ -25,10 +25,7 @@
+ #include "vm/NativeObject-inl.h"  // js::NativeObject::{create,setLastProperty}
+ 
+ /* static */ inline JS::Result<js::PlainObject*, JS::OOM>
+-js::PlainObject::createWithTemplate(JSContext* cx,
+-                                    JS::Handle<PlainObject*> templateObject) {
+-  JS::Rooted<Shape*> shape(cx, templateObject->shape());
+-
++js::PlainObject::createWithShape(JSContext* cx, JS::Handle<Shape*> shape) {
+   MOZ_ASSERT(shape->getObjectClass() == &PlainObject::class_);
+   gc::InitialHeap heap = GetInitialHeap(GenericObject, &PlainObject::class_);
+ 
+@@ -41,6 +38,13 @@
+   });
+ }
+ 
++/* static */ inline JS::Result<js::PlainObject*, JS::OOM>
++js::PlainObject::createWithTemplate(JSContext* cx,
++                                    JS::Handle<PlainObject*> templateObject) {
++  JS::Rooted<Shape*> shape(cx, templateObject->shape());
++  return createWithShape(cx, shape);
++}
++
+ inline js::gc::AllocKind js::PlainObject::allocKindForTenure() const {
+   gc::AllocKind kind = gc::GetGCObjectFixedSlotsKind(numFixedSlots());
+   MOZ_ASSERT(!gc::IsBackgroundFinalized(kind));

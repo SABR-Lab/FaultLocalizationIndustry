@@ -1,0 +1,92 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/nsHttpTransaction.cpp
+# Commit: 96bd98319c62
+# Full Hash: 96bd98319c6242a9b05dc4723b928e88537424e1
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2020-08-26 03:24:37
+# Regressor Bug: 1652667
+# File Overlap Count: 1
+# Description:
+#   Bug 1652667 - P1: Add telemetry for when an HTTPSSVC record is received r=dragana
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D87844
+# ==============================================================================
+
+diff -r b61a789151df -r 96bd98319c62 netwerk/protocol/http/nsHttpTransaction.cpp
+--- a/netwerk/protocol/http/nsHttpTransaction.cpp	Tue Aug 25 17:29:21 2020 +0000
++++ b/netwerk/protocol/http/nsHttpTransaction.cpp	Tue Aug 25 17:29:32 2020 +0000
+@@ -429,6 +429,8 @@
+   }
+ 
+   if (gHttpHandler->UseHTTPSRRAsAltSvcEnabled()) {
++    mHTTPSSVCReceivedStage.emplace(HTTPSSVC_NOT_PRESENT);
++
+     nsCOMPtr<nsIDNSService> dns = do_GetService(NS_DNSSERVICE_CONTRACTID);
+     nsCOMPtr<nsIEventTarget> target;
+     Unused << gHttpHandler->GetSocketThreadTarget(getter_AddRefs(target));
+@@ -546,11 +548,6 @@
+     return;
+   }
+ 
+-  if (mDNSRequest) {
+-    mDNSRequest->Cancel(NS_ERROR_ABORT);
+-    mDNSRequest = nullptr;
+-  }
+-
+   if (mTrafficCategory != HttpTrafficCategory::eInvalid) {
+     HttpTrafficAnalyzer* hta = gHttpHandler->GetHttpTrafficAnalyzer();
+     if (hta) {
+@@ -1086,6 +1083,11 @@
+     mActivated = false;
+   }
+ 
++  if (mDNSRequest) {
++    mDNSRequest->Cancel(reason);
++    mDNSRequest = nullptr;
++  }
++
+   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
+   if (reason == NS_BINDING_RETARGETED) {
+     LOG(("  close %p skipped due to ERETARGETED\n", this));
+@@ -2703,15 +2705,25 @@
+ 
+   MakeDontWaitHTTPSSVC();
+ 
+-  if (mActivated) {
+-    return NS_OK;
+-  }
+-
+   nsCOMPtr<nsIDNSHTTPSSVCRecord> record = do_QueryInterface(aRecord);
+   if (!record || NS_FAILED(aStatus)) {
+     return NS_ERROR_FAILURE;
+   }
+ 
++  bool hasIPAddress = false;
++  Unused << record->GetHasIPAddresses(&hasIPAddress);
++
++  if (mActivated) {
++    mHTTPSSVCReceivedStage =
++        Some(hasIPAddress ? HTTPSSVC_WITH_IPHINT_RECEIVED_STAGE_2
++                          : HTTPSSVC_WITHOUT_IPHINT_RECEIVED_STAGE_2);
++    return NS_OK;
++  }
++
++  mHTTPSSVCReceivedStage =
++      Some(hasIPAddress ? HTTPSSVC_WITH_IPHINT_RECEIVED_STAGE_1
++                        : HTTPSSVC_WITHOUT_IPHINT_RECEIVED_STAGE_1);
++
+   nsCOMPtr<nsISVCBRecord> svcbRecord;
+   if (NS_FAILED(record->GetServiceModeRecord(mCaps & NS_HTTP_DISALLOW_SPDY,
+                                              mCaps & NS_HTTP_DISALLOW_HTTP3,
+@@ -2733,5 +2745,9 @@
+   return NS_OK;
+ }
+ 
++Maybe<uint32_t> nsHttpTransaction::HTTPSSVCReceivedStage() {
++  return mHTTPSSVCReceivedStage;
++}
++
+ }  // namespace net
+ }  // namespace mozilla

@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/TextEditor.h
+# Commit: cdcef4f3f635
+# Full Hash: cdcef4f3f63553a28a1055e6f4f051778ca8fb0a
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-09-22 09:56:47
+# Regressor Bug: 1789967
+# File Overlap Count: 1
+# Description:
+#   Bug 1789967 - part 2: Make `TextEditor` and `HTMLEditor` implement `EditorBase::CollapseSelectionToEndOfLastLeafNode` by themselves r=m_kato
+#   
+#   It does different thing for `TextEditor` and `HTMLEditor`, and used almost
+#   internally.  Therefore, it should be implemented in the sub classes and
+#   we should name them better.
+# ==============================================================================
+
+diff -r cc2e8b7c548e -r cdcef4f3f635 editor/libeditor/TextEditor.h
+--- a/editor/libeditor/TextEditor.h	Thu Sep 22 06:06:54 2022 +0000
++++ b/editor/libeditor/TextEditor.h	Thu Sep 22 06:17:36 2022 +0000
+@@ -110,6 +110,7 @@
+   NS_DECL_NSINAMED
+ 
+   // Overrides of nsIEditor
++  MOZ_CAN_RUN_SCRIPT NS_IMETHOD EndOfDocument() final;
+   MOZ_CAN_RUN_SCRIPT NS_IMETHOD InsertLineBreak() final;
+   NS_IMETHOD GetTextLength(uint32_t* aCount) final;
+   MOZ_CAN_RUN_SCRIPT NS_IMETHOD Paste(int32_t aClipboardType) final {
+@@ -541,6 +542,12 @@
+   [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult InitEditorContentAndSelection();
+ 
+   /**
++   * Collapse `Selection` to end of the text node in the anonymous <div>
++   * element.
++   */
++  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult CollapseSelectionToEndOfTextNode();
++
++  /**
+    * Make the given selection span the entire document.
+    */
+   MOZ_CAN_RUN_SCRIPT nsresult SelectEntireDocument() final;

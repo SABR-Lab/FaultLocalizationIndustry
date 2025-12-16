@@ -1,0 +1,179 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/ron/src/parse.rs
+# Commit: 3f167f8b3137
+# Full Hash: 3f167f8b313749f50f135e189e5854bef7ac0c73
+# Author: Erich Gubler <erichdongubler@gmail.com>
+# Date: 2025-10-03 18:08 +0000
+# Regressor Bug: 1991551
+# File Overlap Count: 23
+# Overlapping Files: third_party/rust/wgpu-hal/Cargo.toml, supply-chain/audits.toml, third_party/rust/naga/src/back/spv/writer.rs, third_party/rust/naga/src/back/msl/writer.rs, third_party/rust/wgpu-types/src/lib.rs
+# Description:
+#   Bug 1991551 - build(webgpu): update WGPU to 8c4aebc0c1b75e3f7412dfc180745a0717fc30ec r=webgpu-reviewers,supply-chain-reviewers,nical
+# ==============================================================================
+
+diff -r 823439f307a0 -r 3f167f8b3137 third_party/rust/ron/src/parse.rs
+--- a/third_party/rust/ron/src/parse.rs	Fri Oct 03 18:01:30 2025 +0000
++++ b/third_party/rust/ron/src/parse.rs	Fri Oct 03 18:08:29 2025 +0000
+@@ -1,6 +1,11 @@
+ #![allow(clippy::identity_op)]
+ 
+-use std::{
++use alloc::{
++    format,
++    string::{String, ToString},
++    vec::Vec,
++};
++use core::{
+     char::from_u32 as char_from_u32,
+     str::{self, from_utf8, FromStr, Utf8Error},
+ };
+@@ -8,7 +13,7 @@
+ use unicode_ident::{is_xid_continue, is_xid_start};
+ 
+ use crate::{
+-    error::{Error, Position, Result, SpannedError, SpannedResult},
++    error::{Error, Position, Result, Span, SpannedError, SpannedResult},
+     extensions::Extensions,
+     value::Number,
+ };
+@@ -59,6 +64,7 @@
+     pub exts: Extensions,
+     src: &'a str,
+     cursor: ParserCursor,
++    prev_cursor: ParserCursor,
+ }
+ 
+ #[derive(Copy, Clone)] // GRCOV_EXCL_LINE
+@@ -77,7 +83,7 @@
+ }
+ 
+ impl PartialOrd for ParserCursor {
+-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
++    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+         self.cursor.partial_cmp(&other.cursor)
+     }
+ }
+@@ -93,6 +99,11 @@
+                 pre_ws_cursor: 0,
+                 last_ws_len: 0,
+             },
++            prev_cursor: ParserCursor {
++                cursor: 0,
++                pre_ws_cursor: 0,
++                last_ws_len: 0,
++            },
+         };
+ 
+         parser.skip_ws().map_err(|e| parser.span_error(e))?;
+@@ -119,11 +130,15 @@
+     pub fn span_error(&self, code: Error) -> SpannedError {
+         SpannedError {
+             code,
+-            position: Position::from_src_end(&self.src[..self.cursor.cursor]),
++            span: Span {
++                start: Position::from_src_end(&self.src[..self.prev_cursor.cursor]),
++                end: Position::from_src_end(&self.src[..self.cursor.cursor]),
++            },
+         }
+     }
+ 
+     pub fn advance_bytes(&mut self, bytes: usize) {
++        self.prev_cursor = self.cursor;
+         self.cursor.cursor += bytes;
+     }
+ 
+@@ -134,7 +149,7 @@
+     }
+ 
+     pub fn skip_next_char(&mut self) {
+-        std::mem::drop(self.next_char());
++        core::mem::drop(self.next_char());
+     }
+ 
+     pub fn peek_char(&self) -> Option<char> {
+@@ -1010,7 +1025,7 @@
+                 ParsedByteStr::Slice(b) => b,
+             }
+             .iter()
+-            .flat_map(|c| std::ascii::escape_default(*c))
++            .flat_map(|c| core::ascii::escape_default(*c))
+             .map(char::from)
+             .collect::<String>();
+             let base64_str = match &base64_str {
+@@ -1029,12 +1044,12 @@
+             let base64_result = ParsedByteStr::try_from_base64(&base64_str);
+ 
+             if cfg!(not(test)) {
+-                // FIXME @juntyr: remove in v0.10
++                // FIXME @juntyr: remove in v0.12
+                 #[allow(deprecated)]
+                 base64_result.map_err(Error::Base64Error)
+             } else {
+                 match base64_result {
+-                    // FIXME @juntyr: enable in v0.10
++                    // FIXME @juntyr: enable in v0.12
+                     Ok(byte_str) => Err(expected_byte_string_found_base64(&base64_str, &byte_str)),
+                     Err(_) => Err(Error::ExpectedByteString),
+                 }
+@@ -1044,12 +1059,12 @@
+             let base64_result = ParsedByteStr::try_from_base64(&base64_str);
+ 
+             if cfg!(not(test)) {
+-                // FIXME @juntyr: remove in v0.10
++                // FIXME @juntyr: remove in v0.12
+                 #[allow(deprecated)]
+                 base64_result.map_err(Error::Base64Error)
+             } else {
+                 match base64_result {
+-                    // FIXME @juntyr: enable in v0.10
++                    // FIXME @juntyr: enable in v0.12
+                     Ok(byte_str) => Err(expected_byte_string_found_base64(&base64_str, &byte_str)),
+                     Err(_) => Err(Error::ExpectedByteString),
+                 }
+@@ -1141,7 +1156,7 @@
+                         1 => s.push(c as u8),
+                         len => {
+                             let start = s.len();
+-                            s.extend(std::iter::repeat(0).take(len));
++                            s.extend(core::iter::repeat(0).take(len));
+                             c.encode_utf8(&mut s[start..]);
+                         }
+                     },
+@@ -1781,7 +1796,10 @@
+                     expected: String::from("the Rusty byte string b\"Hello ron!\""),
+                     found: String::from("the ambiguous base64 string \"SGVsbG8gcm9uIQ==\"")
+                 },
+-                position: Position { line: 1, col: 19 },
++                span: Span {
++                    start: Position { line: 1, col: 2 },
++                    end: Position { line: 1, col: 19 },
++                }
+             }
+         );
+ 
+@@ -1793,7 +1811,10 @@
+             crate::from_str::<bytes::Bytes>("\"invalid=\"").unwrap_err(),
+             SpannedError {
+                 code: Error::ExpectedByteString,
+-                position: Position { line: 1, col: 11 },
++                span: Span {
++                    start: Position { line: 1, col: 2 },
++                    end: Position { line: 1, col: 11 },
++                }
+             }
+         );
+ 
+@@ -1801,7 +1822,10 @@
+             crate::from_str::<bytes::Bytes>("r\"invalid=\"").unwrap_err(),
+             SpannedError {
+                 code: Error::ExpectedByteString,
+-                position: Position { line: 1, col: 12 },
++                span: Span {
++                    start: Position { line: 1, col: 3 },
++                    end: Position { line: 1, col: 12 },
++                }
+             }
+         );
+     }

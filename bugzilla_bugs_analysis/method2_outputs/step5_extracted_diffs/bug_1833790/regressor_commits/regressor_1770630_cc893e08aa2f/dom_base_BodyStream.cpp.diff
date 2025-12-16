@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/BodyStream.cpp
+# Commit: cc893e08aa2f
+# Full Hash: cc893e08aa2f8e98312e33eb5af8f684b015c29c
+# Author: Andrew Sutherland <asutherland@asutherland.org>
+# Date: 2022-08-03 03:42:48
+# Regressor Bug: 1770630
+# File Overlap Count: 1
+# Description:
+#   Bug 1770630 - Worker stream readers should contribute to busy count. r=dom-worker-reviewers,jstutte
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D149185
+# ==============================================================================
+
+diff -r 57951e2dc196 -r cc893e08aa2f dom/base/BodyStream.cpp
+--- a/dom/base/BodyStream.cpp	Tue Aug 02 20:55:25 2022 +0000
++++ b/dom/base/BodyStream.cpp	Tue Aug 02 20:56:53 2022 +0000
+@@ -115,8 +115,8 @@
+     WorkerPrivate* workerPrivate = GetWorkerPrivateFromContext(aCx);
+     MOZ_ASSERT(workerPrivate);
+ 
+-    RefPtr<WeakWorkerRef> workerRef =
+-        WeakWorkerRef::Create(workerPrivate, [stream]() { stream->Close(); });
++    RefPtr<StrongWorkerRef> workerRef =
++        StrongWorkerRef::Create(workerPrivate, "BodyStream", [stream]() { stream->Close(); });
+ 
+     if (NS_WARN_IF(!workerRef)) {
+       aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
+@@ -215,6 +215,7 @@
+     ErrorPropagation(aCx, lock, stream, rv);
+     return nullptr;
+   }
++  mAsyncWaitWorkerRef = mWorkerRef;
+ 
+   // All good.
+   return resolvedWithUndefinedPromise.forget();
+@@ -272,6 +273,7 @@
+     ErrorPropagation(aCx, lock, aStream, rv);
+     return;
+   }
++  mAsyncWaitWorkerRef = mWorkerRef;
+ 
+   // All good.
+ }
+@@ -429,6 +431,7 @@
+     NO_THREAD_SAFETY_ANALYSIS {
+   AssertIsOnOwningThread();
+   MOZ_DIAGNOSTIC_ASSERT(aStream);
++  mAsyncWaitWorkerRef = nullptr;
+ 
+   // Acquire |mMutex| in order to safely inspect |mState| and use |mGlobal|.
+   Maybe<MutexSingleWriterAutoLock> lock;
+@@ -581,7 +584,7 @@
+     // Let's dispatch a WorkerControlRunnable if the owning thread is a worker.
+     if (mWorkerRef) {
+       RefPtr<WorkerShutdown> r =
+-          new WorkerShutdown(mWorkerRef->GetUnsafePrivate(), this);
++          new WorkerShutdown(mWorkerRef->Private(), this);
+       Unused << NS_WARN_IF(!r->Dispatch());
+       return;
+     }

@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/loader/NetworkLoadHandler.cpp
+# Commit: 5f483f0b842a
+# Full Hash: 5f483f0b842afdfad82ea041256f9d8bce37f421
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-11-02 04:41:32
+# Regressor Bug: 1797327
+# File Overlap Count: 3
+# Description:
+#   Bug 1797327 - Use RefPtrs for all WorkerLoadContexts; r=asuth
+#   
+#   As WorkerLoadContexts now inherit from a non-CC'd loadContextBase, we have two outcomes.
+#   1) we need to break cycles with ScriptLoadRequests manually, so that ScriptLoadRequests can be collected (ScriptLoadRequests must be CC'd).
+#   2) we can now have refptrs to WorkerLoadContexts in the CacheLoadHandler and NetworkLoadHandler classes, and remove any remaining raw pointers to ScriptLoadRequest/WorkerLoadContext. There are cases where the NetworkLoadHandler or CacheLoadHandler might outlive the Worker Loader, so having refpointers here should help us recover in those cases.
+# ==============================================================================
+
+diff -r 7ade701781f5 -r 5f483f0b842a dom/workers/loader/NetworkLoadHandler.cpp
+--- a/dom/workers/loader/NetworkLoadHandler.cpp	Tue Nov 01 18:03:34 2022 +0000
++++ b/dom/workers/loader/NetworkLoadHandler.cpp	Tue Nov 01 18:03:34 2022 +0000
+@@ -53,10 +53,16 @@
+                                      nsISupports* aContext, nsresult aStatus,
+                                      uint32_t aStringLen,
+                                      const uint8_t* aString) {
++  // If we have cancelled, or we have no mRequest, it means that the loader has
++  // shut down and we can exit early. If the cancel result is still NS_OK
+   if (mLoader->IsCancelled()) {
+     return mLoader->GetCancelResult();
+   }
+ 
++  if (!mLoadContext->mRequest) {
++    return NS_BINDING_ABORTED;
++  }
++
+   nsresult rv = DataReceivedFromNetwork(aLoader, aStatus, aStringLen, aString);
+   return mLoader->OnStreamComplete(mLoadContext->mRequest, rv);
+ }
+@@ -66,6 +72,7 @@
+                                                      uint32_t aStringLen,
+                                                      const uint8_t* aString) {
+   AssertIsOnMainThread();
++  MOZ_ASSERT(mLoadContext->mRequest);
+ 
+   if (NS_FAILED(aStatus)) {
+     return aStatus;
+@@ -275,6 +282,7 @@
+ 
+ nsresult NetworkLoadHandler::PrepareForRequest(nsIRequest* aRequest) {
+   AssertIsOnMainThread();
++  MOZ_ASSERT(mLoadContext->mRequest);
+ 
+   // If one load info cancels or hits an error, it can race with the start
+   // callback coming from another load info.
+@@ -362,7 +370,7 @@
+   }
+ 
+   RefPtr<CachePromiseHandler> promiseHandler =
+-      new CachePromiseHandler(mLoader, mLoadContext->mRequest);
++      new CachePromiseHandler(mLoader, mLoadContext);
+   cachePromise->AppendNativeHandler(promiseHandler);
+ 
+   mLoadContext->mCachePromise.swap(cachePromise);

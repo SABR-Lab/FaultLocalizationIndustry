@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/CustomElementRegistry.cpp
+# Commit: b3c093b141e2
+# Full Hash: b3c093b141e2381efef699124f8a629d0711c8c6
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2018-08-07 15:42:55
+# Regressor Bug: 1478359
+# File Overlap Count: 2
+# Description:
+#   Bug 1478359 - Store a global object in nsXPCWrappedJS and use it for realm-entering. r=mccr8
+#   
+#   The problem we're solving here: getting/entering the realm/global of a cross-compartment wrapper doesn't make sense once there are multiple realms in a compartment and the CCW will be shared by all of them. Because nsXPCWrappedJS can store a CCW, we will no longer be able to use this JSObject to enter the target realm.
+#   
+#   What this patch does: we pass a JSContext* to nsXPCWrappedJS::GetNewOrUsed and we use this to store a global object in nsXPCWrappedJS (with the invariant that the object and global stored in nsXPCWrappedJS are same-compartment). Then when we want to enter the nsXPCWrappedJS's target realm, we use this global object instead of the maybe-CCW object. Because we currently still have one realm per compartment and the objects are same-compartment, this is guaranteed to preserve behavior for now.
+# ==============================================================================
+
+diff -r bf6961db9405 -r b3c093b141e2 dom/base/CustomElementRegistry.cpp
+--- a/dom/base/CustomElementRegistry.cpp	Tue Aug 07 12:41:15 2018 +0300
++++ b/dom/base/CustomElementRegistry.cpp	Tue Aug 07 11:57:41 2018 +0200
+@@ -1211,18 +1211,23 @@
+ 
+       nsCOMPtr<nsIJSID> iid = nsJSID::NewID(aIID);
+       func->Call(aElement, iid, &customInterface);
+-      if (customInterface) {
++      JS::Rooted<JSObject*> funcGlobal(RootingCx(), func->CallbackGlobalOrNull());
++      if (customInterface && funcGlobal) {
+         RefPtr<nsXPCWrappedJS> wrappedJS;
+-        nsresult rv =
+-          nsXPCWrappedJS::GetNewOrUsed(customInterface,
+-                                       NS_GET_IID(nsISupports),
+-                                       getter_AddRefs(wrappedJS)); 
+-        if (NS_SUCCEEDED(rv) && wrappedJS) {
+-          // Check if the returned object implements the desired interface. 
+-          nsCOMPtr<nsISupports> retval;
+-          if (NS_SUCCEEDED(wrappedJS->QueryInterface(aIID,
+-                                                     getter_AddRefs(retval)))) {        
+-            return retval.forget();
++        AutoJSAPI jsapi;
++        if (jsapi.Init(funcGlobal)) {
++          JSContext* cx = jsapi.cx();
++          nsresult rv =
++            nsXPCWrappedJS::GetNewOrUsed(cx, customInterface,
++                                         NS_GET_IID(nsISupports),
++                                         getter_AddRefs(wrappedJS));
++          if (NS_SUCCEEDED(rv) && wrappedJS) {
++            // Check if the returned object implements the desired interface.
++            nsCOMPtr<nsISupports> retval;
++            if (NS_SUCCEEDED(wrappedJS->QueryInterface(aIID,
++                                                       getter_AddRefs(retval)))) {
++              return retval.forget();
++            }
+           }
+         }
+       }

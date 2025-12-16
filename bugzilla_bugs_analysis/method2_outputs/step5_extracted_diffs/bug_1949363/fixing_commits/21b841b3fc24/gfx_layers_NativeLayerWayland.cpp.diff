@@ -1,0 +1,46 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/NativeLayerWayland.cpp
+# Commit: 21b841b3fc24
+# Full Hash: 21b841b3fc24ee33a953cabd6daad0d6a8404c92
+# Author: stransky <stransky@redhat.com>
+# Date: 2025-02-21 09:54:38
+# Description:
+#   Bug 1949363 [Wayland] Allow to remove NativeLayerRootWayland from live WaylandSurface r=emilio
+#   
+#   It's possible that compositor widget is deleted before WaylandSurface is fully unmapped so clear WaylandSurface in such case.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D238925
+# ==============================================================================
+
+diff -r 9b703fbecbfe -r 21b841b3fc24 gfx/layers/NativeLayerWayland.cpp
+--- a/gfx/layers/NativeLayerWayland.cpp	Fri Feb 21 06:28:46 2025 +0000
++++ b/gfx/layers/NativeLayerWayland.cpp	Fri Feb 21 06:38:46 2025 +0000
+@@ -178,16 +178,18 @@
+ void NativeLayerRootWayland::Shutdown() {
+   LOG("NativeLayerRootWayland::Shutdown()");
+ 
++  {
++    WaylandSurfaceLock lock(mSurface);
++    if (mSurface->IsMapped()) {
++      mSurface->RemoveAttachedBufferLocked(lock);
++    }
++    mSurface->ClearUnmapCallbackLocked(lock);
++    mSurface->ClearGdkCommitCallbackLocked(lock);
++    mSurface->DisableDMABufFormatsLocked(lock);
++  }
++  mSurface = nullptr;
+   mTmpBuffer = nullptr;
+   mDRMFormat = nullptr;
+-
+-  WaylandSurfaceLock lock(mSurface);
+-  MOZ_DIAGNOSTIC_ASSERT(!mSurface->IsMapped(),
+-                        "Can't shutdown with live WaylandSurface!");
+-  mSurface->ClearUnmapCallbackLocked(lock);
+-  mSurface->ClearGdkCommitCallbackLocked(lock);
+-  mSurface->DisableDMABufFormatsLocked(lock);
+-  mSurface = nullptr;
+ }
+ 
+ NativeLayerRootWayland::NativeLayerRootWayland(

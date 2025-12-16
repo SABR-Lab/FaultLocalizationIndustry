@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/VideoConduit.h
+# Commit: a55a718715f6
+# Full Hash: a55a718715f69cba1ff9fbae4787881b4d930907
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 3
+# Description:
+#   Bug 1654112 - Report video frame-/bitrate telemetry once per call instead of every second. r=ng
+#   
+#   This is similar to the behavior prior to bug 1532898, which introduced telemetry
+#   reporting every second. There's a bit of a difference in that we now only report
+#   data if we had collected some through the 1 second interval telemetry timer in
+# ==============================================================================
+
+diff -r 069c5baf6d32 -r a55a718715f6 dom/media/webrtc/libwebrtcglue/VideoConduit.h
+--- a/dom/media/webrtc/libwebrtcglue/VideoConduit.h	Thu Jan 28 10:54:32 2021 +0100
++++ b/dom/media/webrtc/libwebrtcglue/VideoConduit.h	Mon Jan 25 16:54:14 2021 +0100
+@@ -267,7 +267,7 @@
+     mAllowSsrcChange = false;
+   }
+ 
+-  void RecordTelemetry() override;
++  void CollectTelemetryData() override;
+ 
+   void SetRtcpEventObserver(mozilla::RtcpEventObserver* observer) override;
+ 
+@@ -361,7 +361,7 @@
+   bool mUpdateResolution = false;
+   int mSinkWantsPixelCount = std::numeric_limits<int>::max();
+ 
+-  // Bookkeeping of stats for telemetry. Sts thread only.
++  // Bookkeeping of stats for telemetry. Main thread only.
+   RunningStat mSendFramerate;
+   RunningStat mSendBitrate;
+   RunningStat mRecvFramerate;

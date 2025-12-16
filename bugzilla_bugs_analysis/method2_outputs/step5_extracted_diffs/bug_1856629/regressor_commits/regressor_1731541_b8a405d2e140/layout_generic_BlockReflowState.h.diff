@@ -1,0 +1,72 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/BlockReflowState.h
+# Commit: b8a405d2e140
+# Full Hash: b8a405d2e140de87b7a8b06e95a04f984a8ddf0a
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2023-09-30 21:19:54
+# Regressor Bug: 1731541
+# File Overlap Count: 1
+# Description:
+#   Bug 1731541 - Implement text-wrap: balance for nsBlockFrame reflow. r=emilio
+#   
+#   A simple form of balance for short blocks, implemented by incrementally reducing
+#   the effective inline-size used during line-breaking, up to the point where an
+#   extra line would be created.
+# ==============================================================================
+
+diff -r 2a7646e1a4a5 -r b8a405d2e140 layout/generic/BlockReflowState.h
+--- a/layout/generic/BlockReflowState.h	Sat Sep 30 15:53:11 2023 +0000
++++ b/layout/generic/BlockReflowState.h	Sat Sep 30 15:53:12 2023 +0000
+@@ -98,7 +98,8 @@
+                    nsBlockFrame* aFrame, bool aBStartMarginRoot,
+                    bool aBEndMarginRoot, bool aBlockNeedsFloatManager,
+                    const nscoord aConsumedBSize,
+-                   const nscoord aEffectiveContentBoxBSize);
++                   const nscoord aEffectiveContentBoxBSize,
++                   const nscoord aInset = 0);
+ 
+   /**
+    * Get the available reflow space (the area not occupied by floats)
+@@ -243,9 +244,9 @@
+   // the block.
+ 
+   // The block frame that is using this object
+-  nsBlockFrame* mBlock;
++  nsBlockFrame* const mBlock;
+ 
+-  nsPresContext* mPresContext;
++  nsPresContext* const mPresContext;
+ 
+   const ReflowInput& mReflowInput;
+ 
+@@ -301,6 +302,10 @@
+     return mContentArea.Size(wm).ConvertTo(aWM, wm);
+   }
+ 
++  // Amount of inset to apply during line-breaking, used by text-wrap:balance
++  // to adjust line-breaks for more consistent lengths throughout the block.
++  nscoord mInsetForBalance;
++
+   // Physical size. Use only for physical <-> logical coordinate conversion.
+   nsSize mContainerSize;
+   const nsSize& ContainerSize() const { return mContainerSize; }
+@@ -345,7 +350,7 @@
+ 
+   // mBlock's computed logical border+padding with pre-reflow skip sides applied
+   // (See the constructor and nsIFrame::PreReflowBlockLevelLogicalSkipSides).
+-  LogicalMargin mBorderPadding;
++  const LogicalMargin mBorderPadding;
+ 
+   // The overflow areas of all floats placed so far
+   OverflowAreas mFloatOverflowAreas;
+@@ -383,7 +388,7 @@
+   // placed, since we're on a nowrap context.
+   nsTArray<nsIFrame*> mNoWrapFloats;
+ 
+-  nscoord mMinLineHeight;
++  const nscoord mMinLineHeight;
+ 
+   int32_t mLineNumber;
+ 

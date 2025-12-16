@@ -1,0 +1,35 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: accessible/generic/HyperTextAccessible.cpp
+# Commit: 41d5f7688395
+# Full Hash: 41d5f76883953154d9a53e09f805e1ce15cb57c9
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2020-10-29 15:52:12
+# Description:
+#   Bug 1673919: Make ParagraphBoundaryRule skip over OuterDocAccessibles. r=MarcoZ
+#   
+#   The browser test is really a crash test, but it's really difficult to test a11y APIs properly using the crashtest framework.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D95107
+# ==============================================================================
+
+diff -r ff7124e703ef -r 41d5f7688395 accessible/generic/HyperTextAccessible.cpp
+--- a/accessible/generic/HyperTextAccessible.cpp	Thu Oct 29 02:55:42 2020 +0000
++++ b/accessible/generic/HyperTextAccessible.cpp	Thu Oct 29 06:04:33 2020 +0000
+@@ -70,8 +70,14 @@
+   virtual uint16_t Match(const AccessibleOrProxy& aAccOrProxy) override {
+     MOZ_ASSERT(aAccOrProxy.IsAccessible());
+     Accessible* acc = aAccOrProxy.AsAccessible();
++    if (acc->IsOuterDoc()) {
++      // The child document might be remote and we can't (and don't want to)
++      // handle remote documents. Also, iframes are inline anyway and thus
++      // can't be paragraph boundaries. Therefore, skip this unconditionally.
++      return nsIAccessibleTraversalRule::FILTER_IGNORE_SUBTREE;
++    }
++
+     uint16_t result = nsIAccessibleTraversalRule::FILTER_IGNORE;
+-
+     if (mSkipAnchorSubtree && acc == mAnchor) {
+       result |= nsIAccessibleTraversalRule::FILTER_IGNORE_SUBTREE;
+     }

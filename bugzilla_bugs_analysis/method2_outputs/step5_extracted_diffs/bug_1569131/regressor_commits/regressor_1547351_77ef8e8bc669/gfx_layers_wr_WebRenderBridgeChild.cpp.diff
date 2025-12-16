@@ -1,0 +1,70 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/wr/WebRenderBridgeChild.cpp
+# Commit: 77ef8e8bc669
+# Full Hash: 77ef8e8bc669c9ecab4d94505b11b3cb732446c5
+# Author: Alexis Beingessner <a.beingessner@gmail.com>
+# Date: 2019-07-15 21:39:46
+# Regressor Bug: 1547351
+# File Overlap Count: 2
+# Description:
+#   Bug 1547351 - Automatically set content process render root r=kats
+#   
+#   This implements the idea of automatically setting a content proc's
+#   render root based on the render root enclosing the iframe that
+#   points to it. There was a bit of cleanup in here that was a bit
+# ==============================================================================
+
+diff -r b594f8e47025 -r 77ef8e8bc669 gfx/layers/wr/WebRenderBridgeChild.cpp
+--- a/gfx/layers/wr/WebRenderBridgeChild.cpp	Mon Jul 15 13:20:31 2019 +0000
++++ b/gfx/layers/wr/WebRenderBridgeChild.cpp	Mon Jul 15 13:18:44 2019 +0000
+@@ -122,6 +122,7 @@
+                (XRE_IsParentProcess() &&
+                 StaticPrefs::gfx_webrender_split_render_roots()));
+     renderRoot.mCommands = std::move(mParentCommands[renderRoot.mRenderRoot]);
++    renderRoot.mIdNamespace = mIdNamespace;
+   }
+ 
+   nsTArray<CompositionPayload> payloads;
+@@ -129,11 +130,10 @@
+     mManager->TakeCompositionPayloads(payloads);
+   }
+ 
+-  this->SendSetDisplayList(std::move(aRenderRoots), mDestroyedActors,
+-                           GetFwdTransactionId(), aTransactionId, mIdNamespace,
+-                           aContainsSVGGroup, aVsyncId, aVsyncStartTime,
+-                           aRefreshStartTime, aTxnStartTime, aTxnURL, fwdTime,
+-                           payloads);
++  this->SendSetDisplayList(
++    std::move(aRenderRoots), mDestroyedActors, GetFwdTransactionId(),
++    aTransactionId, aContainsSVGGroup, aVsyncId, aVsyncStartTime,
++    aRefreshStartTime, aTxnStartTime, aTxnURL, fwdTime, payloads);
+ 
+   // With multiple render roots, we may not have sent all of our
+   // mParentCommands, so go ahead and go through our mParentCommands and ensure
+@@ -146,8 +146,8 @@
+ void WebRenderBridgeChild::EndEmptyTransaction(
+     const FocusTarget& aFocusTarget,
+     nsTArray<RenderRootUpdates>& aRenderRootUpdates,
+-    uint32_t aPaintSequenceNumber, TransactionId aTransactionId,
+-    const mozilla::VsyncId& aVsyncId, const mozilla::TimeStamp& aVsyncStartTime,
++    TransactionId aTransactionId, const mozilla::VsyncId& aVsyncId,
++    const mozilla::TimeStamp& aVsyncStartTime,
+     const mozilla::TimeStamp& aRefreshStartTime,
+     const mozilla::TimeStamp& aTxnStartTime, const nsCString& aTxnURL) {
+   MOZ_ASSERT(!mDestroyed);
+@@ -168,10 +168,9 @@
+   }
+ 
+   this->SendEmptyTransaction(
+-      aFocusTarget, aPaintSequenceNumber, std::move(aRenderRootUpdates),
+-      mDestroyedActors, GetFwdTransactionId(), aTransactionId, mIdNamespace,
+-      aVsyncId, aVsyncStartTime, aRefreshStartTime, aTxnStartTime, aTxnURL,
+-      fwdTime, payloads);
++      aFocusTarget, std::move(aRenderRootUpdates), mDestroyedActors,
++      GetFwdTransactionId(), aTransactionId, aVsyncId, aVsyncStartTime,
++      aRefreshStartTime, aTxnStartTime, aTxnURL, fwdTime, payloads);
+ 
+   // With multiple render roots, we may not have sent all of our
+   // mParentCommands, so go ahead and go through our mParentCommands and ensure

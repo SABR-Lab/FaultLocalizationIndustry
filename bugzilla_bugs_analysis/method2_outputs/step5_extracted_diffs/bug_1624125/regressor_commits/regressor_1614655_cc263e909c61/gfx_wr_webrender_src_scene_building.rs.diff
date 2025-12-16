@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/scene_building.rs
+# Commit: cc263e909c61
+# Full Hash: cc263e909c61d2d9c7d7cc1ccb8d24c8d09bf5b7
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2020-03-19 03:53:34
+# Regressor Bug: 1614655
+# File Overlap Count: 2
+# Description:
+#   Bug 1614655 - Part 2: Allow 1:n mapping of Gecko - WR display items r=jrmuizel
+#   
+#   This patch changes the underlying storage for WR display items in DisplayItemCache
+#   from Vec<Option<CachedDisplayItem> to Vec<Vec<CachedDisplayItem>>.
+#   This allows storing multiple WebRender display items for one Gecko display item.
+# ==============================================================================
+
+diff -r 10897d6106a8 -r cc263e909c61 gfx/wr/webrender/src/scene_building.rs
+--- a/gfx/wr/webrender/src/scene_building.rs	Wed Mar 18 17:08:49 2020 +0000
++++ b/gfx/wr/webrender/src/scene_building.rs	Wed Mar 18 17:09:51 2020 +0000
+@@ -1510,8 +1510,9 @@
+                 unreachable!("Should have returned in parent method.")
+             }
+ 
+-            DisplayItem::ReuseItem(..) => {
+-                unreachable!("Iterator logic error")
++            DisplayItem::ReuseItems(key) |
++            DisplayItem::RetainedItems(key) => {
++                unreachable!("Iterator logic error: {:?}", key);
+             }
+ 
+             DisplayItem::PushShadow(info) => {

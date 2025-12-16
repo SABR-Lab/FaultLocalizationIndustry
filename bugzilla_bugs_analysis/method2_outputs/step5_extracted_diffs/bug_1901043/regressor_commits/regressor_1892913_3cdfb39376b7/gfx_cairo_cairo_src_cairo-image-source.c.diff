@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/cairo/cairo/src/cairo-image-source.c
+# Commit: 3cdfb39376b7
+# Full Hash: 3cdfb39376b736597fe658a322389117686b7e82
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2024-05-07 09:13:07
+# Regressor Bug: 1892913
+# File Overlap Count: 3
+# Description:
+#   Bug 1892913 - patch 1 - Update cairo source to 1.18.0 r=gfx-reviewers,lsalzman
+#   
+#   Wholesale replacement of files in gfx/cairo/cairo with contents of the 1.18.0 release tarball,
+#   omitting subdirectories that are not part of the core library build.
+#   
+# ==============================================================================
+
+diff -r 9daa351f875b -r 3cdfb39376b7 gfx/cairo/cairo/src/cairo-image-source.c
+--- a/gfx/cairo/cairo/src/cairo-image-source.c	Mon May 06 19:22:35 2024 +0000
++++ b/gfx/cairo/cairo/src/cairo-image-source.c	Mon May 06 19:25:12 2024 +0000
+@@ -1207,6 +1207,8 @@
+ 	    clone = _cairo_image_surface_create_with_content (source->content,
+ 							      limit.width,
+ 							      limit.height);
++	if (dst->base.foreground_source)
++	    clone->foreground_source = cairo_pattern_reference (dst->base.foreground_source);
+     }
+ 
+     m = NULL;
+@@ -1224,6 +1226,8 @@
+     /* Handle recursion by returning future reads from the current image */
+     proxy = attach_proxy (source, clone);
+     status = _cairo_recording_surface_replay_with_clip (source, m, clone, NULL);
++    if (clone->foreground_used)
++	dst->base.foreground_used = clone->foreground_used;
+     detach_proxy (source, proxy);
+     if (unlikely (status)) {
+ 	cairo_surface_destroy (clone);

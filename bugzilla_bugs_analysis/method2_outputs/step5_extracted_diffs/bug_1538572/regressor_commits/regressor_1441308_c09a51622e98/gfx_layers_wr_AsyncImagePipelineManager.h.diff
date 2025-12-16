@@ -1,0 +1,105 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/wr/AsyncImagePipelineManager.h
+# Commit: c09a51622e98
+# Full Hash: c09a51622e988e81077c75e3aaa5a49df66284b3
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2019-03-22 16:44:08
+# Regressor Bug: 1441308
+# File Overlap Count: 2
+# Description:
+#   Bug 1441308 - Core renderroot splitting changes r=kats,sotaro
+#   
+#   This is a large patch that contains all of the core changes for
+#   renderroot splitting.
+#   
+# ==============================================================================
+
+diff -r 737807563dd5 -r c09a51622e98 gfx/layers/wr/AsyncImagePipelineManager.h
+--- a/gfx/layers/wr/AsyncImagePipelineManager.h	Thu Mar 21 23:14:26 2019 +0000
++++ b/gfx/layers/wr/AsyncImagePipelineManager.h	Fri Mar 22 03:15:14 2019 +0000
+@@ -38,7 +38,8 @@
+  public:
+   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(AsyncImagePipelineManager)
+ 
+-  explicit AsyncImagePipelineManager(already_AddRefed<wr::WebRenderAPI>&& aApi);
++  explicit AsyncImagePipelineManager(
++      nsTArray<RefPtr<wr::WebRenderAPI>>&& aApis);
+ 
+  protected:
+   ~AsyncImagePipelineManager();
+@@ -87,7 +88,8 @@
+   TimeStamp GetCompositeUntilTime() const { return mCompositeUntilTime; }
+ 
+   void AddAsyncImagePipeline(const wr::PipelineId& aPipelineId,
+-                             WebRenderImageHost* aImageHost);
++                             WebRenderImageHost* aImageHost,
++                             wr::RenderRoot aRenderRoot);
+   void RemoveAsyncImagePipeline(const wr::PipelineId& aPipelineId,
+                                 wr::TransactionBuilder& aTxn);
+ 
+@@ -97,11 +99,13 @@
+                                 const gfx::MaybeIntSize& aScaleToSize,
+                                 const wr::ImageRendering& aFilter,
+                                 const wr::MixBlendMode& aMixBlendMode);
+-  void ApplyAsyncImagesOfImageBridge(wr::TransactionBuilder& aSceneBuilderTxn,
+-                                     wr::TransactionBuilder& aFastTxn);
++  void ApplyAsyncImagesOfImageBridge(
++      wr::RenderRootArray<Maybe<wr::TransactionBuilder>>& aSceneBuilderTxns,
++      wr::RenderRootArray<Maybe<wr::TransactionBuilder>>& aFastTxns);
+   void ApplyAsyncImageForPipeline(const wr::PipelineId& aPipelineId,
+                                   wr::TransactionBuilder& aTxn,
+-                                  wr::TransactionBuilder& aTxnForImageBridge);
++                                  wr::TransactionBuilder& aTxnForImageBridge,
++                                  wr::RenderRoot aRenderRoot);
+ 
+   void SetEmptyDisplayList(const wr::PipelineId& aPipelineId,
+                            wr::TransactionBuilder& aTxn,
+@@ -117,8 +121,9 @@
+     aNotifications->AppendElements(std::move(mImageCompositeNotifications));
+   }
+ 
+-  void SetWillGenerateFrame();
+-  bool GetAndResetWillGenerateFrame();
++  void SetWillGenerateFrameAllRenderRoots();
++  void SetWillGenerateFrame(wr::RenderRoot aRenderRoot);
++  bool GetAndResetWillGenerateFrame(wr::RenderRoot aRenderRoot);
+ 
+   wr::ExternalImageId GetNextExternalImageId();
+ 
+@@ -126,7 +131,7 @@
+   void ProcessPipelineRendered(const wr::PipelineId& aPipelineId,
+                                const wr::Epoch& aEpoch,
+                                const uint64_t aUpdatesCount);
+-  void ProcessPipelineRemoved(const wr::PipelineId& aPipelineId,
++  void ProcessPipelineRemoved(const wr::RemovedPipeline& aRemovedPipeline,
+                               const uint64_t aUpdatesCount);
+ 
+   wr::Epoch GetNextImageEpoch();
+@@ -191,6 +196,7 @@
+     }
+ 
+     bool mInitialised;
++    wr::RenderRoot mRenderRoot;
+     bool mIsChanged;
+     bool mUseExternalImage;
+     LayoutDeviceRect mScBounds;
+@@ -223,7 +229,7 @@
+                              uint64_t aUpdatesCount);
+   void CheckForTextureHostsNotUsedByGPU();
+ 
+-  RefPtr<wr::WebRenderAPI> mApi;
++  nsTArray<RefPtr<wr::WebRenderAPI>> mApis;
+   const wr::IdNamespace mIdNamespace;
+   const bool mUseTripleBuffering;
+   uint32_t mResourceId;
+@@ -232,7 +238,7 @@
+       mPipelineTexturesHolders;
+   nsClassHashtable<nsUint64HashKey, AsyncImagePipeline> mAsyncImagePipelines;
+   wr::Epoch mAsyncImageEpoch;
+-  bool mWillGenerateFrame;
++  wr::RenderRootArray<bool> mWillGenerateFrame;
+   bool mDestroyed;
+ 
+   // Render time for the current composition.

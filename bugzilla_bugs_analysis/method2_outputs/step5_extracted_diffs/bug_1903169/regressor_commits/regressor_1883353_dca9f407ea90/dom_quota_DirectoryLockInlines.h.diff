@@ -1,0 +1,82 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/DirectoryLockInlines.h
+# Commit: dca9f407ea90
+# Full Hash: dca9f407ea90a83ae23be6c48aab8ce3f0f6e23e
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-06-14 20:49:45
+# Regressor Bug: 1883353
+# File Overlap Count: 1
+# Description:
+#   Bug 1883353 - Require to always drop directory locks explicitly; r=dom-storage-reviewers,jari
+#   
+#   Until now, directory locks were dropped when the last strong reference was
+#   removed or after calling Drop explicitly. The dependency on ref-counting makes
+#   it less obvious when directory locks are dropped for real and it's also
+# ==============================================================================
+
+diff -r a82c4a895b9d -r dca9f407ea90 dom/quota/DirectoryLockInlines.h
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/dom/quota/DirectoryLockInlines.h	Fri Jun 14 07:21:24 2024 +0000
+@@ -0,0 +1,60 @@
++/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
++/* vim: set ts=8 sts=2 et sw=2 tw=80: */
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
++ * You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++#ifndef DOM_QUOTA_DIRECTORYLOCKINLINES_H_
++#define DOM_QUOTA_DIRECTORYLOCKINLINES_H_
++
++#ifndef DOM_QUOTA_DIRECTORYLOCK_H_
++#  error Must include DirectoryLock.h first
++#endif
++
++#include "mozilla/RefPtr.h"
++
++namespace mozilla::dom::quota {
++
++template <typename T>
++constexpr void SafeDropDirectoryLock(RefPtr<T>& aDirectoryLock) {
++  if (!aDirectoryLock) {
++    return;
++  }
++
++  aDirectoryLock->Drop();
++  aDirectoryLock = nullptr;
++}
++
++template <typename T>
++constexpr void DropDirectoryLock(RefPtr<T>& aDirectoryLock) {
++  MOZ_ASSERT(aDirectoryLock);
++
++  aDirectoryLock->Drop();
++  aDirectoryLock = nullptr;
++}
++
++template <typename T>
++constexpr void SafeDropDirectoryLockIfNotDropped(RefPtr<T>& aDirectoryLock) {
++  if (!aDirectoryLock) {
++    return;
++  }
++
++  if (!aDirectoryLock->Dropped()) {
++    aDirectoryLock->Drop();
++  }
++  aDirectoryLock = nullptr;
++}
++
++template <typename T>
++constexpr void DropDirectoryLockIfNotDropped(RefPtr<T>& aDirectoryLock) {
++  MOZ_ASSERT(aDirectoryLock);
++
++  if (!aDirectoryLock->Dropped()) {
++    aDirectoryLock->Drop();
++  }
++  aDirectoryLock = nullptr;
++}
++
++}  // namespace mozilla::dom::quota
++
++#endif  // DOM_QUOTA_DIRECTORYLOCKINLINES_H_

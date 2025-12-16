@@ -1,0 +1,45 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/SurfacePoolCA.mm
+# Commit: 79a02e8fc876
+# Full Hash: 79a02e8fc876666721aa7d31c889385ff16cf349
+# Author: Brad Werth <bwerth@mozilla.com>
+# Date: 2021-05-13 09:33:03
+# Description:
+#   Bug 1707832: Ensure that SurfacePoolCA doesn't store or give out null recycled surfaces. r=mstange
+#   
+#   The general contract of a SurfacePoolEntry is that mIOSurface should be
+#   non-null, but this isn't asserted. This patch adds release asserts to ensure
+#   that these surfaces are non-null at the time they are stored and released. It
+# ==============================================================================
+
+diff -r a411cd917786 -r 79a02e8fc876 gfx/layers/SurfacePoolCA.mm
+--- a/gfx/layers/SurfacePoolCA.mm	Wed May 12 21:45:18 2021 +0000
++++ b/gfx/layers/SurfacePoolCA.mm	Wed May 12 22:38:52 2021 +0000
+@@ -146,6 +146,7 @@
+                                     });
+   if (iterToRecycle != mAvailableEntries.end()) {
+     CFTypeRefPtr<IOSurfaceRef> surface = iterToRecycle->mIOSurface;
++    MOZ_RELEASE_ASSERT(surface.get(), "Available surfaces should be non-null.");
+     // Move the entry from mAvailableEntries to mInUseEntries.
+     MutateEntryStorage("Recycle", aSize, [&]() {
+       mInUseEntries.insert({surface, std::move(*iterToRecycle)});
+@@ -187,6 +188,8 @@
+     });
+   } else {
+     // Move the entry from mInUseEntries to mAvailableEntries.
++    MOZ_RELEASE_ASSERT(inUseEntryIter->second.mIOSurface.get(),
++                       "In use surfaces should be non-null.");
+     MutateEntryStorage("Retain", IntSize(inUseEntryIter->second.mSize), [&]() {
+       mAvailableEntries.AppendElement(std::move(inUseEntryIter->second));
+       mInUseEntries.erase(inUseEntryIter);
+@@ -232,6 +235,8 @@
+     } else {
+       // The surface has become unused!
+       // Move the entry from mPendingEntries to mAvailableEntries.
++      MOZ_RELEASE_ASSERT(pendingSurf.mEntry.mIOSurface.get(),
++                         "Pending surfaces should be non-null.");
+       MutateEntryStorage("Stop waiting for", IntSize(pendingSurf.mEntry.mSize), [&]() {
+         mAvailableEntries.AppendElement(std::move(pendingSurf.mEntry));
+         mPendingEntries.RemoveElementAt(i);

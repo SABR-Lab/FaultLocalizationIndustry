@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/style/nsStyleStruct.h
+# Commit: e25543fae7ee
+# Full Hash: e25543fae7ee03ac57b9cfbfeb2418c9e2f490fc
+# Author: Martin Robinson <mrobinson@igalia.com>
+# Date: 2022-06-23 03:54:50
+# Regressor Bug: 1463600
+# File Overlap Count: 1
+# Description:
+#   Bug 1463600 - Implement CSS 'contain: style' r=emilio
+#   
+#   Add an implementation of CSS `contain: style`. This introduces two new
+#   data structures, the ContainStyleScope and ContainStyleScopeManager.
+#   
+# ==============================================================================
+
+diff -r 4230bdcf07ae -r e25543fae7ee layout/style/nsStyleStruct.h
+--- a/layout/style/nsStyleStruct.h	Wed Jun 22 16:15:57 2022 +0000
++++ b/layout/style/nsStyleStruct.h	Wed Jun 22 16:16:59 2022 +0000
+@@ -1521,6 +1521,10 @@
+            !IsInternalTableStyleExceptCell();
+   }
+ 
++  bool IsContainStyle() const {
++    return !!(EffectiveContainment() && StyleContain::STYLE);
++  }
++
+   bool IsContainAny() const { return !!EffectiveContainment(); }
+ 
+   mozilla::ContainSizeAxes GetContainSizeAxes() const {
+@@ -1671,18 +1675,17 @@
+   StyleContain EffectiveContainment() const {
+     // content-visibility and container-type values implicitly enable some
+     // containment flags.
+-    // FIXME(dshin, bug 1463600): Add in STYLE containment flag for `auto` &
+-    // `hidden` when implemented
+     // FIXME(dshin, bug 1764640): Add in the effect of `container-type`
+     switch (mContentVisibility) {
+       case StyleContentVisibility::Visible:
+         // Most likely case.
+         return mContain;
+       case StyleContentVisibility::Auto:
+-        return mContain | StyleContain::LAYOUT | StyleContain::PAINT;
++        return mContain | StyleContain::LAYOUT | StyleContain::PAINT |
++               StyleContain::STYLE;
+       case StyleContentVisibility::Hidden:
+         return mContain | StyleContain::LAYOUT | StyleContain::PAINT |
+-               StyleContain::SIZE;
++               StyleContain::SIZE | StyleContain::STYLE;
+     }
+     MOZ_ASSERT_UNREACHABLE("Invalid content visibility.");
+     return mContain;

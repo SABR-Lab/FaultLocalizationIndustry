@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: testing/web-platform/tests/svg/types/scripted/SVGLength-ch.html
+# Commit: a16d763f2866
+# Full Hash: a16d763f2866a1c44e67b85a66fa4503b5c764ac
+# Author: Robert Longson <longsonr@gmail.com>
+# Date: 2023-09-13 09:25:56
+# Regressor Bug: 1287054
+# File Overlap Count: 1
+# Description:
+#   Bug 1287054 part 1 - support rem, ch, ic and cap units for non-CSS lengths r=emilio,jgilbert
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D180618
+# ==============================================================================
+
+diff -r ccfee1091860 -r a16d763f2866 testing/web-platform/tests/svg/types/scripted/SVGLength-ch.html
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/testing/web-platform/tests/svg/types/scripted/SVGLength-ch.html	Tue Sep 12 21:10:54 2023 +0000
+@@ -0,0 +1,43 @@
++<!DOCTYPE HTML>
++<title>SVGLength with 'ch' unit</title>
++<link rel="help" href="https://www.w3.org/TR/SVG/types.html#InterfaceSVGLength">
++<script src="/resources/testharness.js"></script>
++<script src="/resources/testharnessreport.js"></script>
++<style>
++#ch_ref, text {
++  font-family:initial;
++  font-size:20px;
++  text-orientation: upright;
++}
++</style>
++<div id="ch_ref" style="width:10ch;"></div>
++<svg>
++  <text id="ch_test" x="10ch"/>
++</svg>
++<script>
++  let ch_ref = document.getElementById("ch_ref");
++  let ref_width = ch_ref.offsetWidth;
++  let ch_test = document.getElementById("ch_test");
++  let ch_length = ch_test.x.baseVal[0];
++
++  test(() => {
++    assert_equals(ch_length.unitType, SVGLength.SVG_LENGTHTYPE_UNKNOWN);
++    assert_approx_equals(ch_length.value, ref_width, 0.4);
++  }, "ch unit in SVGLength");
++
++  test(() => {
++    ch_length.value = ref_width * 4;
++    assert_approx_equals(ch_length.valueInSpecifiedUnits, 40, 0.3);
++    ch_length.value = ref_width;
++    assert_approx_equals(ch_length.value, ref_width, 0.3);
++  }, "Convert back to ch from new user unit value");
++
++  test(() => {
++    ch_test.setAttribute("style", "writing-mode: vertical-rl;");
++    ch_ref.style.writingMode = "vertical-rl";
++    assert_approx_equals(ch_length.value, ch_ref.offsetWidth, 0.4);
++    ch_test.removeAttribute("style");
++    ch_ref.style.writingMode = "";
++  }, "upright vertical ch unit in SVGLength");
++
++</script>

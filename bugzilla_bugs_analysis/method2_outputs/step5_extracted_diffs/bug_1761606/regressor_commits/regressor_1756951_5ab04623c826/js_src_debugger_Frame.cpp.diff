@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/debugger/Frame.cpp
+# Commit: 5ab04623c826
+# Full Hash: 5ab04623c826b7f4d125fbb936754dd29af0a472
+# Author: Lars T Hansen <lhansen@mozilla.com>
+# Date: 2022-03-18 16:59:23
+# Regressor Bug: 1756951
+# File Overlap Count: 2
+# Description:
+#   Bug 1756951 - Part 1: Do not patch code when debugging. r=yury
+#   
+#   Instead of emitting a patchable call at entry/exit/breakpoints, emit a
+#   conditional call to a per-instance handler that the debugger can
+#   install.  The new code is larger than the code it replaces but within
+# ==============================================================================
+
+diff -r d209d5f4d95e -r 5ab04623c826 js/src/debugger/Frame.cpp
+--- a/js/src/debugger/Frame.cpp	Fri Mar 18 07:20:52 2022 +0000
++++ b/js/src/debugger/Frame.cpp	Fri Mar 18 07:56:07 2022 +0000
+@@ -835,7 +835,8 @@
+   wasm::Instance* instance = referent.asWasmDebugFrame()->instance();
+   wasm::DebugFrame* wasmFrame = referent.asWasmDebugFrame();
+   // Single stepping toggled off->on.
+-  if (!instance->debug().incrementStepperCount(cx, wasmFrame->funcIndex())) {
++  if (!instance->debug().incrementStepperCount(cx, instance,
++                                               wasmFrame->funcIndex())) {
+     return false;
+   }
+ 
+@@ -869,7 +870,8 @@
+   wasm::Instance* instance = referent.asWasmDebugFrame()->instance();
+   wasm::DebugFrame* wasmFrame = referent.asWasmDebugFrame();
+   // Single stepping toggled on->off.
+-  instance->debug().decrementStepperCount(gcx, wasmFrame->funcIndex());
++  instance->debug().decrementStepperCount(gcx, instance,
++                                          wasmFrame->funcIndex());
+ }
+ 
+ void DebuggerFrame::decrementStepperCounter(JS::GCContext* gcx,

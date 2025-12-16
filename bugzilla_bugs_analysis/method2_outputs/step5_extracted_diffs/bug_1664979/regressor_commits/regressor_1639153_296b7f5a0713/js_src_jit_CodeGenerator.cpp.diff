@@ -1,0 +1,32 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/CodeGenerator.cpp
+# Commit: 296b7f5a0713
+# Full Hash: 296b7f5a07133f9cbbd28ab20c1468800b0e1d39
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-08-06 15:44:30
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 2: Preserve callee and caller tls'es. r=lth
+#   
+#   This is a followup patch for removing Frame::tls.
+#   Now, we are preserving caller's and callee's tls'es for all possible cross-instance calls in the previously allocated abi slots.
+#   We also use preserved tls values to restore the caller's tls in Ion. Baseline doesn't need this because it restores the caller tls from its private stack slot after the call.
+# ==============================================================================
+
+diff -r f68854b70d6a -r 296b7f5a0713 js/src/jit/CodeGenerator.cpp
+--- a/js/src/jit/CodeGenerator.cpp	Thu Aug 06 04:57:48 2020 +0000
++++ b/js/src/jit/CodeGenerator.cpp	Thu Aug 06 05:23:07 2020 +0000
+@@ -8036,7 +8036,9 @@
+   MOZ_ASSERT(!lir->safepoint()->isWasmTrap());
+ 
+   if (reloadRegs) {
+-    masm.loadWasmTlsRegFromFrame();
++    masm.loadPtr(Address(masm.getStackPointer(),
++                         wasm::FrameWithTls::callerTLSABIOffset()),
++                 WasmTlsReg);
+     masm.loadWasmPinnedRegsFromTls();
+     if (switchRealm) {
+       masm.switchToWasmTlsRealm(ABINonArgReturnReg0, ABINonArgReturnReg1);

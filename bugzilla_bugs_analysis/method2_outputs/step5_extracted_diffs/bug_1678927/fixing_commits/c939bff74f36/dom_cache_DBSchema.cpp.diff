@@ -1,0 +1,45 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/cache/DBSchema.cpp
+# Commit: c939bff74f36
+# Full Hash: c939bff74f3624a8ce78f802f3122ca4a4616e7c
+# Author: Luca Greco <lgreco@mozilla.com>
+# Date: 2021-01-19 21:44:55
+# Description:
+#   Bug 1678927 - Expect non http channel in ServiceWorkerScriptCache CompareNetwork::OnStreamComplete. r=asuth,mixedpuppy
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D100343
+# ==============================================================================
+
+diff -r 3f272a60d480 -r c939bff74f36 dom/cache/DBSchema.cpp
+--- a/dom/cache/DBSchema.cpp	Tue Jan 19 15:01:14 2021 +0000
++++ b/dom/cache/DBSchema.cpp	Tue Jan 19 15:27:46 2021 +0000
+@@ -2165,10 +2165,25 @@
+ 
+ #ifdef DEBUG
+     nsDependentCSubstring scheme = url->Scheme();
++
+     MOZ_ASSERT(
+         scheme == "http" || scheme == "https" || scheme == "file" ||
+-        (StaticPrefs::extensions_backgroundServiceWorker_enabled_AtStartup() &&
+-         scheme == "moz-extension"));
++        // A cached response entry may have a moz-extension principal if:
++        //
++        // - This is an extension background service worker. The response for
++        //   the main script is expected tobe a moz-extension content principal
++        //   (the pref "extensions.backgroundServiceWorker.enabled" must be
++        //   enabled, if the pref is toggled to false at runtime then any
++        //   service worker registered for a moz-extension principal will be
++        //   unregistered on the next startup).
++        //
++        // - An extension is redirecting a script being imported info a worker
++        //   created from a regular webpage to a web-accessible extension
++        //   script. The reponse for these redirects will have a moz-extension
++        //   principal. Although extensions can attempt to redirect the main
++        //   script of service workers, this will always cause the install
++        //   process to fail.
++        scheme == "moz-extension");
+ #endif
+ 
+     nsCString origin;

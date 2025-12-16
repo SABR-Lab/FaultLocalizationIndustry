@@ -1,0 +1,98 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/ContentCache.h
+# Commit: 7d1d1864b99b
+# Full Hash: 7d1d1864b99b0e53181bbd4842f6bd4d99377ec0
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-02-08 17:32:27
+# Regressor Bug: 1746104
+# File Overlap Count: 1
+# Description:
+#   Bug 1746104 - part 6-4: Make `ContentCacheInParent` and `ContentCacheInChild` handle the case there is no selection range r=m_kato
+#   
+#   Even after applying this patch, it still returns error when queried with a
+#   relative offset from selection and only when there is no composition string.
+#   However, this shouldn't cause any problem because in this case, widget should
+# ==============================================================================
+
+diff -r 4fe6068164c1 -r 7d1d1864b99b widget/ContentCache.h
+--- a/widget/ContentCache.h	Mon Feb 07 22:33:40 2022 +0000
++++ b/widget/ContentCache.h	Mon Feb 07 22:33:40 2022 +0000
+@@ -110,11 +110,21 @@
+       return !mRect.IsEmpty();
+     }
+ 
+-    bool Collapsed() const { return mFocus == mAnchor; }
+-    bool Reversed() const { return mFocus < mAnchor; }
+-    uint32_t StartOffset() const { return Reversed() ? mFocus : mAnchor; }
+-    uint32_t EndOffset() const { return Reversed() ? mAnchor : mFocus; }
++    bool IsCollapsed() const { return !mHasRange || mFocus == mAnchor; }
++    bool Reversed() const {
++      MOZ_ASSERT(mHasRange);
++      return mFocus < mAnchor;
++    }
++    uint32_t StartOffset() const {
++      MOZ_ASSERT(mHasRange);
++      return Reversed() ? mFocus : mAnchor;
++    }
++    uint32_t EndOffset() const {
++      MOZ_ASSERT(mHasRange);
++      return Reversed() ? mAnchor : mFocus;
++    }
+     uint32_t Length() const {
++      MOZ_ASSERT(mHasRange);
+       return Reversed() ? mAnchor - mFocus : mFocus - mAnchor;
+     }
+     LayoutDeviceIntRect StartCharRect() const {
+@@ -130,12 +140,12 @@
+                                     const Selection& aSelection) {
+       aStream << "{ ";
+       if (!aSelection.mHasRange) {
+-        aStream << "HasRange()=false }";
+-        return aStream;
++        aStream << "HasRange()=false";
++      } else {
++        aStream << "mAnchor=" << aSelection.mAnchor
++                << ", mFocus=" << aSelection.mFocus << ", mWritingMode="
++                << ToString(aSelection.mWritingMode).c_str();
+       }
+-      aStream << "mAnchor=" << aSelection.mAnchor
+-              << ", mFocus=" << aSelection.mFocus
+-              << ", mWritingMode=" << ToString(aSelection.mWritingMode).c_str();
+       if (aSelection.HasRects()) {
+         if (aSelection.mAnchor > 0) {
+           aStream << ", mAnchorCharRects[ePrevCharRect]="
+@@ -151,11 +161,15 @@
+                 << aSelection.mFocusCharRects[ContentCache::eNextCharRect]
+                 << ", mRect=" << aSelection.mRect;
+       }
+-      aStream << ", Reversed()=" << (aSelection.Reversed() ? "true" : "false")
+-              << ", StartOffset()=" << aSelection.StartOffset()
+-              << ", EndOffset()=" << aSelection.EndOffset()
+-              << ", Collapsed()=" << (aSelection.Collapsed() ? "true" : "false")
+-              << ", Length()=" << aSelection.Length() << " }";
++      if (aSelection.mHasRange) {
++        aStream << ", Reversed()=" << (aSelection.Reversed() ? "true" : "false")
++                << ", StartOffset()=" << aSelection.StartOffset()
++                << ", EndOffset()=" << aSelection.EndOffset()
++                << ", IsCollapsed()="
++                << (aSelection.IsCollapsed() ? "true" : "false")
++                << ", Length()=" << aSelection.Length();
++      }
++      aStream << " }";
+       return aStream;
+     }
+ 
+@@ -167,11 +181,6 @@
+   };
+   Maybe<Selection> mSelection;
+ 
+-  bool IsSelectionValid() const {
+-    return mSelection.isSome() && mSelection->mHasRange && mText.isSome() &&
+-           mSelection->EndOffset() <= mText->Length();
+-  }
+-
+   // Stores first char rect because Yosemite's Japanese IME sometimes tries
+   // to query it.  If there is no text, this is caret rect.
+   LayoutDeviceIntRect mFirstCharRect;

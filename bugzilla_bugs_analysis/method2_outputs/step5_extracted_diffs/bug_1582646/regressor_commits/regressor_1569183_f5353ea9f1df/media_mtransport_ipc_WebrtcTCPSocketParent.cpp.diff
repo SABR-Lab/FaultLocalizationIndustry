@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/mtransport/ipc/WebrtcTCPSocketParent.cpp
+# Commit: f5353ea9f1df
+# Full Hash: f5353ea9f1dfe15a65076bc7aa272d688ebdb8ca
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2019-09-18 21:49:27
+# Regressor Bug: 1569183
+# File Overlap Count: 2
+# Description:
+#   Bug 1569183: Add a proxy policy argument to NrSocketProxyConfig, and always set this config on the NrIceCtx. r=mjf
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D45101
+# ==============================================================================
+
+diff -r ed1ae6a85255 -r f5353ea9f1df media/mtransport/ipc/WebrtcTCPSocketParent.cpp
+--- a/media/mtransport/ipc/WebrtcTCPSocketParent.cpp	Tue Sep 17 18:17:13 2019 +0000
++++ b/media/mtransport/ipc/WebrtcTCPSocketParent.cpp	Tue Sep 17 18:17:14 2019 +0000
+@@ -19,12 +19,13 @@
+ 
+ mozilla::ipc::IPCResult WebrtcTCPSocketParent::RecvAsyncOpen(
+     const nsCString& aHost, const int& aPort, const LoadInfoArgs& aLoadInfoArgs,
+-    const nsCString& aAlpn) {
++    const nsCString& aAlpn, const int& aProxyPolicy) {
+   LOG(("WebrtcTCPSocketParent::RecvAsyncOpen %p to %s:%d\n", this, aHost.get(),
+        aPort));
+ 
+   MOZ_ASSERT(mChannel, "webrtc TCP socket should be non-null");
+-  mChannel->Open(aHost, aPort, aLoadInfoArgs, aAlpn);
++  mChannel->Open(aHost, aPort, aLoadInfoArgs, aAlpn,
++                 static_cast<NrSocketProxyConfig::ProxyPolicy>(aProxyPolicy));
+ 
+   return IPC_OK();
+ }

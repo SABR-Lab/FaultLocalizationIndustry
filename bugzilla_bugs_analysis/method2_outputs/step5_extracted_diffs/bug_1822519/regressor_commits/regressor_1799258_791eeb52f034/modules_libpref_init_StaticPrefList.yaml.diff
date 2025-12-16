@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: modules/libpref/init/StaticPrefList.yaml
+# Commit: 791eeb52f034
+# Full Hash: 791eeb52f0346565055cd9c9a881661b1ca688c5
+# Author: Kelsey Gilbert <kelsey.gilbert@mozilla.com>
+# Date: 2023-01-24 09:30:00
+# Regressor Bug: 1799258
+# File Overlap Count: 1
+# Description:
+#   Bug 1799258 - Do color-management on Windows+DComp via IDCompositionFilterEffects. r=sotaro
+#   
+#   + Add gfx.color_management.rec709_gamma_as_srgb:true. :'(
+#   
+#   In particular, rec709(16/255) -> srgb(31/255). Even though it's
+# ==============================================================================
+
+diff -r 353ef4721bba -r 791eeb52f034 modules/libpref/init/StaticPrefList.yaml
+--- a/modules/libpref/init/StaticPrefList.yaml	Mon Jan 23 22:13:16 2023 +0000
++++ b/modules/libpref/init/StaticPrefList.yaml	Mon Jan 23 22:13:17 2023 +0000
+@@ -5690,6 +5690,11 @@
+ #endif
+   mirror: always
+ 
++- name: gfx.color_management.display_profile
++  type: DataMutexString
++  value: ""
++  mirror: always # But be warned: We cache the result.
++
+ - name: gfx.color_management.force_srgb
+   type: RelaxedAtomicBool
+   value: false
+@@ -5697,7 +5702,7 @@
+ 
+ - name: gfx.color_management.native_srgb
+   type: RelaxedAtomicBool
+-#if defined(XP_MACOSX)
++#if defined(XP_MACOSX) || defined(XP_WIN)
+   value: true
+ #else
+   value: false
+@@ -5722,6 +5727,16 @@
+   value: 0
+   mirror: always
+ 
++- name: gfx.color_management.rec709_gamma_as_srgb
++  type: RelaxedAtomicBool
++  value: true # Tragic backwards compat.
++  mirror: always
++
++- name: gfx.color_management.rec2020_gamma_as_rec709
++  type: RelaxedAtomicBool
++  value: true # Match naive behavior, but hopefully we can stop soon!
++  mirror: always
++
+ - name: gfx.compositor.clearstate
+   type: RelaxedAtomicBool
+   value: false

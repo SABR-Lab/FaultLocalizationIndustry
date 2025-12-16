@@ -1,0 +1,29 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/ClientWebGLContext.cpp
+# Commit: a3b2601b8fea
+# Full Hash: a3b2601b8fea5cd1d34c585d226b1ee10a880984
+# Author: sotaro <sotaro.ikeda.g@gmail.com>
+# Date: 2022-07-19 21:35:33
+# Description:
+#   Bug 1779942 - Check IsContextLost() after DrawingBufferSize() call r=gfx-reviewers,jgilbert,lsalzman
+#   
+#   ClientWebGLContext::DrawingBufferSize() could cause context lost. Then IsContextLost() check is added after the DrawingBufferSize() call.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D152138
+# ==============================================================================
+
+diff -r c12e1d2d70dd -r a3b2601b8fea dom/canvas/ClientWebGLContext.cpp
+--- a/dom/canvas/ClientWebGLContext.cpp	Tue Jul 19 06:58:56 2022 +0000
++++ b/dom/canvas/ClientWebGLContext.cpp	Tue Jul 19 07:00:20 2022 +0000
+@@ -536,6 +536,9 @@
+ 
+   const auto& options = *mInitialOptions;
+   const auto& size = DrawingBufferSize();
++
++  if (IsContextLost()) return false;
++
+   data.mIsOpaque = !options.alpha;
+   data.mIsAlphaPremult = !options.alpha || options.premultipliedAlpha;
+   data.mSize = {size.x, size.y};

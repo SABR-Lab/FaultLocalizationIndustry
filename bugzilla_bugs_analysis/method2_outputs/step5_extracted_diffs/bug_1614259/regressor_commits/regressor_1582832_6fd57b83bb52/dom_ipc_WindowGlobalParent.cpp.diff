@@ -1,0 +1,32 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/WindowGlobalParent.cpp
+# Commit: 6fd57b83bb52
+# Full Hash: 6fd57b83bb52e9683bade8cbfb5f8ba6575ac6af
+# Author: Kris Maglione <maglione.k@gmail.com>
+# Date: 2020-02-07 03:55:51
+# Regressor Bug: 1582832
+# File Overlap Count: 3
+# Description:
+#   Bug 1582832: Part 1 - Make FrameLoader owner rather than DocShell responsible for discarding a BC. r=nika
+#   
+#   There are all sorts of lifecycle issues which arise from making DocShell
+#   responsible for discarding BrowsingContexts. In this particular bug, we tend
+#   to run into them in cases where we create a BrowsingContext for a FrameLoader,
+# ==============================================================================
+
+diff -r 28a9e4b075af -r 6fd57b83bb52 dom/ipc/WindowGlobalParent.cpp
+--- a/dom/ipc/WindowGlobalParent.cpp	Thu Feb 06 18:35:10 2020 +0000
++++ b/dom/ipc/WindowGlobalParent.cpp	Thu Feb 06 19:07:56 2020 +0000
+@@ -109,7 +109,9 @@
+ 
+   // If there is no current window global, assume we're about to become it
+   // optimistically.
+-  mBrowsingContext->SetCurrentInnerWindowId(aInit.innerWindowId());
++  if (!mBrowsingContext->IsDiscarded()) {
++    mBrowsingContext->SetCurrentInnerWindowId(aInit.innerWindowId());
++  }
+ 
+   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
+   if (obs) {

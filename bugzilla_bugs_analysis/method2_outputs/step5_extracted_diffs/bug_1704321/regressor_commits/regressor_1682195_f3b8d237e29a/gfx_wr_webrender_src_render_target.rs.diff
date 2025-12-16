@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/render_target.rs
+# Commit: f3b8d237e29a
+# Full Hash: f3b8d237e29af262b2042809e13ce6043b75c922
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2021-04-10 03:36:58
+# Regressor Bug: 1682195
+# File Overlap Count: 1
+# Description:
+#   Bug 1682195 - Ensure that area outside image mask is cleared if it is first clip. r=gw
+#   
+#   This fixes a previous bug in the image mask code that the tile rect caused cs_clip_image
+#   to use discard on a first clip, the outside area would be left to whatever the initial value
+#   of the texture from texture cache was. Since we need to support trimming down to the tile
+# ==============================================================================
+
+diff -r b641b7f90108 -r f3b8d237e29a gfx/wr/webrender/src/render_target.rs
+--- a/gfx/wr/webrender/src/render_target.rs	Fri Apr 09 22:55:33 2021 +0000
++++ b/gfx/wr/webrender/src/render_target.rs	Fri Apr 09 22:55:34 2021 +0000
+@@ -524,10 +524,7 @@
+                 );
+             }
+             RenderTaskKind::CacheMask(ref task_info) => {
+-                if task_info.clear_to_one {
+-                    self.one_clears.push(task_id);
+-                }
+-                self.clip_batcher.add(
++                let clear_to_one = self.clip_batcher.add(
+                     task_info.clip_node_range,
+                     task_info.root_spatial_node_index,
+                     render_tasks,
+@@ -544,6 +541,9 @@
+                     target_rect.origin.to_f32(),
+                     task_info.actual_rect.origin,
+                 );
++                if task_info.clear_to_one || clear_to_one {
++                    self.one_clears.push(task_id);
++                }
+             }
+             RenderTaskKind::ClipRegion(ref region_task) => {
+                 if region_task.clear_to_one {

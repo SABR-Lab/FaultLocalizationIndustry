@@ -1,0 +1,45 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit-test/tests/wasm/tail-calls/bug1891422.js
+# Commit: 7dcf45990771
+# Full Hash: 7dcf45990771541f86bb277f9bb02a5eed4fea03
+# Author: Yury Delendik <ydelendik@mozilla.com>
+# Date: 2024-05-14 04:13:33
+# Description:
+#   Bug 1891422 - Check if debugEnabled for top frame when unwinding. r=jseward
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D208756
+# ==============================================================================
+
+diff -r daa3733b4c4f -r 7dcf45990771 js/src/jit-test/tests/wasm/tail-calls/bug1891422.js
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/js/src/jit-test/tests/wasm/tail-calls/bug1891422.js	Mon May 13 23:12:59 2024 +0000
+@@ -0,0 +1,27 @@
++// |jit-test| --more-compartments; skip-variant-if: --setpref=wasm_test_serialization=true, true; skip-variant-if: --wasm-compiler=ion, true
++
++a = newGlobal({ newCompartment: true });
++a.b = this;
++a.eval(`Debugger(b).onExceptionUnwind = function () {};`);
++
++var ins0 = wasmEvalText(`(module
++  (func $fac-acc (export "e") (param i64 i64)
++    unreachable
++  )
++)`);
++var ins = wasmEvalText(`(module
++  (import "" "e" (func $fac-acc (param i64 i64)))
++  (type $tz (func (param i64)))
++  (table $t 1 1 funcref)
++  (func $f (export "fac") (param i64)
++    local.get 0
++    i32.const 0
++    return_call_indirect $t (type $tz)
++  )
++  (elem $t (i32.const 0) $fac-acc)
++)`, {"": {e: ins0.exports.e}});
++
++
++assertErrorMessage(() => {
++  ins.exports.fac(5n);
++}, WebAssembly.RuntimeError, /indirect call signature mismatch/);

@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/VideoConduit.cpp
+# Commit: e0a2e54e4de8
+# Full Hash: e0a2e54e4de80813829cbcf9e4a5e4ff1285d451
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 9
+# Description:
+#   Bug 1654112 - Move WebRtcCallWrapper to dedicated files. r=ng
+#   
+#   This patch also renames it WebrtcCallWrapper, to better match neighboring
+#   classes starting on "Webrtc".
+#   
+# ==============================================================================
+
+diff -r 1965757ee924 -r e0a2e54e4de8 dom/media/webrtc/libwebrtcglue/VideoConduit.cpp
+--- a/dom/media/webrtc/libwebrtcglue/VideoConduit.cpp	Thu Sep 02 13:22:03 2021 -0500
++++ b/dom/media/webrtc/libwebrtcglue/VideoConduit.cpp	Thu Apr 08 11:31:43 2021 +0200
+@@ -22,6 +22,7 @@
+ #include "nsServiceManagerUtils.h"
+ #include "RtpRtcpConfig.h"
+ #include "VideoStreamFactory.h"
++#include "WebrtcCallWrapper.h"
+ #include "WebrtcGmpVideoCodec.h"
+ 
+ // libwebrtc includes
+@@ -287,7 +288,7 @@
+  * Factory Method for VideoConduit
+  */
+ RefPtr<VideoSessionConduit> VideoSessionConduit::Create(
+-    RefPtr<WebRtcCallWrapper> aCall, nsCOMPtr<nsISerialEventTarget> aStsThread,
++    RefPtr<WebrtcCallWrapper> aCall, nsCOMPtr<nsISerialEventTarget> aStsThread,
+     std::string aPCHandle) {
+   MOZ_ASSERT(NS_IsMainThread());
+   MOZ_ASSERT(aCall, "missing required parameter: aCall");
+@@ -308,7 +309,7 @@
+ }
+ 
+ WebrtcVideoConduit::WebrtcVideoConduit(
+-    RefPtr<WebRtcCallWrapper> aCall, nsCOMPtr<nsISerialEventTarget> aStsThread,
++    RefPtr<WebrtcCallWrapper> aCall, nsCOMPtr<nsISerialEventTarget> aStsThread,
+     std::string aPCHandle)
+     : mTransportMonitor("WebrtcVideoConduit"),
+       mStsThread(aStsThread),
+@@ -1507,6 +1508,10 @@
+   return mLastRtcpReceived;
+ }
+ 
++DOMHighResTimeStamp WebrtcVideoConduit::GetNow() const {
++  return mCall->GetNow();
++}
++
+ MediaConduitErrorCode WebrtcVideoConduit::StopTransmitting() {
+   MOZ_ASSERT(NS_IsMainThread());
+   MutexAutoLock lock(mMutex);

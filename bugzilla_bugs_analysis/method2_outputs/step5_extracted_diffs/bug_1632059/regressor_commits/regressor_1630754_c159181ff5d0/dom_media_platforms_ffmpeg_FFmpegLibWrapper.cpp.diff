@@ -1,0 +1,83 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/platforms/ffmpeg/FFmpegLibWrapper.cpp
+# Commit: c159181ff5d0
+# Full Hash: c159181ff5d00814ffa6c1648dc22002b70da9ed
+# Author: Martin Stransky <stransky@redhat.com>
+# Date: 2020-04-21 22:25:03
+# Regressor Bug: 1630754
+# File Overlap Count: 1
+# Description:
+#   Bug 1630754 [Wayland][VA-API] Explicitly configure VADisplay display for VA-API video playback, r=jya
+#   
+#   Some gfx drivers (especially on a child process) can open X11 VADisplay instead of a Wayland one which leads
+#   to HW playback failure. As a solution let's create VADisplay explicitly on top of our wayland display connection.
+#   
+# ==============================================================================
+
+diff -r 27d3c6f3204e -r c159181ff5d0 dom/media/platforms/ffmpeg/FFmpegLibWrapper.cpp
+--- a/dom/media/platforms/ffmpeg/FFmpegLibWrapper.cpp	Tue Apr 21 10:50:17 2020 +0000
++++ b/dom/media/platforms/ffmpeg/FFmpegLibWrapper.cpp	Tue Apr 21 10:52:47 2020 +0000
+@@ -159,7 +159,8 @@
+   AV_FUNC_OPTION(av_frame_get_color_range, AV_FUNC_AVUTIL_ALL)
+ #ifdef MOZ_WAYLAND
+   AV_FUNC_OPTION_SILENT(avcodec_get_hw_config, AV_FUNC_58)
+-  AV_FUNC_OPTION_SILENT(av_hwdevice_ctx_create, AV_FUNC_58)
++  AV_FUNC_OPTION_SILENT(av_hwdevice_ctx_init, AV_FUNC_58)
++  AV_FUNC_OPTION_SILENT(av_hwdevice_ctx_alloc, AV_FUNC_58)
+   AV_FUNC_OPTION_SILENT(av_buffer_ref, AV_FUNC_AVUTIL_58)
+   AV_FUNC_OPTION_SILENT(av_buffer_unref, AV_FUNC_AVUTIL_58)
+   AV_FUNC_OPTION_SILENT(av_hwframe_transfer_get_formats, AV_FUNC_58)
+@@ -181,8 +182,21 @@
+   if (mVALib) {
+     VA_FUNC_OPTION_SILENT(vaExportSurfaceHandle)
+     VA_FUNC_OPTION_SILENT(vaSyncSurface)
++    VA_FUNC_OPTION_SILENT(vaInitialize)
++    VA_FUNC_OPTION_SILENT(vaTerminate)
+   }
+-#  undef VA_FUNC_OPTION
++#  undef VA_FUNC_OPTION_SILENT
++
++#  define VAW_FUNC_OPTION_SILENT(func)                                   \
++    if (!(func = (decltype(func))PR_FindSymbol(mVALibWayland, #func))) { \
++      FFMPEG_LOG("Couldn't load function " #func);                       \
++    }
++
++  // mVALibWayland is optional and may not be present.
++  if (mVALibWayland) {
++    VAW_FUNC_OPTION_SILENT(vaGetDisplayWl)
++  }
++#  undef VAW_FUNC_OPTION_SILENT
+ #endif
+ 
+   avcodec_register_all();
+@@ -218,6 +232,9 @@
+   if (mVALib) {
+     PR_UnloadLibrary(mVALib);
+   }
++  if (mVALibWayland) {
++    PR_UnloadLibrary(mVALibWayland);
++  }
+ #endif
+   PodZero(this);
+ }
+@@ -226,13 +243,16 @@
+ bool FFmpegLibWrapper::IsVAAPIAvailable() {
+ #  define VA_FUNC_LOADED(func) (func != nullptr)
+   return VA_FUNC_LOADED(avcodec_get_hw_config) &&
+-         VA_FUNC_LOADED(av_hwdevice_ctx_create) &&
++         VA_FUNC_LOADED(av_hwdevice_ctx_alloc) &&
++         VA_FUNC_LOADED(av_hwdevice_ctx_init) &&
+          VA_FUNC_LOADED(av_buffer_ref) && VA_FUNC_LOADED(av_buffer_unref) &&
+          VA_FUNC_LOADED(av_hwframe_transfer_get_formats) &&
+          VA_FUNC_LOADED(av_hwdevice_ctx_create_derived) &&
+          VA_FUNC_LOADED(av_hwframe_ctx_alloc) && VA_FUNC_LOADED(av_dict_set) &&
+          VA_FUNC_LOADED(av_dict_free) &&
+-         VA_FUNC_LOADED(vaExportSurfaceHandle) && VA_FUNC_LOADED(vaSyncSurface);
++         VA_FUNC_LOADED(vaExportSurfaceHandle) &&
++         VA_FUNC_LOADED(vaSyncSurface) && VA_FUNC_LOADED(vaInitialize) &&
++         VA_FUNC_LOADED(vaTerminate) && VA_FUNC_LOADED(vaGetDisplayWl);
+ }
+ #endif
+ 

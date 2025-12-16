@@ -1,0 +1,27 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/x64/MacroAssembler-x64.cpp
+# Commit: 0caaf8ce42db
+# Full Hash: 0caaf8ce42dbe6723c64270dd0d5364fca731979
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2022-06-11 21:31:47
+# Description:
+#   Bug 1773628 - Restore frame pointer when doing a forced return from Ion. r=iain
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D148931
+# ==============================================================================
+
+diff -r 55dc239c0828 -r 0caaf8ce42db js/src/jit/x64/MacroAssembler-x64.cpp
+--- a/js/src/jit/x64/MacroAssembler-x64.cpp	Sat Jun 11 05:53:36 2022 +0000
++++ b/js/src/jit/x64/MacroAssembler-x64.cpp	Sat Jun 11 08:12:50 2022 +0000
+@@ -592,7 +592,8 @@
+   bind(&returnIon);
+   loadValue(Address(rsp, ResumeFromException::offsetOfException()),
+             JSReturnOperand);
+-  loadPtr(Address(rsp, ResumeFromException::offsetOfFramePointer()), rsp);
++  loadPtr(Address(rsp, ResumeFromException::offsetOfFramePointer()), rbp);
++  loadPtr(Address(rsp, ResumeFromException::offsetOfStackPointer()), rsp);
+ 
+   // If profiling is enabled, then update the lastProfilingFrame to refer to
+   // caller frame before returning. This code is shared by ForcedReturnIon

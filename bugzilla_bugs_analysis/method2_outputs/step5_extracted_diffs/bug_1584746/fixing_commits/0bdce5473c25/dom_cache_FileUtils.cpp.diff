@@ -1,0 +1,29 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/cache/FileUtils.cpp
+# Commit: 0bdce5473c25
+# Full Hash: 0bdce5473c2598bd5be1222b736a5b0f72a23df6
+# Author: Tom Tung <ttung@mozilla.com>
+# Date: 2019-09-30 16:21:37
+# Description:
+#   Bug 1584746 - Ignore the failure if file is not exist; r=asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D47539
+# ==============================================================================
+
+diff -r 09cfae95708e -r 0bdce5473c25 dom/cache/FileUtils.cpp
+--- a/dom/cache/FileUtils.cpp	Mon Sep 30 10:54:57 2019 +0000
++++ b/dom/cache/FileUtils.cpp	Mon Sep 30 08:06:05 2019 +0000
+@@ -817,6 +817,11 @@
+   }
+ 
+   rv = aFile->Remove(/* recursive */ false);
++  if (rv == NS_ERROR_FILE_NOT_FOUND ||
++      rv == NS_ERROR_FILE_TARGET_DOES_NOT_EXIST) {
++    MOZ_ASSERT(!aTrackQuota);
++    return NS_OK;
++  }
+   if (NS_WARN_IF(NS_FAILED(rv))) {
+     return rv;
+   }

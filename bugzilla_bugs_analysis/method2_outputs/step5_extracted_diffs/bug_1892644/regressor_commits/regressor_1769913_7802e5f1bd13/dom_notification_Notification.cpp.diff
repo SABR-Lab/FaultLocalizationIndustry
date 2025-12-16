@@ -1,0 +1,99 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/notification/Notification.cpp
+# Commit: 7802e5f1bd13
+# Full Hash: 7802e5f1bd1395f19f2d78636787c41f64192bd7
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2024-04-19 15:22:44
+# Regressor Bug: 1769913
+# File Overlap Count: 3
+# Description:
+#   Bug 1769913 - P3 Remove WorkerRunnable::mWorkerPrivate. r=dom-worker-reviewers,asuth
+#   
+#   WorkerRunnable no longer keeps a raw pointer(mWorkerPrivate) for the associated WorkerPrivate in this patch.
+#   Removing the WorkerRunnable::mWorkerPrivate needs to fix the following problems.
+#   
+# ==============================================================================
+
+diff -r ffc69aa8f2c3 -r 7802e5f1bd13 dom/notification/Notification.cpp
+--- a/dom/notification/Notification.cpp	Fri Apr 19 09:41:57 2024 +0000
++++ b/dom/notification/Notification.cpp	Fri Apr 19 09:41:58 2024 +0000
+@@ -236,7 +236,7 @@
+ 
+  public:
+   explicit ReleaseNotificationControlRunnable(Notification* aNotification)
+-      : MainThreadWorkerControlRunnable(aNotification->mWorkerPrivate),
++      : MainThreadWorkerControlRunnable("ReleaseNotificationControlRunnable"),
+         mNotification(aNotification) {}
+ 
+   bool WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override {
+@@ -310,7 +310,7 @@
+   explicit NotificationWorkerRunnable(
+       WorkerPrivate* aWorkerPrivate,
+       const char* aName = "NotificationWorkerRunnable")
+-      : MainThreadWorkerRunnable(aWorkerPrivate, aName) {}
++      : MainThreadWorkerRunnable(aName) {}
+ 
+   bool WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override {
+     aWorkerPrivate->AssertIsOnWorkerThread();
+@@ -426,10 +426,10 @@
+         RefPtr<ReleaseNotificationRunnable> r =
+             new ReleaseNotificationRunnable(notification);
+ 
+-        if (!r->Dispatch()) {
++        if (!r->Dispatch(notification->mWorkerPrivate)) {
+           RefPtr<ReleaseNotificationControlRunnable> r =
+               new ReleaseNotificationControlRunnable(notification);
+-          MOZ_ALWAYS_TRUE(r->Dispatch());
++          MOZ_ALWAYS_TRUE(r->Dispatch(notification->mWorkerPrivate));
+         }
+       } else {
+         notification->AssertIsOnTargetThread();
+@@ -1067,15 +1067,16 @@
+                                    "NotificationClickWorkerRunnable"),
+         mNotification(aNotification),
+         mWindow(aWindow) {
+-    MOZ_ASSERT_IF(mWorkerPrivate->IsServiceWorker(), !mWindow);
++    MOZ_ASSERT_IF(mNotification->mWorkerPrivate->IsServiceWorker(), !mWindow);
+   }
+ 
+   void WorkerRunInternal(WorkerPrivate* aWorkerPrivate) override {
+     bool doDefaultAction = mNotification->DispatchClickEvent();
+-    MOZ_ASSERT_IF(mWorkerPrivate->IsServiceWorker(), !doDefaultAction);
++    MOZ_ASSERT_IF(mNotification->mWorkerPrivate->IsServiceWorker(),
++                  !doDefaultAction);
+     if (doDefaultAction) {
+       RefPtr<FocusWindowRunnable> r = new FocusWindowRunnable(mWindow);
+-      mWorkerPrivate->DispatchToMainThread(r.forget());
++      mNotification->mWorkerPrivate->DispatchToMainThread(r.forget());
+     }
+   }
+ };
+@@ -1207,7 +1208,7 @@
+   }
+ 
+   MOZ_ASSERT(r);
+-  if (!r->Dispatch()) {
++  if (!r->Dispatch(notification->mWorkerPrivate)) {
+     NS_WARNING("Could not dispatch event to worker notification");
+   }
+   return NS_OK;
+@@ -1351,7 +1352,7 @@
+     if (mWorkerPrivate) {
+       RefPtr<NotificationEventWorkerRunnable> r =
+           new NotificationEventWorkerRunnable(this, u"error"_ns);
+-      if (!r->Dispatch()) {
++      if (!r->Dispatch(mWorkerPrivate)) {
+         NS_WARNING("Could not dispatch event to worker notification");
+       }
+     } else {
+@@ -1765,7 +1766,7 @@
+     RefPtr<WorkerGetResultRunnable> r = new WorkerGetResultRunnable(
+         proxy->GetWorkerPrivate(), proxy, std::move(mStrings));
+ 
+-    r->Dispatch();
++    r->Dispatch(proxy->GetWorkerPrivate());
+     return NS_OK;
+   }
+ 

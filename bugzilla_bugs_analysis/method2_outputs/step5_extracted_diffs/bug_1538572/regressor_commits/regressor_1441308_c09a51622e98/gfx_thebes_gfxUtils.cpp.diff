@@ -1,0 +1,98 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxUtils.cpp
+# Commit: c09a51622e98
+# Full Hash: c09a51622e988e81077c75e3aaa5a49df66284b3
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2019-03-22 16:44:08
+# Regressor Bug: 1441308
+# File Overlap Count: 2
+# Description:
+#   Bug 1441308 - Core renderroot splitting changes r=kats,sotaro
+#   
+#   This is a large patch that contains all of the core changes for
+#   renderroot splitting.
+#   
+# ==============================================================================
+
+diff -r 737807563dd5 -r c09a51622e98 gfx/thebes/gfxUtils.cpp
+--- a/gfx/thebes/gfxUtils.cpp	Thu Mar 21 23:14:26 2019 +0000
++++ b/gfx/thebes/gfxUtils.cpp	Fri Mar 22 03:15:14 2019 +0000
+@@ -1471,6 +1471,76 @@
+          (gfxPrefs::LayoutDumpDisplayListContent() && XRE_IsContentProcess());
+ }
+ 
++wr::RenderRoot gfxUtils::GetContentRenderRoot() {
++  if (gfx::gfxVars::UseWebRender() &&
++      gfxPrefs::WebRenderSplitRenderRoots()) {
++    return wr::RenderRoot::Content;
++  }
++  return wr::RenderRoot::Default;
++}
++
++Maybe<wr::RenderRoot> gfxUtils::GetRenderRootForFrame(const nsIFrame* aFrame) {
++  if (!gfxVars::UseWebRender() || !gfxPrefs::WebRenderSplitRenderRoots()) {
++    return Nothing();
++  }
++  if (!aFrame->GetContent()) {
++    return Nothing();
++  }
++  return gfxUtils::GetRenderRootForElement(aFrame->GetContent()->AsElement());
++}
++
++Maybe<wr::RenderRoot> gfxUtils::GetRenderRootForElement(const dom::Element* aElement) {
++  if (!aElement) {
++    return Nothing();
++  }
++  if (!gfxVars::UseWebRender() || !gfxPrefs::WebRenderSplitRenderRoots()) {
++    return Nothing();
++  }
++  if (!aElement->IsXULElement()) {
++    return Nothing();
++  }
++  if (aElement->AttrValueIs(
++          kNameSpaceID_None, nsGkAtoms::renderroot,
++          NS_LITERAL_STRING("content"), eCaseMatters)) {
++    return Some(wr::RenderRoot::Content);
++  }
++  return Nothing();
++}
++
++wr::RenderRoot gfxUtils::RecursivelyGetRenderRootForFrame(const nsIFrame* aFrame) {
++  if (!gfxVars::UseWebRender() || !gfxPrefs::WebRenderSplitRenderRoots()) {
++    return wr::RenderRoot::Default;
++  }
++
++  for (const nsIFrame* current = aFrame;
++       current;
++       current = current->GetParent()) {
++    auto renderRoot = gfxUtils::GetRenderRootForFrame(current);
++    if (renderRoot) {
++      return *renderRoot;
++    }
++  }
++
++  return wr::RenderRoot::Default;
++}
++
++wr::RenderRoot gfxUtils::RecursivelyGetRenderRootForElement(const dom::Element* aElement) {
++  if (!gfxVars::UseWebRender() || !gfxPrefs::WebRenderSplitRenderRoots()) {
++    return wr::RenderRoot::Default;
++  }
++
++  for (const dom::Element* current = aElement;
++       current;
++       current = current->GetParentElement()) {
++    auto renderRoot = gfxUtils::GetRenderRootForElement(current);
++    if (renderRoot) {
++      return *renderRoot;
++    }
++  }
++
++  return wr::RenderRoot::Default;
++}
++
+ FILE* gfxUtils::sDumpPaintFile = stderr;
+ 
+ namespace mozilla {

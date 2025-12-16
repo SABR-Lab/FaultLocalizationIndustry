@@ -1,0 +1,46 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/scene_building.rs
+# Commit: 4b7de1b38a00
+# Full Hash: 4b7de1b38a008493b6c6fbb599049358f707e08f
+# Author: Nicolas Silva <nsilva@mozilla.com>
+# Date: 2021-04-27 15:52:11
+# Description:
+#   WIP: Bug 1707181 - Avoid zero-sized gradient tasks. r=gfx-reviewers,lsalzman
+#   
+#   Add missing check for linear gradients. Also, instead of just casting to int round out the task size.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D113289
+# ==============================================================================
+
+diff -r ee55297f011c -r 4b7de1b38a00 gfx/wr/webrender/src/scene_building.rs
+--- a/gfx/wr/webrender/src/scene_building.rs	Tue Apr 27 07:41:16 2021 +0000
++++ b/gfx/wr/webrender/src/scene_building.rs	Tue Apr 27 07:44:25 2021 +0000
+@@ -1267,7 +1267,7 @@
+                     }
+                 );
+ 
+-                if !optimized {
++                if !optimized && !tile_size.ceil().is_empty() {
+                     if let Some(prim_key_kind) = self.create_linear_gradient_prim(
+                         &layout,
+                         start,
+@@ -1341,7 +1341,7 @@
+                 // which can cause issues.
+                 simplify_repeated_primitive(&tile_size, &mut tile_spacing, &mut prim_rect);
+ 
+-                if !tile_size.to_i32().is_empty() {
++                if !tile_size.ceil().is_empty() {
+                     layout.rect = prim_rect;
+                     let prim_key_kind = self.create_radial_gradient_prim(
+                         &layout,
+@@ -1391,7 +1391,7 @@
+                 );
+                 let center = info.gradient.center + offset;
+ 
+-                if !tile_size.to_i32().is_empty() {
++                if !tile_size.ceil().is_empty() {
+                     let prim_key_kind = self.create_conic_gradient_prim(
+                         &layout,
+                         center,

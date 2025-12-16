@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/apz/util/APZCCallbackHelper.cpp
+# Commit: 0e259884f052
+# Full Hash: 0e259884f052230b24601efc3cde3a5ef5d4e6ad
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2019-05-01 15:54:31
+# Regressor Bug: 1535945
+# File Overlap Count: 1
+# Description:
+#   Bug 1535945 - Don't skip invalidating frames when creating displayports for async scrollable ancestors. r=tnikkel
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D23816
+# ==============================================================================
+
+diff -r 732976d3f555 -r 0e259884f052 gfx/layers/apz/util/APZCCallbackHelper.cpp
+--- a/gfx/layers/apz/util/APZCCallbackHelper.cpp	Wed May 01 08:16:44 2019 +0000
++++ b/gfx/layers/apz/util/APZCCallbackHelper.cpp	Wed May 01 04:23:07 2019 +0000
+@@ -263,7 +263,7 @@
+                                        aDisplayPortMargins, 0);
+   if (!hadDisplayPort) {
+     nsLayoutUtils::SetZeroMarginDisplayPortOnAsyncScrollableAncestors(
+-        aContent->GetPrimaryFrame(), nsLayoutUtils::RepaintMode::Repaint);
++        aContent->GetPrimaryFrame());
+   }
+ 
+   nsRect base(0, 0, aDisplayPortBase.width * AppUnitsPerCSSPixel(),
+@@ -422,11 +422,10 @@
+     nsLayoutUtils::SetDisplayPortBaseIfNotSet(content, baseRect);
+     // Note that we also set the base rect that goes with these margins in
+     // nsRootBoxFrame::BuildDisplayList.
+-    nsLayoutUtils::SetDisplayPortMargins(
+-        content, aPresShell, ScreenMargin(), 0,
+-        nsLayoutUtils::RepaintMode::DoNotRepaint);
++    nsLayoutUtils::SetDisplayPortMargins(content, aPresShell, ScreenMargin(),
++                                         0);
+     nsLayoutUtils::SetZeroMarginDisplayPortOnAsyncScrollableAncestors(
+-        content->GetPrimaryFrame(), nsLayoutUtils::RepaintMode::DoNotRepaint);
++        content->GetPrimaryFrame());
+   }
+ }
+ 
+@@ -736,8 +735,7 @@
+   }
+ 
+   nsIFrame* frame = do_QueryFrame(scrollAncestor);
+-  nsLayoutUtils::SetZeroMarginDisplayPortOnAsyncScrollableAncestors(
+-      frame, nsLayoutUtils::RepaintMode::Repaint);
++  nsLayoutUtils::SetZeroMarginDisplayPortOnAsyncScrollableAncestors(frame);
+ 
+   return true;
+ }

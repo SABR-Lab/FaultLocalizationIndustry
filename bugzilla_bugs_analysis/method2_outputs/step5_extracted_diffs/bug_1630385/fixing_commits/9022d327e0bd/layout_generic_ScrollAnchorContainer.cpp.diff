@@ -1,0 +1,39 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/ScrollAnchorContainer.cpp
+# Commit: 9022d327e0bd
+# Full Hash: 9022d327e0bd4b19ce43684701eececc9459a4ef
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2020-04-16 09:48:46
+# Description:
+#   Bug 1630385 - Don't descend into scroll frames with a pre-existing anchor. r=dholbert
+#   
+#   We can modify the scroll position without invalidating the anchor (that's kind
+#   of the point, actually).
+#   
+# ==============================================================================
+
+diff -r c885d9bdcc53 -r 9022d327e0bd layout/generic/ScrollAnchorContainer.cpp
+--- a/layout/generic/ScrollAnchorContainer.cpp	Wed Apr 15 22:33:46 2020 +0000
++++ b/layout/generic/ScrollAnchorContainer.cpp	Wed Apr 15 23:13:00 2020 +0000
+@@ -539,10 +539,15 @@
+ 
+   const bool isAnonBox = aFrame->Style()->IsAnonBox();
+ 
+-  // See if this frame could have its own anchor node.
+-  nsIScrollableFrame* scrollable = do_QueryFrame(aFrame);
+-  const bool isScrollableWithAnchor =
+-      scrollable && scrollable->Anchor()->CanMaintainAnchor();
++  // See if this frame has or could maintain its own anchor node.
++  const bool isScrollableWithAnchor = [&] {
++    nsIScrollableFrame* scrollable = do_QueryFrame(aFrame);
++    if (!scrollable) {
++      return false;
++    }
++    auto* anchor = scrollable->Anchor();
++    return anchor->AnchorNode() || anchor->CanMaintainAnchor();
++  }();
+ 
+   // We don't allow scroll anchors to be selected inside of nested scrollable
+   // frames which maintain an anchor node as it's not clear how an anchor

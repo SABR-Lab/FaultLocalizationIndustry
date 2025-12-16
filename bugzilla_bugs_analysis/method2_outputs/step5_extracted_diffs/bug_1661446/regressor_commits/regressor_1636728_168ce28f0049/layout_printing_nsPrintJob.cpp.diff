@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/printing/nsPrintJob.cpp
+# Commit: 168ce28f0049
+# Full Hash: 168ce28f004948c7b2646d5f613c1bda7af62de6
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2020-09-17 10:09:40
+# Regressor Bug: 1636728
+# File Overlap Count: 1
+# Description:
+#   Bug 1663826 - Keep freezing navigation during window.print() for compat. r=smaug
+#   
+#   This broke in bug 1636728 because we started setting the bit in the
+#   cloned docshell rather than the original one.
+#   
+# ==============================================================================
+
+diff -r 092dc1009fdf -r 168ce28f0049 layout/printing/nsPrintJob.cpp
+--- a/layout/printing/nsPrintJob.cpp	Wed Sep 16 22:49:44 2020 +0000
++++ b/layout/printing/nsPrintJob.cpp	Wed Sep 16 22:55:19 2020 +0000
+@@ -538,12 +538,10 @@
+     // clear mPtrPreview so that code will use mPtr until that happens.
+     mPrtPreview = nullptr;
+ 
+-    // ensures docShell tree navigation in frozen
+     SetIsPrintPreview(true);
+   } else {
+     mProgressDialogIsShown = false;
+ 
+-    // ensures docShell tree navigation in frozen
+     SetIsPrinting(true);
+   }
+ 
+@@ -2318,11 +2316,6 @@
+   if (aIsPrinting) {
+     mHasEverPrinted = true;
+   }
+-  // Calling SetIsPrinting while in print preview confuses the document viewer
+-  // This is safe because we prevent exiting print preview while printing
+-  if (!mCreatedForPrintPreview && mDocViewerPrint) {
+-    mDocViewerPrint->SetIsPrinting(aIsPrinting);
+-  }
+   if (mPrt && aIsPrinting) {
+     mPrt->mPreparingForPrint = true;
+   }

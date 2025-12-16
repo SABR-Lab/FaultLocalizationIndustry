@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/apz/src/APZCTreeManager.cpp
+# Commit: 2e296c018c3b
+# Full Hash: 2e296c018c3b62984150b42cec757af680d18695
+# Author: Hiroyuki Ikezoe <hikezoe.birchill@mozilla.com>
+# Date: 2021-02-02 03:35:00
+# Regressor Bug: 1687067
+# File Overlap Count: 1
+# Description:
+#   Bug 1687067 - Build OverscrollHandoffChain by walking up hit testing tree instead of APZC tree. r=botond
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D103601
+# ==============================================================================
+
+diff -r a32d58612fb7 -r 2e296c018c3b gfx/layers/apz/src/APZCTreeManager.cpp
+--- a/gfx/layers/apz/src/APZCTreeManager.cpp	Mon Feb 01 23:23:42 2021 +0000
++++ b/gfx/layers/apz/src/APZCTreeManager.cpp	Mon Feb 01 23:25:17 2021 +0000
+@@ -2887,6 +2887,19 @@
+   return hit;
+ }
+ 
++AsyncPanZoomController* APZCTreeManager::FindHandoffParent(
++    const AsyncPanZoomController* aApzc) {
++  RefPtr<HitTestingTreeNode> node = GetTargetNode(aApzc->GetGuid(), nullptr);
++  while (node) {
++    if (auto* apzc = GetTargetApzcForNode(node->GetParent())) {
++      return apzc;
++    }
++    node = node->GetParent();
++  }
++
++  return nullptr;
++}
++
+ RefPtr<const OverscrollHandoffChain>
+ APZCTreeManager::BuildOverscrollHandoffChain(
+     const RefPtr<AsyncPanZoomController>& aInitialTarget) {
+@@ -2918,7 +2931,11 @@
+         // This probably indicates a bug or missed case in layout code
+         NS_WARNING("Found a non-root APZ with no handoff parent");
+       }
+-      apzc = apzc->GetParent();
++
++      // Find the parent APZC by using HitTestingTree (i.e. by using
++      // GetTargetApzcForNode) so that we can properly find the parent APZC for
++      // cases where cross-process iframes are inside position:fixed subtree.
++      apzc = FindHandoffParent(apzc);
+       continue;
+     }
+ 

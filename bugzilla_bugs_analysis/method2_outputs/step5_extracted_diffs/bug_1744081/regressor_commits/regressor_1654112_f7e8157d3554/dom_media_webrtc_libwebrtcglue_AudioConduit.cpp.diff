@@ -1,0 +1,88 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/AudioConduit.cpp
+# Commit: f7e8157d3554
+# Full Hash: f7e8157d3554c46b3f6ad196121a7899221db5a2
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 3
+# Description:
+#   Bug 1654112 - Fix AudioCondut::GetAudioFrame to use the new AudioReceiveStream API. r=ng
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D102281
+# ==============================================================================
+
+diff -r 01b9c509cecf -r f7e8157d3554 dom/media/webrtc/libwebrtcglue/AudioConduit.cpp
+--- a/dom/media/webrtc/libwebrtcglue/AudioConduit.cpp	Fri Jan 29 15:38:43 2021 +0100
++++ b/dom/media/webrtc/libwebrtcglue/AudioConduit.cpp	Fri Jan 29 15:38:48 2021 +0100
+@@ -577,15 +577,12 @@
+   return kMediaConduitNoError;
+ }
+ 
+-MediaConduitErrorCode WebrtcAudioConduit::GetAudioFrame(int16_t speechData[],
+-                                                        int32_t samplingFreqHz,
+-                                                        int32_t capture_delay,
+-                                                        size_t& numChannels,
+-                                                        size_t& lengthSamples) {
++MediaConduitErrorCode WebrtcAudioConduit::GetAudioFrame(
++    int32_t samplingFreqHz, webrtc::AudioFrame* frame) {
+   CSFLogDebug(LOGTAG, "%s ", __FUNCTION__);
+ 
+   // validate params
+-  if (!speechData) {
++  if (!frame) {
+     CSFLogError(LOGTAG, "%s Null Audio Buffer Pointer", __FUNCTION__);
+     MOZ_ASSERT(PR_FALSE);
+     return kMediaConduitMalformedArgument;
+@@ -598,13 +595,6 @@
+     return kMediaConduitMalformedArgument;
+   }
+ 
+-  // validate capture time
+-  if (capture_delay < 0) {
+-    CSFLogError(LOGTAG, "%s Invalid Capture Delay ", __FUNCTION__);
+-    MOZ_ASSERT(PR_FALSE);
+-    return kMediaConduitMalformedArgument;
+-  }
+-
+   // Conduit should have reception enabled before we ask for decoded
+   // samples
+   if (!mEngineReceiving) {
+@@ -612,25 +602,20 @@
+     return kMediaConduitSessionNotInited;
+   }
+ 
+-  size_t lengthSamplesAllowed = lengthSamples;
+-  lengthSamples = 0;  // output paramter
+-                      /*
+-                        mRecvChannelProxy->GetAudioFrameWithInfo(samplingFreqHz, &mAudioFrame);
+-                      */
+-  numChannels = mAudioFrame.num_channels_;
++  // Unfortunate to have to cast to an internal class, but that looks like the
++  // only way short of interfacing with a layer above (which mixes all streams,
++  // which we don't want) or a layer below (which we try to avoid because it is
++  // less stable).
++  auto info = static_cast<webrtc::internal::AudioReceiveStream*>(mRecvStream)
++                  ->GetAudioFrameWithInfo(samplingFreqHz, frame);
+ 
+-  if (numChannels == 0) {
+-    CSFLogError(LOGTAG, "%s Audio frame has zero channels", __FUNCTION__);
++  if (info == webrtc::AudioMixer::Source::AudioFrameInfo::kError) {
++    CSFLogError(LOGTAG, "%s Getting audio frame failed", __FUNCTION__);
+     return kMediaConduitPlayoutError;
+   }
+ 
+-  // XXX Annoying, have to copy to our buffers -- refactor?
+-  lengthSamples = mAudioFrame.samples_per_channel_ * mAudioFrame.num_channels_;
+-  MOZ_RELEASE_ASSERT(lengthSamples <= lengthSamplesAllowed);
+-  PodCopy(speechData, mAudioFrame.data(), lengthSamples);
+-
+-  CSFLogDebug(LOGTAG, "%s GetAudioFrame:Got samples: length %zu ", __FUNCTION__,
+-              lengthSamples);
++  CSFLogDebug(LOGTAG, "%s Got %zu channels of %zu samples", __FUNCTION__,
++              frame->num_channels(), frame->samples_per_channel());
+   return kMediaConduitNoError;
+ }
+ 

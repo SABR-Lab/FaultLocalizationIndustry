@@ -1,0 +1,39 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/angle/checkout/src/libANGLE/Context.cpp
+# Commit: 264003682fbf
+# Full Hash: 264003682fbf25a121deeeb305d206a7cd437b94
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2019-12-27 09:44:18
+# Description:
+#   Bug 1601703 - Cherry-pick lost no-error context fix for GetProgramiv. r=lsalzman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D58287
+# ==============================================================================
+
+diff -r 3888d3abdc8a -r 264003682fbf gfx/angle/checkout/src/libANGLE/Context.cpp
+--- a/gfx/angle/checkout/src/libANGLE/Context.cpp	Tue Dec 10 05:28:58 2019 +0000
++++ b/gfx/angle/checkout/src/libANGLE/Context.cpp	Fri Dec 27 05:43:03 2019 +0000
+@@ -5803,14 +5803,13 @@
+ 
+ void Context::getProgramiv(GLuint program, GLenum pname, GLint *params)
+ {
+-    Program *programObject = nullptr;
+-    if (!mContextLost)
+-    {
+-        // Don't resolve link if checking the link completion status.
+-        programObject = (pname == GL_COMPLETION_STATUS_KHR ? getProgramNoResolveLink(program)
+-                                                           : getProgramResolveLink(program));
+-        ASSERT(programObject);
+-    }
++    if (mContextLost)
++        return;  // This must be a no-error context, to skip context-loss validation!
++
++    // Don't resolve link if checking the link completion status.
++    Program *programObject = (pname == GL_COMPLETION_STATUS_KHR ? getProgramNoResolveLink(program)
++                                                                : getProgramResolveLink(program));
++    ASSERT(programObject);
+     QueryProgramiv(this, programObject, pname, params);
+ }
+ 

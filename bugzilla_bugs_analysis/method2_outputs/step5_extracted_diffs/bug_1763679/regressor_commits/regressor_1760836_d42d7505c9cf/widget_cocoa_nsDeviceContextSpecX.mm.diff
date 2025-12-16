@@ -1,0 +1,100 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/cocoa/nsDeviceContextSpecX.mm
+# Commit: d42d7505c9cf
+# Full Hash: d42d7505c9cf4b0a2f3bae83a007928fee2b596d
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2022-03-30 03:54:32
+# Regressor Bug: 1760836
+# File Overlap Count: 1
+# Description:
+#   Bug 1760836 - Support printing to an nsIOutputStream. r=jfkthame,jrmuizel,webdriver-reviewers,geckoview-reviewers,agi
+#   
+#   The trickiest bits are the PrintTargetCG ones, the rest is just plumbing
+#   and cleanups and tests, but let me know if you want those to be split
+#   out, can do.
+# ==============================================================================
+
+diff -r 99efc2e54ea0 -r d42d7505c9cf widget/cocoa/nsDeviceContextSpecX.mm
+--- a/widget/cocoa/nsDeviceContextSpecX.mm	Tue Mar 29 17:24:11 2022 +0000
++++ b/widget/cocoa/nsDeviceContextSpecX.mm	Tue Mar 29 17:50:58 2022 +0000
+@@ -24,6 +24,7 @@
+ #include "nsCUPSShim.h"
+ #include "nsDirectoryServiceDefs.h"
+ #include "nsILocalFileMac.h"
++#include "nsIOutputStream.h"
+ #include "nsPaper.h"
+ #include "nsPrinterListCUPS.h"
+ #include "nsPrintSettingsX.h"
+@@ -40,23 +41,11 @@
+ #ifdef MOZ_ENABLE_SKIA_PDF
+ using mozilla::gfx::PrintTargetSkPDF;
+ #endif
+-using mozilla::gfx::SurfaceFormat;
+-
+-static LazyLogModule sDeviceContextSpecXLog("DeviceContextSpecX");
+ 
+ //----------------------------------------------------------------------
+ // nsDeviceContentSpecX
+ 
+-nsDeviceContextSpecX::nsDeviceContextSpecX()
+-    : mPrintSession(nullptr),
+-      mPageFormat(nullptr),
+-      mPrintSettings(nullptr)
+-#ifdef MOZ_ENABLE_SKIA_PDF
+-      ,
+-      mPrintViaSkPDF(false)
+-#endif
+-{
+-}
++nsDeviceContextSpecX::nsDeviceContextSpecX() = default;
+ 
+ nsDeviceContextSpecX::~nsDeviceContextSpecX() {
+   NS_OBJC_BEGIN_TRY_IGNORE_BLOCK;
+@@ -85,13 +74,16 @@
+     return NS_ERROR_NO_INTERFACE;
+   }
+ 
+-  bool toFile;
+-  settings->GetPrintToFile(&toFile);
+-
+   NSPrintInfo* printInfo = settings->CreateOrCopyPrintInfo();
+   if (!printInfo) {
+     return NS_ERROR_FAILURE;
+   }
++  if (aPS->GetOutputDestination() == nsIPrintSettings::kOutputDestinationStream) {
++    aPS->GetOutputStream(getter_AddRefs(mOutputStream));
++    if (!mOutputStream) {
++      return NS_ERROR_FAILURE;
++    }
++  }
+   mPrintSession = static_cast<PMPrintSession>([printInfo PMPrintSession]);
+   mPageFormat = static_cast<PMPageFormat>([printInfo PMPageFormat]);
+   mPrintSettings = static_cast<PMPrintSettings>([printInfo PMPrintSettings]);
+@@ -138,8 +130,7 @@
+   }
+ #endif
+ 
+-  int16_t outputFormat;
+-  aPS->GetOutputFormat(&outputFormat);
++  int16_t outputFormat = aPS->GetOutputFormat();
+ 
+   if (outputFormat == nsIPrintSettings::kOutputFormatPDF) {
+     // We don't actually currently support/use kOutputFormatPDF on mac, but
+@@ -287,6 +278,7 @@
+ 
+ #ifdef MOZ_ENABLE_SKIA_PDF
+   if (mPrintViaSkPDF) {
++    // TODO: Add support for stream printing via SkPDF if we enable that again.
+     nsresult rv = NS_GetSpecialDirectory(NS_OS_TEMP_DIR, getter_AddRefs(mTempFile));
+     NS_ENSURE_SUCCESS(rv, nullptr);
+     nsAutoCString tempPath("tmp-printing.pdf");
+@@ -299,5 +291,6 @@
+   }
+ #endif
+ 
+-  return PrintTargetCG::CreateOrNull(mPrintSession, mPageFormat, mPrintSettings, size);
++  return PrintTargetCG::CreateOrNull(mOutputStream, mPrintSession, mPageFormat, mPrintSettings,
++                                     size);
+ }

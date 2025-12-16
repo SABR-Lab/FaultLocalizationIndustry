@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/angle/checkout/src/libANGLE/renderer/FramebufferImpl.h
+# Commit: 13282d7a47a5
+# Full Hash: 13282d7a47a57a73be8d060efd9645b4d642f03e
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2019-09-08 09:46:52
+# Regressor Bug: 1578576
+# File Overlap Count: 4
+# Description:
+#   Bug 1578576 - Part 2: Update to ANGLE 3865 r=jgilbert
+#   
+#   Depends on D44561
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44579
+# ==============================================================================
+
+diff -r 3064469c073d -r 13282d7a47a5 gfx/angle/checkout/src/libANGLE/renderer/FramebufferImpl.h
+--- a/gfx/angle/checkout/src/libANGLE/renderer/FramebufferImpl.h	Sat Sep 07 13:36:46 2019 +0000
++++ b/gfx/angle/checkout/src/libANGLE/renderer/FramebufferImpl.h	Sat Sep 07 13:38:36 2019 +0000
+@@ -86,11 +86,23 @@
+                                             size_t index,
+                                             GLfloat *xy) const = 0;
+ 
++    // Special configuration option for checkStatus(). Some back-ends don't require a syncState
++    // before calling checkStatus. In practice the GL back-end is the only config that needs
++    // syncState because it depends on the behaviour of the driver. Allowing the Vulkan and
++    // D3D back-ends to skip syncState lets us do more work in the syncState call.
++    virtual bool shouldSyncStateBeforeCheckStatus() const;
++
+     const gl::FramebufferState &getState() const { return mState; }
+ 
+   protected:
+     const gl::FramebufferState &mState;
+ };
++
++inline bool FramebufferImpl::shouldSyncStateBeforeCheckStatus() const
++{
++    return false;
++}
++
+ }  // namespace rx
+ 
+ #endif  // LIBANGLE_RENDERER_FRAMEBUFFERIMPL_H_

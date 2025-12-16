@@ -1,0 +1,80 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/gl/SharedSurfaceDMABUF.h
+# Commit: bbfe23c61add
+# Full Hash: bbfe23c61add07377daf80696fd6996c0463f5b6
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-06-09 09:21:34
+# Regressor Bug: 1632249
+# File Overlap Count: 1
+# Description:
+#   Bug 1632249 - Support compositing out-of-process WebGL. r=handyman,lsalzman,nical,geckoview-reviewers,agi,imanol
+#   
+#   * Majorly simplity CanvasRenderer
+#   * Replace GLScreenBuffer with trivial GLSwapChain
+#   * Use descriptor structs so that future SharedSurface changes aren't so painful
+# ==============================================================================
+
+diff -r 8fcfac450ecc -r bbfe23c61add gfx/gl/SharedSurfaceDMABUF.h
+--- a/gfx/gl/SharedSurfaceDMABUF.h	Mon Jun 08 20:13:01 2020 +0000
++++ b/gfx/gl/SharedSurfaceDMABUF.h	Mon Jun 08 20:34:15 2020 +0000
+@@ -17,22 +17,13 @@
+ 
+ class SharedSurface_DMABUF final : public SharedSurface {
+  public:
+-  static UniquePtr<SharedSurface_DMABUF> Create(GLContext* prodGL,
+-                                                const GLFormats& formats,
+-                                                const gfx::IntSize& size,
+-                                                bool hasAlpha);
++  const RefPtr<WaylandDMABufSurface> mSurface;
+ 
+-  static SharedSurface_DMABUF* Cast(SharedSurface* surf) {
+-    MOZ_ASSERT(surf->mType == SharedSurfaceType::EGLSurfaceDMABUF);
++  static UniquePtr<SharedSurface_DMABUF> Create(const SharedSurfaceDesc&);
+ 
+-    return (SharedSurface_DMABUF*)surf;
+-  }
+-
+- protected:
+-  RefPtr<WaylandDMABufSurface> mSurface;
+-
+-  SharedSurface_DMABUF(GLContext* gl, const gfx::IntSize& size, bool hasAlpha,
+-                       RefPtr<WaylandDMABufSurface> aSurface);
++ private:
++  SharedSurface_DMABUF(const SharedSurfaceDesc&, UniquePtr<MozFramebuffer>,
++                       RefPtr<WaylandDMABufSurface>);
+ 
+   void UpdateProdTexture(const MutexAutoLock& curAutoLock);
+ 
+@@ -51,25 +42,17 @@
+   virtual void ProducerReadAcquireImpl() override {}
+   virtual void ProducerReadReleaseImpl() override {}
+ 
+-  virtual GLuint ProdTexture() override { return mSurface->GetTexture(); }
+-
+-  virtual bool ToSurfaceDescriptor(
+-      layers::SurfaceDescriptor* const out_descriptor) override;
++  Maybe<layers::SurfaceDescriptor> ToSurfaceDescriptor() override;
+ };
+ 
+ class SurfaceFactory_DMABUF : public SurfaceFactory {
+  public:
+-  SurfaceFactory_DMABUF(GLContext* prodGL, const SurfaceCaps& caps,
+-                        const RefPtr<layers::LayersIPCChannel>& allocator,
+-                        const layers::TextureFlags& flags)
+-      : SurfaceFactory(SharedSurfaceType::EGLSurfaceDMABUF, prodGL, caps,
+-                       allocator, flags){};
++  explicit SurfaceFactory_DMABUF(GLContext&);
+ 
+  public:
+-  virtual UniquePtr<SharedSurface> CreateShared(
+-      const gfx::IntSize& size) override {
+-    bool hasAlpha = mReadCaps.alpha;
+-    return SharedSurface_DMABUF::Create(mGL, mFormats, size, hasAlpha);
++  virtual UniquePtr<SharedSurface> CreateSharedImpl(
++      const SharedSurfaceDesc& desc) override {
++    return SharedSurface_DMABUF::Create(desc);
+   }
+ };
+ 

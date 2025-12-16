@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/CanvasTranslator.h
+# Commit: 11451cccc88c
+# Full Hash: 11451cccc88c077e8fe763d4231bbf1af5226061
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2023-12-12 04:37:49
+# Regressor Bug: 1869346
+# File Overlap Count: 5
+# Description:
+#   Bug 1869346 - Rework how canvas accesses shared surfaces in the compositor process. r=gfx-reviewers,lsalzman
+#   
+#   This patch adds plumbing to allow sharing ExternalImageId via
+#   SurfaceDescriptor. This will be used in a future patch by WebGL and
+#   WebGPU to avoid extra copies. It also refactors how CanvasTranslator
+# ==============================================================================
+
+diff -r 8043d7693dba -r 11451cccc88c gfx/layers/ipc/CanvasTranslator.h
+--- a/gfx/layers/ipc/CanvasTranslator.h	Mon Dec 11 18:15:34 2023 +0000
++++ b/gfx/layers/ipc/CanvasTranslator.h	Mon Dec 11 18:22:21 2023 +0000
+@@ -28,6 +28,7 @@
+ 
+ namespace layers {
+ 
++class SharedSurfacesHolder;
+ class TextureData;
+ 
+ class CanvasTranslator final : public gfx::InlineTranslator,
+@@ -37,7 +38,8 @@
+ 
+   friend class PProtocolParent;
+ 
+-  CanvasTranslator(const dom::ContentParentId& aContentId, uint32_t aManagerId);
++  CanvasTranslator(layers::SharedSurfacesHolder* aSharedSurfacesHolder,
++                   const dom::ContentParentId& aContentId, uint32_t aManagerId);
+ 
+   const dom::ContentParentId& GetContentId() const { return mContentId; }
+ 
+@@ -292,6 +294,7 @@
+   void NotifyDeviceChanged();
+ 
+   RefPtr<TaskQueue> mTranslationTaskQueue;
++  RefPtr<SharedSurfacesHolder> mSharedSurfacesHolder;
+ #if defined(XP_WIN)
+   RefPtr<ID3D11Device> mDevice;
+ #endif

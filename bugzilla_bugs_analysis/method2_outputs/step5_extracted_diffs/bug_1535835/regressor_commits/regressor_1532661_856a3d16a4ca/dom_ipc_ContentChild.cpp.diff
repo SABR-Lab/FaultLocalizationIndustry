@@ -1,0 +1,66 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentChild.cpp
+# Commit: 856a3d16a4ca
+# Full Hash: 856a3d16a4ca856711ad9e6368cccd5aa1e22118
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2019-03-15 03:42:43
+# Regressor Bug: 1532661
+# File Overlap Count: 2
+# Description:
+#   Bug 1532661 - Part 5: Make the BrowsingContext opener edge a weak reference, r=farre
+#   
+#   Depends on D22193
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D23047
+# ==============================================================================
+
+diff -r 9ce1a2365aff -r 856a3d16a4ca dom/ipc/ContentChild.cpp
+--- a/dom/ipc/ContentChild.cpp	Thu Mar 14 18:51:09 2019 +0000
++++ b/dom/ipc/ContentChild.cpp	Thu Mar 14 18:51:11 2019 +0000
+@@ -3698,7 +3698,6 @@
+     RefPtr<BrowsingContextGroup> group =
+         BrowsingContextGroup::Select(aInit.mParentId, aInit.mOpenerId);
+     child = BrowsingContext::CreateFromIPC(std::move(aInit), group, nullptr);
+-    child->InitFromIPC(aInit.mOpenerId);
+   }
+ 
+   child->Attach(/* aFromIPC */ true);
+@@ -3723,11 +3722,6 @@
+     nsTArray<BrowsingContext::IPCInitializer>&& aInits) {
+   RefPtr<BrowsingContextGroup> group = new BrowsingContextGroup();
+ 
+-  // Hold a grip on each created BrowsingContext to ensure they don't die too
+-  // early.
+-  AutoTArray<RefPtr<BrowsingContext>, 8> grip;
+-  grip.SetCapacity(aInits.Length());
+-
+   // Each of the initializers in aInits is sorted in pre-order, so our parent
+   // should always be available before the element itself.
+   for (auto& init : aInits) {
+@@ -3739,22 +3733,10 @@
+     MOZ_ASSERT_IF(parent, parent->Group() == group);
+ #endif
+ 
+-    // Create a BrowsingContext and add it to our grip list.
+-    auto* ctxt = grip.AppendElement();
+-    *ctxt = BrowsingContext::CreateFromIPC(std::move(init), group, nullptr);
++    RefPtr<BrowsingContext> ctxt = BrowsingContext::CreateFromIPC(std::move(init), group, nullptr);
+ 
+     // FIXME: We should deal with cached & detached contexts as well.
+-    (*ctxt)->Attach(/* aFromIPC */ true);
+-  }
+-
+-  // Perform a second pass to initialize the `opener` fields of each
+-  // BrowsingContext.
+-  // Our `mId` and `mOpenerId` fields won't have been moved by the above loop,
+-  // so they're OK to access here.
+-  MOZ_ASSERT(grip.Length() == aInits.Length());
+-  for (uint32_t i = 0; i < grip.Length(); ++i) {
+-    MOZ_ASSERT(grip[i]->Id() == aInits[i].mId);
+-    grip[i]->InitFromIPC(aInits[i].mOpenerId);
++    ctxt->Attach(/* aFromIPC */ true);
+   }
+ 
+   return IPC_OK();

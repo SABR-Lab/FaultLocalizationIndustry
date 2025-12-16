@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/ipc/RemoteVideoDecoder.cpp
+# Commit: 2a830d3c1fb0
+# Full Hash: 2a830d3c1fb01d887bd9ec41aeb8b51dbc0bfc62
+# Author: Brad Werth <bwerth@mozilla.com>
+# Date: 2022-09-09 04:30:58
+# Regressor Bug: 1787561
+# File Overlap Count: 1
+# Description:
+#   Bug 1787561 Part 1: Make GPUVideoImage track color depth, and make RemoteImageHolder pass it through. r=media-playback-reviewers,gfx-reviewers,alwu,aosmond
+#   
+#   This ensures that the Image that the client receives has the color depth
+#   information that was sent to the GPU, even though the client can't query
+#   the GPU directly.
+# ==============================================================================
+
+diff -r edaed3aeb0f9 -r 2a830d3c1fb0 dom/media/ipc/RemoteVideoDecoder.cpp
+--- a/dom/media/ipc/RemoteVideoDecoder.cpp	Thu Sep 08 17:55:07 2022 +0000
++++ b/dom/media/ipc/RemoteVideoDecoder.cpp	Thu Sep 08 18:02:03 2022 +0000
+@@ -274,14 +274,10 @@
+         MediaDataIPDL(data->mOffset, data->mTime, data->mTimecode,
+                       data->mDuration, data->mKeyframe),
+         video->mDisplay,
+-        RemoteImageHolder(
+-            mParent,
+-            XRE_IsGPUProcess()
+-                ? VideoBridgeSource::GpuProcess
+-                : (XRE_IsRDDProcess()
+-                       ? VideoBridgeSource::RddProcess
+-                       : VideoBridgeSource::MFMediaEngineCDMProcess),
+-            size, sd),
++        RemoteImageHolder(mParent,
++                          XRE_IsGPUProcess() ? VideoBridgeSource::GpuProcess
++                                             : VideoBridgeSource::RddProcess,
++                          size, video->mImage->GetColorDepth(), sd),
+         video->mFrameID);
+ 
+     array.AppendElement(std::move(output));

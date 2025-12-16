@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: modules/libjar/nsJAR.h
+# Commit: b07887474f51
+# Full Hash: b07887474f51c5d5e01cb0188c18c8618c77be57
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2020-07-02 03:58:28
+# Regressor Bug: 1627075
+# File Overlap Count: 1
+# Description:
+#   Bug 1627075 - Route Omnijar requests through StartupCache r=froydnj
+#   
+#   This should be a relatively straightforward patch. Essentially, we implement
+#   a wrapper class (and friends) around nsZipArchive (and friends), which transparently
+#   caches entries from the underlying zip archive in the StartupCache. This will break
+# ==============================================================================
+
+diff -r 65c0e6790a33 -r b07887474f51 modules/libjar/nsJAR.h
+--- a/modules/libjar/nsJAR.h	Wed Jul 01 17:55:38 2020 +0000
++++ b/modules/libjar/nsJAR.h	Wed Jul 01 17:09:53 2020 +0000
+@@ -23,13 +23,17 @@
+ #include "nsRefPtrHashtable.h"
+ #include "nsTHashtable.h"
+ #include "nsIZipReader.h"
+-#include "nsZipArchive.h"
+ #include "nsWeakReference.h"
+ #include "nsIObserver.h"
+ #include "mozilla/Attributes.h"
++#include "nsZipArchive.h"
+ 
+ class nsZipReaderCache;
+ 
++namespace mozilla {
++class CacheAwareZipReader;
++}  // namespace mozilla
++
+ /*-------------------------------------------------------------------------
+  * Class nsJAR declaration.
+  * nsJAR serves as an XPCOM wrapper for nsZipArchive with the addition of
+@@ -72,9 +76,9 @@
+ 
+  protected:
+   //-- Private data members
+-  nsCOMPtr<nsIFile> mZipFile;   // The zip/jar file on disk
+-  nsCString mOuterZipEntry;     // The entry in the zip this zip is reading from
+-  RefPtr<nsZipArchive> mZip;    // The underlying zip archive
++  nsCOMPtr<nsIFile> mZipFile;  // The zip/jar file on disk
++  nsCString mOuterZipEntry;    // The entry in the zip this zip is reading from
++  RefPtr<mozilla::CacheAwareZipReader> mZip;  // The underlying zip archive
+   PRIntervalTime mReleaseTime;  // used by nsZipReaderCache for flushing entries
+   nsZipReaderCache*
+       mCache;  // if cached, this points to the cache it's contained in

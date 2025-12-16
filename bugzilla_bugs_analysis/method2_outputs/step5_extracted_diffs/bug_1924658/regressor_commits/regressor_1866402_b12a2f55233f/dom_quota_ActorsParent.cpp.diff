@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/ActorsParent.cpp
+# Commit: b12a2f55233f
+# Full Hash: b12a2f55233fade8f2e3411295ff3d362df9e359
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-10-09 21:46:09
+# Regressor Bug: 1866402
+# File Overlap Count: 1
+# Description:
+#   Bug 1866402 - Change nsIQuotaManagerService::ResetStoragesForPrincipal to support resetting of entire origins only; r=dom-storage-reviewers,jari
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D195510
+# ==============================================================================
+
+diff -r 6a90f36c8bf5 -r b12a2f55233f dom/quota/ActorsParent.cpp
+--- a/dom/quota/ActorsParent.cpp	Wed Oct 09 11:59:34 2024 +0000
++++ b/dom/quota/ActorsParent.cpp	Wed Oct 09 11:59:35 2024 +0000
+@@ -5930,12 +5930,11 @@
+ 
+ RefPtr<BoolPromise> QuotaManager::ShutdownStoragesForOrigin(
+     Maybe<PersistenceType> aPersistenceType,
+-    const PrincipalInfo& aPrincipalInfo, Maybe<Client::Type> aClientType) {
++    const PrincipalInfo& aPrincipalInfo) {
+   AssertIsOnOwningThread();
+ 
+-  auto shutdownOriginOp =
+-      CreateShutdownOriginOp(WrapMovingNotNullUnchecked(this), aPersistenceType,
+-                             aPrincipalInfo, aClientType);
++  auto shutdownOriginOp = CreateShutdownOriginOp(
++      WrapMovingNotNullUnchecked(this), aPersistenceType, aPrincipalInfo);
+ 
+   RegisterNormalOriginOp(*shutdownOriginOp);
+ 

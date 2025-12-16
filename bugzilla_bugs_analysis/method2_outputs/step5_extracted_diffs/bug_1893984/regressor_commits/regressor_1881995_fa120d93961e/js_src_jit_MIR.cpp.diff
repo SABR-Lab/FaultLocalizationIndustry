@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/MIR.cpp
+# Commit: fa120d93961e
+# Full Hash: fa120d93961efddd63d50135f03c55e75dac875a
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2024-04-26 04:18:06
+# Regressor Bug: 1881995
+# File Overlap Count: 1
+# Description:
+#   Bug 1881995 - Implement ForwardedAtoms and create them during atomization r=iain,sfink
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D202690
+# ==============================================================================
+
+diff -r f24ffc487097 -r fa120d93961e js/src/jit/MIR.cpp
+--- a/js/src/jit/MIR.cpp	Thu Apr 25 21:30:10 2024 +0300
++++ b/js/src/jit/MIR.cpp	Thu Apr 25 18:29:15 2024 +0000
+@@ -1122,11 +1122,16 @@
+     case MIRType::Double:
+       payload_.d = vp.toDouble();
+       break;
+-    case MIRType::String:
+-      MOZ_ASSERT(!IsInsideNursery(vp.toString()));
+-      MOZ_ASSERT(vp.toString()->isLinear());
++    case MIRType::String: {
++      JSString* str = vp.toString();
++      if (str->isAtomRef()) {
++        str = str->atom();
++      }
++      MOZ_ASSERT(!IsInsideNursery(str));
++      MOZ_ASSERT(str->isAtom());
+       payload_.str = vp.toString();
+       break;
++    }
+     case MIRType::Symbol:
+       payload_.sym = vp.toSymbol();
+       break;

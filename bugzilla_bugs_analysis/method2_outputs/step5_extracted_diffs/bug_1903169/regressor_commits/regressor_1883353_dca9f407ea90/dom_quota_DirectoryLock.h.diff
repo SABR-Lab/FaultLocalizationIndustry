@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/DirectoryLock.h
+# Commit: dca9f407ea90
+# Full Hash: dca9f407ea90a83ae23be6c48aab8ce3f0f6e23e
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-06-14 20:49:45
+# Regressor Bug: 1883353
+# File Overlap Count: 1
+# Description:
+#   Bug 1883353 - Require to always drop directory locks explicitly; r=dom-storage-reviewers,jari
+#   
+#   Until now, directory locks were dropped when the last strong reference was
+#   removed or after calling Drop explicitly. The dependency on ref-counting makes
+#   it less obvious when directory locks are dropped for real and it's also
+# ==============================================================================
+
+diff -r a82c4a895b9d -r dca9f407ea90 dom/quota/DirectoryLock.h
+--- a/dom/quota/DirectoryLock.h	Wed Jun 12 15:12:34 2024 +0000
++++ b/dom/quota/DirectoryLock.h	Fri Jun 14 07:21:24 2024 +0000
+@@ -97,6 +97,18 @@
+       Client::Type aClientType) const = 0;
+ };
+ 
++template <typename T>
++constexpr void SafeDropDirectoryLock(RefPtr<T>& aDirectoryLock);
++
++template <typename T>
++constexpr void DropDirectoryLock(RefPtr<T>& aDirectoryLock);
++
++template <typename T>
++constexpr void SafeDropDirectoryLockIfNotDropped(RefPtr<T>& aDirectoryLock);
++
++template <typename T>
++constexpr void DropDirectoryLockIfNotDropped(RefPtr<T>& aDirectoryLock);
++
+ }  // namespace mozilla::dom::quota
+ 
+ #endif  // DOM_QUOTA_DIRECTORYLOCK_H_

@@ -1,0 +1,99 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/xul/XULMenuParentElement.h
+# Commit: 47c002d36372
+# Full Hash: 47c002d3637247e71ee901f32421deaecc9d8ea3
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-01-05 03:40:49
+# Regressor Bug: 1805414
+# File Overlap Count: 2
+# Description:
+#   Bug 1805414 - Remove nsMenuFrame and nsMenuParent. r=smaug,Jamie,desktop-theme-reviewers,settings-reviewers,dao
+#   
+#   Move most the event handling stuff to the DOM. I've left nsMenuBarFrame
+#   for now, but I will be removing that in the future.
+#   
+# ==============================================================================
+
+diff -r 0c989b2bcd78 -r 47c002d36372 dom/xul/XULMenuParentElement.h
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/dom/xul/XULMenuParentElement.h	Wed Jan 04 19:01:13 2023 +0000
+@@ -0,0 +1,77 @@
++/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
++/* vim: set ts=8 sts=2 et sw=2 tw=80: */
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++#ifndef XULMenuParentElement_h__
++#define XULMenuParentElement_h__
++
++#include "mozilla/Attributes.h"
++#include "nsISupports.h"
++#include "nsXULElement.h"
++
++namespace mozilla::dom {
++
++class KeyboardEvent;
++class XULButtonElement;
++
++nsXULElement* NS_NewXULMenuParentElement(
++    already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
++
++class XULMenuParentElement : public nsXULElement {
++ public:
++  NS_DECL_ISUPPORTS_INHERITED
++  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(XULMenuParentElement, nsXULElement)
++
++  explicit XULMenuParentElement(
++      already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
++
++  bool IsMenuBar() const { return NodeInfo()->Equals(nsGkAtoms::menubar); }
++  bool IsMenu() const { return !IsMenuBar(); }
++
++  bool IsLocked() const { return mLocked; }
++
++  void LockMenuUntilClosed(bool aLock);
++
++  bool IsInMenuList() const {
++    return GetParent() && GetParent()->IsXULElement(nsGkAtoms::menulist);
++  }
++
++  XULButtonElement* FindMenuWithShortcut(KeyboardEvent&) const;
++  XULButtonElement* FindMenuWithShortcut(const nsAString& aString,
++                                         bool& aDoAction) const;
++
++  NS_IMPL_FROMNODE_HELPER(XULMenuParentElement,
++                          IsAnyOfXULElements(nsGkAtoms::menupopup,
++                                             nsGkAtoms::popup, nsGkAtoms::panel,
++                                             nsGkAtoms::tooltip,
++                                             nsGkAtoms::menubar));
++
++  XULButtonElement* GetActiveMenuChild() const { return mActiveItem.get(); }
++  enum class ByKey : bool { No, Yes };
++  MOZ_CAN_RUN_SCRIPT void SetActiveMenuChild(XULButtonElement*,
++                                             ByKey = ByKey::No);
++
++  XULButtonElement* GetFirstMenuItem() const;
++  XULButtonElement* GetLastMenuItem() const;
++
++  XULButtonElement* GetNextMenuItemFrom(const XULButtonElement&) const;
++  XULButtonElement* GetPrevMenuItemFrom(const XULButtonElement&) const;
++
++  enum class Wrap : bool { No, Yes };
++  XULButtonElement* GetNextMenuItem(Wrap = Wrap::Yes) const;
++  XULButtonElement* GetPrevMenuItem(Wrap = Wrap::Yes) const;
++
++  MOZ_CAN_RUN_SCRIPT void SelectFirstItem();
++
++ protected:
++  RefPtr<XULButtonElement> mActiveItem;
++  bool mLocked = false;
++
++  ~XULMenuParentElement() override;
++};
++
++}  // namespace mozilla::dom
++
++#endif  // XULMenuParentElement_h

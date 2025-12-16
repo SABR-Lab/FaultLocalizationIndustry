@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/MIR.h
+# Commit: 81e645d5ccfd
+# Full Hash: 81e645d5ccfd6f46772be9864a388087210bd5c2
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-10-02 04:10:47
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 6.5: Add tls dependency for WasmModD. r=lth
+#   
+#   We generate builtin call for Mod operation for Double types, so we need
+#   to add a tls dependency. In this patch I've added it.
+#   
+# ==============================================================================
+
+diff -r e2105a52bcdd -r 81e645d5ccfd js/src/jit/MIR.h
+--- a/js/src/jit/MIR.h	Thu Oct 01 07:52:46 2020 +0000
++++ b/js/src/jit/MIR.h	Thu Oct 01 07:53:01 2020 +0000
+@@ -6074,6 +6074,42 @@
+   ALLOW_CLONE(MMod)
+ };
+ 
++class MWasmBuiltinModD : public MAryInstruction<3>, public ArithPolicy::Data {
++  wasm::BytecodeOffset bytecodeOffset_;
++
++  MWasmBuiltinModD(MDefinition* left, MDefinition* right, MDefinition* tls,
++                   MIRType type)
++      : MAryInstruction(classOpcode) {
++    initOperand(0, left);
++    initOperand(1, right);
++    initOperand(2, tls);
++
++    setResultType(type);
++    setMovable();
++  }
++
++ public:
++  INSTRUCTION_HEADER(WasmBuiltinModD)
++  NAMED_OPERANDS((0, lhs), (1, rhs), (2, tls))
++
++  static MWasmBuiltinModD* New(
++      TempAllocator& alloc, MDefinition* left, MDefinition* right,
++      MDefinition* tls, MIRType type,
++      wasm::BytecodeOffset bytecodeOffset = wasm::BytecodeOffset()) {
++    auto* wasmBuiltinModD =
++        new (alloc) MWasmBuiltinModD(left, right, tls, type);
++    wasmBuiltinModD->bytecodeOffset_ = bytecodeOffset;
++    return wasmBuiltinModD;
++  }
++
++  wasm::BytecodeOffset bytecodeOffset() const {
++    MOZ_ASSERT(bytecodeOffset_.isValid());
++    return bytecodeOffset_;
++  }
++
++  ALLOW_CLONE(MWasmBuiltinModD)
++};
++
+ class MWasmBuiltinModI64 : public MAryInstruction<3>, public ArithPolicy::Data {
+   bool unsigned_;  // If false, signedness will be derived from operands
+   bool canBeNegativeDividend_;

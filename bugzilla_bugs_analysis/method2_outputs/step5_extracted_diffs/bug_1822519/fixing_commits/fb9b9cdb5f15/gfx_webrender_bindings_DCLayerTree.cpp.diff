@@ -1,0 +1,53 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/webrender_bindings/DCLayerTree.cpp
+# Commit: fb9b9cdb5f15
+# Full Hash: fb9b9cdb5f154f20f5fc0cadda7777503be80566
+# Author: Kelsey Gilbert <kelsey.gilbert@mozilla.com>
+# Date: 2023-03-17 04:47:30
+# Description:
+#   Bug 1822519 - When qcms_profile_from_memory fails, default to sRGB for display space. r=gfx-reviewers,jrmuizel
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D172837
+# ==============================================================================
+
+diff -r 44b22ccc2297 -r fb9b9cdb5f15 gfx/webrender_bindings/DCLayerTree.cpp
+--- a/gfx/webrender_bindings/DCLayerTree.cpp	Thu Mar 16 20:27:01 2023 +0000
++++ b/gfx/webrender_bindings/DCLayerTree.cpp	Thu Mar 16 20:54:52 2023 +0000
+@@ -1749,12 +1749,30 @@
+ 
+   const auto qcmsProfile = qcms_profile_from_memory(
+       outputProfileData.Elements(), outputProfileData.Length());
+-  MOZ_ASSERT(qcmsProfile);
+-  const auto release =
+-      MakeScopeExit([&]() { qcms_profile_release(qcmsProfile); });
++  const auto release = MakeScopeExit([&]() {
++    if (qcmsProfile) {
++      qcms_profile_release(qcmsProfile);
++    }
++  });
++
++  const bool print = gfxEnv::MOZ_GL_SPEW();
+ 
+-  const auto ret = color::ColorProfileDesc::From(*qcmsProfile);
+-  bool print = gfxEnv::MOZ_GL_SPEW();
++  const auto ret = [&]() {
++    if (qcmsProfile) {
++      return color::ColorProfileDesc::From(*qcmsProfile);
++    }
++    if (print) {
++      printf_stderr(
++          "Missing or failed to load display color profile, defaulting to "
++          "sRGB.\n");
++    }
++    const auto MISSING_PROFILE_DEFAULT_SPACE = color::ColorspaceDesc{
++        color::Chromaticities::Srgb(),
++        color::PiecewiseGammaDesc::Srgb(),
++    };
++    return color::ColorProfileDesc::From(MISSING_PROFILE_DEFAULT_SPACE);
++  }();
++
+   if (print) {
+     const auto gammaGuess = color::GuessGamma(ret.linearFromTf.r);
+     printf_stderr(

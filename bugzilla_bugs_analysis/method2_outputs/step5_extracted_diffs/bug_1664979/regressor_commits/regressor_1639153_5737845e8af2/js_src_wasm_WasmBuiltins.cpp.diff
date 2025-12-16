@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmBuiltins.cpp
+# Commit: 5737845e8af2
+# Full Hash: 5737845e8af228fab6e5e622863663faa50f93e8
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-10-30 16:09:44
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 5: Remove remaining uses of Frame::tls. r=lth
+#   
+#   
+#   Here we remove remaining uses of Frame::tls. There are many places where
+#   we use it: in debug frames, in profiling frames, in jit activation, etc.
+# ==============================================================================
+
+diff -r 5dfb9fc15fba -r 5737845e8af2 js/src/wasm/WasmBuiltins.cpp
+--- a/js/src/wasm/WasmBuiltins.cpp	Fri Oct 23 18:17:37 2020 +0000
++++ b/js/src/wasm/WasmBuiltins.cpp	Fri Oct 23 18:17:38 2020 +0000
+@@ -304,7 +304,7 @@
+   JitActivation* activation = CallingActivation();
+   JSContext* cx = activation->cx();
+   Frame* fp = activation->wasmExitFP();
+-  Instance* instance = fp->instance();
++  Instance* instance = GetNearestEffectiveTls(fp)->instance;
+   const Code& code = instance->code();
+   MOZ_ASSERT(code.metadata().debugEnabled);
+ 
+@@ -509,7 +509,7 @@
+       if (!CheckRecursionLimit(cx)) {
+         return nullptr;
+       }
+-      if (activation->wasmExitFP()->tls()->isInterrupted()) {
++      if (activation->wasmExitTls()->isInterrupted()) {
+         return CheckInterrupt(cx, activation);
+       }
+       return ReportError(cx, JSMSG_OVER_RECURSED);

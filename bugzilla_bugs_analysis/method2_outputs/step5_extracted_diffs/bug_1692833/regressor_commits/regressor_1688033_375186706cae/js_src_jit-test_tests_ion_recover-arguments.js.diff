@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit-test/tests/ion/recover-arguments.js
+# Commit: 375186706cae
+# Full Hash: 375186706caeb4d480bb8c7be78a349601a3e7c1
+# Author: Iain Ireland <iireland@mozilla.com>
+# Date: 2021-02-13 09:52:34
+# Regressor Bug: 1688033
+# File Overlap Count: 1
+# Description:
+#   Bug 1688033: Recover CreateArgumentsObject on bailout r=nbp
+#   
+#   The original version of this patch only recovered CreateArgumentsObject on bailout if it didn't escape, but I removed that code based on discussion in #warpbuilder.
+#   
+#   This code is tested by `/ion/dce-with-rinstructions.js`. Prior to this patch, it failed with `--scalar-replace-arguments`.
+# ==============================================================================
+
+diff -r adaf366a60fa -r 375186706cae js/src/jit-test/tests/ion/recover-arguments.js
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/js/src/jit-test/tests/ion/recover-arguments.js	Fri Feb 12 20:28:48 2021 +0000
+@@ -0,0 +1,22 @@
++// |jit-test| --scalar-replace-arguments
++
++setJitCompilerOption("baseline.warmup.trigger", 9);
++setJitCompilerOption("ion.warmup.trigger", 20);
++
++// Prevent the GC from cancelling compilations, when we expect them to succeed.
++gczeal(0);
++
++function rcreate_arguments_object_nouse() {
++    assertRecoveredOnBailout(arguments, true);
++}
++
++function rcreate_arguments_object_oneuse() {
++  assertRecoveredOnBailout(arguments, true);
++  return arguments[0];
++}
++
++with ({}) {}
++for (var i = 0; i < 100; i++) {
++    rcreate_arguments_object_nouse();
++    rcreate_arguments_object_oneuse(0);
++}

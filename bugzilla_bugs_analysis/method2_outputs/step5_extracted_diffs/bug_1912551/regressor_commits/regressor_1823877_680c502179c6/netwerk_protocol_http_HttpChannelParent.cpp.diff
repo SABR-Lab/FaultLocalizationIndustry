@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/HttpChannelParent.cpp
+# Commit: 680c502179c6
+# Full Hash: 680c502179c6a98e8e6960fbab016d3aea44ff4c
+# Author: Andreas Farre <farre@mozilla.com>
+# Date: 2023-05-10 21:37:01
+# Regressor Bug: 1823877
+# File Overlap Count: 1
+# Description:
+#   Bug 1823877 - Part 1: Filter opaque results from fetch() in the parent for ORB. r=sefeng,smaug,necko-reviewers,edenchuang,valentin
+#   
+#   We make sure to not send any data to the content process in case of
+#   fetching an opaque resource. This is way to remain more web
+#   compatible, but is also in conflict with the ORB specification.
+# ==============================================================================
+
+diff -r 8295c1c7bfa0 -r 680c502179c6 netwerk/protocol/http/HttpChannelParent.cpp
+--- a/netwerk/protocol/http/HttpChannelParent.cpp	Wed May 10 14:27:47 2023 +0000
++++ b/netwerk/protocol/http/HttpChannelParent.cpp	Wed May 10 14:35:52 2023 +0000
+@@ -1211,7 +1211,7 @@
+     responseHead = &cleanedUpResponseHead;
+   }
+ 
+-  if (chan && chan->ChannelBlockedByOpaqueResponse() &&
++  if (chan->ChannelBlockedByOpaqueResponse() &&
+       chan->CachedOpaqueResponseBlockingPref()) {
+     responseHead->ClearHeaders();
+   }

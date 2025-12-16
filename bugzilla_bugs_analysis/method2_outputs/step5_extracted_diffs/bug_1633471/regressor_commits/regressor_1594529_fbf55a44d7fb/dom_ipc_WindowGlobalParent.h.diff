@@ -1,0 +1,86 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/WindowGlobalParent.h
+# Commit: fbf55a44d7fb
+# Full Hash: fbf55a44d7fb72908eeb5d041b70ce2c503a2532
+# Author: Anny Gakhokidze <agakhokidze@mozilla.com>
+# Date: 2020-04-15 04:09:17
+# Regressor Bug: 1594529
+# File Overlap Count: 1
+# Description:
+#   Bug 1594529 - Create LoadInfo for subdocuments directly in parent process with DocumentChannel. r=mattwoodrow,nika
+#   
+#   Currently, with Fission enabled we are not able to create a proper LoadInfo
+#   object when doing a subdocument load because we do not have access to a loading
+#   context if the load is happening inside of an OOP frame. To solve this problem,
+# ==============================================================================
+
+diff -r 4ba9a230586a -r fbf55a44d7fb dom/ipc/WindowGlobalParent.h
+--- a/dom/ipc/WindowGlobalParent.h	Mon Apr 13 22:41:37 2020 +0000
++++ b/dom/ipc/WindowGlobalParent.h	Mon Apr 13 23:00:43 2020 +0000
+@@ -22,6 +22,7 @@
+ #include "nsIContentParent.h"
+ #include "mozilla/dom/WindowGlobalActor.h"
+ #include "mozilla/dom/CanonicalBrowsingContext.h"
++#include "mozilla/net/CookieJarSettings.h"
+ 
+ class nsIPrincipal;
+ class nsIURI;
+@@ -162,6 +163,18 @@
+ 
+   nsIContentParent* GetContentParent();
+ 
++  nsICookieJarSettings* CookieJarSettings() { return mCookieJarSettings; }
++
++  bool DocumentHasLoaded() { return mDocumentHasLoaded; }
++
++  bool DocumentHasUserInteracted() { return mDocumentHasUserInteracted; }
++
++  uint32_t SandboxFlags() { return mSandboxFlags; }
++
++  bool GetDocumentBlockAllMixedContent() { return mBlockAllMixedContent; }
++
++  bool GetDocumentUpgradeInsecureRequests() { return mUpgradeInsecureRequests; }
++
+  protected:
+   const nsAString& GetRemoteType() override;
+   JSWindowActor::Type GetSide() override { return JSWindowActor::Type::Parent; }
+@@ -174,6 +187,14 @@
+       const MaybeDiscarded<dom::BrowsingContext>& aTargetBC,
+       nsDocShellLoadState* aLoadState);
+   mozilla::ipc::IPCResult RecvUpdateDocumentURI(nsIURI* aURI);
++  mozilla::ipc::IPCResult RecvUpdateDocumentPrincipal(
++      nsIPrincipal* aNewDocumentPrincipal);
++  mozilla::ipc::IPCResult RecvUpdateDocumentHasLoaded(bool aDocumentHasLoaded);
++  mozilla::ipc::IPCResult RecvUpdateDocumentHasUserInteracted(
++      bool aDocumentHasUserInteracted);
++  mozilla::ipc::IPCResult RecvUpdateSandboxFlags(uint32_t aSandboxFlags);
++  mozilla::ipc::IPCResult RecvUpdateDocumentCspSettings(
++      bool aBlockAllMixedContent, bool aUpgradeInsecureRequests);
+   mozilla::ipc::IPCResult RecvUpdateDocumentTitle(const nsString& aTitle);
+   mozilla::ipc::IPCResult RecvSetIsInitialDocument(bool aIsInitialDocument) {
+     mIsInitialDocument = aIsInitialDocument;
+@@ -189,6 +210,8 @@
+ 
+   mozilla::ipc::IPCResult RecvGetContentBlockingEvents(
+       GetContentBlockingEventsResolver&& aResolver);
++  mozilla::ipc::IPCResult RecvUpdateCookieJarSettings(
++      const CookieJarSettingsArgs& aCookieJarSettingsArgs);
+ 
+   void ActorDestroy(ActorDestroyReason aWhy) override;
+ 
+@@ -223,6 +246,13 @@
+   ContentBlockingLog mContentBlockingLog;
+ 
+   Maybe<ClientInfo> mClientInfo;
++  // Fields being mirrored from the corresponding document
++  nsCOMPtr<nsICookieJarSettings> mCookieJarSettings;
++  uint32_t mSandboxFlags;
++  bool mDocumentHasLoaded;
++  bool mDocumentHasUserInteracted;
++  bool mBlockAllMixedContent;
++  bool mUpgradeInsecureRequests;
+ };
+ 
+ }  // namespace dom

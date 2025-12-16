@@ -1,0 +1,80 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/webrender_bindings/DCLayerTree.cpp
+# Commit: ab2b044c704c
+# Full Hash: ab2b044c704cee3923f8934da79b9a90d4d0dda5
+# Author: Kelsey Gilbert <kelsey.gilbert@mozilla.com>
+# Date: 2023-03-14 09:41:39
+# Regressor Bug: 1799258
+# File Overlap Count: 1
+# Description:
+#   Bug 1799258 - Ask dcomp.h to define IDCompositionFilterEffect. r=gfx-reviewers,bradwerth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D168325
+# ==============================================================================
+
+diff -r e189f99eedd4 -r ab2b044c704c gfx/webrender_bindings/DCLayerTree.cpp
+--- a/gfx/webrender_bindings/DCLayerTree.cpp	Mon Mar 13 21:04:11 2023 +0000
++++ b/gfx/webrender_bindings/DCLayerTree.cpp	Mon Mar 13 21:04:12 2023 +0000
+@@ -6,6 +6,39 @@
+ 
+ #include "DCLayerTree.h"
+ 
++// -
++
++#if (_WIN32_WINNT < _WIN32_WINNT_WIN10)
++
++#  define XSTR(x) STR(x)
++#  define STR(x) #x
++// clang-format off
++
++#  pragma message "IDCompositionFilterEffect in dcomp.h requires _WIN32_WINNT >= _WIN32_WINNT_WIN10."
++// Pedantically, it actually requires _WIN32_WINNT_WINTHRESHOLD, but that's the
++// same as _WIN32_WINNT_WIN10.
++
++#  pragma message "Forcing NTDDI_VERSION " XSTR(NTDDI_VERSION) " -> " XSTR(NTDDI_WIN10)
++#  undef NTDDI_VERSION
++#  define NTDDI_VERSION NTDDI_WIN10
++
++#  pragma message "Forcing _WIN32_WINNT " XSTR(_WIN32_WINNT) " -> " XSTR(_WIN32_WINNT_WIN10)
++#  undef _WIN32_WINNT
++#  define _WIN32_WINNT _WIN32_WINNT_WIN10
++
++// clang-format on
++#  undef STR
++#  undef XSTR
++
++#endif
++
++#include <d3d11.h>
++#include <d3d11_1.h>
++#include <dcomp.h>
++#include <dxgi1_2.h>
++
++// -
++
+ #include "gfxWindowsPlatform.h"
+ #include "GLContext.h"
+ #include "GLContextEGL.h"
+@@ -24,20 +57,6 @@
+ #include "nsPrintfCString.h"
+ #include "WinUtils.h"
+ 
+-#undef _WIN32_WINNT
+-#define _WIN32_WINNT _WIN32_WINNT_WINBLUE
+-#undef NTDDI_VERSION
+-#define NTDDI_VERSION NTDDI_WINBLUE
+-
+-// We also need this, or dcomp.h won't give us e.g. IDCompositionFilterEffect:
+-#undef _WIN32_WINNT_WINTHRESHOLD
+-#define _WIN32_WINNT_WINTHRESHOLD _WIN32_WINNT
+-
+-#include <d3d11.h>
+-#include <d3d11_1.h>
+-#include <dcomp.h>
+-#include <dxgi1_2.h>
+-
+ namespace mozilla {
+ namespace wr {
+ 

@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/webrtc/signaling/src/media-conduit/VideoConduit.h
+# Commit: b2134c0ea6e8
+# Full Hash: b2134c0ea6e85ce2ffc27a18e7f072efa71607ef
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2019-12-18 00:51:03
+# Regressor Bug: 1408256
+# File Overlap Count: 1
+# Description:
+#   Bug 1408256: Fix bug where renegotiation would un-set a previously negotiated max-fs. r=dminor
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D55890
+# ==============================================================================
+
+diff -r bfbff4e80023 -r b2134c0ea6e8 media/webrtc/signaling/src/media-conduit/VideoConduit.h
+--- a/media/webrtc/signaling/src/media-conduit/VideoConduit.h	Tue Dec 17 19:19:01 2019 +0000
++++ b/media/webrtc/signaling/src/media-conduit/VideoConduit.h	Tue Dec 17 19:45:00 2019 +0000
+@@ -207,7 +207,11 @@
+    */
+   void AddOrUpdateSink(rtc::VideoSinkInterface<webrtc::VideoFrame>* sink,
+                        const rtc::VideoSinkWants& wants) override;
++  void AddOrUpdateSinkNotLocked(rtc::VideoSinkInterface<webrtc::VideoFrame>* sink,
++                                const rtc::VideoSinkWants& wants);
++
+   void RemoveSink(rtc::VideoSinkInterface<webrtc::VideoFrame>* sink) override;
++  void RemoveSinkNotLocked(rtc::VideoSinkInterface<webrtc::VideoFrame>* sink);
+ 
+   void OnSinkWantsChanged(const rtc::VideoSinkWants& wants);
+ 
+@@ -513,6 +517,9 @@
+   // Written only on main thread. Guarded by mMutex, except for reads on main.
+   nsAutoPtr<VideoCodecConfig> mCurSendCodecConfig;
+ 
++  bool mUpdateResolution = false;
++  int mSinkWantsPixelCount = std::numeric_limits<int>::max();
++
+   // Bookkeeping of send stream stats. Sts thread only.
+   SendStreamStatistics mSendStreamStats;
+ 

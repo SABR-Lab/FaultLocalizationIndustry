@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/style/ServoCSSParser.cpp
+# Commit: 729abedf9bda
+# Full Hash: 729abedf9bda03da3f75ad660fafc2fa92a67bf5
+# Author: Zach Hoffman <zach@zrhoffman.net>
+# Date: 2023-12-18 17:17:57
+# Regressor Bug: 1846516
+# File Overlap Count: 1
+# Description:
+#   Bug 1846516 - [css-properties-values-api] Use AnimatedPropertyID to communicate between Gecko and Servo. r=emilio,layout-reviewers,firefox-style-system-reviewers
+#   
+#   Co-authored-by: Frederic Wang <fred.wang@free.fr>
+#   Co-authored-by: Emilio Cobos Álvarez <emilio@crisal.io>
+#   
+# ==============================================================================
+
+diff -r 63603267402e -r 729abedf9bda layout/style/ServoCSSParser.cpp
+--- a/layout/style/ServoCSSParser.cpp	Mon Dec 18 09:24:08 2023 +0000
++++ b/layout/style/ServoCSSParser.cpp	Mon Dec 18 09:24:08 2023 +0000
+@@ -8,6 +8,7 @@
+ 
+ #include "ServoCSSParser.h"
+ 
++#include "mozilla/AnimatedPropertyID.h"
+ #include "mozilla/ServoBindings.h"
+ #include "mozilla/ServoStyleSet.h"
+ #include "mozilla/dom/Document.h"
+@@ -36,8 +37,17 @@
+     nsCSSPropertyID aProperty, const nsACString& aValue,
+     const ParsingEnvironment& aParsingEnvironment,
+     const StyleParsingMode& aParsingMode) {
++  AnimatedPropertyID property(aProperty);
++  return ParseProperty(property, aValue, aParsingEnvironment, aParsingMode);
++}
++
++/* static */
++already_AddRefed<StyleLockedDeclarationBlock> ServoCSSParser::ParseProperty(
++    const AnimatedPropertyID& aProperty, const nsACString& aValue,
++    const ParsingEnvironment& aParsingEnvironment,
++    const StyleParsingMode& aParsingMode) {
+   return Servo_ParseProperty(
+-             aProperty, &aValue, aParsingEnvironment.mUrlExtraData,
++             &aProperty, &aValue, aParsingEnvironment.mUrlExtraData,
+              aParsingMode, aParsingEnvironment.mCompatMode,
+              aParsingEnvironment.mLoader, aParsingEnvironment.mRuleType)
+       .Consume();

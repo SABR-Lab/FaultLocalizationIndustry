@@ -1,0 +1,82 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/sandbox/win/src/process_mitigations_win32k_policy.cc
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 3
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/sandbox/win/src/process_mitigations_win32k_policy.cc
+--- a/security/sandbox/chromium/sandbox/win/src/process_mitigations_win32k_policy.cc	Wed Jun 12 21:55:59 2019 +1200
++++ b/security/sandbox/chromium/sandbox/win/src/process_mitigations_win32k_policy.cc	Wed Jun 12 11:10:48 2019 +0100
+@@ -2,10 +2,11 @@
+ // Use of this source code is governed by a BSD-style license that can be
+ // found in the LICENSE file.
+ 
++#include "sandbox/win/src/process_mitigations_win32k_policy.h"
++
+ #include <stddef.h>
+ 
+ #include "sandbox/win/src/process_mitigations_win32k_interception.h"
+-#include "sandbox/win/src/process_mitigations_win32k_policy.h"
+ 
+ namespace sandbox {
+ 
+@@ -61,9 +62,9 @@
+                                      LPARAM data) {
+   MonitorListState* state = reinterpret_cast<MonitorListState*>(data);
+   if (state->monitor_list_pos >= state->monitor_list_size)
+-    return FALSE;
++    return false;
+   state->monitor_list[state->monitor_list_pos++] = monitor;
+-  return TRUE;
++  return true;
+ }
+ 
+ template <typename T>
+@@ -117,8 +118,8 @@
+   }
+   valid_params->result = result;
+   if (!result)
+-    return TRUE;
+-  return FALSE;
++    return true;
++  return false;
+ }
+ 
+ bool IsValidMonitorOrDeviceName(HMONITOR monitor, const wchar_t* device_name) {
+@@ -188,16 +189,16 @@
+   return state.monitor_list_pos;
+ }
+ 
+-BOOL ProcessMitigationsWin32KLockdownPolicy::GetMonitorInfoAction(
++bool ProcessMitigationsWin32KLockdownPolicy::GetMonitorInfoAction(
+     const ClientInfo& client_info,
+     HMONITOR monitor,
+     MONITORINFO* monitor_info_ptr) {
+   if (!IsValidMonitorOrDeviceName(monitor, nullptr))
+-    return FALSE;
++    return false;
+   MONITORINFOEXW monitor_info = {};
+   monitor_info.cbSize = sizeof(MONITORINFOEXW);
+ 
+-  BOOL success = USERFUNC(GetMonitorInfoW)(
++  bool success = USERFUNC(GetMonitorInfoW)(
+       monitor, reinterpret_cast<MONITORINFO*>(&monitor_info));
+   if (success)
+     memcpy(monitor_info_ptr, &monitor_info, sizeof(monitor_info));
+@@ -407,4 +408,3 @@
+ }
+ 
+ }  // namespace sandbox
+-

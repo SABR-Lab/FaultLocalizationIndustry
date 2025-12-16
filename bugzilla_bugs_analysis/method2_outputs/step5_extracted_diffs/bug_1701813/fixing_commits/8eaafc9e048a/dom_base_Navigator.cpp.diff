@@ -1,0 +1,45 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/base/Navigator.cpp
+# Commit: 8eaafc9e048a
+# Full Hash: 8eaafc9e048aba355c3cae30f0fdd8d2f4978407
+# Author: Tim Huang <tihuang@mozilla.com>
+# Date: 2021-03-30 21:51:36
+# Description:
+#   Bug 1701813 - Fix Navigator::CookieEnabled r=dimi
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D110202
+# ==============================================================================
+
+diff -r 07514278d050 -r 8eaafc9e048a dom/base/Navigator.cpp
+--- a/dom/base/Navigator.cpp	Tue Mar 30 13:05:08 2021 +0000
++++ b/dom/base/Navigator.cpp	Tue Mar 30 13:16:17 2021 +0000
+@@ -513,18 +513,21 @@
+ }
+ 
+ bool Navigator::CookieEnabled() {
+-  nsCOMPtr<nsILoadContext> loadContext = do_GetInterface(mWindow);
+-  bool cookieEnabled =
+-      nsICookieManager::GetCookieBehavior(loadContext->UsePrivateBrowsing()) !=
+-      nsICookieService::BEHAVIOR_REJECT;
+-
+   // Check whether an exception overrides the global cookie behavior
+   // Note that the code for getting the URI here matches that in
+   // nsHTMLDocument::SetCookie.
+   if (!mWindow || !mWindow->GetDocShell()) {
+-    return cookieEnabled;
++    return nsICookieManager::GetCookieBehavior(false) !=
++           nsICookieService::BEHAVIOR_REJECT;
+   }
+ 
++  nsCOMPtr<nsILoadContext> loadContext = do_GetInterface(mWindow);
++  uint32_t cookieBehavior = loadContext
++                                ? nsICookieManager::GetCookieBehavior(
++                                      loadContext->UsePrivateBrowsing())
++                                : nsICookieManager::GetCookieBehavior(false);
++  bool cookieEnabled = cookieBehavior != nsICookieService::BEHAVIOR_REJECT;
++
+   nsCOMPtr<Document> doc = mWindow->GetExtantDoc();
+   if (!doc) {
+     return cookieEnabled;

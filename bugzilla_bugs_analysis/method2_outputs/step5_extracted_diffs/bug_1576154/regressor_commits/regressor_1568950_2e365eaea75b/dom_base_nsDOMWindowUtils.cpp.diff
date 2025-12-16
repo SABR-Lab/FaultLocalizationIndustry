@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsDOMWindowUtils.cpp
+# Commit: 2e365eaea75b
+# Full Hash: 2e365eaea75b925b2b5ff621634ba8f7d7fec00b
+# Author: Edgar Chen <echen@mozilla.com>
+# Date: 2019-08-22 04:04:03
+# Regressor Bug: 1568950
+# File Overlap Count: 1
+# Description:
+#   Bug 1568950 - Part 5: Remove nsIDOMWindowUtils::forceUseCounterFlush; r=smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D42818
+# ==============================================================================
+
+diff -r 1c1c4ca0bc14 -r 2e365eaea75b dom/base/nsDOMWindowUtils.cpp
+--- a/dom/base/nsDOMWindowUtils.cpp	Wed Aug 21 10:29:14 2019 +0000
++++ b/dom/base/nsDOMWindowUtils.cpp	Wed Aug 21 12:52:19 2019 +0000
+@@ -3817,31 +3817,6 @@
+ }
+ 
+ NS_IMETHODIMP
+-nsDOMWindowUtils::ForceUseCounterFlush(nsINode* aNode) {
+-  NS_ENSURE_ARG_POINTER(aNode);
+-
+-  if (nsCOMPtr<Document> doc = do_QueryInterface(aNode)) {
+-    mozilla::css::ImageLoader* loader = doc->StyleImageLoader();
+-    loader->FlushUseCounters();
+-
+-    // Flush the document and any external documents that it depends on.
+-    const auto reportKind =
+-        Document::UseCounterReportKind::eIncludeExternalResources;
+-    doc->ReportUseCounters(reportKind);
+-    return NS_OK;
+-  }
+-
+-  if (nsCOMPtr<nsIContent> content = do_QueryInterface(aNode)) {
+-    if (HTMLImageElement* img = HTMLImageElement::FromNode(content)) {
+-      img->FlushUseCounters();
+-      return NS_OK;
+-    }
+-  }
+-
+-  return NS_OK;
+-}
+-
+-NS_IMETHODIMP
+ nsDOMWindowUtils::HasRuleProcessorUsedByMultipleStyleSets(uint32_t aSheetType,
+                                                           bool* aRetVal) {
+   PresShell* presShell = GetPresShell();

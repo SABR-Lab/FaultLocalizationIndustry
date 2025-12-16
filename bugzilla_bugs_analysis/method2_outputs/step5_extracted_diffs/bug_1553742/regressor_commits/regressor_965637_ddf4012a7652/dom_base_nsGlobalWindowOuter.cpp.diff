@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsGlobalWindowOuter.cpp
+# Commit: ddf4012a7652
+# Full Hash: ddf4012a7652e36d144fc43bc99335276deeafbe
+# Author: Christoph Kerschbaumer <ckerschb@christophkerschbaumer.com>
+# Date: 2019-05-22 03:40:58
+# Regressor Bug: 965637
+# File Overlap Count: 1
+# Description:
+#   Bug 965637: Move CSP from Principal into Client, part 1: backend changes. r=mccr8
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D27654
+# ==============================================================================
+
+diff -r 6c2047bc2f3e -r ddf4012a7652 dom/base/nsGlobalWindowOuter.cpp
+--- a/dom/base/nsGlobalWindowOuter.cpp	Tue May 21 22:51:54 2019 +0000
++++ b/dom/base/nsGlobalWindowOuter.cpp	Tue May 21 23:14:27 2019 +0000
+@@ -1548,7 +1548,8 @@
+   return false;
+ }
+ 
+-void nsGlobalWindowOuter::SetInitialPrincipalToSubject() {
++void nsGlobalWindowOuter::SetInitialPrincipalToSubject(
++    nsIContentSecurityPolicy* aCSP) {
+   // First, grab the subject principal.
+   nsCOMPtr<nsIPrincipal> newWindowPrincipal =
+       nsContentUtils::SubjectPrincipalOrSystemIfNativeCaller();
+@@ -1581,7 +1582,7 @@
+ #endif
+   }
+ 
+-  GetDocShell()->CreateAboutBlankContentViewer(newWindowPrincipal);
++  GetDocShell()->CreateAboutBlankContentViewer(newWindowPrincipal, aCSP);
+ 
+   if (mDoc) {
+     mDoc->SetIsInitialDocument(true);

@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/QuicSocketControl.h
+# Commit: ee9744982673
+# Full Hash: ee974498267381418f06efd6ab92c1f2c5f3735d
+# Author: Dana Keeler <dkeeler@mozilla.com>
+# Date: 2022-11-15 16:44:51
+# Regressor Bug: 1791633
+# File Overlap Count: 1
+# Description:
+#   Bug 1791633 - separate nsITLSSocketControl from nsITransportSecurityInfo r=necko-reviewers,kershaw,jschanck
+#   
+#   Depends on D160311
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D160313
+# ==============================================================================
+
+diff -r f5a4bfdaba40 -r ee9744982673 netwerk/protocol/http/QuicSocketControl.h
+--- a/netwerk/protocol/http/QuicSocketControl.h	Tue Nov 15 05:34:40 2022 +0000
++++ b/netwerk/protocol/http/QuicSocketControl.h	Tue Nov 15 05:34:40 2022 +0000
+@@ -25,14 +25,14 @@
+ 
+ class QuicSocketControl final : public CommonSocketControl {
+  public:
+-  NS_DECLARE_STATIC_IID_ACCESSOR(NS_QUICSOCKETCONTROL_IID)
++  NS_DECLARE_STATIC_IID_ACCESSOR(NS_QUICSOCKETCONTROL_IID);
+ 
+-  NS_DECL_ISUPPORTS_INHERITED
++  NS_INLINE_DECL_REFCOUNTING_INHERITED(QuicSocketControl, CommonSocketControl);
+ 
+   NS_IMETHOD GetSSLVersionOffered(int16_t* aSSLVersionOffered) override;
+ 
+-  explicit QuicSocketControl(uint32_t providerFlags,
+-                             Http3Session* aHttp3Session);
++  QuicSocketControl(const nsCString& aHostName, int32_t aPort,
++                    uint32_t aProviderFlags, Http3Session* aHttp3Session);
+ 
+   void SetNegotiatedNPN(const nsACString& aValue);
+   void SetInfo(uint16_t aCipherSuite, uint16_t aProtocolVersion,
+@@ -44,19 +44,16 @@
+   void HandshakeCompleted();
+   void SetCertVerificationResult(PRErrorCode errorCode) override;
+ 
+-  NS_IMETHOD GetPeerId(nsACString& aResult) override;
+-
+   NS_IMETHOD GetEchConfig(nsACString& aEchConfig) override;
+   NS_IMETHOD SetEchConfig(const nsACString& aEchConfig) override;
+   NS_IMETHOD GetRetryEchConfig(nsACString& aEchConfig) override;
+   void SetRetryEchConfig(const nsACString& aEchConfig);
+ 
+  private:
+-  ~QuicSocketControl();
++  ~QuicSocketControl() = default;
+ 
+   // For Authentication done callback and echConfig.
+   nsWeakPtr mHttp3Session;
+-  nsCOMPtr<nsIEventTarget> mSocketThread;
+ 
+   nsCString mEchConfig;
+   nsCString mRetryEchConfig;

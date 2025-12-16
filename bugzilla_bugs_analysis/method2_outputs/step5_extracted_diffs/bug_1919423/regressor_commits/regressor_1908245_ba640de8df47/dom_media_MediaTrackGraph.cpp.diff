@@ -1,0 +1,69 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/MediaTrackGraph.cpp
+# Commit: ba640de8df47
+# Full Hash: ba640de8df47d54906c708eb78f2d000d6f6d7f6
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2024-09-13 21:45:07
+# Regressor Bug: 1908245
+# File Overlap Count: 1
+# Description:
+#   Bug 1908245 - Add support for missing requestVideoFrameCallback parameters. r=media-playback-reviewers,webidl,padenot,saschanaz
+#   
+#   This patch adds support for exposing the capture time, receive time,
+#   processing duration and RTP timestamp parameters on the callback for
+#   rVFC for WebRTC related elements.
+# ==============================================================================
+
+diff -r 2f4f9cce6f7d -r ba640de8df47 dom/media/MediaTrackGraph.cpp
+--- a/dom/media/MediaTrackGraph.cpp	Fri Sep 13 18:15:18 2024 +0000
++++ b/dom/media/MediaTrackGraph.cpp	Fri Sep 13 18:19:57 2024 +0000
+@@ -2932,10 +2932,7 @@
+       if (!last || last->mTimeStamp.IsNull()) {
+         // This is the first frame, or the last frame pushed to `out` has been
+         // all consumed. Just append and we deal with its duration later.
+-        out->AppendFrame(do_AddRef(c->mFrame.GetImage()),
+-                         c->mFrame.GetIntrinsicSize(),
+-                         c->mFrame.GetPrincipalHandle(),
+-                         c->mFrame.GetForceBlack(), c->mTimeStamp);
++        out->AppendFrame(*c);
+         if (c->GetDuration() > 0) {
+           out->ExtendLastFrameBy(c->GetDuration());
+         }
+@@ -2952,10 +2949,7 @@
+       }
+ 
+       // Append the current frame (will have duration 0).
+-      out->AppendFrame(do_AddRef(c->mFrame.GetImage()),
+-                       c->mFrame.GetIntrinsicSize(),
+-                       c->mFrame.GetPrincipalHandle(),
+-                       c->mFrame.GetForceBlack(), c->mTimeStamp);
++      out->AppendFrame(*c);
+       if (c->GetDuration() > 0) {
+         out->ExtendLastFrameBy(c->GetDuration());
+       }
+@@ -3139,10 +3133,7 @@
+       continue;
+     }
+     ++videoFrames;
+-    bufferedData.AppendFrame(do_AddRef(iter->mFrame.GetImage()),
+-                             iter->mFrame.GetIntrinsicSize(),
+-                             iter->mFrame.GetPrincipalHandle(),
+-                             iter->mFrame.GetForceBlack(), iter->mTimeStamp);
++    bufferedData.AppendFrame(*iter);
+   }
+ 
+   VideoSegment& video = static_cast<VideoSegment&>(*mUpdateTrack->mData);
+@@ -3150,10 +3141,7 @@
+        iter.Next()) {
+     ++videoFrames;
+     MOZ_ASSERT(!iter->mTimeStamp.IsNull());
+-    bufferedData.AppendFrame(do_AddRef(iter->mFrame.GetImage()),
+-                             iter->mFrame.GetIntrinsicSize(),
+-                             iter->mFrame.GetPrincipalHandle(),
+-                             iter->mFrame.GetForceBlack(), iter->mTimeStamp);
++    bufferedData.AppendFrame(*iter);
+   }
+ 
+   LOG(LogLevel::Info,

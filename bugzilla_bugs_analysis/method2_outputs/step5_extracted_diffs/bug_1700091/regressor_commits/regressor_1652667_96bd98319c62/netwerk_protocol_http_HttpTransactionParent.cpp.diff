@@ -1,0 +1,81 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/HttpTransactionParent.cpp
+# Commit: 96bd98319c62
+# Full Hash: 96bd98319c6242a9b05dc4723b928e88537424e1
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2020-08-26 03:24:37
+# Regressor Bug: 1652667
+# File Overlap Count: 1
+# Description:
+#   Bug 1652667 - P1: Add telemetry for when an HTTPSSVC record is received r=dragana
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D87844
+# ==============================================================================
+
+diff -r b61a789151df -r 96bd98319c62 netwerk/protocol/http/HttpTransactionParent.cpp
+--- a/netwerk/protocol/http/HttpTransactionParent.cpp	Tue Aug 25 17:29:21 2020 +0000
++++ b/netwerk/protocol/http/HttpTransactionParent.cpp	Tue Aug 25 17:29:32 2020 +0000
+@@ -375,6 +375,10 @@
+   return result;
+ }
+ 
++Maybe<uint32_t> HttpTransactionParent::HTTPSSVCReceivedStage() {
++  return mHTTPSSVCReceivedStage;
++}
++
+ void HttpTransactionParent::DontReuseConnection() {
+   MOZ_ASSERT(NS_IsMainThread());
+   Unused << SendDontReuseConnection();
+@@ -425,18 +429,21 @@
+     const bool& aProxyConnectFailed, const TimingStructArgs& aTimings,
+     const int32_t& aProxyConnectResponseCode,
+     nsTArray<uint8_t>&& aDataForSniffer, const Maybe<nsCString>& aAltSvcUsed,
+-    const bool& aDataToChildProcess, const bool& aRestarted) {
++    const bool& aDataToChildProcess, const bool& aRestarted,
++    Maybe<uint32_t>&& aHTTPSSVCReceivedStage) {
+   mEventQ->RunOrEnqueue(new NeckoTargetChannelFunctionEvent(
+-      this, [self = UnsafePtr<HttpTransactionParent>(this), aStatus,
+-             aResponseHead, aSecurityInfoSerialization, aProxyConnectFailed,
+-             aTimings, aProxyConnectResponseCode,
+-             aDataForSniffer = CopyableTArray{std::move(aDataForSniffer)},
+-             aAltSvcUsed, aDataToChildProcess, aRestarted]() mutable {
+-        self->DoOnStartRequest(aStatus, aResponseHead,
+-                               aSecurityInfoSerialization, aProxyConnectFailed,
+-                               aTimings, aProxyConnectResponseCode,
+-                               std::move(aDataForSniffer), aAltSvcUsed,
+-                               aDataToChildProcess, aRestarted);
++      this,
++      [self = UnsafePtr<HttpTransactionParent>(this), aStatus, aResponseHead,
++       aSecurityInfoSerialization, aProxyConnectFailed, aTimings,
++       aProxyConnectResponseCode,
++       aDataForSniffer = CopyableTArray{std::move(aDataForSniffer)},
++       aAltSvcUsed, aDataToChildProcess, aRestarted,
++       aHTTPSSVCReceivedStage{std::move(aHTTPSSVCReceivedStage)}]() mutable {
++        self->DoOnStartRequest(
++            aStatus, aResponseHead, aSecurityInfoSerialization,
++            aProxyConnectFailed, aTimings, aProxyConnectResponseCode,
++            std::move(aDataForSniffer), aAltSvcUsed, aDataToChildProcess,
++            aRestarted, std::move(aHTTPSSVCReceivedStage));
+       }));
+   return IPC_OK();
+ }
+@@ -465,7 +472,8 @@
+     const bool& aProxyConnectFailed, const TimingStructArgs& aTimings,
+     const int32_t& aProxyConnectResponseCode,
+     nsTArray<uint8_t>&& aDataForSniffer, const Maybe<nsCString>& aAltSvcUsed,
+-    const bool& aDataToChildProcess, const bool& aRestarted) {
++    const bool& aDataToChildProcess, const bool& aRestarted,
++    Maybe<uint32_t>&& aHTTPSSVCReceivedStage) {
+   LOG(("HttpTransactionParent::DoOnStartRequest [this=%p aStatus=%" PRIx32
+        "]\n",
+        this, static_cast<uint32_t>(aStatus)));
+@@ -478,6 +486,7 @@
+ 
+   mStatus = aStatus;
+   mDataSentToChildProcess = aDataToChildProcess;
++  mHTTPSSVCReceivedStage = std::move(aHTTPSSVCReceivedStage);
+ 
+   if (!aSecurityInfoSerialization.IsEmpty()) {
+     NS_DeserializeObject(aSecurityInfoSerialization,

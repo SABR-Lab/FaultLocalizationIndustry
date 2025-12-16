@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/BrowsingContext.h
+# Commit: 593544f437fa
+# Full Hash: 593544f437fa3ba3291c405aa28ab3589d21fb23
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-04-25 09:49:23
+# Regressor Bug: 1580565
+# File Overlap Count: 2
+# Description:
+#   Bug 1580565 - Part 6: Add a unique ID to each BrowsingContextGroup, r=kmag
+#   
+#   This allows us to explicitly specify BrowsingContextGroups when synchronizing
+#   them. A major advantage of this is that it means we can handle an attempt to
+#   create a BrowsingContext with a parent which the content process is unaware of,
+# ==============================================================================
+
+diff -r 68150e4a45af -r 593544f437fa docshell/base/BrowsingContext.h
+--- a/docshell/base/BrowsingContext.h	Fri Apr 24 18:33:06 2020 +0000
++++ b/docshell/base/BrowsingContext.h	Fri Apr 24 18:33:09 2020 +0000
+@@ -240,12 +240,6 @@
+     return mDocShell ? mDocShell->GetWindow() : nullptr;
+   }
+ 
+-  // Attach the current BrowsingContext to its parent, in both the child and the
+-  // parent process. BrowsingContext objects are created attached by default, so
+-  // this method need only be called when restoring cached BrowsingContext
+-  // objects.
+-  void Attach(bool aFromIPC = false);
+-
+   // Detach the current BrowsingContext from its parent, in both the
+   // child and the parent process.
+   void Detach(bool aFromIPC = false);
+@@ -545,9 +539,9 @@
+   IPCInitializer GetIPCInitializer();
+ 
+   // Create a BrowsingContext object from over IPC.
+-  static already_AddRefed<BrowsingContext> CreateFromIPC(
+-      IPCInitializer&& aInitializer, BrowsingContextGroup* aGroup,
+-      ContentParent* aOriginProcess);
++  static void CreateFromIPC(IPCInitializer&& aInitializer,
++                            BrowsingContextGroup* aGroup,
++                            ContentParent* aOriginProcess);
+ 
+   // Performs access control to check that 'this' can access 'aTarget'.
+   bool CanAccess(BrowsingContext* aTarget, bool aConsiderOpener = true);
+@@ -574,6 +568,8 @@
+                   FieldTuple&& aFields);
+ 
+  private:
++  void Attach(bool aFromIPC, ContentParent* aOriginProcess);
++
+   // Find the special browsing context if aName is '_self', '_parent',
+   // '_top', but not '_blank'. The latter is handled in FindWithName
+   BrowsingContext* FindWithSpecialName(const nsAString& aName,

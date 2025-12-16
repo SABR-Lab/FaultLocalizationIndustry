@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/BrowsingContext.h
+# Commit: 58f77fa35eea
+# Full Hash: 58f77fa35eeab8de03c52f316d9f0553685a5f8d
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2019-03-15 03:42:43
+# Regressor Bug: 1532661
+# File Overlap Count: 2
+# Description:
+#   Bug 1532661 - Part 3: Add WillSetX and DidSetX callbacks for BrowsingContext synced fields, r=farre
+#   
+#   Depends on D22191
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D22192
+# ==============================================================================
+
+diff -r a39da23d450b -r 58f77fa35eea docshell/base/BrowsingContext.h
+--- a/docshell/base/BrowsingContext.h	Thu Mar 14 18:51:05 2019 +0000
++++ b/docshell/base/BrowsingContext.h	Thu Mar 14 18:51:07 2019 +0000
+@@ -62,8 +62,13 @@
+   }
+   ~BrowsingContextBase() = default;
+ 
+-#define BC_FIELD(name, type) type m##name;
+-#include "mozilla/dom/BCFieldList.h"
++#define MOZ_BC_FIELD(name, type)                                    \
++  type m##name;                                                     \
++                                                                    \
++  /* shadow to validate fields. aSource is setter process or null*/ \
++  void WillSet##name(type const& aValue, ContentParent* aSource) {} \
++  void DidSet##name(ContentParent* aSource) {}
++#include "mozilla/dom/BrowsingContextFieldList.h"
+ };
+ 
+ // BrowsingContext, in this context, is the cross process replicated
+@@ -341,6 +346,14 @@
+     }
+   };
+ 
++  // Ensure that opener is in the same BrowsingContextGroup.
++  void WillSetOpener(const RefPtr<BrowsingContext>& aValue,
++                     ContentParent* aSource) {
++    if (aValue) {
++      MOZ_RELEASE_ASSERT(aValue->Group() == Group());
++    }
++  }
++
+   // Type of BrowsingContent
+   const Type mType;
+ 

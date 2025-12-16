@@ -1,0 +1,37 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/EnvironmentObject.cpp
+# Commit: 49953b047dc3
+# Full Hash: 49953b047dc30b21afbabdc9d96118f64c2e1ba5
+# Author: Tooru Fujisawa <arai_a@mac.com>
+# Date: 2025-07-11 09:13:24
+# Description:
+#   Bug 1976630 - Handle the case where no enclosing env is found in debugger environment creation. r=bthrall
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D256776
+# ==============================================================================
+
+diff -r 45bdc0e7c879 -r 49953b047dc3 js/src/vm/EnvironmentObject.cpp
+--- a/js/src/vm/EnvironmentObject.cpp	Thu Jul 10 16:22:00 2025 +0000
++++ b/js/src/vm/EnvironmentObject.cpp	Thu Jul 10 16:40:43 2025 +0000
+@@ -1572,9 +1572,16 @@
+     ++copy;
+   }
+ 
+-  // The global object should have an environment object even if we don't find
+-  // anything else.
+-  MOZ_ASSERT(env);
++  // In general, we should find an environment object for the global etc even
++  // if we don't find anything else.
++  //
++  // In certain situation where OOM and too much recursion happens and the
++  // debugger is trying to recover from it, we might not find anything, and in
++  // that case, there's nothing we can do. (see bug 1976630).
++  if (!env) {
++    ReportOutOfMemory(cx);
++    return false;
++  }
+ 
+   if (!gc::GetOrCreateUniqueId(env, &nearestEnvId_)) {
+     ReportOutOfMemory(cx);

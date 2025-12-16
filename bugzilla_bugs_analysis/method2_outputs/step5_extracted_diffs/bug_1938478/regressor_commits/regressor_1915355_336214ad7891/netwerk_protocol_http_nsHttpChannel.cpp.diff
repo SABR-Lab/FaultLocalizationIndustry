@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/nsHttpChannel.cpp
+# Commit: 336214ad7891
+# Full Hash: 336214ad789156999085eb7607fe6a6cbf7bbfe9
+# Author: Tim Huang <tihuang@mozilla.com>
+# Date: 2025-01-10 21:44:02
+# Regressor Bug: 1915355
+# File Overlap Count: 1
+# Description:
+#   Bug 1915355 - Part 4: Implement the third-party cookie blocking excpetion in CookieService. r=cookie-reviewers,baku,valentin
+#   
+#   The patch integrates the third-party cookie blocking excpetion in
+#   CookieService.
+#   
+# ==============================================================================
+
+diff -r 453324c772ae -r 336214ad7891 netwerk/protocol/http/nsHttpChannel.cpp
+--- a/netwerk/protocol/http/nsHttpChannel.cpp	Fri Jan 10 08:24:29 2025 +0000
++++ b/netwerk/protocol/http/nsHttpChannel.cpp	Fri Jan 10 08:24:29 2025 +0000
+@@ -72,6 +72,7 @@
+ #include "nsContentUtils.h"
+ #include "nsContentSecurityManager.h"
+ #include "nsIClassOfService.h"
++#include "CookieService.h"
+ #include "nsIPrincipal.h"
+ #include "nsIScriptError.h"
+ #include "nsIScriptSecurityManager.h"
+@@ -7176,6 +7177,10 @@
+ 
+   MaybeStartDNSPrefetch();
+ 
++  // Update whether the channel is on the third-party cookie blocking exception
++  // list.
++  CookieService::Update3PCBExceptionInfo(this);
++
+   rv = CallOrWaitForResume(
+       [](nsHttpChannel* self) { return self->PrepareToConnect(); });
+   if (NS_FAILED(rv)) {

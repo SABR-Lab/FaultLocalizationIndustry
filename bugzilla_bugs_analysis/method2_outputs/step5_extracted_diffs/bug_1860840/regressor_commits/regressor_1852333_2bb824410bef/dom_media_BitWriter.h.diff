@@ -1,0 +1,34 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/BitWriter.h
+# Commit: 2bb824410bef
+# Full Hash: 2bb824410bef5f4f9ddb79ef06dd7fce9ff73b0d
+# Author: alwu <alwu@mozilla.com>
+# Date: 2023-10-05 09:25:42
+# Regressor Bug: 1852333
+# File Overlap Count: 4
+# Description:
+#   Bug 1852333 - part2 : detect config change for HEVC stream. r=media-playback-reviewers,padenot
+#   
+#   This patch detects inband change for the HEVC playback so that we can
+#   recreate decoder if the new config is different from the previous one.
+#   
+# ==============================================================================
+
+diff -r 20adde96b25e -r 2bb824410bef dom/media/BitWriter.h
+--- a/dom/media/BitWriter.h	Thu Oct 05 03:36:20 2023 +0000
++++ b/dom/media/BitWriter.h	Thu Oct 05 03:36:20 2023 +0000
+@@ -29,6 +29,12 @@
+   // Write RBSP trailing bits.
+   void CloseWithRbspTrailing();
+ 
++  // Advance position forward without modifying buffer, which is usually used
++  // along with the case when directly appending a byte array to the
++  // MediaByteBuffer for the efficiency, instead of writing bits one by one.
++  // So this can only be called when the bit index is zero.
++  void AdvanceBytes(uint32_t aByteOffset);
++
+   // Return the number of bits written so far;
+   size_t BitCount() const { return mPosition * 8 + mBitIndex; }
+ 

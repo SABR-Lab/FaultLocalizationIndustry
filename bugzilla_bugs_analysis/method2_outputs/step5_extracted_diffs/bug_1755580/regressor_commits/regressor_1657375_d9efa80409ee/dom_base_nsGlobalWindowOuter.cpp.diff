@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsGlobalWindowOuter.cpp
+# Commit: d9efa80409ee
+# Full Hash: d9efa80409eed34d06fb989e6b5ebea0f58bd60f
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2021-11-10 09:24:53
+# Regressor Bug: 1657375
+# File Overlap Count: 1
+# Description:
+#   Bug 1657375 - Cache the principal hash value for OffscreenCanvas on worker threads. r=dom-worker-reviewers,asuth,smaug
+#   
+#   We cannot access ClientWebGLContext::mCanvasElement or its associated
+#   nsIPrincipal off the main thread. We use the hash value of the principal
+#   to limit how many WebGL contexts a single domain can create. We can
+# ==============================================================================
+
+diff -r 2f9159719ec5 -r d9efa80409ee dom/base/nsGlobalWindowOuter.cpp
+--- a/dom/base/nsGlobalWindowOuter.cpp	Tue Nov 09 20:16:04 2021 +0000
++++ b/dom/base/nsGlobalWindowOuter.cpp	Tue Nov 09 20:16:05 2021 +0000
+@@ -1695,6 +1695,13 @@
+   return nsIScriptGlobalObject::ShouldResistFingerprinting();
+ }
+ 
++uint32_t nsGlobalWindowOuter::GetPrincipalHashValue() const {
++  if (mDoc) {
++    return mDoc->NodePrincipal()->GetHashValue();
++  }
++  return 0;
++}
++
+ nsresult nsGlobalWindowOuter::EnsureScriptEnvironment() {
+   if (GetWrapperPreserveColor()) {
+     return NS_OK;

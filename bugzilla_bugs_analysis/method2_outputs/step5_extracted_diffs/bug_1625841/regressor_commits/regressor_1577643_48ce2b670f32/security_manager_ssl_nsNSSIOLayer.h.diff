@@ -1,0 +1,127 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/manager/ssl/nsNSSIOLayer.h
+# Commit: 48ce2b670f32
+# Full Hash: 48ce2b670f32691b0537c13c165ec8459d74907c
+# Author: Dragana Damjanovic <dd.mozilla@gmail.com>
+# Date: 2019-09-25 09:36:42
+# Regressor Bug: 1577643
+# File Overlap Count: 1
+# Description:
+#   Bug 1577643 - Implement a security info class for the quic transport. r=keeler
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44073
+# ==============================================================================
+
+diff -r 2a39731bf265 -r 48ce2b670f32 security/manager/ssl/nsNSSIOLayer.h
+--- a/security/manager/ssl/nsNSSIOLayer.h	Tue Sep 24 22:40:20 2019 +0000
++++ b/security/manager/ssl/nsNSSIOLayer.h	Tue Sep 24 20:56:39 2019 +0000
+@@ -7,7 +7,7 @@
+ #ifndef nsNSSIOLayer_h
+ #define nsNSSIOLayer_h
+ 
+-#include "TransportSecurityInfo.h"
++#include "CommonSocketControl.h"
+ #include "mozilla/Assertions.h"
+ #include "mozilla/TimeStamp.h"
+ #include "mozilla/UniquePtr.h"
+@@ -31,14 +31,12 @@
+ 
+ class nsIObserver;
+ 
+-class nsNSSSocketInfo final : public mozilla::psm::TransportSecurityInfo,
+-                              public nsISSLSocketControl {
++class nsNSSSocketInfo final : public CommonSocketControl {
+  public:
+   nsNSSSocketInfo(mozilla::psm::SharedSSLState& aState, uint32_t providerFlags,
+                   uint32_t providerTlsFlags);
+ 
+   NS_DECL_ISUPPORTS_INHERITED
+-  NS_DECL_NSISSLSOCKETCONTROL
+ 
+   void SetForSTARTTLS(bool aForSTARTTLS);
+   bool GetForSTARTTLS();
+@@ -52,13 +50,31 @@
+   void SetTLSVersionRange(SSLVersionRange range) { mTLSVersionRange = range; }
+   SSLVersionRange GetTLSVersionRange() const { return mTLSVersionRange; };
+ 
++  // From nsISSLSocketControl.
++  NS_IMETHOD ProxyStartSSL(void) override;
++  NS_IMETHOD StartTLS(void) override;
++  NS_IMETHOD SetNPNList(nsTArray<nsCString> & aNPNList) override;
++  NS_IMETHOD GetAlpnEarlySelection(nsACString& _retval) override;
++  NS_IMETHOD GetEarlyDataAccepted(bool *aEarlyDataAccepted) override;
++  NS_IMETHOD DriveHandshake(void) override;
++  using nsISSLSocketControl::GetKEAUsed;
++  NS_IMETHOD GetKEAUsed(int16_t *aKEAUsed) override;
++  NS_IMETHOD GetKEAKeyBits(uint32_t *aKEAKeyBits) override;
++  NS_IMETHOD GetProviderTlsFlags(uint32_t *aProviderTlsFlags) override;
++  NS_IMETHOD GetSSLVersionOffered(int16_t* aSSLVersionOffered) override;
++  NS_IMETHOD GetMACAlgorithmUsed(int16_t *aMACAlgorithmUsed) override;
++  bool GetDenyClientCert() override;
++  void SetDenyClientCert(bool aDenyClientCert) override;
++  NS_IMETHOD GetClientCert(nsIX509Cert **aClientCert) override;
++  NS_IMETHOD SetClientCert(nsIX509Cert *aClientCert) override;
++  NS_IMETHOD GetEsniTxt(nsACString& aEsniTxt) override;
++  NS_IMETHOD SetEsniTxt(const nsACString& aEsniTxt) override;
++
+   PRStatus CloseSocketAndDestroy();
+ 
+   void SetNegotiatedNPN(const char* value, uint32_t length);
+   void SetEarlyDataAccepted(bool aAccepted);
+ 
+-  void SetResumed(bool aResumed);
+-
+   void SetHandshakeCompleted();
+   bool IsHandshakeCompleted() const { return mHandshakeCompleted; }
+   void NoteTimeUntilReady();
+@@ -74,7 +90,6 @@
+   bool GetJoined() { return mJoined; }
+   void SetSentClientCert() { mSentClientCert = true; }
+ 
+-  uint32_t GetProviderFlags() const { return mProviderFlags; }
+   uint32_t GetProviderTlsFlags() const { return mProviderTlsFlags; }
+ 
+   mozilla::psm::SharedSSLState& SharedState();
+@@ -102,8 +117,6 @@
+ 
+   void SetKEAKeyBits(uint32_t keaBits) { mKEAKeyBits = keaBits; }
+ 
+-  void SetSSLVersionUsed(int16_t version) { mSSLVersionUsed = version; }
+-
+   void SetMACAlgorithmUsed(int16_t mac) { mMACAlgorithmUsed = mac; }
+ 
+   void SetShortWritePending(int32_t amount, unsigned char data) {
+@@ -161,20 +174,13 @@
+ 
+   nsresult ActivateSSL();
+ 
+-  nsCString mNegotiatedNPN;
+   nsCString mEsniTxt;
+-  bool mNPNCompleted;
+   bool mEarlyDataAccepted;
+   bool mDenyClientCert;
+   bool mFalseStartCallbackCalled;
+   bool mFalseStarted;
+   bool mIsFullHandshake;
+-  bool mHandshakeCompleted;
+-  bool mJoined;
+-  bool mSentClientCert;
+   bool mNotedTimeUntilReady;
+-  bool mFailedVerification;
+-  mozilla::Atomic<bool, mozilla::Relaxed> mResumed;
+ 
+   // True when SSL layer has indicated an "SSL short write", i.e. need
+   // to call on send one or more times to push all pending data to write.
+@@ -198,10 +204,8 @@
+   // Values are from nsISSLSocketControl
+   int16_t mKEAUsed;
+   uint32_t mKEAKeyBits;
+-  int16_t mSSLVersionUsed;
+   int16_t mMACAlgorithmUsed;
+ 
+-  uint32_t mProviderFlags;
+   uint32_t mProviderTlsFlags;
+   mozilla::TimeStamp mSocketCreationTimestamp;
+   uint64_t mPlaintextBytesRead;

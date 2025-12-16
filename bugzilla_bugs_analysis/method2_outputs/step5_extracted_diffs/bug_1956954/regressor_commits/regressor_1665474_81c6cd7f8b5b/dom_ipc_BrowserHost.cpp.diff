@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/BrowserHost.cpp
+# Commit: 81c6cd7f8b5b
+# Full Hash: 81c6cd7f8b5bd2750c00cc092d67199092b4ed87
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2025-03-04 04:58:00
+# Regressor Bug: 1665474
+# File Overlap Count: 1
+# Description:
+#   Bug 1665474 - Part 9: Handle calls to browser.createAboutBlankDocumentViewer with http(s) principals, r=farre
+#   
+#   It is possible for frontend JS to call this method on a browser element
+#   with an http(s) principal. In this case, treat the new about:blank
+#   document like it was created without a Origin-Agent-Cluster header, and
+# ==============================================================================
+
+diff -r 5a4d6c2e0dec -r 81c6cd7f8b5b dom/ipc/BrowserHost.cpp
+--- a/dom/ipc/BrowserHost.cpp	Mon Mar 03 22:51:30 2025 +0000
++++ b/dom/ipc/BrowserHost.cpp	Mon Mar 03 22:51:30 2025 +0000
+@@ -7,6 +7,7 @@
+ #include "mozilla/dom/BrowserHost.h"
+ 
+ #include "mozilla/Unused.h"
++#include "mozilla/dom/BrowsingContextGroup.h"
+ #include "mozilla/dom/CancelContentJSOptionsBinding.h"
+ #include "mozilla/dom/ContentParent.h"
+ #include "mozilla/dom/WindowGlobalParent.h"
+@@ -260,6 +261,12 @@
+     return rv;
+   }
+ 
++  // Ensure that UsesOriginAgentCluster has been initialized for this
++  // BrowsingContextGroup/principal pair before creating the document in
++  // content.
++  mRoot->GetBrowsingContext()->Group()->EnsureUsesOriginAgentClusterInitialized(
++      aPrincipal);
++
+   Unused << mRoot->SendCreateAboutBlankDocumentViewer(aPrincipal,
+                                                       aPartitionedPrincipal);
+   return NS_OK;

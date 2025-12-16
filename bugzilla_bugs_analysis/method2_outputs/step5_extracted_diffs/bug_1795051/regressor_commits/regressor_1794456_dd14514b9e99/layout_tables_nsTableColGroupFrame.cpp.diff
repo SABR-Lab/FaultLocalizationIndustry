@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/tables/nsTableColGroupFrame.cpp
+# Commit: dd14514b9e99
+# Full Hash: dd14514b9e992d986c6802c434e59d67a172f828
+# Author: Ting-Yu Lin <tlin@mozilla.com>
+# Date: 2022-10-12 09:45:09
+# Regressor Bug: 1794456
+# File Overlap Count: 1
+# Description:
+#   Bug 1794456 Part 3 - Support range-based for loop for nsFrameList::Slice. r=emilio
+#   
+#   Since Slice::mEnd is the first frame that is NOT in the slice, so we only
+#   support forward iteration, and it's sufficient to replace existing usages of
+#   nsFrameList::Enumerator.
+# ==============================================================================
+
+diff -r 58733fee05e0 -r dd14514b9e99 layout/tables/nsTableColGroupFrame.cpp
+--- a/layout/tables/nsTableColGroupFrame.cpp	Tue Oct 11 21:01:27 2022 +0000
++++ b/layout/tables/nsTableColGroupFrame.cpp	Tue Oct 11 21:01:28 2022 +0000
+@@ -69,17 +69,23 @@
+ 
+   // set the col indices of the col frames and and add col info to the table
+   int32_t colIndex = aFirstColIndex;
+-  nsFrameList::Enumerator e(aCols);
+-  for (; !e.AtEnd(); e.Next()) {
+-    ((nsTableColFrame*)e.get())->SetColIndex(colIndex);
++
++  // XXX: We cannot use range-based for loop because InsertCol() can destroy the
++  // nsTableColFrame in the slice we're traversing! Need to check the validity
++  // of *colIter.
++  auto colIter = aCols.begin();
++  for (auto colIterEnd = aCols.end(); *colIter && colIter != colIterEnd;
++       ++colIter) {
++    auto* colFrame = static_cast<nsTableColFrame*>(*colIter);
++    colFrame->SetColIndex(colIndex);
+     mColCount++;
+-    tableFrame->InsertCol((nsTableColFrame&)*e.get(), colIndex);
++    tableFrame->InsertCol(*colFrame, colIndex);
+     colIndex++;
+   }
+ 
+-  for (nsFrameList::Enumerator eTail = e.GetUnlimitedEnumerator();
+-       !eTail.AtEnd(); eTail.Next()) {
+-    ((nsTableColFrame*)eTail.get())->SetColIndex(colIndex);
++  for (; *colIter; ++colIter) {
++    auto* colFrame = static_cast<nsTableColFrame*>(*colIter);
++    colFrame->SetColIndex(colIndex);
+     colIndex++;
+   }
+ 

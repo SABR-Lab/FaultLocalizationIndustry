@@ -1,0 +1,66 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmFrameIter.h
+# Commit: b620533c6d63
+# Full Hash: b620533c6d633ef50c5e5cb3ecd0f398206eb271
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-06-17 21:52:06
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Refactor wasm::Frame to reduce number of gnarly casts. r=lth,wingo
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D79072
+# ==============================================================================
+
+diff -r f7ec4a920540 -r b620533c6d63 js/src/wasm/WasmFrameIter.h
+--- a/js/src/wasm/WasmFrameIter.h	Wed Jun 17 11:41:13 2020 +0000
++++ b/js/src/wasm/WasmFrameIter.h	Wed Jun 17 12:04:54 2020 +0000
+@@ -43,7 +43,7 @@
+ 
+ struct CallableOffsets;
+ struct FuncOffsets;
+-struct Frame;
++class Frame;
+ 
+ using RegisterState = JS::ProfilingFrameIterator::RegisterState;
+ 
+@@ -170,7 +170,7 @@
+ class ProfilingFrameIterator {
+   const Code* code_;
+   const CodeRange* codeRange_;
+-  Frame* callerFP_;
++  uint8_t* callerFP_;
+   void* callerPC_;
+   void* stackAddress_;
+   uint8_t* unwoundIonCallerFP_;
+@@ -236,7 +236,7 @@
+ // Describes register state and associated code at a given call frame.
+ 
+ struct UnwindState {
+-  Frame* fp;
++  uint8_t* fp;
+   void* pc;
+   const Code* code;
+   const CodeRange* codeRange;
+@@ -257,19 +257,6 @@
+ bool StartUnwinding(const RegisterState& registers, UnwindState* unwindState,
+                     bool* unwoundCaller);
+ 
+-// Bit set as the lowest bit of a frame pointer, used in two different mutually
+-// exclusive situations:
+-// - either it's a low bit tag in a FramePointer value read from the
+-// Frame::callerFP of an inner wasm frame. This indicates the previous call
+-// frame has been set up by a JIT caller that directly called into a wasm
+-// function's body. This is only stored in Frame::callerFP for a wasm frame
+-// called from JIT code, and thus it can not appear in a JitActivation's
+-// exitFP.
+-// - or it's the low big tag set when exiting wasm code in JitActivation's
+-// exitFP.
+-
+-constexpr uintptr_t ExitOrJitEntryFPTag = 0x1;
+-
+ }  // namespace wasm
+ }  // namespace js
+ 

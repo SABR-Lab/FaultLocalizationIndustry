@@ -1,0 +1,31 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/ipc/DocumentLoadListener.cpp
+# Commit: 7f7b98339065
+# Full Hash: 7f7b983390650cbc7d736e92fd3e1f629a30ac02
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2020-06-09 15:16:49
+# Regressor Bug: 1641737
+# File Overlap Count: 1
+# Description:
+#   Bug 1641737 - P7. Make the DLL and PPDC promises use direct task dispatch. r=mattwoodrow
+#   
+#   We attempt to reduce the number of event loop iterations, which would bring us back to a similar behaviour to the pre-DocumentChannel days.
+#   
+#   This prevent some tests to have increase intermittent failures.
+# ==============================================================================
+
+diff -r 32fba417ebd0 -r 7f7b98339065 netwerk/ipc/DocumentLoadListener.cpp
+--- a/netwerk/ipc/DocumentLoadListener.cpp	Tue Jun 09 07:24:15 2020 +0000
++++ b/netwerk/ipc/DocumentLoadListener.cpp	Tue Jun 09 07:24:23 2020 +0000
+@@ -527,6 +527,9 @@
+ 
+   *aRv = NS_OK;
+   mOpenPromise = new OpenPromise::Private(__func__);
++  // We make the promise use direct task dispatch in order to reduce the number
++  // of event loops iterations.
++  mOpenPromise->UseDirectTaskDispatch(__func__);
+   return mOpenPromise;
+ }
+ 

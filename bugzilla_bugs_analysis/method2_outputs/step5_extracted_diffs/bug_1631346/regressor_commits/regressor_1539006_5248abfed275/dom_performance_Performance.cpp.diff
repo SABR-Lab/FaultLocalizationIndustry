@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/performance/Performance.cpp
+# Commit: 5248abfed275
+# Full Hash: 5248abfed275b2938ed64770bec58b3ff68d624b
+# Author: Will Hawkins <whawkins@mozilla.com>
+# Date: 2019-04-12 21:56:33
+# Regressor Bug: 1539006
+# File Overlap Count: 1
+# Description:
+#   Bug 1539006: Properly implement Performance Timeline Level 2 w3c spec. r=mstange,baku
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D27008
+# ==============================================================================
+
+diff -r e17500911824 -r 5248abfed275 dom/performance/Performance.cpp
+--- a/dom/performance/Performance.cpp	Fri Apr 12 15:49:22 2019 +0000
++++ b/dom/performance/Performance.cpp	Fri Apr 12 16:29:48 2019 +0000
+@@ -596,8 +596,23 @@
+   if (mObservers.IsEmpty()) {
+     return;
+   }
+-  NS_OBSERVER_ARRAY_NOTIFY_XPCOM_OBSERVERS(mObservers, PerformanceObserver,
+-                                           QueueEntry, (aEntry));
++
++  nsTObserverArray<PerformanceObserver*> interestedObservers;
++  nsTObserverArray<PerformanceObserver*>::ForwardIterator observerIt(
++      mObservers);
++  while (observerIt.HasMore()) {
++    PerformanceObserver* observer = observerIt.GetNext();
++    if (observer->ObservesTypeOfEntry(aEntry)) {
++      interestedObservers.AppendElement(observer);
++    }
++  }
++
++  if (interestedObservers.IsEmpty()) {
++    return;
++  }
++
++  NS_OBSERVER_ARRAY_NOTIFY_XPCOM_OBSERVERS(
++      interestedObservers, PerformanceObserver, QueueEntry, (aEntry));
+ 
+   if (!mPendingNotificationObserversTask) {
+     RunNotificationObserversTask();

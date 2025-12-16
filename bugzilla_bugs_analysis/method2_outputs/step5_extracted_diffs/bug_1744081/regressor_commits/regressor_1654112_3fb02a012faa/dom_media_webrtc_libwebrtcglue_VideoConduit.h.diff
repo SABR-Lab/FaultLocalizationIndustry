@@ -1,0 +1,284 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/VideoConduit.h
+# Commit: 3fb02a012faa
+# Full Hash: 3fb02a012faadb59c6a4ca42bfb50bcbb1037d93
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 5
+# Description:
+#   Bug 1654112 - Route packets with MediaEvents, and clean up conduits' cross-thread syncing. r=bwc,ng
+#   
+#   This patch solves some issues with the SSRC switching that can be triggered by
+#   both signaling and incoming packets, on different threads. But mainly, because
+#   that setup is inherently complex, this patch greatly simplifies the SSRC
+# ==============================================================================
+
+diff -r 336f58a54bd8 -r 3fb02a012faa dom/media/webrtc/libwebrtcglue/VideoConduit.h
+--- a/dom/media/webrtc/libwebrtcglue/VideoConduit.h	Wed Aug 25 20:28:12 2021 +0200
++++ b/dom/media/webrtc/libwebrtcglue/VideoConduit.h	Thu Sep 09 17:42:30 2021 +0200
+@@ -17,7 +17,6 @@
+ #include "common/MediaEngineWrapper.h"
+ #include "RtpRtcpConfig.h"
+ #include "RunningStat.h"
+-#include "RtpPacketQueue.h"
+ #include "transport/runnable_utils.h"
+ 
+ // conflicts with #include of scoped_ptr.h
+@@ -65,7 +64,6 @@
+  */
+ class WebrtcVideoConduit
+     : public VideoSessionConduit,
+-      public webrtc::Transport,
+       public webrtc::RtcpEventObserver,
+       public rtc::VideoSinkInterface<webrtc::VideoFrame>,
+       public rtc::VideoSourceInterface<webrtc::VideoFrame> {
+@@ -83,18 +81,6 @@
+       RefPtr<mozilla::VideoRenderer> aVideoRenderer) override;
+   void DetachRenderer() override;
+ 
+-  /**
+-   * APIs used by the registered external transport to this Conduit to
+-   * feed in received RTP Frames to the VideoEngine for decoding
+-   */
+-  void ReceivedRTPPacket(const uint8_t* data, int len,
+-                         webrtc::RTPHeader& header) override;
+-
+-  /**
+-   * APIs used by the registered external transport to this Conduit to
+-   * feed in received RTCP Frames to the VideoEngine for decoding
+-   */
+-  void ReceivedRTCPPacket(const uint8_t* data, int len) override;
+   Maybe<DOMHighResTimeStamp> LastRtcpReceived() const override;
+   DOMHighResTimeStamp GetNow() const override;
+ 
+@@ -104,17 +90,6 @@
+   MediaConduitErrorCode StartReceivingLocked();
+ 
+   /**
+-   * Register Transport for this Conduit. RTP and RTCP frames from the
+-   * VideoEngine shall be passed to the registered transport for transporting
+-   * externally.
+-   */
+-  MediaConduitErrorCode SetTransmitterTransport(
+-      RefPtr<TransportInterface> aTransport) override;
+-
+-  MediaConduitErrorCode SetReceiverTransport(
+-      RefPtr<TransportInterface> aTransport) override;
+-
+-  /**
+    * Function to select and change the encoding resolution based on incoming
+    * frame size and current available bandwidth.
+    * @param width, height: dimensions of the frame
+@@ -133,22 +108,10 @@
+   MediaConduitErrorCode SendVideoFrame(
+       const webrtc::VideoFrame& frame) override;
+ 
+-  /**
+-   * webrtc::Transport method implementation
+-   * ---------------------------------------
+-   * Webrtc transport implementation to send and receive RTP packet.
+-   * VideoConduit registers itself as ExternalTransport to the VideoStream
+-   */
+-  bool SendRtp(const uint8_t* packet, size_t length,
+-               const webrtc::PacketOptions& options) override;
+-
+-  /**
+-   * webrtc::Transport method implementation
+-   * ---------------------------------------
+-   * Webrtc transport implementation to send and receive RTCP packet.
+-   * VideoConduit registers itself as ExternalTransport to the VideoEngine
+-   */
+-  bool SendRtcp(const uint8_t* packet, size_t length) override;
++  bool SendRtp(const uint8_t* aData, size_t aLength,
++               const webrtc::PacketOptions& aOptions) override;
++  bool SendSenderRtcp(const uint8_t* aData, size_t aLength) override;
++  bool SendReceiverRtcp(const uint8_t* aData, size_t aLength) override;
+ 
+   /*
+    * webrtc:VideoSinkInterface implementation
+@@ -217,15 +180,66 @@
+   uint64_t MozVideoLatencyAvg();
+ 
+   void DisableSsrcChanges() override {
+-    ASSERT_ON_THREAD(mStsThread);
++    MOZ_ASSERT(mCallThread->IsOnCurrentThread());
+     mAllowSsrcChange = false;
+   }
+ 
+   void CollectTelemetryData() override;
+ 
++  void OnRtpReceived(MediaPacket&& aPacket, webrtc::RTPHeader&& aHeader);
++  void OnRtcpReceived(MediaPacket&& aPacket);
++
+   void OnRtcpBye() override;
+   void OnRtcpTimeout() override;
+ 
++  void SetTransportActive(bool aActive) override {
++    mTransportActive = aActive;
++    if (!aActive) {
++      mReceiverRtpEventListener.DisconnectIfExists();
++      mReceiverRtcpEventListener.DisconnectIfExists();
++      mSenderRtcpEventListener.DisconnectIfExists();
++    }
++  }
++  MediaEventSourceExc<MediaPacket>& SenderRtpSendEvent() override {
++    return mSenderRtpSendEvent;
++  }
++  MediaEventSourceExc<MediaPacket>& SenderRtcpSendEvent() override {
++    return mSenderRtcpSendEvent;
++  }
++  MediaEventSourceExc<MediaPacket>& ReceiverRtcpSendEvent() override {
++    return mReceiverRtcpSendEvent;
++  }
++  void ConnectReceiverRtpEvent(
++      MediaEventSourceExc<MediaPacket, webrtc::RTPHeader>& aEvent) override {
++    // Hold a strong-ref to `this` for safety, since we'll be disconnecting
++    // off-target.
++    mReceiverRtpEventListener = aEvent.Connect(
++        mCallThread, [this, self = RefPtr<WebrtcVideoConduit>(this)](
++                         MediaPacket aPacket, webrtc::RTPHeader aHeader) {
++          OnRtpReceived(std::move(aPacket), std::move(aHeader));
++        });
++  }
++  void ConnectReceiverRtcpEvent(
++      MediaEventSourceExc<MediaPacket>& aEvent) override {
++    // Hold a strong-ref to `this` for safety, since we'll be disconnecting
++    // off-target.
++    mReceiverRtcpEventListener = aEvent.Connect(
++        mCallThread,
++        [this, self = RefPtr<WebrtcVideoConduit>(this)](MediaPacket aPacket) {
++          OnRtcpReceived(std::move(aPacket));
++        });
++  }
++  void ConnectSenderRtcpEvent(
++      MediaEventSourceExc<MediaPacket>& aEvent) override {
++    // Hold a strong-ref to `this` for safety, since we'll be disconnecting
++    // off-target.
++    mSenderRtcpEventListener = aEvent.Connect(
++        mCallThread,
++        [this, self = RefPtr<WebrtcVideoConduit>(this)](MediaPacket aPacket) {
++          OnRtcpReceived(std::move(aPacket));
++        });
++  }
++
+   std::vector<webrtc::RtpSource> GetUpstreamRtpSources() const override;
+ 
+  private:
+@@ -253,21 +267,15 @@
+ 
+   bool RequiresNewSendStream(const VideoCodecConfig& newConfig) const;
+ 
+-  mutable mozilla::ReentrantMonitor mTransportMonitor;
+-
+-  // Accessed on any thread under mTransportMonitor.
+-  RefPtr<TransportInterface> mTransmitterTransport;
++  mutable mozilla::ReentrantMonitor mRendererMonitor;
+ 
+-  // Accessed on any thread under mTransportMonitor.
+-  RefPtr<TransportInterface> mReceiverTransport;
+-
+-  // Accessed on any thread under mTransportMonitor.
++  // Accessed on any thread under mRendererMonitor.
+   RefPtr<mozilla::VideoRenderer> mRenderer;
+ 
+-  // Accessed on any thread under mTransportMonitor.
++  // Accessed on any thread under mRendererMonitor.
+   unsigned short mReceivingWidth = 0;
+ 
+-  // Accessed on any thread under mTransportMonitor.
++  // Accessed on any thread under mRendererMonitor.
+   unsigned short mReceivingHeight = 0;
+ 
+   // Call worker thread. All access to mCall->Call() happens here.
+@@ -372,8 +380,6 @@
+   webrtc::VideoReceiveStream* mRecvStream = nullptr;
+ 
+   // Must call webrtc::Call::DestroyVideoReceive/SendStream to delete this.
+-  // Written only on the Call thread. Guarded by mMutex, except for reads on the
+-  // Call thread.
+   webrtc::VideoSendStream* mSendStream = nullptr;
+ 
+   // Written on the frame feeding thread.
+@@ -387,7 +393,7 @@
+   // Accessed under mMutex.
+   unsigned int mSendingFramerate;
+ 
+-  // Accessed from any thread under mTransportMonitor.
++  // Accessed from any thread under mRendererMonitor.
+   uint64_t mVideoLatencyAvg = 0;
+ 
+   const bool mVideoLatencyTestEnable;
+@@ -419,6 +425,11 @@
+   // thread.
+   const RefPtr<WebrtcCallWrapper> mCall;
+ 
++  // Set up in the ctor and then not touched. Called through by the streams on
++  // any thread. Safe since we own and control the lifetime of the streams.
++  WebrtcSendTransport mSendTransport;
++  WebrtcReceiveTransport mRecvTransport;
++
+   // Written only on the Call thread. Guarded by mMutex, except for reads on the
+   // Call thread. Typical non-Call thread access is on the frame delivery
+   // thread.
+@@ -435,21 +446,18 @@
+   webrtc::VideoReceiveStream::Config mRecvStreamConfig;
+ 
+   // Are SSRC changes without signaling allowed or not.
+-  // Accessed only on mStsThread.
++  // Call thread only.
+   bool mAllowSsrcChange = true;
+ 
+-  // Accessed only on mStsThread.
+-  bool mWaitingForSignaledSsrc = true;
++  // Accessed during configuration/signaling (Call thread), and on the frame
++  // delivery thread for frame history tracking. Set only on the Call thread.
++  Atomic<uint32_t> mRecvSSRC =
++      Atomic<uint32_t>(0);  // this can change during a stream!
+ 
+-  // Accessed during configuration/signaling (call),
+-  // and when receiving packets (sts).
+-  Atomic<uint32_t> mRecvSSRC;  // this can change during a stream!
+-  // Accessed from both the STS and Call thread for a variety of things.
+-  // Set when receiving packets.
+-  Atomic<uint32_t> mRemoteSSRC;  // this can change during a stream!
+-
+-  // Accessed only on mStsThread.
+-  RtpPacketQueue mRtpPacketQueue;
++  // Accessed from both the STS and frame delivery thread for frame history
++  // tracking. Set when receiving packets.
++  Atomic<uint32_t> mRemoteSendSSRC =
++      Atomic<uint32_t>(0);  // this can change during a stream!
+ 
+   // Main thread only
+   nsTArray<uint64_t> mSendCodecPluginIDs;
+@@ -462,16 +470,25 @@
+   MediaEventListener mRecvPluginCreated;
+   MediaEventListener mRecvPluginReleased;
+ 
+-  // Accessed only on mStsThread
++  // Call thread only
+   Maybe<DOMHighResTimeStamp> mLastRtcpReceived;
+ 
+   // Tracking the attributes of received frames over time
+-  // Protected by mTransportMonitor
++  // Protected by mRendererMonitor
+   dom::RTCVideoFrameHistoryInternal mReceivedFrameHistory;
+ 
+   // Thread safe
++  Atomic<bool> mTransportActive = Atomic<bool>(false);
+   MediaEventProducer<void> mRtcpByeEvent;
+   MediaEventProducer<void> mRtcpTimeoutEvent;
++  MediaEventProducerExc<MediaPacket> mSenderRtpSendEvent;
++  MediaEventProducerExc<MediaPacket> mSenderRtcpSendEvent;
++  MediaEventProducerExc<MediaPacket> mReceiverRtcpSendEvent;
++
++  // Assigned and revoked on mStsThread. Listeners for receiving packets.
++  MediaEventListener mSenderRtcpEventListener;    // Rtp-transmitting pipeline
++  MediaEventListener mReceiverRtcpEventListener;  // Rtp-receiving pipeline
++  MediaEventListener mReceiverRtpEventListener;   // Rtp-receiving pipeline
+ };
+ }  // namespace mozilla
+ 

@@ -1,0 +1,93 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasink/DecodedStream.cpp
+# Commit: 1c45b135318d
+# Full Hash: 1c45b135318d8cb519b8d58af72ab864fe6bfd62
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2019-11-14 17:12:31
+# Regressor Bug: 1172394
+# File Overlap Count: 1
+# Description:
+#   Bug 1172394 - Simplify MediaSink somewhat. r=padenot
+#   
+#   This patches does several minor things:
+#   - Moves SetSink (from setSinkid) to automatic coalescing of multiple calls
+#     through a Canonical/Mirror setup instead of a manual atomic counter.
+# ==============================================================================
+
+diff -r c57c41e8c39e -r 1c45b135318d dom/media/mediasink/DecodedStream.cpp
+--- a/dom/media/mediasink/DecodedStream.cpp	Wed Nov 13 08:55:39 2019 +0000
++++ b/dom/media/mediasink/DecodedStream.cpp	Wed Nov 13 08:55:54 2019 +0000
+@@ -363,7 +363,8 @@
+ 
+ DecodedStream::DecodedStream(
+     MediaDecoderStateMachine* aStateMachine,
+-    nsTArray<RefPtr<ProcessedMediaTrack>> aOutputTracks,
++    nsTArray<RefPtr<ProcessedMediaTrack>> aOutputTracks, double aVolume,
++    double aPlaybackRate, bool aPreservesPitch,
+     MediaQueue<AudioData>& aAudioQueue, MediaQueue<VideoData>& aVideoQueue)
+     : mOwnerThread(aStateMachine->OwnerThread()),
+       mWatchManager(this, mOwnerThread),
+@@ -371,6 +372,9 @@
+       mPrincipalHandle(aStateMachine->OwnerThread(), PRINCIPAL_HANDLE_NONE,
+                        "DecodedStream::mPrincipalHandle (Mirror)"),
+       mOutputTracks(std::move(aOutputTracks)),
++      mVolume(aVolume),
++      mPlaybackRate(aPlaybackRate),
++      mPreservesPitch(aPreservesPitch),
+       mAudioQueue(aAudioQueue),
+       mVideoQueue(aVideoQueue) {
+   mPrincipalHandle.Connect(aStateMachine->CanonicalOutputPrincipal());
+@@ -382,16 +386,6 @@
+   MOZ_ASSERT(mStartTime.isNothing(), "playback should've ended.");
+ }
+ 
+-const MediaSink::PlaybackParams& DecodedStream::GetPlaybackParams() const {
+-  AssertOwnerThread();
+-  return mParams;
+-}
+-
+-void DecodedStream::SetPlaybackParams(const PlaybackParams& aParams) {
+-  AssertOwnerThread();
+-  mParams = aParams;
+-}
+-
+ RefPtr<DecodedStream::EndedPromise> DecodedStream::OnEnded(TrackType aType) {
+   AssertOwnerThread();
+   MOZ_ASSERT(mStartTime.isSome());
+@@ -549,17 +543,22 @@
+ 
+ void DecodedStream::SetVolume(double aVolume) {
+   AssertOwnerThread();
+-  mParams.mVolume = aVolume;
++  mVolume = aVolume;
+ }
+ 
+ void DecodedStream::SetPlaybackRate(double aPlaybackRate) {
+   AssertOwnerThread();
+-  mParams.mPlaybackRate = aPlaybackRate;
++  mPlaybackRate = aPlaybackRate;
+ }
+ 
+ void DecodedStream::SetPreservesPitch(bool aPreservesPitch) {
+   AssertOwnerThread();
+-  mParams.mPreservesPitch = aPreservesPitch;
++  mPreservesPitch = aPreservesPitch;
++}
++
++double DecodedStream::PlaybackRate() const {
++  AssertOwnerThread();
++  return mPlaybackRate;
+ }
+ 
+ static void SendStreamAudio(DecodedStreamData* aStream,
+@@ -849,7 +848,7 @@
+     return;
+   }
+ 
+-  SendAudio(mParams.mVolume, mPrincipalHandle);
++  SendAudio(mVolume, mPrincipalHandle);
+   SendVideo(mPrincipalHandle);
+ }
+ 

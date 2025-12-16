@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/BaselineCacheIRCompiler.cpp
+# Commit: dab916754456
+# Full Hash: dab916754456373246c85d658fde0520c7246865
+# Author: Iain Ireland <iireland@mozilla.com>
+# Date: 2020-07-23 03:20:25
+# Regressor Bug: 1646378
+# File Overlap Count: 1
+# Description:
+#   Bug 1646378: Invalidate the root script in MaybeInvalidateWarp r=jandem
+#   
+#   When we replace a stub in an inlined ICScript, we want to invalidate the script into which it was inlined, rather than the original copy of the inlined script.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D84431
+# ==============================================================================
+
+diff -r 86db033f2b35 -r dab916754456 js/src/jit/BaselineCacheIRCompiler.cpp
+--- a/js/src/jit/BaselineCacheIRCompiler.cpp	Wed Jul 22 11:31:25 2020 +0000
++++ b/js/src/jit/BaselineCacheIRCompiler.cpp	Wed Jul 22 21:57:45 2020 +0000
+@@ -2120,6 +2120,11 @@
+ 
+   JitZone* jitZone = cx->zone()->jitZone();
+ 
++  // The script to invalidate if we are modifying a transpiled IC.
++  JSScript* invalidationScript = icScript->isInlined()
++                                     ? icScript->inliningRoot()->owningScript()
++                                     : outerScript;
++
+   // Check if we already have JitCode for this stub.
+   CacheIRStubInfo* stubInfo;
+   CacheIRStubKey::Lookup lookup(kind, ICStubEngine::Baseline,
+@@ -2215,7 +2220,7 @@
+     // attach. Just return nullptr, the caller should do nothing in this
+     // case.
+     if (updated) {
+-      stub->maybeInvalidateWarp(cx, outerScript);
++      stub->maybeInvalidateWarp(cx, invalidationScript);
+       *attached = true;
+     } else {
+       JitSpew(JitSpew_BaselineICFallback,
+@@ -2241,7 +2246,7 @@
+   // about the chain much easier.
+   ResetEnteredCounts(stub);
+ 
+-  stub->maybeInvalidateWarp(cx, outerScript);
++  stub->maybeInvalidateWarp(cx, invalidationScript);
+ 
+   switch (stubKind) {
+     case BaselineCacheIRStubKind::Regular: {

@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/HttpBackgroundChannelChild.cpp
+# Commit: 3b268ac50692
+# Full Hash: 3b268ac50692bae6b1bcd0c41e61e267a6735e68
+# Author: Junior Hsu <juhsu@mozilla.com>
+# Date: 2020-06-24 09:31:07
+# Regressor Bug: 1633935
+# File Overlap Count: 1
+# Description:
+#   Bug 1633935 - P9 send OnAfterLastPart via pBg IPC to avoid race between OS*R, r=mayhemer,necko-reviewers
+#   
+#   Depends on D77750
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D77751
+# ==============================================================================
+
+diff -r ac9c5c1e5162 -r 3b268ac50692 netwerk/protocol/http/HttpBackgroundChannelChild.cpp
+--- a/netwerk/protocol/http/HttpBackgroundChannelChild.cpp	Tue Jun 23 16:58:29 2020 +0000
++++ b/netwerk/protocol/http/HttpBackgroundChannelChild.cpp	Tue Jun 23 16:58:33 2020 +0000
+@@ -125,6 +125,20 @@
+   return true;
+ }
+ 
++IPCResult HttpBackgroundChannelChild::RecvOnAfterLastPart(
++    const nsresult& aStatus) {
++  LOG(("HttpBackgroundChannelChild::RecvOnAfterLastPart [this=%p]\n", this));
++  MOZ_ASSERT(OnSocketThread());
++
++  MOZ_ASSERT(mChannelChild, "no channel child in RecvOnAfterLastPart");
++  if (NS_WARN_IF(!mChannelChild)) {
++    return IPC_OK();
++  }
++
++  mChannelChild->ProcessOnAfterLastPart(aStatus);
++  return IPC_OK();
++}
++
+ IPCResult HttpBackgroundChannelChild::RecvOnProgress(
+     const int64_t& aProgress, const int64_t& aProgressMax) {
+   LOG(("HttpBackgroundChannelChild::RecvOnProgress [this=%p]\n", this));

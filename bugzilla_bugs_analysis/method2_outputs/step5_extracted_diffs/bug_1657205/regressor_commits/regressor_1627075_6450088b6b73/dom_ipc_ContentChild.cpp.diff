@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentChild.cpp
+# Commit: 6450088b6b73
+# Full Hash: 6450088b6b73ffc17c79cd7097b1bfe30d00e207
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2020-09-14 21:29:41
+# Regressor Bug: 1627075
+# File Overlap Count: 1
+# Description:
+#   Bug 1656261 - Back out all recent StartupCache work r=RyanVM
+#   
+#   This backs out all work from bug 1627075 as well as all of its
+#   descendents. There were a few conflicts when backing this out but
+#   overall it was pretty clean, so I would say it's a fairly mild
+# ==============================================================================
+
+diff -r b0fabcd60430 -r 6450088b6b73 dom/ipc/ContentChild.cpp
+--- a/dom/ipc/ContentChild.cpp	Mon Sep 14 17:32:40 2020 +0000
++++ b/dom/ipc/ContentChild.cpp	Mon Sep 14 17:00:53 2020 +0000
+@@ -100,7 +100,6 @@
+ #include "mozilla/plugins/PluginInstanceParent.h"
+ #include "mozilla/plugins/PluginModuleParent.h"
+ #include "mozilla/RemoteLazyInputStreamChild.h"
+-#include "mozilla/scache/StartupCacheChild.h"
+ #include "mozilla/widget/ScreenManager.h"
+ #include "mozilla/widget/WidgetMessageUtils.h"
+ #include "nsBaseDragService.h"
+@@ -1910,22 +1909,6 @@
+   return IPC_OK();
+ }
+ 
+-scache::PStartupCacheChild* ContentChild::AllocPStartupCacheChild() {
+-  return new scache::StartupCacheChild();
+-}
+-
+-bool ContentChild::DeallocPStartupCacheChild(
+-    scache::PStartupCacheChild* cache) {
+-  delete static_cast<scache::StartupCacheChild*>(cache);
+-  return true;
+-}
+-
+-mozilla::ipc::IPCResult ContentChild::RecvPStartupCacheConstructor(
+-    scache::PStartupCacheChild* actor) {
+-  static_cast<scache::StartupCacheChild*>(actor)->Init();
+-  return IPC_OK();
+-}
+-
+ PNeckoChild* ContentChild::AllocPNeckoChild() { return new NeckoChild(); }
+ 
+ mozilla::ipc::IPCResult ContentChild::RecvNetworkLinkTypeChange(

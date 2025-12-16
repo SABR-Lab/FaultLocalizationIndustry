@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/ipc/SocketProcessChild.cpp
+# Commit: 10e01cf10faf
+# Full Hash: 10e01cf10fafca4a150c2f76b3ce4e33bbd06223
+# Author: Michael Froman <mfroman@mozilla.com>
+# Date: 2020-03-09 21:52:54
+# Regressor Bug: 1608558
+# File Overlap Count: 1
+# Description:
+#   Bug 1608558 - pt1 - add linux sandboxing to socket process. r=gcp
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D60014
+# ==============================================================================
+
+diff -r 61e14505a488 -r 10e01cf10faf netwerk/ipc/SocketProcessChild.cpp
+--- a/netwerk/ipc/SocketProcessChild.cpp	Fri Mar 06 20:29:47 2020 +0000
++++ b/netwerk/ipc/SocketProcessChild.cpp	Mon Mar 09 14:56:03 2020 +0000
+@@ -28,6 +28,10 @@
+ #include "ProcessUtils.h"
+ #include "SocketProcessBridgeParent.h"
+ 
++#if defined(XP_LINUX) && defined(MOZ_SANDBOX)
++#  include "mozilla/Sandbox.h"
++#endif
++
+ #ifdef MOZ_GECKO_PROFILER
+ #  include "ChildProfilerController.h"
+ #endif
+@@ -172,6 +176,18 @@
+   return IPC_OK();
+ }
+ 
++mozilla::ipc::IPCResult SocketProcessChild::RecvInitLinuxSandbox(
++    const Maybe<ipc::FileDescriptor>& aBrokerFd) {
++#if defined(XP_LINUX) && defined(MOZ_SANDBOX)
++  int fd = -1;
++  if (aBrokerFd.isSome()) {
++    fd = aBrokerFd.value().ClonePlatformHandle().release();
++  }
++  SetSocketProcessSandbox(fd);
++#endif  // XP_LINUX && MOZ_SANDBOX
++  return IPC_OK();
++}
++
+ mozilla::ipc::IPCResult SocketProcessChild::RecvInitSocketProcessBridgeParent(
+     const ProcessId& aContentProcessId,
+     Endpoint<mozilla::net::PSocketProcessBridgeParent>&& aEndpoint) {

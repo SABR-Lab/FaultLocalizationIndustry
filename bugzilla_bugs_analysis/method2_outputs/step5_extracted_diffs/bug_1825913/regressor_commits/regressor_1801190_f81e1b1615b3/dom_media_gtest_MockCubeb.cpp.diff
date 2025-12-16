@@ -1,0 +1,36 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/gtest/MockCubeb.cpp
+# Commit: f81e1b1615b3
+# Full Hash: f81e1b1615b3a9c5ef6c62a291f79029b3807dde
+# Author: Karl Tomlinson <karlt+@karlt.net>
+# Date: 2023-03-31 09:51:00
+# Regressor Bug: 1801190
+# File Overlap Count: 1
+# Description:
+#   Bug 1801190 do not reset mAudioStreamState to None on state changes from an old cubeb_stream r=pehrsons
+#   
+#   Such resets were preventing transitions to Running for new streams and allowing
+#   MaybeStartAudioStream() to start another stream.
+#   
+# ==============================================================================
+
+diff -r 9592d9865f5a -r f81e1b1615b3 dom/media/gtest/MockCubeb.cpp
+--- a/dom/media/gtest/MockCubeb.cpp	Fri Mar 31 02:23:14 2023 +0300
++++ b/dom/media/gtest/MockCubeb.cpp	Thu Mar 30 23:18:44 2023 +0000
+@@ -236,6 +236,14 @@
+   return rv;
+ }
+ 
++void MockCubebStream::Destroy() {
++  // Dispatch an extra STOPPED state change as produced with audioipc.
++  // https://bugzilla.mozilla.org/show_bug.cgi?id=1801190#c1
++  NotifyStateChanged(CUBEB_STATE_STOPPED);
++
++  MockCubeb::AsMock(context)->StreamDestroy(AsCubebStream());
++}
++
+ int MockCubebStream::RegisterDeviceChangedCallback(
+     cubeb_device_changed_callback aDeviceChangedCallback) {
+   if (mDeviceChangedCallback && aDeviceChangedCallback) {

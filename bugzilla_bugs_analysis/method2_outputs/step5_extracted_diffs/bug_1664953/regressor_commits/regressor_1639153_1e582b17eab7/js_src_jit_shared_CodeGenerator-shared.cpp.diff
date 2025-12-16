@@ -1,0 +1,122 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/shared/CodeGenerator-shared.cpp
+# Commit: 1e582b17eab7
+# Full Hash: 1e582b17eab7abf3958e46bc52ea3eeafa764eeb
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-09-11 09:30:56
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 6.6: Add tls dependency for truncate i32. r=lth
+#   
+#   We generate builtin call for MTruncateToInt32 operation for floating points types,
+#   so we need to add a tls dependency.
+#   I inserted NYI for arm64 because Ion doesn't support arm64.
+# ==============================================================================
+
+diff -r a309060018a8 -r 1e582b17eab7 js/src/jit/shared/CodeGenerator-shared.cpp
+--- a/js/src/jit/shared/CodeGenerator-shared.cpp	Wed Sep 09 06:37:59 2020 +0000
++++ b/js/src/jit/shared/CodeGenerator-shared.cpp	Wed Sep 09 08:59:55 2020 +0000
+@@ -886,15 +886,18 @@
+   Register dest_;
+   bool widenFloatToDouble_;
+   wasm::BytecodeOffset bytecodeOffset_;
++  bool preserveTls_;
+ 
+  public:
+   OutOfLineTruncateSlow(
+       FloatRegister src, Register dest, bool widenFloatToDouble = false,
+-      wasm::BytecodeOffset bytecodeOffset = wasm::BytecodeOffset())
++      wasm::BytecodeOffset bytecodeOffset = wasm::BytecodeOffset(),
++      bool preserveTls = false)
+       : src_(src),
+         dest_(dest),
+         widenFloatToDouble_(widenFloatToDouble),
+-        bytecodeOffset_(bytecodeOffset) {}
++        bytecodeOffset_(bytecodeOffset),
++        preserveTls_(preserveTls) {}
+ 
+   void accept(CodeGeneratorShared* codegen) override {
+     codegen->visitOutOfLineTruncateSlow(this);
+@@ -902,16 +905,17 @@
+   FloatRegister src() const { return src_; }
+   Register dest() const { return dest_; }
+   bool widenFloatToDouble() const { return widenFloatToDouble_; }
++  bool preserveTls() const { return preserveTls_; }
+   wasm::BytecodeOffset bytecodeOffset() const { return bytecodeOffset_; }
+ };
+ 
+ OutOfLineCode* CodeGeneratorShared::oolTruncateDouble(
+     FloatRegister src, Register dest, MInstruction* mir,
+-    wasm::BytecodeOffset bytecodeOffset) {
++    wasm::BytecodeOffset bytecodeOffset, bool preserveTls) {
+   MOZ_ASSERT_IF(IsCompilingWasm(), bytecodeOffset.isValid());
+ 
+-  OutOfLineTruncateSlow* ool = new (alloc())
+-      OutOfLineTruncateSlow(src, dest, /* float32 */ false, bytecodeOffset);
++  OutOfLineTruncateSlow* ool = new (alloc()) OutOfLineTruncateSlow(
++      src, dest, /* float32 */ false, bytecodeOffset, preserveTls);
+   addOutOfLineCode(ool, mir);
+   return ool;
+ }
+@@ -924,6 +928,15 @@
+   masm.bind(ool->rejoin());
+ }
+ 
++void CodeGeneratorShared::emitTruncateDoubleBuiltin(
++    FloatRegister src, Register dest, MWasmBuiltinTruncateToInt32* mir) {
++  OutOfLineCode* ool = oolTruncateDouble(src, dest, mir, mir->bytecodeOffset(),
++                                         true /* preserveTls */);
++
++  masm.branchTruncateDoubleMaybeModUint32(src, dest, ool->entry());
++  masm.bind(ool->rejoin());
++}
++
+ void CodeGeneratorShared::emitTruncateFloat32(FloatRegister src, Register dest,
+                                               MTruncateToInt32* mir) {
+   OutOfLineTruncateSlow* ool = new (alloc()) OutOfLineTruncateSlow(
+@@ -934,16 +947,41 @@
+   masm.bind(ool->rejoin());
+ }
+ 
++void CodeGeneratorShared::emitTruncateFloat32Builtin(
++    FloatRegister src, Register dest, MWasmBuiltinTruncateToInt32* mir) {
++  OutOfLineTruncateSlow* ool = new (alloc())
++      OutOfLineTruncateSlow(src, dest, /* float32 */ true,
++                            mir->bytecodeOffset(), true /* preserveTls */);
++  addOutOfLineCode(ool, mir);
++
++  masm.branchTruncateFloat32MaybeModUint32(src, dest, ool->entry());
++  masm.bind(ool->rejoin());
++}
++
+ void CodeGeneratorShared::visitOutOfLineTruncateSlow(
+     OutOfLineTruncateSlow* ool) {
+   FloatRegister src = ool->src();
+   Register dest = ool->dest();
+ 
++  if (ool->preserveTls()) {
++    masm.Push(WasmTlsReg);
++  }
++  int32_t framePushedAfterTls = masm.framePushed();
++
+   saveVolatile(dest);
++  mozilla::Maybe<int32_t> tlsOffset =
++      ool->preserveTls()
++          ? mozilla::Some(masm.framePushed() - framePushedAfterTls)
++          : mozilla::Nothing();
+   masm.outOfLineTruncateSlow(src, dest, ool->widenFloatToDouble(),
+-                             gen->compilingWasm(), ool->bytecodeOffset());
++                             gen->compilingWasm(), ool->bytecodeOffset(),
++                             tlsOffset);
+   restoreVolatile(dest);
+ 
++  if (ool->preserveTls()) {
++    masm.Pop(WasmTlsReg);
++  }
++
+   masm.jump(ool->rejoin());
+ }
+ 

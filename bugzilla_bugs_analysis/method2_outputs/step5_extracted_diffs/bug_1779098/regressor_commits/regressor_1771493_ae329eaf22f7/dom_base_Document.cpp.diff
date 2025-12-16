@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/Document.cpp
+# Commit: ae329eaf22f7
+# Full Hash: ae329eaf22f70199e5f3f9d16d4c3b7c50120732
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2022-06-29 03:44:30
+# Regressor Bug: 1771493
+# File Overlap Count: 1
+# Description:
+#   Bug 1771493 - Part 4. Split FontFaceSetDocumentImpl from FontFaceSetImpl. r=emilio
+#   
+#   This patch splits document specific functionality from FontFaceSetImpl
+#   into a new class FontFaceSetDocumentImpl. This will make it easier to
+#   fork FontFaceSetImpl for workers.
+# ==============================================================================
+
+diff -r f724c21b1f15 -r ae329eaf22f7 dom/base/Document.cpp
+--- a/dom/base/Document.cpp	Tue Jun 28 21:47:00 2022 +0000
++++ b/dom/base/Document.cpp	Tue Jun 28 21:47:01 2022 +0000
+@@ -16122,8 +16122,7 @@
+     }
+ 
+     if (!mFontFaceSet && !rules.IsEmpty()) {
+-      nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(GetScopeObject());
+-      mFontFaceSet = new FontFaceSet(window, this);
++      mFontFaceSet = FontFaceSet::CreateForDocument(this);
+     }
+ 
+     bool changed = false;
+@@ -16155,8 +16154,7 @@
+ 
+ FontFaceSet* Document::Fonts() {
+   if (!mFontFaceSet) {
+-    nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(GetScopeObject());
+-    mFontFaceSet = new FontFaceSet(window, this);
++    mFontFaceSet = FontFaceSet::CreateForDocument(this);
+     FlushUserFontSet();
+   }
+   return mFontFaceSet;

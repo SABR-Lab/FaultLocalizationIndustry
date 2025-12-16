@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/Barrier.cpp
+# Commit: a0d1fb0a86b0
+# Full Hash: a0d1fb0a86b04c74a8809c35230382f90cdfe779
+# Author: André Bargull <andre.bargull@gmail.com>
+# Date: 2020-01-07 21:57:58
+# Regressor Bug: 1530372
+# File Overlap Count: 1
+# Description:
+#   Bug 1530372 - Part 4: Support nursery allocation for BigInt. r=sfink,jandem
+#   
+#   Most of the code was copied from the String nursery allocation code paths and
+#   then adjusted to work with BigInts. Where applicable, the newly added BigInt
+#   functions were placed right next to the String functions, so it's easier to
+# ==============================================================================
+
+diff -r 9ae1e055de13 -r a0d1fb0a86b0 js/src/gc/Barrier.cpp
+--- a/js/src/gc/Barrier.cpp	Thu Jan 02 13:04:45 2020 +0000
++++ b/js/src/gc/Barrier.cpp	Mon Jan 06 12:49:45 2020 +0000
+@@ -207,6 +207,13 @@
+   js::InternalBarrierMethods<JSString*>::postBarrier(strp, prev, next);
+ }
+ 
++JS_PUBLIC_API void JS::HeapBigIntPostWriteBarrier(JS::BigInt** bip,
++                                                  JS::BigInt* prev,
++                                                  JS::BigInt* next) {
++  MOZ_ASSERT(bip);
++  js::InternalBarrierMethods<JS::BigInt*>::postBarrier(bip, prev, next);
++}
++
+ JS_PUBLIC_API void JS::HeapValuePostWriteBarrier(JS::Value* valuep,
+                                                  const Value& prev,
+                                                  const Value& next) {
+@@ -231,6 +238,14 @@
+   js::InternalBarrierMethods<JSString*>::postBarrier(strp, prev, next);
+ }
+ 
++JS_PUBLIC_API void JS::HeapBigIntWriteBarriers(JS::BigInt** bip,
++                                               JS::BigInt* prev,
++                                               JS::BigInt* next) {
++  MOZ_ASSERT(bip);
++  js::InternalBarrierMethods<JS::BigInt*>::preBarrier(prev);
++  js::InternalBarrierMethods<JS::BigInt*>::postBarrier(bip, prev, next);
++}
++
+ JS_PUBLIC_API void JS::HeapScriptWriteBarriers(JSScript** scriptp,
+                                                JSScript* prev, JSScript* next) {
+   MOZ_ASSERT(scriptp);

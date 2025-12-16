@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmJS.cpp
+# Commit: 00d2290648a7
+# Full Hash: 00d2290648a75aeefbb4738298ddfcda2d0797b0
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2020-08-18 09:24:52
+# Regressor Bug: 1561521
+# File Overlap Count: 2
+# Description:
+#   Bug 1561521 - Add non-nullable references. r=lth
+#   
+#   This commit adds decoding, validation, and JS-API type-checking for
+#   non-nullable references.
+#   
+# ==============================================================================
+
+diff -r cd847eba7f9c -r 00d2290648a7 js/src/wasm/WasmJS.cpp
+--- a/js/src/wasm/WasmJS.cpp	Tue Aug 18 00:06:00 2020 +0000
++++ b/js/src/wasm/WasmJS.cpp	Tue Aug 18 00:40:20 2020 +0000
+@@ -431,10 +431,15 @@
+   return StreamingCompilationAvailable(cx) && IonAvailable(cx);
+ }
+ 
+-bool wasm::CheckRefType(JSContext* cx, RefType::Kind targetTypeKind,
+-                        HandleValue v, MutableHandleFunction fnval,
++bool wasm::CheckRefType(JSContext* cx, RefType targetType, HandleValue v,
++                        MutableHandleFunction fnval,
+                         MutableHandleAnyRef refval) {
+-  switch (targetTypeKind) {
++  if (!targetType.isNullable() && v.isNull()) {
++    JS_ReportErrorNumberUTF8(cx, GetErrorMessage, nullptr,
++                             JSMSG_WASM_BAD_REF_NONNULLABLE_VALUE);
++    return false;
++  }
++  switch (targetType.kind()) {
+     case RefType::Func:
+       if (!CheckFuncRefValue(cx, v, fnval)) {
+         return false;
+@@ -489,7 +494,7 @@
+     case ValType::Ref: {
+       RootedFunction fun(cx);
+       RootedAnyRef any(cx, AnyRef::null());
+-      if (!CheckRefType(cx, targetType.refTypeKind(), v, &fun, &any)) {
++      if (!CheckRefType(cx, targetType.refType(), v, &fun, &any)) {
+         return false;
+       }
+       switch (targetType.refTypeKind()) {
+@@ -2695,7 +2700,7 @@
+   RootedValue fillValue(cx, args[1]);
+   RootedFunction fun(cx);
+   RootedAnyRef any(cx, AnyRef::null());
+-  if (!CheckRefType(cx, table.elemType().kind(), fillValue, &fun, &any)) {
++  if (!CheckRefType(cx, table.elemType(), fillValue, &fun, &any)) {
+     return false;
+   }
+   switch (table.elemType().kind()) {
+@@ -2706,6 +2711,8 @@
+     case RefType::Extern:
+       table.fillAnyRef(index, 1, any);
+       break;
++    case RefType::TypeIndex:
++      MOZ_CRASH("Ref NYI");
+   }
+ 
+   args.rval().setUndefined();
+@@ -2755,7 +2762,7 @@
+   if (!fillValue.isNull()) {
+     RootedFunction fun(cx);
+     RootedAnyRef any(cx, AnyRef::null());
+-    if (!CheckRefType(cx, table.elemType().kind(), fillValue, &fun, &any)) {
++    if (!CheckRefType(cx, table.elemType(), fillValue, &fun, &any)) {
+       return false;
+     }
+     switch (table.repr()) {

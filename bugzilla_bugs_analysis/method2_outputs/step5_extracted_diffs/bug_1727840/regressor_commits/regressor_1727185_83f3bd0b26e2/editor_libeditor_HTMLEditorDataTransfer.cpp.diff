@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/HTMLEditorDataTransfer.cpp
+# Commit: 83f3bd0b26e2
+# Full Hash: 83f3bd0b26e203bedcae8b14ab5995633b4b3275
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2021-08-25 09:54:00
+# Regressor Bug: 1727185
+# File Overlap Count: 1
+# Description:
+#   Bug 1727185 - Add `MOZ_DIAGNOSTIC_ASSERT` to the constructors of `DeleteNodeTransaction` and `SplitNodeTransaction` and make their users return error before hitting it r=m_kato
+#   
+#   On Thunderbird, we still have a bug to delete `<html>` and `<body>` elements
+#   (bug 1727201).  However, it's hard to know where deletes the unexpected elements
+#   from warning messages in the log.  Additionally, it's really serious bug
+# ==============================================================================
+
+diff -r 8868fe82dafd -r 83f3bd0b26e2 editor/libeditor/HTMLEditorDataTransfer.cpp
+--- a/editor/libeditor/HTMLEditorDataTransfer.cpp	Wed Aug 25 00:21:01 2021 +0000
++++ b/editor/libeditor/HTMLEditorDataTransfer.cpp	Wed Aug 25 00:39:41 2021 +0000
+@@ -905,12 +905,17 @@
+         }
+         // If the child of current node is not list item nor list element,
+         // we should remove it from the DOM tree.
+-        else {
++        else if (HTMLEditUtils::IsRemovableNode(*firstChild)) {
+           AutoEditorDOMPointChildInvalidator lockOffset(pointToInsert);
+           IgnoredErrorResult ignoredError;
+           content->RemoveChild(*firstChild, ignoredError);
+           NS_WARNING_ASSERTION(!ignoredError.Failed(),
+                                "nsINode::RemoveChild() failed, but ignored");
++        } else {
++          NS_WARNING(
++              "Failed to delete the first child of a list element because the "
++              "list element non-editable");
++          break;
+         }
+       }
+     }

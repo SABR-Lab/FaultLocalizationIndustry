@@ -1,0 +1,34 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/Marking.cpp
+# Commit: 5af2e0c7d94b
+# Full Hash: 5af2e0c7d94b02c9998b733effaed23079442940
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2022-03-11 21:51:10
+# Description:
+#   Bug 1759107 - Don't add gecko profiler stack frames when unmarking gray things on helper threads r=jandem
+#   
+#   This is a null pointer dereference because TlsContext is null on helper
+#   threads.
+#   
+# ==============================================================================
+
+diff -r 334ecc769a3a -r 5af2e0c7d94b js/src/gc/Marking.cpp
+--- a/js/src/gc/Marking.cpp	Fri Mar 11 13:34:48 2022 +0000
++++ b/js/src/gc/Marking.cpp	Fri Mar 11 13:44:39 2022 +0000
+@@ -3041,9 +3041,11 @@
+   MOZ_ASSERT(thing);
+   MOZ_ASSERT(thing.asCell()->isMarkedGray());
+ 
+-  AutoGeckoProfilerEntry profilingStackFrame(
+-      TlsContext.get(), "UnmarkGrayGCThing",
+-      JS::ProfilingCategoryPair::GCCC_UnmarkGray);
++  mozilla::Maybe<AutoGeckoProfilerEntry> profilingStackFrame;
++  if (JSContext* cx = TlsContext.get()) {
++    profilingStackFrame.emplace(cx, "UnmarkGrayGCThing",
++                                JS::ProfilingCategoryPair::GCCC_UnmarkGray);
++  }
+ 
+   UnmarkGrayTracer unmarker(rt);
+   unmarker.unmark(thing);

@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentParent.h
+# Commit: 2081d42e6ccd
+# Full Hash: 2081d42e6ccdcc39b3d1b2e6523a8d44fed85390
+# Author: Andrea Marchesini <amarchesini@mozilla.com>
+# Date: 2024-09-13 04:28:43
+# Regressor Bug: 1475599
+# File Overlap Count: 1
+# Description:
+#   Bug 1475599 - part 8 - CookieStore API - e10s support, r=smaug,cookie-reviewers,timhuang
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D217574
+# ==============================================================================
+
+diff -r c6e20b939a21 -r 2081d42e6ccd dom/ipc/ContentParent.h
+--- a/dom/ipc/ContentParent.h	Thu Sep 12 16:48:21 2024 +0000
++++ b/dom/ipc/ContentParent.h	Thu Sep 12 16:48:21 2024 +0000
+@@ -629,6 +629,12 @@
+   // to this content process forever.
+   void TransmitBlobURLsForPrincipal(nsIPrincipal* aPrincipal);
+ 
++  // Update a cache list of allowed domains to store cookies for the current
++  // process. This method is called when PCookieServiceParent actor is not
++  // available yet.
++  void AddPrincipalToCookieInProcessCache(nsIPrincipal* aPrincipal);
++  void TakeCookieInProcessCache(nsTArray<nsCOMPtr<nsIPrincipal>>& aList);
++
+   nsresult TransmitPermissionsForPrincipal(nsIPrincipal* aPrincipal);
+ 
+   // Whenever receiving a Principal we need to validate that Principal case
+@@ -1567,6 +1573,8 @@
+ 
+   nsTArray<nsCString> mBlobURLs;
+ 
++  nsTArray<nsCOMPtr<nsIPrincipal>> mCookieInContentListCache;
++
+   // This is intended to be a memory and time efficient means of determining
+   // whether an origin has ever existed in a process so that Blob URL broadcast
+   // doesn't need to transmit every Blob URL to every content process. False

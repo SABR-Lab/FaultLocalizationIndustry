@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/BrowsingContext.h
+# Commit: e650c0acb702
+# Full Hash: e650c0acb7027d22d04aeb6525834e5f89eedd92
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2020-08-19 21:28:29
+# Regressor Bug: 1602410
+# File Overlap Count: 1
+# Description:
+#   Bug 1602410 - Make window.print() work with tab-modal printing. r=nika,geckoview-reviewers,agi
+#   
+#   Do this by spinning the event loop until we've done the clone for
+#   preview as appropriate.
+#   
+# ==============================================================================
+
+diff -r 1f9187fefcb6 -r e650c0acb702 docshell/base/BrowsingContext.h
+--- a/docshell/base/BrowsingContext.h	Tue Aug 18 21:33:15 2020 +0000
++++ b/docshell/base/BrowsingContext.h	Wed Aug 19 09:27:18 2020 +0000
+@@ -94,6 +94,9 @@
+   FIELD(CurrentInnerWindowId, uint64_t)                                      \
+   FIELD(HadOriginalOpener, bool)                                             \
+   FIELD(IsPopupSpam, bool)                                                   \
++  /* Whether the window is currently blocked spinning the event loop in the  \
++   * middle of a window.print() operation */                                 \
++  FIELD(IsAwaitingPrint, bool)                                               \
+   /* Controls whether the BrowsingContext is currently considered to be      \
+    * activated by a gesture */                                               \
+   FIELD(UserActivationState, UserActivation::State)                          \
+@@ -415,6 +418,8 @@
+ 
+   bool FullscreenAllowed() const;
+ 
++  bool IsAwaitingPrint() const { return GetIsAwaitingPrint(); }
++
+   float FullZoom() const { return GetFullZoom(); }
+   float TextZoom() const { return GetTextZoom(); }
+ 
+@@ -710,6 +715,8 @@
+ 
+   void DidSet(FieldIndex<IDX_IsActive>, bool aOldValue);
+ 
++  void DidSet(FieldIndex<IDX_IsAwaitingPrint>, bool aOldValue);
++
+   // Ensure that we only set the flag on the top level browsingContext.
+   // And then, we do a pre-order walk in the tree to refresh the
+   // volume of all media elements.

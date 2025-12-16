@@ -1,0 +1,33 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: accessible/base/nsAccessibilityService.cpp
+# Commit: 2d78b20de925
+# Full Hash: 2d78b20de9258ad40be07f0a9eee96cb273367e7
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2022-07-14 03:48:49
+# Description:
+#   Bug 1779303: Don't add null attribute values for RemoteAccessibles with markup attributes that must be fetched from DOM. r=morgan
+#   
+#   Some markup elements expose Accessible attributes which must be retrieved from DOM; e.g. the datetime attribute of the datetime element.
+#   We don't cache these yet for RemoteAccessible.
+#   Previously, these were unintentionally exposed from MarkupAttributes with null values.
+# ==============================================================================
+
+diff -r b7f1488ec2e7 -r 2d78b20de925 accessible/base/nsAccessibilityService.cpp
+--- a/accessible/base/nsAccessibilityService.cpp	Thu Jul 14 03:20:35 2022 +0300
++++ b/accessible/base/nsAccessibilityService.cpp	Thu Jul 14 00:21:27 2022 +0000
+@@ -1551,8 +1551,11 @@
+     const MarkupAttrInfo* info = markupMap->attrs + i;
+     if (!info->name) break;
+ 
+-    // XXX Expose DOM attributes for cached RemoteAccessibles.
+-    if (info->DOMAttrName && el) {
++    if (info->DOMAttrName) {
++      if (!el) {
++        // XXX Expose DOM attributes for cached RemoteAccessibles.
++        continue;
++      }
+       if (info->DOMAttrValue) {
+         if (el->AttrValueIs(kNameSpaceID_None, info->DOMAttrName,
+                             info->DOMAttrValue, eCaseMatters)) {

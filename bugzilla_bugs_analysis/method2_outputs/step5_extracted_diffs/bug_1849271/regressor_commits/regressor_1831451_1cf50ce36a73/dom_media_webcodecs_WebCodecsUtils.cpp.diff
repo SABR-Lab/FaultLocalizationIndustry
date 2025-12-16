@@ -1,0 +1,85 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webcodecs/WebCodecsUtils.cpp
+# Commit: 1cf50ce36a73
+# Full Hash: 1cf50ce36a7331c58822b4caecb2a67103eb6da5
+# Author: Chun-Min Chang <chun.m.chang@gmail.com>
+# Date: 2023-06-29 15:31:45
+# Regressor Bug: 1831451
+# File Overlap Count: 1
+# Description:
+#   Bug 1831451 - Guess pixel format from VideoData r=aosmond
+#   
+#   Depends on D170635
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D171166
+# ==============================================================================
+
+diff -r d7f55df2c2e4 -r 1cf50ce36a73 dom/media/webcodecs/WebCodecsUtils.cpp
+--- a/dom/media/webcodecs/WebCodecsUtils.cpp	Thu Jun 29 04:15:03 2023 +0000
++++ b/dom/media/webcodecs/WebCodecsUtils.cpp	Thu Jun 29 04:15:03 2023 +0000
+@@ -10,7 +10,9 @@
+ #include "js/experimental/TypedData.h"
+ #include "mozilla/Assertions.h"
+ #include "mozilla/CheckedInt.h"
++#include "mozilla/dom/ImageBitmapBinding.h"
+ #include "mozilla/dom/VideoColorSpaceBinding.h"
++#include "mozilla/dom/VideoFrameBinding.h"
+ #include "mozilla/gfx/Types.h"
+ #include "nsDebug.h"
+ 
+@@ -250,4 +252,53 @@
+   return Nothing();
+ }
+ 
++/*
++ * The following are utilities to convert from gfx's formats to
++ * VideoPixelFormats.
++ */
++
++Maybe<VideoPixelFormat> SurfaceFormatToVideoPixelFormat(
++    gfx::SurfaceFormat aFormat) {
++  switch (aFormat) {
++    case gfx::SurfaceFormat::B8G8R8A8:
++      return Some(VideoPixelFormat::BGRA);
++    case gfx::SurfaceFormat::B8G8R8X8:
++      return Some(VideoPixelFormat::BGRX);
++    case gfx::SurfaceFormat::R8G8B8A8:
++      return Some(VideoPixelFormat::RGBA);
++    case gfx::SurfaceFormat::R8G8B8X8:
++      return Some(VideoPixelFormat::RGBX);
++    case gfx::SurfaceFormat::YUV:
++      return Some(VideoPixelFormat::I420);
++    case gfx::SurfaceFormat::NV12:
++      return Some(VideoPixelFormat::NV12);
++    case gfx::SurfaceFormat::YUV422:
++      return Some(VideoPixelFormat::I422);
++    default:
++      break;
++  }
++  return Nothing();
++}
++
++Maybe<VideoPixelFormat> ImageBitmapFormatToVideoPixelFormat(
++    ImageBitmapFormat aFormat) {
++  switch (aFormat) {
++    case ImageBitmapFormat::RGBA32:
++      return Some(VideoPixelFormat::RGBA);
++    case ImageBitmapFormat::BGRA32:
++      return Some(VideoPixelFormat::BGRA);
++    case ImageBitmapFormat::YUV444P:
++      return Some(VideoPixelFormat::I444);
++    case ImageBitmapFormat::YUV422P:
++      return Some(VideoPixelFormat::I422);
++    case ImageBitmapFormat::YUV420P:
++      return Some(VideoPixelFormat::I420);
++    case ImageBitmapFormat::YUV420SP_NV12:
++      return Some(VideoPixelFormat::NV12);
++    default:
++      break;
++  }
++  return Nothing();
++}
++
+ }  // namespace mozilla::dom

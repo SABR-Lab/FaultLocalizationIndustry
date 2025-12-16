@@ -1,0 +1,55 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: xpcom/tests/gtest/TestTimers.cpp
+# Commit: ccfc888e21c8
+# Full Hash: ccfc888e21c8baff2a43f054edc04582c180d80d
+# Author: Byron Campen <docfaraday@gmail.com>
+# Date: 2021-09-11 09:51:21
+# Description:
+#   Bug 1729921: Cancel with a sync dispatch to the target thread in these tests. r=nika
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D125118
+# ==============================================================================
+
+diff -r 3a733d9c928d -r ccfc888e21c8 xpcom/tests/gtest/TestTimers.cpp
+--- a/xpcom/tests/gtest/TestTimers.cpp	Fri Sep 10 18:24:50 2021 +0000
++++ b/xpcom/tests/gtest/TestTimers.cpp	Fri Sep 10 19:08:25 2021 +0000
+@@ -106,10 +106,7 @@
+         mMonitor(__func__),
+         mTarget(aTarget) {}
+ 
+-  ~TimerHelper() {
+-    MonitorAutoLock lock(mMonitor);
+-    mTimer->Cancel();
+-  }
++  ~TimerHelper() { Cancel(); }
+ 
+   static void ClosureCallback(nsITimer*, void* aClosure) {
+     reinterpret_cast<TimerHelper*>(aClosure)->Notify();
+@@ -131,8 +128,8 @@
+   }
+ 
+   nsresult SetTimer(uint32_t aDelay, uint8_t aType) {
++    Cancel();
+     MonitorAutoLock lock(mMonitor);
+-    mTimer->Cancel();
+     mStart = TimeStamp::Now();
+     return mTimer->InitWithNamedFuncCallback(
+         ClosureCallback, this, aDelay, aType, "TimerHelper::ClosureCallback");
+@@ -163,6 +160,15 @@
+     return std::move(mLastDelay);
+   }
+ 
++  void Cancel() {
++    mTarget->Dispatch(NS_NewRunnableFunction("~TimerHelper timer cancel",
++                                             [this] {
++                                               MonitorAutoLock lock(mMonitor);
++                                               mTimer->Cancel();
++                                             }),
++                      NS_DISPATCH_SYNC);
++  }
++
+  private:
+   TimeStamp mStart;
+   RefPtr<nsITimer> mTimer;

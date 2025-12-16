@@ -1,0 +1,106 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasession/MediaSessionController.cpp
+# Commit: a73415e9c006
+# Full Hash: a73415e9c0067edd1117aa97a2d1675cc1d09ff7
+# Author: alwu <alwu@mozilla.com>
+# Date: 2020-03-17 09:36:40
+# Regressor Bug: 1582508
+# File Overlap Count: 1
+# Description:
+#   Bug 1582508 - part3 : create new structure 'MediaSessionInfo' to store the declared playback state for media session. r=chunmin
+#   
+#   As we would need to preserve media session's playback state as well, we create a new struture to store each media session's propagated properties.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D66340
+# ==============================================================================
+
+diff -r cdda4f7b6bf8 -r a73415e9c006 dom/media/mediasession/MediaSessionController.cpp
+--- a/dom/media/mediasession/MediaSessionController.cpp	Sat Mar 14 01:18:31 2020 +0000
++++ b/dom/media/mediasession/MediaSessionController.cpp	Tue Mar 17 00:03:44 2020 +0000
+@@ -46,39 +46,41 @@
+ }
+ 
+ void MediaSessionController::NotifySessionCreated(uint64_t aSessionContextId) {
+-  if (mMetadataMap.Contains(aSessionContextId)) {
++  if (mMediaSessionInfoMap.Contains(aSessionContextId)) {
+     return;
+   }
+-  Maybe<MediaMetadataBase> empty;
++
+   LOG("Session %" PRId64 " has been created", aSessionContextId);
+-  mMetadataMap.Put(aSessionContextId, empty);
++  mMediaSessionInfoMap.Put(aSessionContextId, MediaSessionInfo::EmptyInfo());
+   UpdateActiveMediaSessionContextId();
+ }
+ 
+ void MediaSessionController::NotifySessionDestroyed(
+     uint64_t aSessionContextId) {
+-  if (!mMetadataMap.Contains(aSessionContextId)) {
++  if (!mMediaSessionInfoMap.Contains(aSessionContextId)) {
+     return;
+   }
+   LOG("Session %" PRId64 " has been destroyed", aSessionContextId);
+-  mMetadataMap.Remove(aSessionContextId);
++  mMediaSessionInfoMap.Remove(aSessionContextId);
+   UpdateActiveMediaSessionContextId();
+ }
+ 
+ void MediaSessionController::UpdateMetadata(
+     uint64_t aSessionContextId, const Maybe<MediaMetadataBase>& aMetadata) {
+-  if (!mMetadataMap.Contains(aSessionContextId)) {
++  if (!mMediaSessionInfoMap.Contains(aSessionContextId)) {
+     return;
+   }
++
++  MediaSessionInfo* info = mMediaSessionInfoMap.GetValue(aSessionContextId);
+   if (IsMetadataEmpty(aMetadata)) {
+     LOG("Reset metadata for session %" PRId64, aSessionContextId);
+-    mMetadataMap.GetValue(aSessionContextId)->reset();
++    info->mMetadata.reset();
+   } else {
+     LOG("Update metadata for session %" PRId64 " title=%s artist=%s album=%s",
+         aSessionContextId, NS_ConvertUTF16toUTF8((*aMetadata).mTitle).get(),
+         NS_ConvertUTF16toUTF8(aMetadata->mArtist).get(),
+         NS_ConvertUTF16toUTF8(aMetadata->mAlbum).get());
+-    mMetadataMap.Put(aSessionContextId, aMetadata);
++    info->mMetadata = aMetadata;
+   }
+   mMetadataChangedEvent.Notify(GetCurrentMediaMetadata());
+   if (StaticPrefs::media_mediacontrol_testingevents_enabled()) {
+@@ -97,11 +99,12 @@
+   // arbitrary one as an active session.
+   uint64_t candidateId = 0;
+   if (mActiveMediaSessionContextId &&
+-      mMetadataMap.Contains(*mActiveMediaSessionContextId)) {
++      mMediaSessionInfoMap.Contains(*mActiveMediaSessionContextId)) {
+     candidateId = *mActiveMediaSessionContextId;
+   }
+ 
+-  for (auto iter = mMetadataMap.ConstIter(); !iter.Done(); iter.Next()) {
++  for (auto iter = mMediaSessionInfoMap.ConstIter(); !iter.Done();
++       iter.Next()) {
+     if (RefPtr<BrowsingContext> bc = BrowsingContext::Get(iter.Key());
+         bc->IsTopContent()) {
+       candidateId = iter.Key();
+@@ -202,13 +205,14 @@
+   // default metadata which is using website's title and favicon as title and
+   // artwork.
+   if (mActiveMediaSessionContextId && !IsInPrivateBrowsing()) {
+-    Maybe<MediaMetadataBase> metadata =
+-        mMetadataMap.Get(*mActiveMediaSessionContextId);
+-    if (!metadata) {
++    MediaSessionInfo info =
++        mMediaSessionInfoMap.Get(*mActiveMediaSessionContextId);
++    if (!info.mMetadata) {
+       return CreateDefaultMetadata();
+     }
+-    FillMissingTitleAndArtworkIfNeeded(*metadata);
+-    return *metadata;
++    MediaMetadataBase& metadata = *(info.mMetadata);
++    FillMissingTitleAndArtworkIfNeeded(metadata);
++    return metadata;
+   }
+   return CreateDefaultMetadata();
+ }

@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/vr/ipc/VRLayerParent.h
+# Commit: e1b0906509ef
+# Full Hash: e1b0906509efa6433978b9f980ec639b7eafbc6d
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Fix non-webgl CI tests. r=handyman
+#   
+#   * Revert some partial webgl+oop+vr code.
+#   * More missing FuncScope.
+#   * Fix compile errors.
+# ==============================================================================
+
+diff -r 7e2a2b1b416f -r e1b0906509ef gfx/vr/ipc/VRLayerParent.h
+--- a/gfx/vr/ipc/VRLayerParent.h	Wed Jan 08 22:19:23 2020 +0000
++++ b/gfx/vr/ipc/VRLayerParent.h	Wed Jan 08 22:19:26 2020 +0000
+@@ -12,14 +12,8 @@
+ #include "mozilla/RefPtr.h"
+ #include "mozilla/gfx/PVRLayerParent.h"
+ #include "gfxVR.h"
+-#include "mozilla/layers/TextureClientSharedSurface.h"
+ 
+ namespace mozilla {
+-
+-namespace dom {
+-class PWebGLParent;
+-}
+-
+ namespace gfx {
+ 
+ class VRLayerParent : public PVRLayerParent {
+@@ -28,14 +22,9 @@
+  public:
+   VRLayerParent(uint32_t aVRDisplayID, const uint32_t aGroup);
+   virtual mozilla::ipc::IPCResult RecvSubmitFrame(
+-      mozilla::dom::PWebGLParent* aPWebGLParent, const uint64_t& aFrameId,
+-      const uint64_t& aLastFrameId, const gfx::Rect& aLeftEyeRect,
+-      const gfx::Rect& aRightEyeRect) override;
+-
+-  mozilla::ipc::IPCResult RecvClearSurfaces() override;
+-
++      const layers::SurfaceDescriptor& aTexture, const uint64_t& aFrameId,
++      const gfx::Rect& aLeftEyeRect, const gfx::Rect& aRightEyeRect) override;
+   virtual mozilla::ipc::IPCResult RecvDestroy() override;
+-
+   uint32_t GetDisplayID() const { return mVRDisplayID; }
+   uint32_t GetGroup() const { return mGroup; }
+ 
+@@ -45,9 +34,6 @@
+   virtual ~VRLayerParent();
+   void Destroy();
+ 
+-  RefPtr<layers::SharedSurfaceTextureClient> mThisFrameTexture;
+-  RefPtr<layers::SharedSurfaceTextureClient> mLastFrameTexture;
+-
+   bool mIPCOpen;
+ 
+   uint32_t mVRDisplayID;

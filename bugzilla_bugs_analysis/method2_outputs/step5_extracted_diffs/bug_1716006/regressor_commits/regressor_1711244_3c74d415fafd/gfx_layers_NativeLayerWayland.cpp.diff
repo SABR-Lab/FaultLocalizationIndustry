@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/NativeLayerWayland.cpp
+# Commit: 3c74d415fafd
+# Full Hash: 3c74d415fafd4bff5576ed0a2256c1a0232b5937
+# Author: Robert Mader <robert.mader@posteo.de>
+# Date: 2021-06-11 09:42:05
+# Regressor Bug: 1711244
+# File Overlap Count: 2
+# Description:
+#   Bug 1711244 - Integrate NativeLayerWayland with WaylandVsyncSource, r=stransky,gfx-reviewers,jrmuizel
+#   
+#   Make the vsync source request frame callbacks from opaque native
+#   layers. This is necessary as opaque layers may occlude the
+#   MozContainer surface, which is normally used for frame callbacks.
+# ==============================================================================
+
+diff -r bc5ca21bf534 -r 3c74d415fafd gfx/layers/NativeLayerWayland.cpp
+--- a/gfx/layers/NativeLayerWayland.cpp	Thu Jun 10 14:58:53 2021 +0000
++++ b/gfx/layers/NativeLayerWayland.cpp	Thu Jun 10 15:12:54 2021 +0000
+@@ -325,6 +325,9 @@
+         wl_region_destroy(region);
+         wl_surface_commit(layerSurface);
+       }
++      if (mCallbackMultiplexHelper && mCallbackMultiplexHelper->IsActive()) {
++        layer->mNativeSurface->RequestFrameCallback(mCallbackMultiplexHelper);
++      }
+       mSublayersOnMainThread.AppendElement(layer);
+     }
+   }
+@@ -342,6 +345,25 @@
+   }
+ }
+ 
++void NativeLayerRootWayland::RequestFrameCallback(CallbackFunc aCallbackFunc,
++                                                  void* aCallbackData) {
++  MutexAutoLock lock(mMutex);
++
++  mCallbackMultiplexHelper =
++      new CallbackMultiplexHelper(aCallbackFunc, aCallbackData);
++
++  for (const RefPtr<NativeLayerWayland>& layer : mSublayersOnMainThread) {
++    layer->mNativeSurface->RequestFrameCallback(mCallbackMultiplexHelper);
++  }
++
++  wl_surface* wlSurface = moz_container_wayland_surface_lock(mContainer);
++  if (wlSurface) {
++    wl_surface_commit(wlSurface);
++    wl_display_flush(widget::WaylandDisplayGet()->GetDisplay());
++    moz_container_wayland_surface_unlock(mContainer, &wlSurface);
++  }
++}
++
+ void NativeLayerRootWayland::SetBackingScale(float aBackingScale) {
+   MutexAutoLock lock(mMutex);
+ 

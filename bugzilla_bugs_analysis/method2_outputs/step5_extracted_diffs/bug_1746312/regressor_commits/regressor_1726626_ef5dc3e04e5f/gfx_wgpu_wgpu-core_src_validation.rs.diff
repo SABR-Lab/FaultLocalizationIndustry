@@ -1,0 +1,535 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wgpu/wgpu-core/src/validation.rs
+# Commit: ef5dc3e04e5f
+# Full Hash: ef5dc3e04e5f271eea0636ab3a495e95cc912f1d
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-09-04 09:40:24
+# Regressor Bug: 1726626
+# File Overlap Count: 3
+# Description:
+#   Bug 1726626 - Move gfx/wgpu into a 3rd party dependency r=jgilbert,bholley
+#   
+#   This update makes wgpu a vendored dependency instead of having it in gfx/wgpu.
+#   
+#   ## Notes
+# ==============================================================================
+
+diff --git a/gfx/wgpu/wgpu-core/src/validation.rs b/third_party/rust/wgpu-core/src/validation.rs
+rename from gfx/wgpu/wgpu-core/src/validation.rs
+rename to third_party/rust/wgpu-core/src/validation.rs
+--- a/gfx/wgpu/wgpu-core/src/validation.rs
++++ b/third_party/rust/wgpu-core/src/validation.rs
+@@ -1,12 +1,8 @@
+-/* This Source Code Form is subject to the terms of the Mozilla Public
+- * License, v. 2.0. If a copy of the MPL was not distributed with this
+- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+-
+ use crate::{binding_model::BindEntryMap, FastHashMap, FastHashSet};
+ use naga::valid::GlobalUse;
+ use std::{collections::hash_map::Entry, fmt};
+ use thiserror::Error;
+ use wgt::{BindGroupLayoutEntry, BindingType};
+ 
+ #[derive(Debug)]
+ enum ResourceType {
+@@ -106,52 +102,53 @@ struct EntryPoint {
+     outputs: Vec<Varying>,
+     resources: Vec<(naga::Handle<Resource>, GlobalUse)>,
+     spec_constants: Vec<SpecializationConstant>,
+     sampling_pairs: FastHashSet<(naga::Handle<Resource>, naga::Handle<Resource>)>,
+ }
+ 
+ #[derive(Debug)]
+ pub struct Interface {
++    features: wgt::Features,
+     resources: naga::Arena<Resource>,
+     entry_points: FastHashMap<(naga::ShaderStage, String), EntryPoint>,
+ }
+ 
+ #[derive(Clone, Debug, Error)]
+ #[error("buffer usage is {actual:?} which does not contain required usage {expected:?}")]
+ pub struct MissingBufferUsageError {
+-    pub(crate) actual: wgt::BufferUsage,
+-    pub(crate) expected: wgt::BufferUsage,
++    pub(crate) actual: wgt::BufferUsages,
++    pub(crate) expected: wgt::BufferUsages,
+ }
+ 
+ /// Checks that the given buffer usage contains the required buffer usage,
+ /// returns an error otherwise.
+ pub fn check_buffer_usage(
+-    actual: wgt::BufferUsage,
+-    expected: wgt::BufferUsage,
++    actual: wgt::BufferUsages,
++    expected: wgt::BufferUsages,
+ ) -> Result<(), MissingBufferUsageError> {
+     if !actual.contains(expected) {
+         Err(MissingBufferUsageError { actual, expected })
+     } else {
+         Ok(())
+     }
+ }
+ 
+ #[derive(Clone, Debug, Error)]
+ #[error("texture usage is {actual:?} which does not contain required usage {expected:?}")]
+ pub struct MissingTextureUsageError {
+-    pub(crate) actual: wgt::TextureUsage,
+-    pub(crate) expected: wgt::TextureUsage,
++    pub(crate) actual: wgt::TextureUsages,
++    pub(crate) expected: wgt::TextureUsages,
+ }
+ 
+ /// Checks that the given texture usage contains the required texture usage,
+ /// returns an error otherwise.
+ pub fn check_texture_usage(
+-    actual: wgt::TextureUsage,
+-    expected: wgt::TextureUsage,
++    actual: wgt::TextureUsages,
++    expected: wgt::TextureUsages,
+ ) -> Result<(), MissingTextureUsageError> {
+     if !actual.contains(expected) {
+         Err(MissingTextureUsageError { actual, expected })
+     } else {
+         Ok(())
+     }
+ }
+ 
+@@ -187,16 +184,20 @@ pub enum BindingError {
+         shader: naga::ImageClass,
+     },
+     #[error("comparison flag doesn't match the shader")]
+     WrongSamplerComparison,
+     #[error("derived bind group layout type is not consistent between stages")]
+     InconsistentlyDerivedType,
+     #[error("texture format {0:?} is not supported for storage use")]
+     BadStorageFormat(wgt::TextureFormat),
++    #[error(
++        "storage texture usage {0:?} doesn't have a matching supported `StorageTextureAccess`"
++    )]
++    UnsupportedTextureStorageAccess(GlobalUse),
+ }
+ 
+ #[derive(Clone, Debug, Error)]
+ pub enum FilteringError {
+     #[error("integer textures can't be sampled")]
+     Integer,
+     #[error("non-filterable float texture")]
+     NonFilterable,
+@@ -237,71 +238,99 @@ pub enum StageError {
+         #[source]
+         error: InputError,
+     },
+ }
+ 
+ fn map_storage_format_to_naga(format: wgt::TextureFormat) -> Option<naga::StorageFormat> {
+     use naga::StorageFormat as Sf;
+     use wgt::TextureFormat as Tf;
+-    // Using the table in https://gpuweb.github.io/gpuweb/#plain-color-formats
++
+     Some(match format {
++        Tf::R8Unorm => Sf::R8Unorm,
++        Tf::R8Snorm => Sf::R8Snorm,
++        Tf::R8Uint => Sf::R8Uint,
++        Tf::R8Sint => Sf::R8Sint,
++
++        Tf::R16Uint => Sf::R16Uint,
++        Tf::R16Sint => Sf::R16Sint,
++        Tf::R16Float => Sf::R16Float,
++        Tf::Rg8Unorm => Sf::Rg8Unorm,
++        Tf::Rg8Snorm => Sf::Rg8Snorm,
++        Tf::Rg8Uint => Sf::Rg8Uint,
++        Tf::Rg8Sint => Sf::Rg8Sint,
++
+         Tf::R32Uint => Sf::R32Uint,
+         Tf::R32Sint => Sf::R32Sint,
+         Tf::R32Float => Sf::R32Float,
++        Tf::Rg16Uint => Sf::Rg16Uint,
++        Tf::Rg16Sint => Sf::Rg16Sint,
++        Tf::Rg16Float => Sf::Rg16Float,
+         Tf::Rgba8Unorm => Sf::Rgba8Unorm,
+         Tf::Rgba8Snorm => Sf::Rgba8Snorm,
+         Tf::Rgba8Uint => Sf::Rgba8Uint,
+         Tf::Rgba8Sint => Sf::Rgba8Sint,
++
++        Tf::Rgb10a2Unorm => Sf::Rgb10a2Unorm,
++        Tf::Rg11b10Float => Sf::Rg11b10Float,
++
+         Tf::Rg32Uint => Sf::Rg32Uint,
+         Tf::Rg32Sint => Sf::Rg32Sint,
+         Tf::Rg32Float => Sf::Rg32Float,
+         Tf::Rgba16Uint => Sf::Rgba16Uint,
+         Tf::Rgba16Sint => Sf::Rgba16Sint,
+         Tf::Rgba16Float => Sf::Rgba16Float,
++
+         Tf::Rgba32Uint => Sf::Rgba32Uint,
+         Tf::Rgba32Sint => Sf::Rgba32Sint,
+         Tf::Rgba32Float => Sf::Rgba32Float,
++
+         _ => return None,
+     })
+ }
+ 
+ fn map_storage_format_from_naga(format: naga::StorageFormat) -> wgt::TextureFormat {
+     use naga::StorageFormat as Sf;
+     use wgt::TextureFormat as Tf;
++
+     match format {
+         Sf::R8Unorm => Tf::R8Unorm,
+         Sf::R8Snorm => Tf::R8Snorm,
+         Sf::R8Uint => Tf::R8Uint,
+         Sf::R8Sint => Tf::R8Sint,
++
+         Sf::R16Uint => Tf::R16Uint,
+         Sf::R16Sint => Tf::R16Sint,
+         Sf::R16Float => Tf::R16Float,
+         Sf::Rg8Unorm => Tf::Rg8Unorm,
+         Sf::Rg8Snorm => Tf::Rg8Snorm,
+         Sf::Rg8Uint => Tf::Rg8Uint,
+         Sf::Rg8Sint => Tf::Rg8Sint,
++
+         Sf::R32Uint => Tf::R32Uint,
+         Sf::R32Sint => Tf::R32Sint,
+         Sf::R32Float => Tf::R32Float,
+         Sf::Rg16Uint => Tf::Rg16Uint,
+         Sf::Rg16Sint => Tf::Rg16Sint,
+         Sf::Rg16Float => Tf::Rg16Float,
+         Sf::Rgba8Unorm => Tf::Rgba8Unorm,
+         Sf::Rgba8Snorm => Tf::Rgba8Snorm,
+         Sf::Rgba8Uint => Tf::Rgba8Uint,
+         Sf::Rgba8Sint => Tf::Rgba8Sint,
++
+         Sf::Rgb10a2Unorm => Tf::Rgb10a2Unorm,
+         Sf::Rg11b10Float => Tf::Rg11b10Float,
++
+         Sf::Rg32Uint => Tf::Rg32Uint,
+         Sf::Rg32Sint => Tf::Rg32Sint,
+         Sf::Rg32Float => Tf::Rg32Float,
+         Sf::Rgba16Uint => Tf::Rgba16Uint,
+         Sf::Rgba16Sint => Tf::Rgba16Sint,
+         Sf::Rgba16Float => Tf::Rgba16Float,
++
+         Sf::Rgba32Uint => Tf::Rgba32Uint,
+         Sf::Rgba32Sint => Tf::Rgba32Sint,
+         Sf::Rgba32Float => Tf::Rgba32Float,
+     }
+ }
+ 
+ impl Resource {
+     fn check_binding_use(
+@@ -319,17 +348,24 @@ impl Resource {
+                     } => {
+                         let (class, global_use) = match ty {
+                             wgt::BufferBindingType::Uniform => {
+                                 (naga::StorageClass::Uniform, GlobalUse::READ)
+                             }
+                             wgt::BufferBindingType::Storage { read_only } => {
+                                 let mut global_use = GlobalUse::READ | GlobalUse::QUERY;
+                                 global_use.set(GlobalUse::WRITE, !read_only);
+-                                (naga::StorageClass::Storage, global_use)
++                                let mut naga_access = naga::StorageAccess::LOAD;
++                                naga_access.set(naga::StorageAccess::STORE, !read_only);
++                                (
++                                    naga::StorageClass::Storage {
++                                        access: naga_access,
++                                    },
++                                    global_use,
++                                )
+                             }
+                         };
+                         if self.class != class {
+                             return Err(BindingError::WrongStorageClass {
+                                 binding: class,
+                                 shader: self.class,
+                             });
+                         }
+@@ -415,37 +451,47 @@ impl Resource {
+                             wgt::TextureSampleType::Sint => naga::ImageClass::Sampled {
+                                 kind: naga::ScalarKind::Sint,
+                                 multi,
+                             },
+                             wgt::TextureSampleType::Uint => naga::ImageClass::Sampled {
+                                 kind: naga::ScalarKind::Uint,
+                                 multi,
+                             },
+-                            wgt::TextureSampleType::Depth => naga::ImageClass::Depth,
++                            wgt::TextureSampleType::Depth => naga::ImageClass::Depth { multi },
+                         };
+                         (class, GlobalUse::READ | GlobalUse::QUERY)
+                     }
+                     BindingType::StorageTexture {
+                         access,
+                         format,
+                         view_dimension: _,
+                     } => {
+                         let naga_format = map_storage_format_to_naga(format)
+                             .ok_or(BindingError::BadStorageFormat(format))?;
+-                        let usage = match access {
+-                            wgt::StorageTextureAccess::ReadOnly => {
+-                                GlobalUse::READ | GlobalUse::QUERY
++                        let (naga_access, usage) = match access {
++                            wgt::StorageTextureAccess::ReadOnly => (
++                                naga::StorageAccess::LOAD,
++                                GlobalUse::READ | GlobalUse::QUERY,
++                            ),
++                            wgt::StorageTextureAccess::WriteOnly => (
++                                naga::StorageAccess::STORE,
++                                GlobalUse::WRITE | GlobalUse::QUERY,
++                            ),
++                            wgt::StorageTextureAccess::ReadWrite => {
++                                (naga::StorageAccess::all(), GlobalUse::all())
+                             }
+-                            wgt::StorageTextureAccess::WriteOnly => {
+-                                GlobalUse::WRITE | GlobalUse::QUERY
+-                            }
+-                            wgt::StorageTextureAccess::ReadWrite => GlobalUse::all(),
+                         };
+-                        (naga::ImageClass::Storage(naga_format), usage)
++                        (
++                            naga::ImageClass::Storage {
++                                format: naga_format,
++                                access: naga_access,
++                            },
++                            usage,
++                        )
+                     }
+                     _ => return Err(BindingError::WrongType),
+                 };
+                 if class != expected_class {
+                     return Err(BindingError::WrongTextureClass {
+                         binding: expected_class,
+                         shader: class,
+                     });
+@@ -459,22 +505,26 @@ impl Resource {
+         } else {
+             Err(BindingError::WrongUsage {
+                 required: shader_usage,
+                 allowed: allowed_usage,
+             })
+         }
+     }
+ 
+-    fn derive_binding_type(&self, shader_usage: GlobalUse) -> Result<BindingType, BindingError> {
++    fn derive_binding_type(
++        &self,
++        shader_usage: GlobalUse,
++        features: wgt::Features,
++    ) -> Result<BindingType, BindingError> {
+         Ok(match self.ty {
+             ResourceType::Buffer { size } => BindingType::Buffer {
+                 ty: match self.class {
+                     naga::StorageClass::Uniform => wgt::BufferBindingType::Uniform,
+-                    naga::StorageClass::Storage => wgt::BufferBindingType::Storage {
++                    naga::StorageClass::Storage { .. } => wgt::BufferBindingType::Storage {
+                         read_only: !shader_usage.contains(GlobalUse::WRITE),
+                     },
+                     _ => return Err(BindingError::WrongType),
+                 },
+                 has_dynamic_offset: false,
+                 min_binding_size: Some(size),
+             },
+             ResourceType::Sampler { comparison } => BindingType::Sampler {
+@@ -502,24 +552,32 @@ impl Resource {
+                             }
+                             naga::ScalarKind::Sint => wgt::TextureSampleType::Sint,
+                             naga::ScalarKind::Uint => wgt::TextureSampleType::Uint,
+                             naga::ScalarKind::Bool => unreachable!(),
+                         },
+                         view_dimension,
+                         multisampled: multi,
+                     },
+-                    naga::ImageClass::Depth => BindingType::Texture {
++                    naga::ImageClass::Depth { multi } => BindingType::Texture {
+                         sample_type: wgt::TextureSampleType::Depth,
+                         view_dimension,
+-                        multisampled: false,
++                        multisampled: multi,
+                     },
+-                    naga::ImageClass::Storage(format) => BindingType::StorageTexture {
+-                        access: if shader_usage.contains(GlobalUse::WRITE) {
++                    naga::ImageClass::Storage { format, .. } => BindingType::StorageTexture {
++                        access: if !shader_usage.contains(GlobalUse::READ) {
+                             wgt::StorageTextureAccess::WriteOnly
++                        } else if !features
++                            .contains(wgt::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES)
++                        {
++                            return Err(BindingError::UnsupportedTextureStorageAccess(
++                                shader_usage,
++                            ));
++                        } else if shader_usage.contains(GlobalUse::WRITE) {
++                            wgt::StorageTextureAccess::ReadWrite
+                         } else {
+                             wgt::StorageTextureAccess::ReadOnly
+                         },
+                         view_dimension,
+                         format: {
+                             let f = map_storage_format_from_naga(format);
+                             let original = map_storage_format_to_naga(f)
+                                 .ok_or(BindingError::BadStorageFormat(f))?;
+@@ -616,28 +674,27 @@ impl NumericType {
+             }
+             Tf::Rgba8Sint | Tf::Rgba16Sint | Tf::Rgba32Sint => {
+                 (NumericDimension::Vector(Vs::Quad), Sk::Sint)
+             }
+             Tf::Rg11b10Float => (NumericDimension::Vector(Vs::Tri), Sk::Float),
+             Tf::Depth32Float | Tf::Depth24Plus | Tf::Depth24PlusStencil8 => {
+                 panic!("Unexpected depth format")
+             }
++            Tf::Rgb9e5Ufloat => (NumericDimension::Vector(Vs::Tri), Sk::Float),
+             Tf::Bc1RgbaUnorm
+             | Tf::Bc1RgbaUnormSrgb
+             | Tf::Bc2RgbaUnorm
+             | Tf::Bc2RgbaUnormSrgb
+             | Tf::Bc3RgbaUnorm
+             | Tf::Bc3RgbaUnormSrgb
+             | Tf::Bc7RgbaUnorm
+             | Tf::Bc7RgbaUnormSrgb
+             | Tf::Etc2RgbA1Unorm
+             | Tf::Etc2RgbA1UnormSrgb
+-            | Tf::Etc2RgbA8Unorm
+-            | Tf::Etc2RgbA8UnormSrgb
+             | Tf::Astc4x4RgbaUnorm
+             | Tf::Astc4x4RgbaUnormSrgb
+             | Tf::Astc5x4RgbaUnorm
+             | Tf::Astc5x4RgbaUnormSrgb
+             | Tf::Astc5x5RgbaUnorm
+             | Tf::Astc5x5RgbaUnormSrgb
+             | Tf::Astc6x5RgbaUnorm
+             | Tf::Astc6x5RgbaUnormSrgb
+@@ -659,17 +716,17 @@ impl NumericType {
+             | Tf::Astc10x10RgbaUnormSrgb
+             | Tf::Astc12x10RgbaUnorm
+             | Tf::Astc12x10RgbaUnormSrgb
+             | Tf::Astc12x12RgbaUnorm
+             | Tf::Astc12x12RgbaUnormSrgb => (NumericDimension::Vector(Vs::Quad), Sk::Float),
+             Tf::Bc4RUnorm | Tf::Bc4RSnorm | Tf::EacRUnorm | Tf::EacRSnorm => {
+                 (NumericDimension::Scalar, Sk::Float)
+             }
+-            Tf::Bc5RgUnorm | Tf::Bc5RgSnorm | Tf::EtcRgUnorm | Tf::EtcRgSnorm => {
++            Tf::Bc5RgUnorm | Tf::Bc5RgSnorm | Tf::EacRgUnorm | Tf::EacRgSnorm => {
+                 (NumericDimension::Vector(Vs::Bi), Sk::Float)
+             }
+             Tf::Bc6hRgbUfloat | Tf::Bc6hRgbSfloat | Tf::Etc2RgbUnorm | Tf::Etc2RgbUnormSrgb => {
+                 (NumericDimension::Vector(Vs::Tri), Sk::Float)
+             }
+         };
+ 
+         NumericType {
+@@ -784,17 +841,21 @@ impl Interface {
+             None => {
+                 log::error!("Missing binding for a varying");
+                 return;
+             }
+         };
+         list.push(varying);
+     }
+ 
+-    pub fn new(module: &naga::Module, info: &naga::valid::ModuleInfo) -> Self {
++    pub fn new(
++        module: &naga::Module,
++        info: &naga::valid::ModuleInfo,
++        features: wgt::Features,
++    ) -> Self {
+         let mut resources = naga::Arena::new();
+         let mut resource_mapping = FastHashMap::default();
+         for (var_handle, var) in module.global_variables.iter() {
+             let bind = match var.binding {
+                 Some(ref br) => br.clone(),
+                 _ => continue,
+             };
+             let ty = match module.types[var.ty].inner {
+@@ -815,22 +876,25 @@ impl Interface {
+                     class,
+                 },
+                 naga::TypeInner::Sampler { comparison } => ResourceType::Sampler { comparison },
+                 ref other => {
+                     log::error!("Unexpected resource type: {:?}", other);
+                     continue;
+                 }
+             };
+-            let handle = resources.append(Resource {
+-                name: var.name.clone(),
+-                bind,
+-                ty,
+-                class: var.class,
+-            });
++            let handle = resources.append(
++                Resource {
++                    name: var.name.clone(),
++                    bind,
++                    ty,
++                    class: var.class,
++                },
++                Default::default(),
++            );
+             resource_mapping.insert(var_handle, handle);
+         }
+ 
+         let mut entry_points = FastHashMap::default();
+         entry_points.reserve(module.entry_points.len());
+         for (index, entry_point) in (&module.entry_points).iter().enumerate() {
+             let info = info.get_entry_point(index);
+             let mut ep = EntryPoint::default();
+@@ -854,36 +918,37 @@ impl Interface {
+                 if var.binding.is_some() {
+                     ep.resources.push((resource_mapping[&var_handle], usage));
+                 }
+             }
+ 
+             entry_points.insert((entry_point.stage, entry_point.name.clone()), ep);
+         }
+ 
+-        Interface {
++        Self {
++            features,
+             resources,
+             entry_points,
+         }
+     }
+ 
+     pub fn check_stage(
+         &self,
+         given_layouts: Option<&[&BindEntryMap]>,
+         derived_layouts: &mut [BindEntryMap],
+         entry_point_name: &str,
+-        stage_bit: wgt::ShaderStage,
++        stage_bit: wgt::ShaderStages,
+         inputs: StageIo,
+     ) -> Result<StageIo, StageError> {
+         // Since a shader module can have multiple entry points with the same name,
+         // we need to look for one with the right execution model.
+         let shader_stage = match stage_bit {
+-            wgt::ShaderStage::VERTEX => naga::ShaderStage::Vertex,
+-            wgt::ShaderStage::FRAGMENT => naga::ShaderStage::Fragment,
+-            wgt::ShaderStage::COMPUTE => naga::ShaderStage::Compute,
++            wgt::ShaderStages::VERTEX => naga::ShaderStage::Vertex,
++            wgt::ShaderStages::FRAGMENT => naga::ShaderStage::Fragment,
++            wgt::ShaderStages::COMPUTE => naga::ShaderStage::Compute,
+             _ => unreachable!(),
+         };
+         let pair = (shader_stage, entry_point_name.to_string());
+         let entry_point = self
+             .entry_points
+             .get(&pair)
+             .ok_or(StageError::MissingEntryPoint(pair.1))?;
+ 
+@@ -902,17 +967,17 @@ impl Interface {
+                             Err(BindingError::Invisible)
+                         }
+                     })
+                     .and_then(|entry| res.check_binding_use(entry, usage)),
+                 None => derived_layouts
+                     .get_mut(res.bind.group as usize)
+                     .ok_or(BindingError::Missing)
+                     .and_then(|set| {
+-                        let ty = res.derive_binding_type(usage)?;
++                        let ty = res.derive_binding_type(usage, self.features)?;
+                         match set.entry(res.bind.binding) {
+                             Entry::Occupied(e) if e.get().ty != ty => {
+                                 return Err(BindingError::InconsistentlyDerivedType)
+                             }
+                             Entry::Occupied(e) => {
+                                 e.into_mut().visibility |= stage_bit;
+                             }
+                             Entry::Vacant(e) => {

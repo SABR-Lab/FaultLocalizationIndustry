@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/WorkerPrivate.h
+# Commit: b7d4fb0fcc54
+# Full Hash: b7d4fb0fcc54c929650660f1c61b63bb4694766f
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2024-06-25 09:36:02
+# Regressor Bug: 1894231
+# File Overlap Count: 1
+# Description:
+#   Bug 1894231 - P11 Remove WorkerThreadRunnable::mWorkerPrivateForPreStartCleaning. r=dom-worker-reviewers,asuth
+#   
+#   This patch introduces a boolean WorkerThreadRunnable::mCleanPreStartDispatching to indicate if the WorkerThreadRunnable needs to skip its execution in its Run() because of WorkerPrivate::RunLoopNeverRan().
+#   
+#   If any WorkerPrivate initialization fails in [[ https://searchfox.org/mozilla-central/rev/a26e972e97fbec860400d80df625193f4c88d64e/dom/workers/RuntimeService.cpp#2090-2120 | WorkerThreadPrimaryRunnable::Run() ]], corresponding WorkerJSContext might not be created or created then destroyed before entering [[ https://searchfox.org/mozilla-central/rev/a26e972e97fbec860400d80df625193f4c88d64e/dom/workers/RuntimeService.cpp#2085 | WorkerPrivate::RunLoopNeverRan() ]]. This invalidates the WorkerJSContext, and GetCurrentThreadWorkerPrivate() will not work correctly. In this case, any WorkerThreadRunnable should not run in this invalid environment, so we can just skip the execution by returning NS_OK in its Run().
+# ==============================================================================
+
+diff -r bb302697f033 -r b7d4fb0fcc54 dom/workers/WorkerPrivate.h
+--- a/dom/workers/WorkerPrivate.h	Mon Jun 24 22:20:54 2024 +0000
++++ b/dom/workers/WorkerPrivate.h	Mon Jun 24 22:20:54 2024 +0000
+@@ -91,6 +91,7 @@
+ class WorkerRunnable;
+ class WorkerDebuggeeRunnable;
+ class WorkerThread;
++class WorkerThreadRunnable;
+ 
+ // SharedMutex is a small wrapper around an (internal) reference-counted Mutex
+ // object. It exists to avoid changing a lot of code to use Mutex* instead of
+@@ -1435,7 +1436,8 @@
+   RefPtr<WorkerCSPEventListener> mCSPEventListener;
+ 
+   // Protected by mMutex.
+-  nsTArray<RefPtr<WorkerRunnable>> mPreStartRunnables MOZ_GUARDED_BY(mMutex);
++  nsTArray<RefPtr<WorkerThreadRunnable>> mPreStartRunnables
++      MOZ_GUARDED_BY(mMutex);
+ 
+   // Only touched on the parent thread.  Used for both SharedWorker and
+   // ServiceWorker RemoteWorkers.

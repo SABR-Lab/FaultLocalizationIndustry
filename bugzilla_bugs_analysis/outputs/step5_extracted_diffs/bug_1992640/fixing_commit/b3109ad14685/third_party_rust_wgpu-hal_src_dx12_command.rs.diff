@@ -1,0 +1,49 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/wgpu-hal/src/dx12/command.rs
+# Commit: b3109ad14685
+# Full Hash: b3109ad14685624ada7861083ff5332aec9a7818
+# Author: Andy Leiserson <aleiserson@mozilla.com>
+# Date: 2025-10-07 17:00 +0000
+# Description:
+#   Bug 1992842 - Update wgpu to upstream 1072b878 (2025-10-06) r=webgpu-reviewers,supply-chain-reviewers,ErichDonGubler
+# ==============================================================================
+
+diff -r 1d3f000cf1f9 -r b3109ad14685 third_party/rust/wgpu-hal/src/dx12/command.rs
+--- a/third_party/rust/wgpu-hal/src/dx12/command.rs	Tue Oct 07 16:51:44 2025 +0000
++++ b/third_party/rust/wgpu-hal/src/dx12/command.rs	Tue Oct 07 17:00:40 2025 +0000
+@@ -1338,14 +1338,17 @@
+ 
+         let cmd_list6: Direct3D12::ID3D12GraphicsCommandList6 =
+             self.list.as_ref().unwrap().cast().unwrap();
+-        let cmd_signature = &self
++        let Some(cmd_signature) = &self
+             .pass
+             .layout
+             .special_constants
+             .as_ref()
+             .and_then(|sc| sc.indirect_cmd_signatures.as_ref())
+             .unwrap_or_else(|| &self.shared.cmd_signatures)
+-            .draw_mesh;
++            .draw_mesh
++        else {
++            panic!("Feature `MESH_SHADING` not enabled");
++        };
+         unsafe {
+             cmd_list6.ExecuteIndirect(cmd_signature, draw_count, &buffer.resource, offset, None, 0);
+         }
+@@ -1401,9 +1404,12 @@
+         self.prepare_dispatch([0; 3]);
+         let cmd_list6: Direct3D12::ID3D12GraphicsCommandList6 =
+             self.list.as_ref().unwrap().cast().unwrap();
++        let Some(ref command_signature) = self.shared.cmd_signatures.draw_mesh else {
++            panic!("Feature `MESH_SHADING` not enabled");
++        };
+         unsafe {
+             cmd_list6.ExecuteIndirect(
+-                &self.shared.cmd_signatures.draw_mesh,
++                command_signature,
+                 max_count,
+                 &buffer.resource,
+                 offset,

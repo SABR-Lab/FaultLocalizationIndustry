@@ -1,0 +1,31 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/ClientWebGLContext.cpp
+# Commit: e6d9c0dc39bd
+# Full Hash: e6d9c0dc39bdc6c009921dc48f7254b72c344bb0
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2022-03-04 04:18:28
+# Description:
+#   Bug 1755580 - Fix a crash caused by a race with OffscreenCanvas and the document closing. r=gfx-reviewers,nical
+#   
+#   OffscreenCanvas::GetOwnerGlobal can return null when the document or
+#   worker thread is closing. We should check for this when we need the
+#   principal hash value. I have not been able to reproduce with the test
+# ==============================================================================
+
+diff -r 35eba3aaa53a -r e6d9c0dc39bd dom/canvas/ClientWebGLContext.cpp
+--- a/dom/canvas/ClientWebGLContext.cpp	Thu Mar 03 17:19:56 2022 +0200
++++ b/dom/canvas/ClientWebGLContext.cpp	Thu Mar 03 15:31:32 2022 +0000
+@@ -5452,7 +5452,10 @@
+     return mCanvasElement->NodePrincipal()->GetHashValue();
+   }
+   if (mOffscreenCanvas) {
+-    return mOffscreenCanvas->GetOwnerGlobal()->GetPrincipalHashValue();
++    nsIGlobalObject* global = mOffscreenCanvas->GetOwnerGlobal();
++    if (global) {
++      return global->GetPrincipalHashValue();
++    }
+   }
+   return 0;
+ }

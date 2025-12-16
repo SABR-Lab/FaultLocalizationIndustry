@@ -1,0 +1,94 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/WebrtcVideoCodecFactory.cpp
+# Commit: 9d8f6e354d8c
+# Full Hash: 9d8f6e354d8c332bab7e433252077ec0e1fa8f04
+# Author: John Lin <jolin@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 1
+# Description:
+#   Bug 1654112 - remove MediaCodecVP8Codec. r=mjf
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D115531
+# ==============================================================================
+
+diff -r 7675ead797c8 -r 9d8f6e354d8c dom/media/webrtc/libwebrtcglue/WebrtcVideoCodecFactory.cpp
+--- a/dom/media/webrtc/libwebrtcglue/WebrtcVideoCodecFactory.cpp	Fri Oct 08 15:57:53 2021 +0200
++++ b/dom/media/webrtc/libwebrtcglue/WebrtcVideoCodecFactory.cpp	Thu Oct 07 12:11:40 2021 -0700
+@@ -41,35 +41,12 @@
+       break;
+     }
+ 
++    // Use libvpx decoders as fallbacks.
+     case webrtc::VideoCodecType::kVideoCodecVP8:
+-#ifdef MOZ_WEBRTC_MEDIACODEC
+-      // Attempt to get a MediaCodec decoder
+-      if (StaticPrefs::
+-              media_navigator_hardware_vp8_decode_acceleration_enabled()) {
+-        nsCOMPtr<nsIGfxInfo> gfxInfo = do_GetService("@mozilla.org/gfx/info;1");
+-        if (gfxInfo) {
+-          int32_t status;
+-          nsCString discardFailureId;
+-
+-          if (NS_SUCCEEDED(gfxInfo->GetFeatureStatus(
+-                  nsIGfxInfo::FEATURE_WEBRTC_HW_ACCELERATION_DECODE,
+-                  discardFailureId, &status))) {
+-            if (status != nsIGfxInfo::FEATURE_STATUS_OK) {
+-              NS_WARNING("VP8 decoder hardware is blocked: disabling.\n");
+-            } else {
+-              decoder = MediaCodecVideoCodec::CreateDecoder(
+-                  MediaCodecVideoCodec::CodecType::CODEC_VP8);
+-            }
+-          }
+-        }
+-      }
+-#endif
+-      // Use a software VP8 decoder as a fallback.
+       if (!decoder) {
+         decoder = webrtc::VP8Decoder::Create();
+       }
+       break;
+-
+     case webrtc::VideoCodecType::kVideoCodecVP9:
+       decoder = webrtc::VP9Decoder::Create();
+       break;
+@@ -134,36 +111,12 @@
+       encoder.reset(gmpEncoder.release());
+       break;
+     }
+-
++    // libvpx fallbacks.
+     case webrtc::VideoCodecType::kVideoCodecVP8:
+-#ifdef MOZ_WEBRTC_MEDIACODEC
+-      // Attempt to get a MediaCodec encoder
+-      if (StaticPrefs::
+-              media_navigator_hardware_vp8_encode_acceleration_enabled()) {
+-        nsCOMPtr<nsIGfxInfo> gfxInfo = do_GetService("@mozilla.org/gfx/info;1");
+-        if (gfxInfo) {
+-          int32_t status;
+-          nsCString discardFailureId;
+-
+-          if (NS_SUCCEEDED(gfxInfo->GetFeatureStatus(
+-                  nsIGfxInfo::FEATURE_WEBRTC_HW_ACCELERATION_ENCODE,
+-                  discardFailureId, &status))) {
+-            if (status != nsIGfxInfo::FEATURE_STATUS_OK) {
+-              NS_WARNING("VP8 encoder hardware is blocked: disabling.\n");
+-            } else {
+-              encoder = MediaCodecVideoCodec::CreateEncoder(
+-                  MediaCodecVideoCodec::CodecType::CODEC_VP8);
+-            }
+-          }
+-        }
+-      }
+-#endif
+       if (!encoder) {
+-        // Software fallback
+         encoder = webrtc::VP8Encoder::Create();
+       }
+       break;
+-
+     case webrtc::VideoCodecType::kVideoCodecVP9:
+       encoder = webrtc::VP9Encoder::Create();
+       break;

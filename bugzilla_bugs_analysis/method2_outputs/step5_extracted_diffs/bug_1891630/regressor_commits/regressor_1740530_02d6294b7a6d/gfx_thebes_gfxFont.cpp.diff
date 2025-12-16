@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxFont.cpp
+# Commit: 02d6294b7a6d
+# Full Hash: 02d6294b7a6d4e58e12ad1ca7259eb2cbdf53ce1
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2022-08-17 09:10:29
+# Regressor Bug: 1740530
+# File Overlap Count: 1
+# Description:
+#   Bug 1740530 - patch 4 - Use harfbuzz color-palette access functions, instead of rolling our own. r=gfx-reviewers,lsalzman
+#   
+#   Depends on D152038
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D153870
+# ==============================================================================
+
+diff -r 673f9010ea75 -r 02d6294b7a6d gfx/thebes/gfxFont.cpp
+--- a/gfx/thebes/gfxFont.cpp	Tue Aug 16 12:48:32 2022 +0000
++++ b/gfx/thebes/gfxFont.cpp	Tue Aug 16 12:48:33 2022 +0000
+@@ -2467,17 +2467,20 @@
+                                ScaledFont* aScaledFont,
+                                DrawOptions aDrawOptions, const Point& aPoint,
+                                uint32_t aGlyphId) const {
+-  DeviceColor ctxColor;
+-  sRGBColor currentColor = aContext->GetDeviceColor(ctxColor)
+-                               ? sRGBColor::FromABGR(ctxColor.ToABGR())
+-                               : sRGBColor::OpaqueBlack();
++  auto currentColor = [=]() {
++    DeviceColor ctxColor;
++    return aContext->GetDeviceColor(ctxColor)
++               ? sRGBColor::FromABGR(ctxColor.ToABGR())
++               : sRGBColor::OpaqueBlack();
++  };
+ 
+   if (const auto* layers =
+           COLRFonts::GetGlyphLayers(GetFontEntry()->GetCOLR(), aGlyphId)) {
+-    return COLRFonts::PaintGlyphLayers(GetFontEntry()->GetCOLR(),
+-                                       GetFontEntry()->GetCPAL(), layers,
+-                                       aDrawTarget, aTextDrawer, aScaledFont,
+-                                       aDrawOptions, currentColor, aPoint);
++    auto face(GetFontEntry()->GetHBFace());
++    bool ok = COLRFonts::PaintGlyphLayers(
++        GetFontEntry()->GetCOLR(), face, layers, aDrawTarget, aTextDrawer,
++        aScaledFont, aDrawOptions, currentColor(), aPoint);
++    return ok;
+   }
+ 
+   return false;

@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/ash/src/extensions/nv/device_diagnostic_checkpoints.rs
+# Commit: ef5dc3e04e5f
+# Full Hash: ef5dc3e04e5f271eea0636ab3a495e95cc912f1d
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-09-04 09:40:24
+# Regressor Bug: 1726626
+# File Overlap Count: 3
+# Description:
+#   Bug 1726626 - Move gfx/wgpu into a 3rd party dependency r=jgilbert,bholley
+#   
+#   This update makes wgpu a vendored dependency instead of having it in gfx/wgpu.
+#   
+#   ## Notes
+# ==============================================================================
+
+diff --git a/third_party/rust/ash/src/extensions/nv/device_diagnostic_checkpoints.rs b/third_party/rust/ash/src/extensions/nv/device_diagnostic_checkpoints.rs
+--- a/third_party/rust/ash/src/extensions/nv/device_diagnostic_checkpoints.rs
++++ b/third_party/rust/ash/src/extensions/nv/device_diagnostic_checkpoints.rs
+@@ -1,30 +1,26 @@
+-#![allow(dead_code)]
+-use crate::version::{DeviceV1_0, InstanceV1_0};
+ use crate::vk;
++use crate::{Device, Instance};
+ use std::ffi::CStr;
+ use std::mem;
+ use std::os::raw::c_void;
+ 
+ #[derive(Clone)]
+ pub struct DeviceDiagnosticCheckpoints {
+     device_diagnostic_checkpoints_fn: vk::NvDeviceDiagnosticCheckpointsFn,
+ }
+ 
+ impl DeviceDiagnosticCheckpoints {
+-    pub fn new<I: InstanceV1_0, D: DeviceV1_0>(
+-        instance: &I,
+-        device: &D,
+-    ) -> DeviceDiagnosticCheckpoints {
++    pub fn new(instance: &Instance, device: &Device) -> Self {
+         let device_diagnostic_checkpoints_fn =
+             vk::NvDeviceDiagnosticCheckpointsFn::load(|name| unsafe {
+                 mem::transmute(instance.get_device_proc_addr(device.handle(), name.as_ptr()))
+             });
+-        DeviceDiagnosticCheckpoints {
++        Self {
+             device_diagnostic_checkpoints_fn,
+         }
+     }
+ 
+     #[doc = "<https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/vkCmdSetCheckpointNV.html>"]
+     pub unsafe fn cmd_set_checkpoint(
+         &self,
+         command_buffer: vk::CommandBuffer,

@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxWindowsPlatform.cpp
+# Commit: c03c7df7cd61
+# Full Hash: c03c7df7cd61c88de130f49dbceaa8a62c9a7758
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2021-05-14 21:58:21
+# Regressor Bug: 1708768
+# File Overlap Count: 2
+# Description:
+#   Bug 1708768 - Preliminary cleanup of gfxPlatformFontList creation/initialization code; no functional change. r=lsalzman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D114863
+# ==============================================================================
+
+diff -r 76dd6379cc01 -r c03c7df7cd61 gfx/thebes/gfxWindowsPlatform.cpp
+--- a/gfx/thebes/gfxWindowsPlatform.cpp	Fri May 14 17:45:16 2021 +0000
++++ b/gfx/thebes/gfxWindowsPlatform.cpp	Fri May 14 18:05:44 2021 +0000
+@@ -558,20 +558,16 @@
+   return backend;
+ }
+ 
+-gfxPlatformFontList* gfxWindowsPlatform::CreatePlatformFontList() {
+-  gfxPlatformFontList* pfl;
+-
++bool gfxWindowsPlatform::CreatePlatformFontList() {
+   // bug 630201 - older pre-RTM versions of Direct2D/DirectWrite cause odd
+   // crashers so block them altogether
+   if (IsNotWin7PreRTM() && DWriteEnabled()) {
+-    pfl = new gfxDWriteFontList();
+-    if (NS_SUCCEEDED(pfl->InitFontList())) {
+-      return pfl;
++    if (gfxPlatformFontList::Initialize(new gfxDWriteFontList)) {
++      return true;
+     }
+     // DWrite font initialization failed! Don't know why this would happen,
+     // but apparently it can - see bug 594865.
+     // So we're going to fall back to GDI fonts & rendering.
+-    gfxPlatformFontList::Shutdown();
+     DisableD2D(FeatureStatus::Failed, "Failed to initialize fonts",
+                "FEATURE_FAILURE_FONT_FAIL"_ns);
+   }
+@@ -580,14 +576,7 @@
+   // permit it, as we're using GDI fonts.
+   mHasVariationFontSupport = false;
+ 
+-  pfl = new gfxGDIFontList();
+-
+-  if (NS_SUCCEEDED(pfl->InitFontList())) {
+-    return pfl;
+-  }
+-
+-  gfxPlatformFontList::Shutdown();
+-  return nullptr;
++  return gfxPlatformFontList::Initialize(new gfxGDIFontList);
+ }
+ 
+ // This function will permanently disable D2D for the session. It's intended to

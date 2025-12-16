@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/MediaRecorder.cpp
+# Commit: 48eaa84c206d
+# Full Hash: 48eaa84c206dbdda637c57b55ddbd07e975ba103
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2020-06-23 16:15:06
+# Regressor Bug: 1637500
+# File Overlap Count: 2
+# Description:
+#   Bug 1637500 - P2. Rename methods as they are not always dealing with "threads". r=froydnj
+#   
+#   Before P1, GetCurrentThreadSerialEventTarget would have always returned the same data as NS_GetCurrentThread, making the comment incorrect Now it will properly return the running TaskQueue if any.
+#   
+#   This change of name more clearly exposes what they are doing, as we aren't always dealing with threads directly; but a nsISerialEventTarget
+# ==============================================================================
+
+diff -r 00687d06a8a6 -r 48eaa84c206d dom/media/MediaRecorder.cpp
+--- a/dom/media/MediaRecorder.cpp	Tue Jun 23 05:02:39 2020 +0000
++++ b/dom/media/MediaRecorder.cpp	Tue Jun 23 05:05:36 2020 +0000
+@@ -99,10 +99,9 @@
+ 
+     nsCOMPtr<nsIHandleReportCallback> handleReport = aHandleReport;
+     nsCOMPtr<nsISupports> data = aData;
+-    MediaRecorder::SizeOfPromise::All(GetCurrentThreadSerialEventTarget(),
+-                                      promises)
++    MediaRecorder::SizeOfPromise::All(GetCurrentSerialEventTarget(), promises)
+         ->Then(
+-            GetCurrentThreadSerialEventTarget(), __func__,
++            GetCurrentSerialEventTarget(), __func__,
+             [handleReport, data](const nsTArray<size_t>& sizes) {
+               nsCOMPtr<nsIMemoryReporterManager> manager =
+                   do_GetService("@mozilla.org/memory-reporter-manager;1");
+@@ -2055,9 +2054,9 @@
+     promises.AppendElement(session->SizeOfExcludingThis(aMallocSizeOf));
+   }
+ 
+-  SizeOfPromise::All(GetCurrentThreadSerialEventTarget(), promises)
++  SizeOfPromise::All(GetCurrentSerialEventTarget(), promises)
+       ->Then(
+-          GetCurrentThreadSerialEventTarget(), __func__,
++          GetCurrentSerialEventTarget(), __func__,
+           [holder](const nsTArray<size_t>& sizes) {
+             size_t total = 0;
+             for (const size_t& size : sizes) {

@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: xpcom/base/AppShutdown.cpp
+# Commit: db2b0b9a9886
+# Full Hash: db2b0b9a98861da3fe3266e08dd53b2d5a64dfe7
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2020-02-12 09:32:01
+# Regressor Bug: 1607505
+# File Overlap Count: 3
+# Description:
+#   Bug 1607505 - Start writing StartupCache earlier in shutdown r=froydnj
+#   
+#   The initial thought for getting the StartupCache out of the shutdown
+#   path was to simply not write it during shutdown, as it should write
+#   60 seconds after startup, and the theory was that if the user shut
+# ==============================================================================
+
+diff -r d0226991e792 -r db2b0b9a9886 xpcom/base/AppShutdown.cpp
+--- a/xpcom/base/AppShutdown.cpp	Tue Feb 11 21:05:25 2020 +0000
++++ b/xpcom/base/AppShutdown.cpp	Tue Feb 11 19:14:35 2020 +0000
+@@ -16,6 +16,7 @@
+ #include "mozilla/CmdLineAndEnvUtils.h"
+ #include "mozilla/PoisonIOInterposer.h"
+ #include "mozilla/Printf.h"
++#include "mozilla/scache/StartupCache.h"
+ #include "mozilla/StartupTimeline.h"
+ #include "mozilla/StaticPrefs_toolkit.h"
+ #include "mozilla/LateWriteChecks.h"
+@@ -125,6 +126,8 @@
+   int32_t lateWriteChecksPref =
+       StaticPrefs::toolkit_shutdown_lateWriteChecksStage();
+   sLateWriteChecksPhase = GetShutdownPhaseFromPrefValue(lateWriteChecksPref);
++
++  scache::StartupCache::GetSingleton()->MaybeInitShutdownWrite();
+ }
+ 
+ void AppShutdown::MaybeFastShutdown(ShutdownPhase aPhase) {

@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/ipc/SocketProcessBridgeChild.cpp
+# Commit: 43cd1d6eb145
+# Full Hash: 43cd1d6eb1459ae16207f4c9396cf5113a7b034a
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2022-01-11 03:49:34
+# Regressor Bug: 1737828
+# File Overlap Count: 2
+# Description:
+#   Bug 1737828 - Avoid the main thread when starting PBackground, r=asuth,ipc-reviewers,necko-reviewers,kershaw,handyman
+#   
+#   This patch avoids requiring the main thread to create PBackground instances by
+#   instead using a background starter TaskQueue, and sending messages from a
+#   PBackgroundStarter actor hosted on that thread to the target background thread
+# ==============================================================================
+
+diff -r 400d19ddbff7 -r 43cd1d6eb145 netwerk/ipc/SocketProcessBridgeChild.cpp
+--- a/netwerk/ipc/SocketProcessBridgeChild.cpp	Mon Jan 10 19:44:23 2022 +0000
++++ b/netwerk/ipc/SocketProcessBridgeChild.cpp	Mon Jan 10 20:09:14 2022 +0000
+@@ -33,6 +33,8 @@
+   sSocketProcessBridgeChild =
+       new SocketProcessBridgeChild(std::move(aEndpoint));
+   if (sSocketProcessBridgeChild->Inited()) {
++    mozilla::ipc::BackgroundChild::InitSocketBridgeStarter(
++        sSocketProcessBridgeChild);
+     return true;
+   }
+ 

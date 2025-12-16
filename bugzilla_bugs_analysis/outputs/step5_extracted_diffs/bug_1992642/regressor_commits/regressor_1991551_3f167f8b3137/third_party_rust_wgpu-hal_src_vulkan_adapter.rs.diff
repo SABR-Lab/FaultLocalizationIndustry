@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/wgpu-hal/src/vulkan/adapter.rs
+# Commit: 3f167f8b3137
+# Full Hash: 3f167f8b313749f50f135e189e5854bef7ac0c73
+# Author: Erich Gubler <erichdongubler@gmail.com>
+# Date: 2025-10-03 18:08 +0000
+# Regressor Bug: 1991551
+# File Overlap Count: 23
+# Overlapping Files: third_party/rust/wgpu-hal/Cargo.toml, supply-chain/audits.toml, third_party/rust/naga/src/back/spv/writer.rs, third_party/rust/naga/src/back/msl/writer.rs, third_party/rust/wgpu-types/src/lib.rs
+# Description:
+#   Bug 1991551 - build(webgpu): update WGPU to 8c4aebc0c1b75e3f7412dfc180745a0717fc30ec r=webgpu-reviewers,supply-chain-reviewers,nical
+# ==============================================================================
+
+diff -r 823439f307a0 -r 3f167f8b3137 third_party/rust/wgpu-hal/src/vulkan/adapter.rs
+--- a/third_party/rust/wgpu-hal/src/vulkan/adapter.rs	Fri Oct 03 18:01:30 2025 +0000
++++ b/third_party/rust/wgpu-hal/src/vulkan/adapter.rs	Fri Oct 03 18:08:29 2025 +0000
+@@ -129,6 +129,10 @@
+ }
+ 
+ impl PhysicalDeviceFeatures {
++    pub fn get_core(&self) -> vk::PhysicalDeviceFeatures {
++        self.core
++    }
++
+     /// Add the members of `self` into `info.enabled_features` and its `p_next` chain.
+     pub fn add_to_device_create<'a>(
+         &'a mut self,
+@@ -1859,6 +1863,10 @@
+         self.raw
+     }
+ 
++    pub fn get_physical_device_features(&self) -> &PhysicalDeviceFeatures {
++        &self.phd_features
++    }
++
+     pub fn physical_device_capabilities(&self) -> &PhysicalDeviceProperties {
+         &self.phd_capabilities
+     }
+@@ -2166,6 +2174,7 @@
+                 force_loop_bounding: true,
+                 use_storage_input_output_16: features.contains(wgt::Features::SHADER_F16)
+                     && self.phd_features.supports_storage_input_output_16(),
++                fake_missing_bindings: false,
+                 // We need to build this separately for each invocation, so just default it out here
+                 binding_map: BTreeMap::default(),
+                 debug_info: None,

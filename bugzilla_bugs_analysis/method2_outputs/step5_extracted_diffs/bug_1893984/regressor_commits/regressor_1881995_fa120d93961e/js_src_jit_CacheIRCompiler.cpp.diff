@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/CacheIRCompiler.cpp
+# Commit: fa120d93961e
+# Full Hash: fa120d93961efddd63d50135f03c55e75dac875a
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2024-04-26 04:18:06
+# Regressor Bug: 1881995
+# File Overlap Count: 1
+# Description:
+#   Bug 1881995 - Implement ForwardedAtoms and create them during atomization r=iain,sfink
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D202690
+# ==============================================================================
+
+diff -r f24ffc487097 -r fa120d93961e js/src/jit/CacheIRCompiler.cpp
+--- a/js/src/jit/CacheIRCompiler.cpp	Thu Apr 25 21:30:10 2024 +0300
++++ b/js/src/jit/CacheIRCompiler.cpp	Thu Apr 25 18:29:15 2024 +0000
+@@ -1055,6 +1055,15 @@
+   *addr = newWord;
+ }
+ 
++void CacheIRStubInfo::replaceStubRawValueBits(uint8_t* stubData,
++                                              uint32_t offset, uint64_t oldBits,
++                                              uint64_t newBits) const {
++  MOZ_ASSERT(uint64_t(stubData + offset) % sizeof(uint64_t) == 0);
++  uint64_t* addr = reinterpret_cast<uint64_t*>(stubData + offset);
++  MOZ_ASSERT(*addr == oldBits);
++  *addr = newBits;
++}
++
+ template <class Stub, StubField::Type type>
+ typename MapStubFieldToType<type>::WrappedType& CacheIRStubInfo::getStubField(
+     Stub* stub, uint32_t offset) const {
+@@ -2838,7 +2847,7 @@
+   masm.branchTest32(Assembler::NonZero, Address(str, JSString::offsetOfFlags()),
+                     Imm32(JSString::ATOM_BIT), &done);
+ 
+-  masm.lookupStringInAtomCacheLastLookups(str, scratch, str, &vmCall);
++  masm.tryFastAtomize(str, scratch, str, &vmCall);
+   masm.jump(&done);
+ 
+   masm.bind(&vmCall);

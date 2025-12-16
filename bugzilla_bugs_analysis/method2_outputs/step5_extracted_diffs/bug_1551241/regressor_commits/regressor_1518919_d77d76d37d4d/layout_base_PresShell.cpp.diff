@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/base/PresShell.cpp
+# Commit: d77d76d37d4d
+# Full Hash: d77d76d37d4dccf39c12fa81c970088b5388d0f1
+# Author: Hiroyuki Ikezoe <hikezoe@mozilla.com>
+# Date: 2019-05-13 08:22:56
+# Regressor Bug: 1518919
+# File Overlap Count: 1
+# Description:
+#   Bug 1518919 - Propagate CSS visibility information to descendant documents via IPC call for fission. r=jwatt
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D30460
+# ==============================================================================
+
+diff -r 02b3eb8a1a13 -r d77d76d37d4d layout/base/PresShell.cpp
+--- a/layout/base/PresShell.cpp	Thu May 09 07:37:03 2019 +0000
++++ b/layout/base/PresShell.cpp	Mon May 13 01:49:07 2019 +0000
+@@ -10919,12 +10919,13 @@
+ 
+     // Propagate to children.
+     for (BrowsingContext* child : bc->GetChildren()) {
++      Element* embedderElement = child->GetEmbedderElement();
++      MOZ_ASSERT(embedderElement);
++
+       bool embedderFrameIsHidden = true;
+-      if (Element* embedderElement = bc->GetEmbedderElement()) {
+-        if (auto embedderFrame = embedderElement->GetPrimaryFrame()) {
+-          embedderFrameIsHidden =
+-              !embedderFrame->StyleVisibility()->IsVisible();
+-        }
++      if (auto embedderFrame = embedderElement->GetPrimaryFrame()) {
++        embedderFrameIsHidden =
++            !embedderFrame->StyleVisibility()->IsVisible();
+       }
+ 
+       if (nsIDocShell* childDocShell = child->GetDocShell()) {
+@@ -10932,13 +10933,14 @@
+         if (!presShell) {
+           continue;
+         }
+-
+         presShell->SetIsUnderHiddenEmbedderElement(
+             aUnderHiddenEmbedderElement || embedderFrameIsHidden);
+-      }
+-      // FIXME: Bug 1518919 - In the case where the BrowsingContext has no
+-      // docshell which means it's out-of-process iframe, we need to propagate
+-      // the info via an IPC call.
++      } else {
++        BrowserBridgeChild* bridgeChild =
++            BrowserBridgeChild::GetFrom(embedderElement);
++        bridgeChild->SetIsUnderHiddenEmbedderElement(
++            aUnderHiddenEmbedderElement || embedderFrameIsHidden);
++      }
+     }
+   }
+ }

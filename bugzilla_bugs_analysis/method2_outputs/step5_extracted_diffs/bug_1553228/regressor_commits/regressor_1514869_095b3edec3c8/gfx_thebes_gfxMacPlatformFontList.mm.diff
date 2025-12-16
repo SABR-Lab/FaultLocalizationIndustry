@@ -1,0 +1,66 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxMacPlatformFontList.mm
+# Commit: 095b3edec3c8
+# Full Hash: 095b3edec3c8ba9318c71d0acc91e10ce57818dc
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2019-04-29 21:53:38
+# Regressor Bug: 1514869
+# File Overlap Count: 1
+# Description:
+#   Bug 1514869 - patch 2 - Adapt platform-font-list code to work with either the existing in-process font list or cross-process shared font list. r=jwatt
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D22938
+# ==============================================================================
+
+diff -r 21ef00977ab6 -r 095b3edec3c8 gfx/thebes/gfxMacPlatformFontList.mm
+--- a/gfx/thebes/gfxMacPlatformFontList.mm	Sat Apr 27 15:37:29 2019 +0000
++++ b/gfx/thebes/gfxMacPlatformFontList.mm	Sat Apr 27 15:37:58 2019 +0000
+@@ -1251,17 +1251,6 @@
+   return nullptr;
+ }
+ 
+-bool gfxMacPlatformFontList::GetStandardFamilyName(const nsCString& aFontName,
+-                                                   nsACString& aFamilyName) {
+-  gfxFontFamily* family = FindFamily(aFontName);
+-  if (family) {
+-    family->LocalizedName(aFamilyName);
+-    return true;
+-  }
+-
+-  return false;
+-}
+-
+ void gfxMacPlatformFontList::RegisteredFontsChangedNotificationCallback(
+     CFNotificationCenterRef center, void* observer, CFStringRef name, const void* object,
+     CFDictionaryRef userInfo) {
+@@ -1365,7 +1354,7 @@
+   nsAutoString familyName;
+ 
+   GetStringForNSString(defaultFamily, familyName);
+-  return FontFamily(FindFamily(NS_ConvertUTF16toUTF8(familyName)));
++  return FindFamily(NS_ConvertUTF16toUTF8(familyName));
+ }
+ 
+ int32_t gfxMacPlatformFontList::AppleWeightToCSSWeight(int32_t aAppleWeight) {
+@@ -1447,7 +1436,8 @@
+ // WebCore/platform/graphics/mac/FontCacheMac.mm
+ static const char kSystemFont_system[] = "-apple-system";
+ 
+-bool gfxMacPlatformFontList::FindAndAddFamilies(const nsACString& aFamily,
++bool gfxMacPlatformFontList::FindAndAddFamilies(mozilla::StyleGenericFontFamily aGeneric,
++                                                const nsACString& aFamily,
+                                                 nsTArray<FamilyAndGeneric>* aOutput,
+                                                 FindFamiliesFlags aFlags, gfxFontStyle* aStyle,
+                                                 gfxFloat aDevToCssSize) {
+@@ -1462,7 +1452,8 @@
+     return true;
+   }
+ 
+-  return gfxPlatformFontList::FindAndAddFamilies(aFamily, aOutput, aFlags, aStyle, aDevToCssSize);
++  return gfxPlatformFontList::FindAndAddFamilies(aGeneric, aFamily, aOutput, aFlags, aStyle,
++                                                 aDevToCssSize);
+ }
+ 
+ void gfxMacPlatformFontList::LookupSystemFont(LookAndFeel::FontID aSystemFontID,

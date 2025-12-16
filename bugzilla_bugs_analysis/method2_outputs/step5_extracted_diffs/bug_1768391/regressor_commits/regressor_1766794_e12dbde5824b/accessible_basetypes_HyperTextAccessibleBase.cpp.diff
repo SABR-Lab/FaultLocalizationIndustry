@@ -1,0 +1,71 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/basetypes/HyperTextAccessibleBase.cpp
+# Commit: e12dbde5824b
+# Full Hash: e12dbde5824b03fe31e2ce71d183edcc162cc2e9
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2022-05-03 09:42:08
+# Regressor Bug: 1766794
+# File Overlap Count: 2
+# Description:
+#   Bug 1766794: Lazily cache HyperText offsets for RemoteAccessibles.
+#   
+#   We already have a similar cache in local HyperTextAccessible.
+#   Unfortunately, we can't use common code here because we don't want to waste memory having a member variable on all RemoteAccessibles, but local HyperTextAccessibles don't have mCachedFields.
+#   This improves performance significantly when walking the text attributes of a container with a large number of text leaf children, such as is encountered when using view source.
+# ==============================================================================
+
+diff -r 6a2ad49b2630 -r e12dbde5824b accessible/basetypes/HyperTextAccessibleBase.cpp
+--- a/accessible/basetypes/HyperTextAccessibleBase.cpp	Mon May 02 22:38:07 2022 +0000
++++ b/accessible/basetypes/HyperTextAccessibleBase.cpp	Mon May 02 22:40:43 2022 +0000
+@@ -14,23 +14,6 @@
+ 
+ namespace mozilla::a11y {
+ 
+-int32_t HyperTextAccessibleBase::GetChildIndexAtOffset(uint32_t aOffset) const {
+-  const Accessible* thisAcc = Acc();
+-  uint32_t childCount = thisAcc->ChildCount();
+-  uint32_t lastTextOffset = 0;
+-  for (uint32_t childIndex = 0; childIndex < childCount; ++childIndex) {
+-    Accessible* child = thisAcc->ChildAt(childIndex);
+-    lastTextOffset += nsAccUtils::TextLength(child);
+-    if (aOffset < lastTextOffset) {
+-      return childIndex;
+-    }
+-  }
+-  if (aOffset == lastTextOffset) {
+-    return childCount - 1;
+-  }
+-  return -1;
+-}
+-
+ Accessible* HyperTextAccessibleBase::GetChildAtOffset(uint32_t aOffset) const {
+   const Accessible* thisAcc = Acc();
+   return thisAcc->ChildAt(GetChildIndexAtOffset(aOffset));
+@@ -49,25 +32,6 @@
+   return GetChildOffset(index, aInvalidateAfter);
+ }
+ 
+-int32_t HyperTextAccessibleBase::GetChildOffset(uint32_t aChildIndex,
+-                                                bool aInvalidateAfter) const {
+-  if (aChildIndex == 0) {
+-    return 0;
+-  }
+-  const Accessible* thisAcc = Acc();
+-  MOZ_ASSERT(aChildIndex <= thisAcc->ChildCount());
+-  uint32_t lastTextOffset = 0;
+-  for (uint32_t childIndex = 0; childIndex <= aChildIndex; ++childIndex) {
+-    if (childIndex == aChildIndex) {
+-      return lastTextOffset;
+-    }
+-    Accessible* child = thisAcc->ChildAt(childIndex);
+-    lastTextOffset += nsAccUtils::TextLength(child);
+-  }
+-  MOZ_ASSERT_UNREACHABLE();
+-  return lastTextOffset;
+-}
+-
+ uint32_t HyperTextAccessibleBase::CharacterCount() const {
+   return GetChildOffset(Acc()->ChildCount());
+ }

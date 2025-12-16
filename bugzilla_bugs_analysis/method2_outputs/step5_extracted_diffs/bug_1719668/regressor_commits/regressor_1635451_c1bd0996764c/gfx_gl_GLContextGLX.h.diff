@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/gl/GLContextGLX.h
+# Commit: c1bd0996764c
+# Full Hash: c1bd0996764c49174c9169fe5550905ce5dcef88
+# Author: Jed Davis <jld@mozilla.com>
+# Date: 2021-07-06 21:42:42
+# Regressor Bug: 1635451
+# File Overlap Count: 1
+# Description:
+#   Bug 1635451 - Allow GLX to work in headless content processes. r=jgilbert
+#   
+#   This follows what we're already doing for EGL: a refcounted object
+#   which can own the X connection, where we hold a weak reference from
+#   the library object so that multiple contexts opportunistically share
+# ==============================================================================
+
+diff -r 2974b1ba2beb -r c1bd0996764c gfx/gl/GLContextGLX.h
+--- a/gfx/gl/GLContextGLX.h	Tue Jul 06 07:42:41 2021 +0000
++++ b/gfx/gl/GLContextGLX.h	Tue Jul 06 07:42:42 2021 +0000
+@@ -20,8 +20,9 @@
+  public:
+   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(GLContextGLX, override)
+   static already_AddRefed<GLContextGLX> CreateGLContext(
+-      const GLContextDesc&, Display* display, GLXDrawable drawable,
+-      GLXFBConfig cfg, bool deleteDrawable, gfxXlibSurface* pixmap);
++      const GLContextDesc&, std::shared_ptr<gfx::XlibDisplay> display,
++      GLXDrawable drawable, GLXFBConfig cfg, bool deleteDrawable,
++      gfxXlibSurface* pixmap);
+ 
+   static bool FindVisual(Display* display, int screen, bool useWebRender,
+                          bool useAlpha, int* const out_visualId);
+@@ -67,12 +68,12 @@
+  private:
+   friend class GLContextProviderGLX;
+ 
+-  GLContextGLX(const GLContextDesc&, Display* aDisplay, GLXDrawable aDrawable,
+-               GLXContext aContext, bool aDeleteDrawable, bool aDoubleBuffered,
+-               gfxXlibSurface* aPixmap);
++  GLContextGLX(const GLContextDesc&, std::shared_ptr<gfx::XlibDisplay> aDisplay,
++               GLXDrawable aDrawable, GLXContext aContext, bool aDeleteDrawable,
++               bool aDoubleBuffered, gfxXlibSurface* aPixmap);
+ 
+   const GLXContext mContext;
+-  Display* const mDisplay;
++  const std::shared_ptr<gfx::XlibDisplay> mDisplay;
+   const GLXDrawable mDrawable;
+   const bool mDeleteDrawable;
+   const bool mDoubleBuffered;

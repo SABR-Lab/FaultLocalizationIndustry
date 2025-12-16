@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/tests/test_bug1268736.html
+# Commit: 9b15baab6f77
+# Full Hash: 9b15baab6f77d09eca2956276f66fee97555e4a1
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-09-22 09:56:47
+# Regressor Bug: 1789967
+# File Overlap Count: 1
+# Description:
+#   Bug 1789967 - part 3: Make `HTMLEditor::CollapseSelectionToEndOfLastLeafNodeOfDocument` and `HTMLEditor::InitEditorContentAndSelection` do nothing if the document is partially editable r=m_kato
+#   
+#   They and their callees work with the result of `GetRoot()` which is the document
+#   element or the body element.  If the body is not editable, `Selection` should
+#   not be updated in non-editable region nor `<br>` elements should not be
+# ==============================================================================
+
+diff -r 4d1e93c629da -r 9b15baab6f77 editor/libeditor/tests/test_bug1268736.html
+--- a/editor/libeditor/tests/test_bug1268736.html	Thu Sep 22 06:24:38 2022 +0000
++++ b/editor/libeditor/tests/test_bug1268736.html	Thu Sep 22 06:27:37 2022 +0000
+@@ -37,23 +37,25 @@
+ 
+ function getEditor() {
+   const Ci = SpecialPowers.Ci;
+-  var editingSession = SpecialPowers.wrap(window).docShell.editingSession;
++  const editingSession = SpecialPowers.wrap(window).docShell.editingSession;
+   return editingSession.getEditorForWindow(window).QueryInterface(Ci.nsITableEditor);
+ }
+ 
+-var table = document.getElementById("table");
+-var tableHTML = table.innerHTML;
+-var editor = getEditor();
++const table = document.getElementById("table");
++const tableHTML = table.innerHTML;
++const editor = getEditor();
+ 
+-var cell = document.getElementById("cell_readonly");
+-cell.focus();
+-editor.deleteTableCellContents();
++const readOnlyCell = document.getElementById("cell_readonly");
++readOnlyCell.focus();
++try {
++  editor.deleteTableCellContents();
++} catch (e) {}
+ is(table.innerHTML == tableHTML, true, "editor should not modify non-editable table cell" );
+ 
+-cell = document.getElementById("cell_writable");
+-cell.focus();
++const editableCell = document.getElementById("cell_writable");
++editableCell.focus();
+ editor.deleteTableCellContents();
+-is(cell.innerHTML == "<br>", true, "editor can modify editable table cells" );
++is(editableCell.innerHTML == "<br>", true, "editor can modify editable table cells" );
+ 
+ </script>
+ </body>

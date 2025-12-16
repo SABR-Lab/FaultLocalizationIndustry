@@ -1,0 +1,82 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/MediaConduitInterface.cpp
+# Commit: b2332c1d550e
+# Full Hash: b2332c1d550ed2d02408150e9979685981d0817f
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 5
+# Description:
+#   Bug 1654112 - Don't push RtpSource info to main thread on every received frame. r=ng,bwc
+#   
+#   If js doesn't intend to look at get*Sources, then pushing RtpSource info to main
+#   thread constantly is cycles spent in vain. Considering that upstream already
+#   updates this info off-main on every received frame it is also to a large extent
+# ==============================================================================
+
+diff -r c186df8a088e -r b2332c1d550e dom/media/webrtc/libwebrtcglue/MediaConduitInterface.cpp
+--- a/dom/media/webrtc/libwebrtcglue/MediaConduitInterface.cpp	Fri Aug 20 13:52:08 2021 +0200
++++ b/dom/media/webrtc/libwebrtcglue/MediaConduitInterface.cpp	Fri Aug 20 14:03:36 2021 +0200
+@@ -15,6 +15,10 @@
+ void MediaSessionConduit::GetRtpSources(
+     nsTArray<dom::RTCRtpSourceEntry>& outSources) const {
+   MOZ_ASSERT(NS_IsMainThread());
++  if (mSourcesUpdateNeeded) {
++    UpdateRtpSources(GetUpstreamRtpSources());
++    OnSourcesUpdated();
++  }
+   outSources.Clear();
+   for (auto& [key, entry] : mSourcesCache) {
+     (void)key;
+@@ -51,7 +55,7 @@
+ }
+ 
+ void MediaSessionConduit::UpdateRtpSources(
+-    const std::vector<webrtc::RtpSource>& aSources) {
++    const std::vector<webrtc::RtpSource>& aSources) const {
+   MOZ_ASSERT(NS_IsMainThread());
+   // Empty out the cache; we'll copy things back as needed
+   auto cache = std::move(mSourcesCache);
+@@ -102,12 +106,30 @@
+   }
+ }
+ 
++void MediaSessionConduit::OnSourcesUpdated() const {
++  MOZ_ASSERT(NS_IsMainThread());
++  MOZ_ASSERT(mSourcesUpdateNeeded);
++  mSourcesUpdateNeeded = false;
++  // Reset the updateNeeded flag and clear the cache in a direct task, i.e.,
++  // as soon as the current task has finished.
++  AbstractThread::GetCurrent()->TailDispatcher().AddDirectTask(
++      NS_NewRunnableFunction(
++          __func__, [this, self = RefPtr<const MediaSessionConduit>(this)] {
++            mSourcesUpdateNeeded = true;
++            mSourcesCache.clear();
++          }));
++}
++
+ void MediaSessionConduit::InsertAudioLevelForContributingSource(
+     const uint32_t aCsrcSource, const int64_t aTimestamp,
+     const uint32_t aRtpTimestamp, const bool aHasAudioLevel,
+     const uint8_t aAudioLevel) {
+   MOZ_ASSERT(NS_IsMainThread());
+ 
++  if (mSourcesUpdateNeeded) {
++    OnSourcesUpdated();
++  }
++
+   dom::RTCRtpSourceEntry domEntry;
+   domEntry.mSource = aCsrcSource;
+   domEntry.mSourceType = dom::RTCRtpSourceEntryType::Contributing;
+@@ -123,9 +145,6 @@
+   double ago = jsNow - aTimestamp;
+   uint64_t convertedTimestamp = libwebrtcNow - ago;
+ 
+-  // This will get stomped the next time UpdateRtpSources is called; the tests
+-  // that use this don't relinquish the event loop after calling this, so
+-  // that's ok.
+   SourceKey key(convertedTimestamp, aCsrcSource);
+   mSourcesCache[key] = domEntry;
+ }

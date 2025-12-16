@@ -1,0 +1,34 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: ipc/glue/MessageChannel.cpp
+# Commit: 11c6d8f18687
+# Full Hash: 11c6d8f18687b8ee9df3d73122748d7b3122d560
+# Author: Andrew McCreight <continuation@gmail.com>
+# Date: 2020-10-16 21:45:37
+# Regressor Bug: 1671577
+# File Overlap Count: 1
+# Description:
+#   Bug 1671577 - Use OtherPid() in AddProfilerMarker(). r=jld
+#   
+#   Aside from its use in AddProfilerMarker(), after initialization mPeerPid
+#   is only used on the IO thread, so the write to it does not hold the monitor.
+#   This means that the read in AddProfilerMarker() can cause a race, even
+# ==============================================================================
+
+diff -r 2fb2e37e5f69 -r 11c6d8f18687 ipc/glue/MessageChannel.cpp
+--- a/ipc/glue/MessageChannel.cpp	Fri Oct 16 17:50:49 2020 +0000
++++ b/ipc/glue/MessageChannel.cpp	Fri Oct 16 17:53:42 2020 +0000
+@@ -2784,10 +2784,10 @@
+ 
+ void MessageChannel::AddProfilerMarker(const IPC::Message& aMessage,
+                                        MessageDirection aDirection) {
++  mMonitor->AssertCurrentThreadOwns();
+ #ifdef MOZ_GECKO_PROFILER
+   if (profiler_feature_active(ProfilerFeature::IPCMessages)) {
+-    // If mPeerPid is -1, messages are being sent to the current process.
+-    int32_t pid = mPeerPid == -1 ? base::GetCurrentProcId() : mPeerPid;
++    int32_t pid = mListener->OtherPid();
+     PROFILER_ADD_MARKER_WITH_PAYLOAD(
+         "IPC", IPC, IPCMarkerPayload,
+         (pid, aMessage.seqno(), aMessage.type(), mSide, aDirection,

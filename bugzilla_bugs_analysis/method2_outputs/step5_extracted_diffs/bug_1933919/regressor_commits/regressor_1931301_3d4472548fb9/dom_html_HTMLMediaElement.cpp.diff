@@ -1,0 +1,34 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/html/HTMLMediaElement.cpp
+# Commit: 3d4472548fb9
+# Full Hash: 3d4472548fb9d48cce00f59066690611ee20ffcb
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2024-11-26 09:36:10
+# Regressor Bug: 1931301
+# File Overlap Count: 1
+# Description:
+#   Bug 1931301 - Notify of removals on a stable state, not mid-remove. r=smaug,masayuki,dshin
+#   
+#   This simplifies some observers, and makes others a bit more subtle, but I think
+#   over-all it is an improvement.
+#   
+# ==============================================================================
+
+diff -r 20a0394d798f -r 3d4472548fb9 dom/html/HTMLMediaElement.cpp
+--- a/dom/html/HTMLMediaElement.cpp	Mon Nov 25 17:56:21 2024 +0000
++++ b/dom/html/HTMLMediaElement.cpp	Mon Nov 25 17:58:40 2024 +0000
+@@ -2179,10 +2179,9 @@
+   }
+ }
+ 
+-void HTMLMediaElement::ContentRemoved(nsIContent* aChild,
+-                                      nsIContent* aPreviousSibling) {
++void HTMLMediaElement::ContentWillBeRemoved(nsIContent* aChild) {
+   if (aChild == mSourcePointer) {
+-    mSourcePointer = aPreviousSibling;
++    mSourcePointer = aChild->GetPreviousSibling();
+   }
+ }
+ 

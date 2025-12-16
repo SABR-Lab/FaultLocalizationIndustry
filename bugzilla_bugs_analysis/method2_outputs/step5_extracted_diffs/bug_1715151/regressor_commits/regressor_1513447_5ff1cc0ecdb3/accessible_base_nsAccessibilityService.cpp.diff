@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/base/nsAccessibilityService.cpp
+# Commit: 5ff1cc0ecdb3
+# Full Hash: 5ff1cc0ecdb3cc503d6e0b6f5509eda78d551c7a
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2021-05-05 04:13:36
+# Regressor Bug: 1513447
+# File Overlap Count: 1
+# Description:
+#   Bug 1513447 - Use generated marker elements for list bullet accessibles. r=Jamie
+#   
+#   In 1513447 there is a demonstrated instance in which the generated
+#   marker is replaced with another one and throws the list item bullet
+#   state into an unknown state. To remedy this we need to observe when such
+# ==============================================================================
+
+diff -r 029a5e8fa8f3 -r 5ff1cc0ecdb3 accessible/base/nsAccessibilityService.cpp
+--- a/accessible/base/nsAccessibilityService.cpp	Tue May 04 18:46:44 2021 +0000
++++ b/accessible/base/nsAccessibilityService.cpp	Tue May 04 19:07:59 2021 +0000
+@@ -548,19 +548,6 @@
+   }
+ }
+ 
+-void nsAccessibilityService::UpdateListBullet(PresShell* aPresShell,
+-                                              nsIContent* aHTMLListItemContent,
+-                                              bool aHasBullet) {
+-  DocAccessible* document = GetDocAccessible(aPresShell);
+-  if (document) {
+-    LocalAccessible* accessible = document->GetAccessible(aHTMLListItemContent);
+-    if (accessible) {
+-      HTMLLIAccessible* listItem = accessible->AsHTMLListItem();
+-      if (listItem) listItem->UpdateBullet(aHasBullet);
+-    }
+-  }
+-}
+-
+ void nsAccessibilityService::UpdateImageMap(nsImageFrame* aImageFrame) {
+   PresShell* presShell = aImageFrame->PresShell();
+   DocAccessible* document = GetDocAccessible(presShell);
+@@ -1138,6 +1125,14 @@
+                          nsGkAtoms::mspace_, nsGkAtoms::semantics_)) {
+         newAcc = new HyperTextAccessible(content, document);
+       }
++    } else if (content->IsGeneratedContentContainerForMarker()) {
++      if (aContext->IsHTMLListItem()) {
++        const nsStyleList* styleList = frame->StyleList();
++        if (!styleList->mListStyleImage.IsNone() ||
++            !styleList->mCounterStyle.IsNone()) {
++          newAcc = new HTMLListBulletAccessible(content, document);
++        }
++      }
+     }
+   }
+ 

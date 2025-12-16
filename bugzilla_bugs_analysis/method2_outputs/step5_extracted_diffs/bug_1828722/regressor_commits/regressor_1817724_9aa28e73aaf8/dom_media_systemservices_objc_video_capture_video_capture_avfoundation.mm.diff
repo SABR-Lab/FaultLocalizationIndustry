@@ -1,0 +1,122 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/systemservices/objc_video_capture/video_capture_avfoundation.mm
+# Commit: 9aa28e73aaf8
+# Full Hash: 9aa28e73aaf80582e005fcb9a10eb320e8817428
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2023-03-30 15:09:05
+# Regressor Bug: 1817724
+# File Overlap Count: 1
+# Description:
+#   Bug 1817724 - In VideoCaptureAvFoundation use MediaEvent to handle frames. r=webrtc-reviewers,ng
+#   
+#   Hypothetically if the frame callback is doing something leading to crashes, this
+#   patch should at least affect those symptoms, giving us more clues to where the
+#   problem lies.
+# ==============================================================================
+
+diff -r 7210a42c8ad8 -r 9aa28e73aaf8 dom/media/systemservices/objc_video_capture/video_capture_avfoundation.mm
+--- a/dom/media/systemservices/objc_video_capture/video_capture_avfoundation.mm	Thu Mar 30 10:36:33 2023 +0000
++++ b/dom/media/systemservices/objc_video_capture/video_capture_avfoundation.mm	Thu Mar 30 10:36:33 2023 +0000
+@@ -73,20 +73,9 @@
+ }  // namespace
+ 
+ @implementation VideoCaptureAdapter
+-- (void)setCapturer:(webrtc::videocapturemodule::VideoCaptureAvFoundation* _Nullable)capturer {
+-  webrtc::MutexLock lock(&_mutex);
+-  _capturer = capturer;
+-}
+-
+ - (void)capturer:(RTCVideoCapturer* _Nonnull)capturer
+     didCaptureVideoFrame:(RTCVideoFrame* _Nonnull)frame {
+-  rtc::scoped_refptr<webrtc::videocapturemodule::VideoCaptureAvFoundation> cap;
+-  {
+-    webrtc::MutexLock lock(&_mutex);
+-    cap = rtc::scoped_refptr(_capturer);
+-  }
+-  if (!cap) return;
+-  cap->OnFrame(frame);
++  frameEvent.Notify(frame);
+ }
+ @end
+ 
+@@ -94,8 +83,7 @@
+ VideoCaptureAvFoundation::VideoCaptureAvFoundation(AVCaptureDevice* _Nonnull aDevice)
+     : mDevice(aDevice),
+       mAdapter([[VideoCaptureAdapter alloc] init]),
+-      mCapturer([[RTC_OBJC_TYPE(RTCCameraVideoCapturer) alloc] initWithDelegate:mAdapter]),
+-      mCallbackThreadId() {
++      mCapturer([[RTC_OBJC_TYPE(RTCCameraVideoCapturer) alloc] initWithDelegate:mAdapter]) {
+   const char* uniqueId = [[aDevice uniqueID] UTF8String];
+   size_t len = strlen(uniqueId);
+   _deviceUniqueId = new (std::nothrow) char[len + 1];
+@@ -150,7 +138,8 @@
+     }
+   }
+ 
+-  [mAdapter setCapturer:this];
++  mFrameListener = mAdapter->frameEvent.Connect(GetCurrentSerialEventTarget(), this,
++                                                &VideoCaptureAvFoundation::OnFrame);
+ 
+   {
+     Monitor monitor("VideoCaptureAVFoundation::StartCapture");
+@@ -237,14 +226,13 @@
+     monitor.Wait();
+   }
+ 
+-  [mAdapter setCapturer:nil];
++  mFrameListener.Disconnect();
+ 
+   return 0;
+ }
+ 
+ bool VideoCaptureAvFoundation::CaptureStarted() {
+   RTC_DCHECK_RUN_ON(&mChecker);
+-  MutexLock lock(&api_lock_);
+   return mCapability.isSome();
+ }
+ 
+@@ -253,9 +241,9 @@
+   return -1;
+ }
+ 
+-int32_t VideoCaptureAvFoundation::OnFrame(__strong RTCVideoFrame* _Nonnull aFrame) {
+-  MaybeRegisterCallbackThread();
+-  if (MutexLock lock(&api_lock_); MOZ_LIKELY(mTrackingId)) {
++void VideoCaptureAvFoundation::OnFrame(__strong RTCVideoFrame* _Nonnull aFrame) {
++  RTC_DCHECK_RUN_ON(&mChecker);
++  if (MOZ_LIKELY(mTrackingId)) {
+     mCaptureRecorder.Start(0, "VideoCaptureAVFoundation"_ns, *mTrackingId, aFrame.width,
+                            aFrame.height, mImageType.valueOr(CaptureStage::ImageType::Unknown));
+     if (mCapability && mCapability->videoType != webrtc::VideoType::kI420) {
+@@ -277,14 +265,12 @@
+                    .build();
+ 
+   MutexLock lock(&api_lock_);
+-  int32_t rv = DeliverCapturedFrame(frame);
++  DeliverCapturedFrame(frame);
+   mCaptureRecorder.Record(0);
+-  return rv;
+ }
+ 
+ void VideoCaptureAvFoundation::SetTrackingId(uint32_t aTrackingIdProcId) {
+   RTC_DCHECK_RUN_ON(&mChecker);
+-  MutexLock lock(&api_lock_);
+   if (NS_WARN_IF(mTrackingId.isSome())) {
+     // This capture instance must be shared across multiple camera requests. For now ignore other
+     // requests than the first.
+@@ -292,13 +278,4 @@
+   }
+   mTrackingId.emplace(TrackingId::Source::Camera, aTrackingIdProcId);
+ }
+-
+-void VideoCaptureAvFoundation::MaybeRegisterCallbackThread() {
+-  ProfilerThreadId id = profiler_current_thread_id();
+-  if (MOZ_LIKELY(id == mCallbackThreadId)) {
+-    return;
+-  }
+-  mCallbackThreadId = id;
+-  CallbackThreadRegistry::Get()->Register(mCallbackThreadId, "VideoCaptureAVFoundationCallback");
+-}
+ }  // namespace webrtc::videocapturemodule

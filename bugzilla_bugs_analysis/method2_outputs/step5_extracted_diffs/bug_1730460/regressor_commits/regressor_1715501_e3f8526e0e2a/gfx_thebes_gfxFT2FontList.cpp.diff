@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxFT2FontList.cpp
+# Commit: e3f8526e0e2a
+# Full Hash: e3f8526e0e2a08a4a8342dccedf05bebb3de1baf
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2021-09-08 21:39:05
+# Regressor Bug: 1715501
+# File Overlap Count: 1
+# Description:
+#   Bug 1715501 - patch 2 - Pass the presContext to platform font lookup methods so they can query it for font visibility. r=emilio
+#   
+#   This does not in itself change user-visible behavior, but is a foundation for bug
+#   1715507 where we will make the behavior per-context instead of global. This is basically
+#   just plumbing, passing a pointer to the presContext that's asking for fonts to be
+# ==============================================================================
+
+diff -r cfdd1c5d8d3f -r e3f8526e0e2a gfx/thebes/gfxFT2FontList.cpp
+--- a/gfx/thebes/gfxFT2FontList.cpp	Wed Sep 08 09:35:16 2021 +0000
++++ b/gfx/thebes/gfxFT2FontList.cpp	Wed Sep 08 09:35:17 2021 +0000
+@@ -46,6 +46,7 @@
+ #include "nsAppDirectoryServiceDefs.h"
+ #include "nsIMemory.h"
+ #include "nsMemory.h"
++#include "nsPresContext.h"
+ #include "gfxFontConstants.h"
+ 
+ #include "mozilla/EndianUtils.h"
+@@ -1719,18 +1720,25 @@
+ // called for each family name, based on the assumption that the
+ // first part of the full name is the family name
+ 
+-gfxFontEntry* gfxFT2FontList::LookupLocalFont(const nsACString& aFontName,
++gfxFontEntry* gfxFT2FontList::LookupLocalFont(nsPresContext* aPresContext,
++                                              const nsACString& aFontName,
+                                               WeightRange aWeightForEntry,
+                                               StretchRange aStretchForEntry,
+                                               SlantStyleRange aStyleForEntry) {
+   if (SharedFontList()) {
+-    return LookupInSharedFaceNameList(aFontName, aWeightForEntry,
++    return LookupInSharedFaceNameList(aPresContext, aFontName, aWeightForEntry,
+                                       aStretchForEntry, aStyleForEntry);
+   }
+   // walk over list of names
+   FT2FontEntry* fontEntry = nullptr;
++  FontVisibility level =
++      aPresContext ? aPresContext->GetFontVisibility() : FontVisibility::User;
+ 
+   for (const RefPtr<gfxFontFamily>& fontFamily : mFontFamilies.Values()) {
++    if (!IsVisibleToCSS(*fontFamily, level)) {
++      continue;
++    }
++
+     // Check family name, based on the assumption that the
+     // first part of the full name is the family name
+ 
+@@ -1784,13 +1792,14 @@
+   return fe;
+ }
+ 
+-FontFamily gfxFT2FontList::GetDefaultFontForPlatform(const gfxFontStyle* aStyle,
+-                                                     nsAtom* aLanguage) {
++FontFamily gfxFT2FontList::GetDefaultFontForPlatform(
++    nsPresContext* aPresContext, const gfxFontStyle* aStyle,
++    nsAtom* aLanguage) {
+   FontFamily ff;
+ #if defined(MOZ_WIDGET_ANDROID)
+-  ff = FindFamily("Roboto"_ns);
++  ff = FindFamily(aPresContext, "Roboto"_ns);
+   if (ff.IsNull()) {
+-    ff = FindFamily("Droid Sans"_ns);
++    ff = FindFamily(aPresContext, "Droid Sans"_ns);
+   }
+ #endif
+   /* TODO: what about Qt or other platforms that may use this? */

@@ -1,0 +1,82 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/platforms/PDMFactory.cpp
+# Commit: 1932f2f34993
+# Full Hash: 1932f2f3499302f712bb680096d51478e53c99ed
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2020-10-21 09:51:28
+# Regressor Bug: 1595994
+# File Overlap Count: 1
+# Description:
+#   Bug 1595994 - P6: Change Supports to take SupportDecoderParams. r=kamidphish
+#   
+#   This is a subset of the parameters passed via CreateDecoderParams and is so
+#   Supports() calls have access to KnowsCompositor and Options when determining
+#   if decoding is supported.
+# ==============================================================================
+
+diff -r 0606794a9e8c -r 1932f2f34993 dom/media/platforms/PDMFactory.cpp
+--- a/dom/media/platforms/PDMFactory.cpp	Tue Oct 20 23:24:48 2020 +0000
++++ b/dom/media/platforms/PDMFactory.cpp	Tue Oct 20 23:26:25 2020 +0000
+@@ -221,7 +221,7 @@
+       }
+ 
+       for (auto& current : mCurrentPDMs) {
+-        if (!current->Supports(config, diagnostics)) {
++        if (!current->Supports(SupportDecoderParams(aParams), diagnostics)) {
+           continue;
+         }
+         decoder = CreateDecoderWithPDM(current, aParams);
+@@ -313,15 +313,15 @@
+   if (!trackInfo) {
+     return false;
+   }
+-  return Supports(*trackInfo, aDiagnostics);
++  return Supports(SupportDecoderParams(*trackInfo), aDiagnostics);
+ }
+ 
+-bool PDMFactory::Supports(const TrackInfo& aTrackInfo,
++bool PDMFactory::Supports(const SupportDecoderParams& aParams,
+                           DecoderDoctorDiagnostics* aDiagnostics) const {
+   if (mEMEPDM) {
+-    return mEMEPDM->Supports(aTrackInfo, aDiagnostics);
++    return mEMEPDM->Supports(aParams, aDiagnostics);
+   }
+-  if (VPXDecoder::IsVPX(aTrackInfo.mMimeType,
++  if (VPXDecoder::IsVPX(aParams.MimeType(),
+                         VPXDecoder::VP8 | VPXDecoder::VP9)) {
+     // Work around bug 1521370, where trying to instantiate an external decoder
+     // could cause a crash.
+@@ -329,7 +329,9 @@
+     // So we can speed up the test by assuming that this codec is supported.
+     return true;
+   }
+-  RefPtr<PlatformDecoderModule> current = GetDecoder(aTrackInfo, aDiagnostics);
++
++  RefPtr<PlatformDecoderModule> current =
++      GetDecoderModule(aParams, aDiagnostics);
+   return !!current;
+ }
+ 
+@@ -433,8 +435,9 @@
+   return false;
+ }
+ 
+-already_AddRefed<PlatformDecoderModule> PDMFactory::GetDecoder(
+-    const TrackInfo& aTrackInfo, DecoderDoctorDiagnostics* aDiagnostics) const {
++already_AddRefed<PlatformDecoderModule> PDMFactory::GetDecoderModule(
++    const SupportDecoderParams& aParams,
++    DecoderDoctorDiagnostics* aDiagnostics) const {
+   if (aDiagnostics) {
+     // If libraries failed to load, the following loop over mCurrentPDMs
+     // will not even try to use them. So we record failures now.
+@@ -451,7 +454,7 @@
+ 
+   RefPtr<PlatformDecoderModule> pdm;
+   for (auto& current : mCurrentPDMs) {
+-    if (current->Supports(aTrackInfo, aDiagnostics)) {
++    if (current->Supports(aParams, aDiagnostics)) {
+       pdm = current;
+       break;
+     }

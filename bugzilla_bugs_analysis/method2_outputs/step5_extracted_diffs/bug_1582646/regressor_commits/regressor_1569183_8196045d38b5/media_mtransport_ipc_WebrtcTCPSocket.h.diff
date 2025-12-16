@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/mtransport/ipc/WebrtcTCPSocket.h
+# Commit: 8196045d38b5
+# Full Hash: 8196045d38b50e04313725215c36ba1618c50486
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2019-09-18 21:49:27
+# Regressor Bug: 1569183
+# File Overlap Count: 2
+# Description:
+#   Bug 1569183: Create an ipdl struct called WebrtcProxyConfig, to cut down on the arg count on lots of functions. r=mjf,mayhemer
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D45562
+# ==============================================================================
+
+diff -r 6e1eba5c88ad -r 8196045d38b5 media/mtransport/ipc/WebrtcTCPSocket.h
+--- a/media/mtransport/ipc/WebrtcTCPSocket.h	Wed Sep 18 14:27:42 2019 +0000
++++ b/media/mtransport/ipc/WebrtcTCPSocket.h	Tue Sep 17 18:19:04 2019 +0000
+@@ -18,10 +18,8 @@
+ #include "nsIStreamListener.h"
+ #include "nsStringFwd.h"
+ #include "nsTArray.h"
+-#include "mozilla/dom/ipc/IdType.h"     // TabId
+-#include "mozilla/dom/PContentChild.h"  // LoadInfoArgs
+ #include "nsIProtocolProxyCallback.h"
+-#include "mtransport/nr_socket_proxy_config.h"
++#include "mozilla/net/WebrtcProxyConfig.h"
+ 
+ class nsISocketTransport;
+ 
+@@ -54,9 +52,8 @@
+   void SetTabId(dom::TabId aTabId);
+   nsresult Open(const nsCString& aHost, const int& aPort,
+                 const nsCString& aLocalAddress, const int& aLocalPort,
+-                bool aUseTls, const Maybe<net::LoadInfoArgs>& aArgs,
+-                const Maybe<nsCString>& aAlpn,
+-                const Maybe<NrSocketProxyConfig::ProxyPolicy>& aProxyPolicy);
++                bool aUseTls,
++                const Maybe<net::WebrtcProxyConfig>& aProxyConfig);
+   nsresult Write(nsTArray<uint8_t>&& aBytes);
+   nsresult Close();
+ 
+@@ -76,10 +73,8 @@
+   bool mClosed;
+   bool mOpened;
+   nsCOMPtr<nsIURI> mURI;
+-  net::LoadInfoArgs mLoadInfoArgs;
+-  nsCString mAlpn;
+   bool mTls = false;
+-  bool mForceProxy = false;
++  Maybe<WebrtcProxyConfig> mProxyConfig;
+   nsCString mLocalAddress;
+   uint16_t mLocalPort = 0;
+   nsCString mProxyType;

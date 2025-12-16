@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/PContent.ipdl
+# Commit: aea23435804b
+# Full Hash: aea23435804b56798dbae8fa46dfccb8cbdca131
+# Author: Yaron Tausky <ytausky@mozilla.com>
+# Date: 2019-12-13 16:53:24
+# Regressor Bug: 1593246
+# File Overlap Count: 6
+# Description:
+#   Bug 1593246 - Part 5: Replicate session storage data r=janv,asuth
+#   
+#   This commit implements a simple data replication scheme, where
+#   each content process receives a copy of the relevant session
+#   storage data when navigating, and sending all its session storage
+# ==============================================================================
+
+diff -r da1672f831d1 -r aea23435804b dom/ipc/PContent.ipdl
+--- a/dom/ipc/PContent.ipdl	Fri Dec 13 09:16:32 2019 +0000
++++ b/dom/ipc/PContent.ipdl	Fri Dec 13 09:45:55 2019 +0000
+@@ -343,6 +343,12 @@
+   uint64_t;
+ };
+ 
++struct KeyValuePair
++{
++    nsString key;
++    nsString value;
++};
++
+ /**
+  * The PContent protocol is a top-level protocol between the UI process
+  * and a content process. There is exactly one PContentParent/PContentChild pair
+@@ -1573,6 +1579,14 @@
+     async WindowBlur(BrowsingContext aContext);
+     async WindowPostMessage(BrowsingContext aContext, ClonedMessageData aMessage,
+                             PostMessageData aData);
++
++    /**
++     * Move sessionStorage data between parent and content processes. See
++     * SessionStorageManager documentation for more details.
++     */
++    async SessionStorageData(BrowsingContext aTop, nsCString aOriginAttrs,
++                             nsCString aOriginKey, KeyValuePair[] aDefaultData,
++                             KeyValuePair[] aSessionData);
+ };
+ 
+ }

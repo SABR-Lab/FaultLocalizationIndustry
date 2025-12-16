@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/EventWithOptionsRunnable.cpp
+# Commit: ffc69aa8f2c3
+# Full Hash: ffc69aa8f2c3bcdc3cc4f2516a618c0430e67ddf
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2024-04-19 15:22:44
+# Regressor Bug: 1769913
+# File Overlap Count: 3
+# Description:
+#   Bug 1769913 - P2 WorkerParentThreadRunnable for the runnables dispatched to worker's parent thread. r=dom-worker-reviewers,asuth
+#   
+#   In this patch, WorkerParentThreadRunnable is extracted from WorkerThreadRunnable for runnable on the parent thread.
+#   
+#   WorkerParentControlRunnable and WorkerParentDebuggeeRunnable are also created for control runnable and debuggee runnable on the parent thread.
+# ==============================================================================
+
+diff -r 379cd5044768 -r ffc69aa8f2c3 dom/workers/EventWithOptionsRunnable.cpp
+--- a/dom/workers/EventWithOptionsRunnable.cpp	Fri Apr 19 09:41:57 2024 +0000
++++ b/dom/workers/EventWithOptionsRunnable.cpp	Fri Apr 19 09:41:57 2024 +0000
+@@ -33,8 +33,7 @@
+ namespace mozilla::dom {
+ EventWithOptionsRunnable::EventWithOptionsRunnable(Worker& aWorker,
+                                                    const char* aName)
+-    : WorkerDebuggeeRunnable(aWorker.mWorkerPrivate, aName,
+-                             WorkerRunnable::WorkerThread),
++    : WorkerDebuggeeRunnable(aWorker.mWorkerPrivate, aName),
+       StructuredCloneHolder(CloningSupported, TransferringSupported,
+                             StructuredCloneScope::SameProcess) {}
+ 
+@@ -132,19 +131,6 @@
+ 
+ bool EventWithOptionsRunnable::WorkerRun(JSContext* aCx,
+                                          WorkerPrivate* aWorkerPrivate) {
+-  if (mTarget == ParentThread) {
+-    // Don't fire this event if the JS object has been disconnected from the
+-    // private object.
+-    if (!aWorkerPrivate->IsAcceptingEvents()) {
+-      return true;
+-    }
+-
+-    aWorkerPrivate->AssertInnerWindowIsCorrect();
+-
+-    return BuildAndFireEvent(aCx, aWorkerPrivate,
+-                             aWorkerPrivate->ParentEventTargetRef());
+-  }
+-
+   MOZ_ASSERT(aWorkerPrivate == GetWorkerPrivateFromContext(aCx));
+   MOZ_ASSERT(aWorkerPrivate->GlobalScope());
+ 

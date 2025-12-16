@@ -1,0 +1,31 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/Zone.cpp
+# Commit: e85578d93db4
+# Full Hash: e85578d93db4c1060065cfbeffe849d414fcf9d4
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2019-05-01 15:57:23
+# Regressor Bug: 1547565
+# File Overlap Count: 1
+# Description:
+#   Bug 1547565 - Remove AtomStateEntry and use ReadBarriered<JSAtom*> instead in the atoms table r=jandem
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D29179
+# ==============================================================================
+
+diff -r 20ca9c77f630 -r e85578d93db4 js/src/gc/Zone.cpp
+--- a/js/src/gc/Zone.cpp	Mon Apr 29 16:06:09 2019 +0100
++++ b/js/src/gc/Zone.cpp	Mon Apr 29 11:09:33 2019 +0100
+@@ -465,9 +465,9 @@
+ void Zone::traceAtomCache(JSTracer* trc) {
+   MOZ_ASSERT(hasKeptAtoms());
+   for (auto r = atomCache().all(); !r.empty(); r.popFront()) {
+-    JSAtom* atom = r.front().asPtrUnbarriered();
++    JSAtom* atom = r.front().unbarrieredGet();
+     TraceRoot(trc, &atom, "kept atom");
+-    MOZ_ASSERT(r.front().asPtrUnbarriered() == atom);
++    MOZ_ASSERT(r.front().unbarrieredGet() == atom);
+   }
+ }
+ 

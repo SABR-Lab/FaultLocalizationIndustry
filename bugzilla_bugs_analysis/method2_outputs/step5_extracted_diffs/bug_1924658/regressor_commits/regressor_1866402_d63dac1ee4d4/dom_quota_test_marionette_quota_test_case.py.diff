@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/test/marionette/quota_test_case.py
+# Commit: d63dac1ee4d4
+# Full Hash: d63dac1ee4d471defff484dae5a3535e1f8ba072
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-10-10 22:03:45
+# Regressor Bug: 1866402
+# File Overlap Count: 1
+# Description:
+#   Bug 1866402 - Make it possible to initialize temporary origins without ensuring origin directories; r=dom-storage-reviewers,jari
+#   
+#   LSNG already uses some QuotaManager APIs to achieve that origin directories are
+#   not created if they don't exist during datastore preparation, but the feature
+#   is not easy to use and it's also not generalized enough for use in other quota
+# ==============================================================================
+
+diff -r 2ab08c49f2b1 -r d63dac1ee4d4 dom/quota/test/marionette/quota_test_case.py
+--- a/dom/quota/test/marionette/quota_test_case.py	Thu Oct 10 12:22:54 2024 +0000
++++ b/dom/quota/test/marionette/quota_test_case.py	Thu Oct 10 12:22:55 2024 +0000
+@@ -121,16 +121,16 @@
+                 script_args=(),
+             )
+ 
+-    def initTemporaryOrigin(self, persistenceType, origin):
++    def initTemporaryOrigin(self, persistenceType, origin, createIfNonExistent=True):
+         with self.marionette.using_context(self.marionette.CONTEXT_CHROME):
+             return self.executeAsyncScript(
+                 """
+-                const [persistenceType, origin] = arguments;
++                const [persistenceType, origin, createIfNonExistent] = arguments;
+                 async function main() {
+                     const principal = Services.scriptSecurityManager.
+                                         createContentPrincipalFromOrigin(origin);
+ 
+-                    let req = Services.qms.initializeTemporaryOrigin(persistenceType, principal);
++                    let req = Services.qms.initializeTemporaryOrigin(persistenceType, principal, createIfNonExistent);
+                     await requestFinished(req)
+ 
+                     return true;
+@@ -139,6 +139,7 @@
+                 script_args=(
+                     persistenceType,
+                     origin,
++                    createIfNonExistent,
+                 ),
+             )
+ 

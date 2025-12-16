@@ -1,0 +1,87 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/ImageBitmap.cpp
+# Commit: 7802e5f1bd13
+# Full Hash: 7802e5f1bd1395f19f2d78636787c41f64192bd7
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2024-04-19 15:22:44
+# Regressor Bug: 1769913
+# File Overlap Count: 3
+# Description:
+#   Bug 1769913 - P3 Remove WorkerRunnable::mWorkerPrivate. r=dom-worker-reviewers,asuth
+#   
+#   WorkerRunnable no longer keeps a raw pointer(mWorkerPrivate) for the associated WorkerPrivate in this patch.
+#   Removing the WorkerRunnable::mWorkerPrivate needs to fix the following problems.
+#   
+# ==============================================================================
+
+diff -r ffc69aa8f2c3 -r 7802e5f1bd13 dom/canvas/ImageBitmap.cpp
+--- a/dom/canvas/ImageBitmap.cpp	Fri Apr 19 09:41:57 2024 +0000
++++ b/dom/canvas/ImageBitmap.cpp	Fri Apr 19 09:41:58 2024 +0000
+@@ -61,7 +61,8 @@
+ class SendShutdownToWorkerThread : public MainThreadWorkerControlRunnable {
+  public:
+   explicit SendShutdownToWorkerThread(ImageBitmap* aImageBitmap)
+-      : MainThreadWorkerControlRunnable(GetCurrentThreadWorkerPrivate()),
++      : MainThreadWorkerControlRunnable("SendShutdownToWorkerThread"),
++        mWorkerPrivate(GetCurrentThreadWorkerPrivate()),
+         mImageBitmap(aImageBitmap) {
+     MOZ_ASSERT(GetCurrentThreadWorkerPrivate());
+   }
+@@ -74,6 +75,7 @@
+     return true;
+   }
+ 
++  WorkerPrivate* mWorkerPrivate;
+   ImageBitmap* mImageBitmap;
+ };
+ 
+@@ -146,7 +148,7 @@
+     for (const auto& bitmap : mBitmaps) {
+       const auto& runnable = bitmap->mShutdownRunnable;
+       if (runnable) {
+-        runnable->Dispatch();
++        runnable->Dispatch(runnable->mWorkerPrivate);
+       } else {
+         bitmap->OnShutdown();
+       }
+@@ -1578,8 +1580,7 @@
+  public:
+   FulfillImageBitmapPromiseWorkerTask(Promise* aPromise,
+                                       ImageBitmap* aImageBitmap)
+-      : WorkerSameThreadRunnable(GetCurrentThreadWorkerPrivate(),
+-                                 "FulfillImageBitmapPromiseWorkerTask"),
++      : WorkerSameThreadRunnable("FulfillImageBitmapPromiseWorkerTask"),
+         FulfillImageBitmapPromise(aPromise, aImageBitmap) {}
+ 
+   bool WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override {
+@@ -1597,7 +1598,8 @@
+   } else {
+     RefPtr<FulfillImageBitmapPromiseWorkerTask> task =
+         new FulfillImageBitmapPromiseWorkerTask(aPromise, aImageBitmap);
+-    task->Dispatch();  // Actually, to the current worker-thread.
++    task->Dispatch(GetCurrentThreadWorkerPrivate());  // Actually, to the
++                                                      // current worker-thread.
+   }
+ }
+ 
+@@ -1706,8 +1708,7 @@
+                                              CreateImageBitmapFromBlob* aTask,
+                                              layers::Image* aImage,
+                                              nsresult aStatus)
+-      : WorkerThreadRunnable(aWorkerPrivate,
+-                             "CreateImageBitmapFromBlobRunnable"),
++      : WorkerThreadRunnable("CreateImageBitmapFromBlobRunnable"),
+         mTask(aTask),
+         mImage(aImage),
+         mStatus(aStatus) {}
+@@ -2288,7 +2289,7 @@
+     RefPtr<CreateImageBitmapFromBlobRunnable> r =
+         new CreateImageBitmapFromBlobRunnable(mWorkerRef->Private(), this,
+                                               aImage, aStatus);
+-    r->Dispatch();
++    r->Dispatch(mWorkerRef->Private());
+     return;
+   }
+ 

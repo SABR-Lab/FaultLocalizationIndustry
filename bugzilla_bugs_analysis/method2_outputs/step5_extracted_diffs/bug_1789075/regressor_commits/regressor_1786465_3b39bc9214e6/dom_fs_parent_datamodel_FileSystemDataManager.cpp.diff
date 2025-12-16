@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fs/parent/datamodel/FileSystemDataManager.cpp
+# Commit: 3b39bc9214e6
+# Full Hash: 3b39bc9214e650428b728f27d377377dcbc1d62d
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2022-08-31 21:54:47
+# Regressor Bug: 1786465
+# File Overlap Count: 2
+# Description:
+#   Bug 1786465 - Add support for asynchronous creation of FileSystemDataManager; r=dom-storage-reviewers,jesup
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D155788
+# ==============================================================================
+
+diff -r 6d1f25188b13 -r 3b39bc9214e6 dom/fs/parent/datamodel/FileSystemDataManager.cpp
+--- a/dom/fs/parent/datamodel/FileSystemDataManager.cpp	Wed Aug 31 09:34:58 2022 +0000
++++ b/dom/fs/parent/datamodel/FileSystemDataManager.cpp	Wed Aug 31 09:34:58 2022 +0000
+@@ -94,19 +94,21 @@
+   MOZ_ASSERT(mState == State::Closed);
+ }
+ 
+-FileSystemDataManager::result_t
++RefPtr<FileSystemDataManager::CreatePromise>
+ FileSystemDataManager::GetOrCreateFileSystemDataManager(const Origin& aOrigin) {
+   if (RefPtr<FileSystemDataManager> dataManager =
+           GetFileSystemDataManager(aOrigin)) {
+     // XXX Handle the case when the manager is asynchronouslly closing!
+ 
+-    return Registered<FileSystemDataManager>(std::move(dataManager));
++    return CreatePromise::CreateAndResolve(
++        Registered<FileSystemDataManager>(std::move(dataManager)), __func__);
+   }
+ 
+   QM_TRY_UNWRAP(auto streamTransportService,
+                 MOZ_TO_RESULT_GET_TYPED(nsCOMPtr<nsIEventTarget>,
+                                         MOZ_SELECT_OVERLOAD(do_GetService),
+-                                        NS_STREAMTRANSPORTSERVICE_CONTRACTID));
++                                        NS_STREAMTRANSPORTSERVICE_CONTRACTID),
++                CreatePromise::CreateAndReject(NS_ERROR_FAILURE, __func__));
+ 
+   nsCString taskQueueName("OPFS "_ns + aOrigin);
+ 
+@@ -118,7 +120,8 @@
+ 
+   AddFileSystemDataManager(aOrigin, dataManager);
+ 
+-  return Registered<FileSystemDataManager>(std::move(dataManager));
++  return CreatePromise::CreateAndResolve(
++      Registered<FileSystemDataManager>(std::move(dataManager)), __func__);
+ }
+ 
+ void FileSystemDataManager::Register() { mRegCount++; }

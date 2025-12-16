@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/shistory/nsISHistory.idl
+# Commit: 6ebc7618a5fa
+# Full Hash: 6ebc7618a5fadb59585a4d8b9f17eb65e5654cc6
+# Author: Anny Gakhokidze <agakhokidze@mozilla.com>
+# Date: 2020-03-10 21:44:54
+# Regressor Bug: 1546759
+# File Overlap Count: 2
+# Description:
+#   Bug 1546759 - Change nsSHistory::WalkHistoryEntries to walk browsing context tree instead of doc shell tree, r=peterv,nika
+#   
+#   WalkHistoryEntries function gets called by nsSHistory::CloneAndReplaceChild
+#   and nsSHistory::SetChildHistoryEntry recursively, so those have to be moved
+#   into the parent process. This eliminates many sync IPC calls.
+# ==============================================================================
+
+diff -r ed75364b23c3 -r 6ebc7618a5fa docshell/shistory/nsISHistory.idl
+--- a/docshell/shistory/nsISHistory.idl	Tue Mar 10 11:39:06 2020 +0000
++++ b/docshell/shistory/nsISHistory.idl	Tue Mar 10 14:28:22 2020 +0000
+@@ -9,13 +9,16 @@
+ interface nsISHEntry;
+ interface nsISHistoryListener;
+ interface nsIURI;
++webidl BrowsingContext;
+ 
+ %{C++
+ #include "nsTArrayForwardDeclare.h"
++#include "mozilla/Maybe.h"
++struct EntriesAndBrowsingContextData;
+ %}
+ 
+ [ref] native nsDocshellIDArray(nsTArray<nsID>);
+-
++native MaybeInt32(Maybe<int32_t>);
+ /**
+  * An interface to the primary properties of the Session History
+  * component. In an embedded browser environment, the nsIWebBrowser
+@@ -266,4 +269,14 @@
+   [notxpcom] void EvictContentViewersOrReplaceEntry(in nsISHEntry aNewSHEntry, in bool aReplace);
+ 
+   nsISHEntry createEntry();
++
++  [noscript] void AddToRootSessionHistory(in bool aCloneChildren, in nsISHEntry aOSHE,
++                                          in BrowsingContext aBC, in nsISHEntry aEntry,
++                                          in unsigned long aLoadType,
++                                          in bool aShouldPersist,
++                                          out MaybeInt32 aPreviousEntryIndex,
++                                          out MaybeInt32 aLoadedEntryIndex);
++
++  [noscript] void AddChildSHEntryHelper(in nsISHEntry aCloneRef, in nsISHEntry aNewEntry,
++                                        in BrowsingContext aBC, in bool aCloneChildren);
+ };

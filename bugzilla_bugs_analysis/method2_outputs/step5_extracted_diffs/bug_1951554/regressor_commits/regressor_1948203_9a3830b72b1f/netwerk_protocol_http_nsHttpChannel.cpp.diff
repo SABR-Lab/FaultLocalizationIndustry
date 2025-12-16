@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/nsHttpChannel.cpp
+# Commit: 9a3830b72b1f
+# Full Hash: 9a3830b72b1f2a9640a7ff945b91d17d67828bcd
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2025-02-24 17:07:55
+# Regressor Bug: 1948203
+# File Overlap Count: 5
+# Description:
+#   Bug 1948203 - Skip alt-svc validation if we already connected to the server, r=necko-reviewers,jesup
+#   
+#   This patch optimizes how Firefox handles speculative connections for alt-svc headers. When a server sends an alt-svc header, Firefox normally creates a speculative connection to validate it. With this patch, if the connection’s hash key matches the one generated from the alt-svc header, the validation step is skipped since an equivalent connection is already in place, avoiding unnecessary work.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D238218
+# ==============================================================================
+
+diff -r d5962b430cd3 -r 9a3830b72b1f netwerk/protocol/http/nsHttpChannel.cpp
+--- a/netwerk/protocol/http/nsHttpChannel.cpp	Mon Feb 24 09:01:12 2025 +0000
++++ b/netwerk/protocol/http/nsHttpChannel.cpp	Mon Feb 24 09:20:35 2025 +0000
+@@ -2459,7 +2459,7 @@
+   }
+ }
+ 
+-void nsHttpChannel::ProcessAltService() {
++void nsHttpChannel::ProcessAltService(nsHttpConnectionInfo* aTransConnInfo) {
+   // e.g. Alt-Svc: h2=":443"; ma=60
+   // e.g. Alt-Svc: h2="otherhost:443"
+   // Alt-Svc       = 1#( alternative *( OWS ";" OWS parameter ) )
+@@ -2528,9 +2528,10 @@
+         this, originAttributes);
+   }
+ 
+-  AltSvcMapping::ProcessHeader(
+-      altSvc, scheme, originHost, originPort, mUsername, mPrivateBrowsing,
+-      callbacks, proxyInfo, mCaps & NS_HTTP_DISALLOW_SPDY, originAttributes);
++  AltSvcMapping::ProcessHeader(altSvc, scheme, originHost, originPort,
++                               mUsername, mPrivateBrowsing, callbacks,
++                               proxyInfo, mCaps & NS_HTTP_DISALLOW_SPDY,
++                               originAttributes, aTransConnInfo);
+ }
+ 
+ nsresult nsHttpChannel::ProcessResponse() {
+@@ -2745,7 +2746,8 @@
+     }
+ 
+     if ((httpStatus < 500) && (httpStatus != 421)) {
+-      ProcessAltService();
++      RefPtr<nsHttpConnectionInfo> connInfo = mTransaction->GetConnInfo();
++      ProcessAltService(connInfo);
+     }
+   }
+ 

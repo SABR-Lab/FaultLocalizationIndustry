@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/jsapi/RTCRtpSender.cpp
+# Commit: fef019ffca5f
+# Full Hash: fef019ffca5f8a98a0eab2f63ff7aa148afb2706
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2022-12-22 21:34:53
+# Regressor Bug: 1800136
+# File Overlap Count: 1
+# Description:
+#   Bug 1800136: Make RTCRtpSender::GetStats get ICE stats. r=ng
+#   
+#   Also fix bugs where we would get duplicate ICE stats. This mostly mattered to
+#   WebrtcGlobalInformation since RTCStatsReportInternal does not automatically
+#   remove duplicate ids like RTCStatsReport (RTCStatsReport is maplike).
+# ==============================================================================
+
+diff -r ab6eb1cfa9a0 -r fef019ffca5f dom/media/webrtc/jsapi/RTCRtpSender.cpp
+--- a/dom/media/webrtc/jsapi/RTCRtpSender.cpp	Thu Dec 22 15:29:02 2022 +0000
++++ b/dom/media/webrtc/jsapi/RTCRtpSender.cpp	Thu Dec 22 15:29:02 2022 +0000
+@@ -56,6 +56,7 @@
+     : mWindow(aWindow),
+       mPc(aPc),
+       mSenderTrack(aTrack),
++      mTransportHandler(aTransportHandler),
+       mTransceiver(aTransceiver),
+       INIT_CANONICAL(mSsrcs, Ssrcs()),
+       INIT_CANONICAL(mVideoRtxSsrcs, Ssrcs()),
+@@ -146,7 +147,8 @@
+   return promise.forget();
+ }
+ 
+-nsTArray<RefPtr<dom::RTCStatsPromise>> RTCRtpSender::GetStatsInternal() {
++nsTArray<RefPtr<dom::RTCStatsPromise>> RTCRtpSender::GetStatsInternal(
++    bool aSkipIceStats) {
+   MOZ_ASSERT(NS_IsMainThread());
+   nsTArray<RefPtr<RTCStatsPromise>> promises(2);
+   if (!mSenderTrack || !mPipeline) {
+@@ -425,6 +427,12 @@
+         return RTCStatsPromise::CreateAndResolve(std::move(report), __func__);
+       }));
+ 
++  if (!aSkipIceStats && GetJsepTransceiver().mTransport.mComponents) {
++    promises.AppendElement(mTransportHandler->GetIceStats(
++        GetJsepTransceiver().mTransport.mTransportId,
++        mPipeline->GetTimestampMaker().GetNow()));
++  }
++
+   return promises;
+ }
+ 

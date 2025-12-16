@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/MediaFormatReader.h
+# Commit: eed72505cf9b
+# Full Hash: eed72505cf9b3c968aced5a6488f2660e1f02da4
+# Author: Alex Chronopoulos <achronop@gmail.com>
+# Date: 2019-08-06 16:15:05
+# Regressor Bug: 1530996
+# File Overlap Count: 1
+# Description:
+#   Bug 1530996 - Use the new storage mechanism to save the current playback benchmark. r=jya
+#   
+#   Create an event in MediaFormatReader the will signal to the HTMLMediaElement to initiate a new storing according to the latest VideoInfo. Also when the application is shutting down, trigger a new storing early enough, before all the events are disconnected.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D38316
+# ==============================================================================
+
+diff -r 426b558f2f43 -r eed72505cf9b dom/media/MediaFormatReader.h
+--- a/dom/media/MediaFormatReader.h	Tue Aug 06 09:24:40 2019 +0000
++++ b/dom/media/MediaFormatReader.h	Tue Aug 06 09:25:45 2019 +0000
+@@ -232,6 +232,10 @@
+ 
+   MediaEventSource<MediaResult>& OnDecodeWarning() { return mOnDecodeWarning; }
+ 
++  MediaEventSource<VideoInfo>& OnStoreDecoderBenchmark() {
++    return mOnStoreDecoderBenchmark;
++  }
++
+  private:
+   ~MediaFormatReader();
+ 
+@@ -306,6 +310,11 @@
+ 
+   size_t SizeOfQueue(TrackType aTrack);
+ 
++  // Fire a new OnStoreDecoderBenchmark event that will create new
++  // storage of the decoder benchmark.
++  // This is called only on TaskQueue.
++  void NotifyDecoderBenchmarkStore();
++
+   RefPtr<PDMFactory> mPlatform;
+   RefPtr<PDMFactory> mEncryptedPlatform;
+ 
+@@ -775,6 +784,8 @@
+ 
+   MediaEventProducer<MediaResult> mOnDecodeWarning;
+ 
++  MediaEventProducer<VideoInfo> mOnStoreDecoderBenchmark;
++
+   RefPtr<FrameStatistics> mFrameStats;
+ 
+   // Used in bug 1393399 for telemetry.

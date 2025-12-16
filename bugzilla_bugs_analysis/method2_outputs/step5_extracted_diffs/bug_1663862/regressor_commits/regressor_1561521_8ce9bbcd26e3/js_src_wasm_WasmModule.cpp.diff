@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmModule.cpp
+# Commit: 8ce9bbcd26e3
+# Full Hash: 8ce9bbcd26e343a8d845a817cea33fd875805541
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2020-08-19 10:01:16
+# Regressor Bug: 1561521
+# File Overlap Count: 2
+# Description:
+#   Bug 1561521 - Generalize table/element code for future reference-types. r=lth
+#   
+#   wasm::Table uses wasm::TableKind to determine the element type of the table,
+#   which makes it difficult to extend tables to support more reference types. This
+#   commit drops TableKind in favor of directly storing the element RefType, along
+# ==============================================================================
+
+diff -r 7805ddfe2bfa -r 8ce9bbcd26e3 js/src/wasm/WasmModule.cpp
+--- a/js/src/wasm/WasmModule.cpp	Tue Aug 18 16:58:32 2020 +0000
++++ b/js/src/wasm/WasmModule.cpp	Tue Aug 18 16:58:48 2020 +0000
+@@ -801,7 +801,7 @@
+     RootedObject proto(
+         cx, &cx->global()->getPrototype(JSProto_WasmTable).toObject());
+     tableObj.set(WasmTableObject::create(cx, td.initialLength, td.maximumLength,
+-                                         td.kind, proto));
++                                         td.elemType, proto));
+     if (!tableObj) {
+       return false;
+     }

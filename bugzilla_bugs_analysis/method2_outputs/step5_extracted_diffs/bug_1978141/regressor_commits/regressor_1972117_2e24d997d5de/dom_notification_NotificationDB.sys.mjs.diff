@@ -1,0 +1,69 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/notification/NotificationDB.sys.mjs
+# Commit: 2e24d997d5de
+# Full Hash: 2e24d997d5de727be8e44b522e57d7ff7db52486
+# Author: Sandor Molnar <smolnar@mozilla.com>
+# Date: 2025-07-16 21:45:35
+# Regressor Bug: 1972117
+# File Overlap Count: 1
+# Description:
+#   Revert "Bug 1972117: apply code formatting via Lando" for causing assertion failures @ MozPromise.h
+#   
+#   This reverts commit e76333b4d7fb2d323e797f12bde50ccc99a51a85.
+#   
+#   Revert "Bug 1972117 - Part 4: Clear notifications on service worker unregistration r=asuth"
+# ==============================================================================
+
+diff -r c257659aa2b4 -r 2e24d997d5de dom/notification/NotificationDB.sys.mjs
+--- a/dom/notification/NotificationDB.sys.mjs	Wed Jul 16 19:15:43 2025 +0300
++++ b/dom/notification/NotificationDB.sys.mjs	Wed Jul 16 19:18:03 2025 +0300
+@@ -139,13 +139,6 @@
+     });
+   }
+ 
+-  testGetRawMap() {
+-    return {
+-      notifications: this.#notifications,
+-      byTag: this.#byTag,
+-    };
+-  }
+-
+   // Helper function: promise will be resolved once file exists and/or is loaded.
+   #ensureLoaded() {
+     if (!this.#loaded) {
+@@ -241,13 +234,6 @@
+       });
+   }
+ 
+-  removeOriginIfEmpty(origin) {
+-    if (!Object.keys(this.#notifications[origin]).length) {
+-      delete this.#notifications[origin];
+-      delete this.#byTag[origin];
+-    }
+-  }
+-
+   taskGetAll(data) {
+     let { origin, scope } = data;
+     lazy.console.debug(
+@@ -324,7 +310,6 @@
+       delete this.#byTag[origin][oldNotification.tag];
+     }
+     delete this.#notifications[origin][id];
+-    this.removeOriginIfEmpty(origin);
+     return this.save();
+   }
+ 
+@@ -342,7 +327,10 @@
+           delete this.#byTag[origin][oldNotification.tag];
+         }
+       }
+-      this.removeOriginIfEmpty(origin);
++      if (!Object.keys(data).length) {
++        delete this.#notifications[origin];
++        delete this.#byTag[origin];
++      }
+     }
+ 
+     return this.save();

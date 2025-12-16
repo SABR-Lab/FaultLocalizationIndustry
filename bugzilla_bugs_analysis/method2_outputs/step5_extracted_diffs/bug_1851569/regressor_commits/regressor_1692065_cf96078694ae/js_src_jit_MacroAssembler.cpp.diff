@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/MacroAssembler.cpp
+# Commit: cf96078694ae
+# Full Hash: cf96078694aea74cae4557f683a76c6de6ba9cf1
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2023-08-05 09:19:01
+# Regressor Bug: 1692065
+# File Overlap Count: 3
+# Description:
+#   Bug 1692065 - wasm: Rename MIRType::RefOrNull to 'WasmAnyRef'. r=yury
+#   
+#   This is a mechanical change. The previous name 'RefOrNull' was too
+#   generic, and it wasn't clear that the type was actually a wasm::AnyRef
+#   type.
+# ==============================================================================
+
+diff -r 662cb63c42d7 -r cf96078694ae js/src/jit/MacroAssembler.cpp
+--- a/js/src/jit/MacroAssembler.cpp	Fri Aug 04 14:06:49 2023 +0000
++++ b/js/src/jit/MacroAssembler.cpp	Fri Aug 04 14:06:49 2023 +0000
+@@ -5763,7 +5763,7 @@
+     unboxGCThingForGCBarrier(Address(PreBarrierReg, 0), temp1);
+   } else {
+     MOZ_ASSERT(type == MIRType::Object || type == MIRType::String ||
+-               type == MIRType::Shape || type == MIRType::RefOrNull);
++               type == MIRType::Shape || type == MIRType::WasmAnyRef);
+     loadPtr(Address(PreBarrierReg, 0), temp1);
+   }
+ 
+@@ -5781,7 +5781,7 @@
+ 
+   // If the GC thing is in the nursery, we don't need to barrier it.
+   if (type == MIRType::Value || type == MIRType::Object ||
+-      type == MIRType::String || type == MIRType::RefOrNull) {
++      type == MIRType::String || type == MIRType::WasmAnyRef) {
+     branchPtr(Assembler::NotEqual, Address(temp2, gc::ChunkStoreBufferOffset),
+               ImmWord(0), noBarrier);
+   } else {

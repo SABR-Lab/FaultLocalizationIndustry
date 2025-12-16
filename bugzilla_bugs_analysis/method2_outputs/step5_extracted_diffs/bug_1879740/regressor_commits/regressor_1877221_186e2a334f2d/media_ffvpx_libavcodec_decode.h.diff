@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/ffvpx/libavcodec/decode.h
+# Commit: 186e2a334f2d
+# Full Hash: 186e2a334f2deb37b29f44b28bc8c83babeeb9a4
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2024-02-09 09:37:17
+# Regressor Bug: 1877221
+# File Overlap Count: 1
+# Description:
+#   Bug 1877221 - Pull in new ffmpeg code, reapply patch. r=media-playback-reviewers,chunmin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D199909
+# ==============================================================================
+
+diff -r c5920de78d16 -r 186e2a334f2d media/ffvpx/libavcodec/decode.h
+--- a/media/ffvpx/libavcodec/decode.h	Thu Feb 08 10:39:53 2024 +0000
++++ b/media/ffvpx/libavcodec/decode.h	Thu Feb 08 10:39:54 2024 +0000
+@@ -21,7 +21,6 @@
+ #ifndef AVCODEC_DECODE_H
+ #define AVCODEC_DECODE_H
+ 
+-#include "libavutil/buffer.h"
+ #include "libavutil/frame.h"
+ #include "libavutil/hwcontext.h"
+ 
+@@ -141,16 +140,19 @@
+ 
+ /**
+  * Allocate a hwaccel frame private data if the provided avctx
+- * uses a hwaccel method that needs it. The private data will
+- * be refcounted via the AVBuffer API (if allocated).
++ * uses a hwaccel method that needs it. The returned data is
++ * a RefStruct reference (if allocated).
+  *
+  * @param  avctx                   The codec context
+  * @param  hwaccel_picture_private Pointer to return hwaccel_picture_private
+- * @param  hwaccel_priv_buf        Pointer to return the AVBufferRef owning
+- *                                 hwaccel_picture_private
+  * @return 0 on success, < 0 on error
+  */
+-int ff_hwaccel_frame_priv_alloc(AVCodecContext *avctx, void **hwaccel_picture_private,
+-                                AVBufferRef **hwaccel_priv_buf);
++int ff_hwaccel_frame_priv_alloc(AVCodecContext *avctx, void **hwaccel_picture_private);
++
++/**
++ * Get side data of the given type from a decoding context.
++ */
++const AVPacketSideData *ff_get_coded_side_data(const AVCodecContext *avctx,
++                                               enum AVPacketSideDataType type);
+ 
+ #endif /* AVCODEC_DECODE_H */

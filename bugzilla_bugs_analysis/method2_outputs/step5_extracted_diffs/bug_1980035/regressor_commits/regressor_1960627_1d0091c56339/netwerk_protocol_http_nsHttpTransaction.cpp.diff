@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/nsHttpTransaction.cpp
+# Commit: 1d0091c56339
+# Full Hash: 1d0091c5633982e358737a96ed8af1a2be00bf61
+# Author: smayya <smayya@mozilla.com>
+# Date: 2025-07-27 09:20:01
+# Regressor Bug: 1960627
+# File Overlap Count: 1
+# Description:
+#   Bug 1960627 - add LNAPermissionRequest class for dispatching permission prompt requests. r=necko-reviewers,emz,kershaw
+#   
+#   LNAPermissionRequest is used for dispatching localhost and local-network permission prompts to the user.
+#   Additionally, this patch also implements the transaction retry mechanism based on prompt action by the user.
+#   This patch also modifies existing unit tests to validate the transaction retry mechanism.
+# ==============================================================================
+
+diff -r 0981f147243d -r 1d0091c56339 netwerk/protocol/http/nsHttpTransaction.cpp
+--- a/netwerk/protocol/http/nsHttpTransaction.cpp	Sat Jul 26 21:51:08 2025 +0000
++++ b/netwerk/protocol/http/nsHttpTransaction.cpp	Sat Jul 26 21:51:08 2025 +0000
+@@ -3702,20 +3702,25 @@
+   // for private network access
+   // XXX add link to LNA spec once it is published
+ 
+-  if (mozilla::net::IsLocalNetworkAccess(mParentIPAddressSpace,
+-                                         aTargetIpAddressSpace)) {
++  if (mozilla::net::IsLocalOrPrivateNetworkAccess(mParentIPAddressSpace,
++                                                  aTargetIpAddressSpace)) {
+     if (aTargetIpAddressSpace == nsILoadInfo::IPAddressSpace::Local &&
+         mLnaPermissionStatus.mLocalHostPermission == LNAPermission::Denied) {
+       return false;
+     }
++
+     if (aTargetIpAddressSpace == nsILoadInfo::IPAddressSpace::Private &&
+         mLnaPermissionStatus.mLocalNetworkPermission == LNAPermission::Denied) {
+       return false;
+     }
+ 
+-    if (StaticPrefs::network_lna_blocking()) {
+-      // If LNA blocking is enabled, we block any LNA requests. Currently we
+-      // should hit this case for tests
++    if ((StaticPrefs::network_lna_blocking() ||
++         StaticPrefs::network_lna_block_trackers()) &&
++        (mLnaPermissionStatus.mLocalHostPermission == LNAPermission::Pending) &&
++        (mLnaPermissionStatus.mLocalNetworkPermission ==
++         LNAPermission::Pending)) {
++      // If LNA prompts are enabled or tracker blocking is enabled we disallow
++      // requests
+       return false;
+     }
+   }

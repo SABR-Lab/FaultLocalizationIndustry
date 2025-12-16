@@ -1,0 +1,46 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/media/MediaStreamTrack.cpp
+# Commit: 09f4a86bd1e7
+# Full Hash: 09f4a86bd1e7fc250051f77a0cbe3808ccebe640
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2019-08-02 15:59:52
+# Description:
+#   Bug 1570684 - Don't access MediaStreamTrack::mStream after the track has ended. r=padenot
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D40397
+# ==============================================================================
+
+diff -r 3eb2d7a85e7b -r 09f4a86bd1e7 dom/media/MediaStreamTrack.cpp
+--- a/dom/media/MediaStreamTrack.cpp	Fri Aug 02 12:45:51 2019 +0000
++++ b/dom/media/MediaStreamTrack.cpp	Fri Aug 02 12:02:05 2019 +0000
+@@ -367,11 +367,18 @@
+   return promise.forget();
+ }
+ 
+-ProcessedMediaStream* MediaStreamTrack::GetStream() const { return mStream; }
++ProcessedMediaStream* MediaStreamTrack::GetStream() const {
++  MOZ_DIAGNOSTIC_ASSERT(!Ended());
++  return mStream;
++}
+ 
+-MediaStreamGraph* MediaStreamTrack::Graph() const { return mStream->Graph(); }
++MediaStreamGraph* MediaStreamTrack::Graph() const {
++  MOZ_DIAGNOSTIC_ASSERT(!Ended());
++  return mStream->Graph();
++}
+ 
+ MediaStreamGraphImpl* MediaStreamTrack::GraphImpl() const {
++  MOZ_DIAGNOSTIC_ASSERT(!Ended());
+   return mStream->GraphImpl();
+ }
+ 
+@@ -596,6 +603,7 @@
+     ProcessedMediaStream* aStream) {
+   MOZ_ASSERT(NS_IsMainThread());
+   MOZ_RELEASE_ASSERT(aStream);
++  MOZ_DIAGNOSTIC_ASSERT(!Ended());
+   RefPtr<MediaInputPort> port =
+       aStream->AllocateInputPort(mStream, mTrackID, mTrackID);
+   return port.forget();

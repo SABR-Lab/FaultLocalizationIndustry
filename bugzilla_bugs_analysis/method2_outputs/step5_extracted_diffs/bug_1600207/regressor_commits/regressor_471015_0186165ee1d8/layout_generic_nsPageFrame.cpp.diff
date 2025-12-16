@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/nsPageFrame.cpp
+# Commit: 0186165ee1d8
+# Full Hash: 0186165ee1d84f56362ba16bbda4eefa1d47fd60
+# Author: Mats Palmgren <mats@mozilla.com>
+# Date: 2019-11-26 05:19:55
+# Regressor Bug: 471015
+# File Overlap Count: 1
+# Description:
+#   Bug 471015 - [css-break] Implement <fieldset> fragmentation.  r=TYLin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D53709
+# ==============================================================================
+
+diff -r 9cf1851c76dc -r 0186165ee1d8 layout/generic/nsPageFrame.cpp
+--- a/layout/generic/nsPageFrame.cpp	Mon Nov 25 15:47:38 2019 +0000
++++ b/layout/generic/nsPageFrame.cpp	Mon Nov 25 18:05:16 2019 +0000
+@@ -14,6 +14,7 @@
+ #include "nsLayoutUtils.h"
+ #include "nsPresContext.h"
+ #include "nsGkAtoms.h"
++#include "nsFieldSetFrame.h"
+ #include "nsPageContentFrame.h"
+ #include "nsDisplayList.h"
+ #include "nsPageSequenceFrame.h"  // for nsSharedPageData
+@@ -677,11 +678,31 @@
+   // Override reflow, since we don't want to deal with what our
+   // computed values are.
+   WritingMode wm = aReflowInput.GetWritingMode();
+-  LogicalSize finalSize(wm, GetIntrinsicISize(),
+-                        aReflowInput.AvailableBSize() == NS_UNCONSTRAINEDSIZE
+-                            ? 0
+-                            : aReflowInput.AvailableBSize());
++  nscoord bSize = aReflowInput.AvailableBSize();
++  if (aReflowInput.AvailableBSize() == NS_UNCONSTRAINEDSIZE) {
++    bSize = nscoord(0);
++  } else if (GetContent()->IsHTMLElement(nsGkAtoms::legend)) {
++    // If this is a page break frame for a _rendered legend_ then it should be
++    // ignored since these frames are inserted inside the fieldset's inner
++    // frame and thus "misplaced".  nsFieldSetFrame::Reflow deals with these
++    // forced breaks explicitly instead.
++    nsContainerFrame* parent = GetParent();
++    if (parent &&
++        parent->Style()->GetPseudoType() == PseudoStyleType::fieldsetContent) {
++      while ((parent = parent->GetParent())) {
++        if (nsFieldSetFrame* fieldset = do_QueryFrame(parent)) {
++          auto* legend = fieldset->GetLegend();
++          if (legend && legend->GetContent() == GetContent()) {
++            bSize = nscoord(0);
++          }
++          break;
++        }
++      }
++    }
++  }
++  LogicalSize finalSize(wm, GetIntrinsicISize(), bSize);
+   // round the height down to the nearest pixel
++  // XXX(mats) why???
+   finalSize.BSize(wm) -=
+       finalSize.BSize(wm) % nsPresContext::CSSPixelsToAppUnits(1);
+   aDesiredSize.SetSize(wm, finalSize);

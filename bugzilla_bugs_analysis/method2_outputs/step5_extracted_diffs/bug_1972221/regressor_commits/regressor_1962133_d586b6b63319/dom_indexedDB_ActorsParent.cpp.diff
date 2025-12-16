@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/ActorsParent.cpp
+# Commit: d586b6b63319
+# Full Hash: d586b6b633191a7c6ff251361b0442d98d06c764
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2025-06-15 09:03:40
+# Regressor Bug: 1962133
+# File Overlap Count: 14
+# Description:
+#   Bug 1962133 - QM: Add accessed flag to FullOriginMetadata and persist it in the origin metadata file; r=dom-storage-reviewers,hsingh
+#   
+#   This patch introduces a new mAccessed field in OriginStateMetadata, which is
+#   inherited by FullOriginMetadata. One of the reserved 32-bit fields in the
+#   metadata header is now used as a bitfield, with one bit allocated to represent
+# ==============================================================================
+
+diff -r ca3bdda9fbfd -r d586b6b63319 dom/indexedDB/ActorsParent.cpp
+--- a/dom/indexedDB/ActorsParent.cpp	Sat Jun 14 02:29:19 2025 +0000
++++ b/dom/indexedDB/ActorsParent.cpp	Sat Jun 14 02:46:33 2025 +0000
+@@ -127,6 +127,7 @@
+ #include "mozilla/dom/quota/ConditionalCompilation.h"
+ #include "mozilla/dom/quota/DirectoryLock.h"
+ #include "mozilla/dom/quota/DirectoryLockInlines.h"
++#include "mozilla/dom/quota/DirectoryMetadata.h"
+ #include "mozilla/dom/quota/DecryptingInputStream_impl.h"
+ #include "mozilla/dom/quota/EncryptingOutputStream_impl.h"
+ #include "mozilla/dom/quota/ErrorHandling.h"
+@@ -13389,7 +13390,7 @@
+     // Loop over "<origin>/idb" directories.
+     QM_TRY(CollectEachFile(
+         *persistenceDir,
+-        [this, &quotaManager, persistenceType, &idbDirName](
++        [this, &quotaManager, persistenceType, persistent, &idbDirName](
+             const nsCOMPtr<nsIFile>& originDir) -> Result<Ok, nsresult> {
+           if (NS_WARN_IF(QuotaClient::IsShuttingDownOnNonBackgroundThread()) ||
+               IsAborted()) {
+@@ -13480,6 +13481,20 @@
+                   }));
+ 
+               if (!databasePaths.IsEmpty()) {
++                if (!persistent) {
++                  auto maybeOriginStateMetadata =
++                      quotaManager->GetOriginStateMetadata(metadata);
++
++                  auto originStateMetadata = maybeOriginStateMetadata.extract();
++
++                  originStateMetadata.mAccessed = true;
++
++                  QM_TRY(MOZ_TO_RESULT(SaveDirectoryMetadataHeader(
++                      *originDir, originStateMetadata)));
++
++                  quotaManager->UpdateOriginAccessed(metadata);
++                }
++
+                 mDirectoryInfos.EmplaceBack(persistenceType, metadata,
+                                             std::move(databasePaths));
+               }

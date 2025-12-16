@@ -1,0 +1,30 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: widget/windows/nsWindow.cpp
+# Commit: 9f33de91089e
+# Full Hash: 9f33de91089eb4b5c594b9c98add69b3116d0195
+# Author: Kartikaya Gupta <kgupta@mozilla.com>
+# Date: 2020-04-02 09:51:45
+# Description:
+#   Bug 1626318 - Protect against dataSize being absurdly large. r=botond
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D69264
+# ==============================================================================
+
+diff -r ba16b09b5da0 -r 9f33de91089e widget/windows/nsWindow.cpp
+--- a/widget/windows/nsWindow.cpp	Mon Mar 30 19:56:34 2020 +0000
++++ b/widget/windows/nsWindow.cpp	Wed Apr 01 21:22:57 2020 +0000
+@@ -6764,10 +6764,10 @@
+   }
+   HANDLE source = aOSEvent[0].hSource;
+   std::string deviceName;
+-  UINT dataSize;
++  UINT dataSize = 0;
+   // The first call just queries how long the name string will be.
+   GetRawInputDeviceInfoA(source, RIDI_DEVICENAME, nullptr, &dataSize);
+-  if (!dataSize) {
++  if (!dataSize || dataSize > 0x10000) {
+     return false;
+   }
+   deviceName.resize(dataSize);

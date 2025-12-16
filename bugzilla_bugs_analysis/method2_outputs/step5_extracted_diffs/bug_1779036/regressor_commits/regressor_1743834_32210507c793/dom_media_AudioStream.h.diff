@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/AudioStream.h
+# Commit: 32210507c793
+# Full Hash: 32210507c793a2b86b7d4582eb66bef331687671
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2022-04-20 21:53:00
+# Regressor Bug: 1743834
+# File Overlap Count: 1
+# Description:
+#   Bug 1743834 - Create and manage the lifetime of the AudioStream EndedPromise in AudioSinkWrapper. r=alwu,media-playback-reviewers
+#   
+#   We're going to shutdown the AudioStream in a subsequent patch, when audio is
+#   muted. This will allow resolving it at the right time when the media ends while
+#   muted.
+# ==============================================================================
+
+diff -r b15369c023af -r 32210507c793 dom/media/AudioStream.h
+--- a/dom/media/AudioStream.h	Wed Apr 20 12:07:08 2022 +0000
++++ b/dom/media/AudioStream.h	Wed Apr 20 12:07:09 2022 +0000
+@@ -35,6 +35,13 @@
+   }
+ };
+ 
++enum class ShutdownCause {
++  // Regular shutdown, signal the end of the audio stream.
++  Regular,
++  // Shutdown for muting, don't signal the end of the audio stream.
++  Muting
++};
++
+ class AudioStream;
+ class FrameHistory;
+ class AudioConfig;
+@@ -245,7 +252,8 @@
+   nsresult Init(AudioDeviceInfo* aSinkInfo);
+ 
+   // Closes the stream. All future use of the stream is an error.
+-  void Shutdown();
++  Maybe<MozPromiseHolder<MediaSink::EndedPromise>> Shutdown(
++      ShutdownCause = ShutdownCause::Regular);
+ 
+   void Reset();
+ 
+@@ -255,9 +263,8 @@
+ 
+   void SetStreamName(const nsAString& aStreamName);
+ 
+-  // Start the stream and return a promise that will be resolve when the
+-  // playback completes.
+-  Result<already_AddRefed<MediaSink::EndedPromise>, nsresult> Start();
++  // Start the stream.
++  nsresult Start(MozPromiseHolder<MediaSink::EndedPromise>& aEndedPromise);
+ 
+   // Pause audio playback.
+   void Pause();

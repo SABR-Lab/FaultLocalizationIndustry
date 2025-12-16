@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsGlobalWindowOuter.cpp
+# Commit: de69e3c1635a
+# Full Hash: de69e3c1635a311b5b22716b65b93fc1899a37a4
+# Author: Andreas Farre <farre@mozilla.com>
+# Date: 2020-08-01 09:48:10
+# Regressor Bug: 1613431
+# File Overlap Count: 1
+# Description:
+#   Bug 1613431 - Part 3: Handle synced setters return value. r=nika
+#   
+#   Depends on D83646
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D83647
+# ==============================================================================
+
+diff -r b326d33f98cb -r de69e3c1635a dom/base/nsGlobalWindowOuter.cpp
+--- a/dom/base/nsGlobalWindowOuter.cpp	Fri Jul 31 13:37:00 2020 +0000
++++ b/dom/base/nsGlobalWindowOuter.cpp	Fri Jul 31 13:37:13 2020 +0000
+@@ -2410,7 +2410,7 @@
+ 
+   // Update the current window for our BrowsingContext.
+   RefPtr<BrowsingContext> bc = GetBrowsingContext();
+-  bc->SetCurrentInnerWindowId(mInnerWindow->WindowID());
++  MOZ_ALWAYS_SUCCEEDS(bc->SetCurrentInnerWindowId(mInnerWindow->WindowID()));
+ 
+   // We no longer need the old inner window.  Start its destruction if
+   // its not being reused and clear our reference.
+@@ -3034,13 +3034,6 @@
+   return bc ? bc->Top()->GetMuted() : false;
+ }
+ 
+-void nsPIDOMWindowOuter::SetAudioMuted(bool aMuted) {
+-  BrowsingContext* bc = GetBrowsingContext();
+-  if (bc) {
+-    bc->Top()->SetMuted(aMuted);
+-  }
+-}
+-
+ float nsPIDOMWindowOuter::GetAudioVolume() const { return mAudioVolume; }
+ 
+ nsresult nsPIDOMWindowOuter::SetAudioVolume(float aVolume) {
+@@ -6139,7 +6132,7 @@
+   mIsClosed = true;
+ 
+   if (!mBrowsingContext->IsDiscarded()) {
+-    mBrowsingContext->SetClosed(true);
++    MOZ_ALWAYS_SUCCEEDS(mBrowsingContext->SetClosed(true));
+   }
+ 
+   // If we get here from CloseOuter then it means that the parent process is

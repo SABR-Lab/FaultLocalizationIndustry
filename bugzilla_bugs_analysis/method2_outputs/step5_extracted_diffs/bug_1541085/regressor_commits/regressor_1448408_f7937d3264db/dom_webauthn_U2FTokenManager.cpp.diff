@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/webauthn/U2FTokenManager.cpp
+# Commit: f7937d3264db
+# Full Hash: f7937d3264db00771b46cb1fcba71640d8df05cb
+# Author: J.C. Jones <jjones@mozilla.com>
+# Date: 2019-03-30 09:32:04
+# Regressor Bug: 1448408
+# File Overlap Count: 2
+# Description:
+#   Bug 1448408 - Web Authentication - Don't immediately abort on visibility events r=keeler
+#   
+#   The published recommendation of L1 for WebAuthn changed the visibility/focus
+#   listening behaviors to a SHOULD [1], and Chromium, for reasons like our SoftU2F
+#   bug [0], opted to not interrupt on tabswitch/visibility change.
+# ==============================================================================
+
+diff -r a5c4f7e6069a -r f7937d3264db dom/webauthn/U2FTokenManager.cpp
+--- a/dom/webauthn/U2FTokenManager.cpp	Fri Mar 29 19:38:53 2019 +0000
++++ b/dom/webauthn/U2FTokenManager.cpp	Fri Mar 29 17:59:08 2019 +0000
+@@ -176,9 +176,12 @@
+ }
+ 
+ void U2FTokenManager::ClearTransaction() {
+-  if (mLastTransactionId > 0) {
++  if (mLastTransactionId > 0 && mTransactionParent) {
+     // Remove any prompts we might be showing for the current transaction.
+     SendPromptNotification(kCancelPromptNotifcation, mLastTransactionId);
++    // Send an abort to any other ongoing transaction
++    Unused << mTransactionParent->SendAbort(mLastTransactionId,
++                                            NS_ERROR_DOM_ABORT_ERR);
+   }
+ 
+   mTransactionParent = nullptr;

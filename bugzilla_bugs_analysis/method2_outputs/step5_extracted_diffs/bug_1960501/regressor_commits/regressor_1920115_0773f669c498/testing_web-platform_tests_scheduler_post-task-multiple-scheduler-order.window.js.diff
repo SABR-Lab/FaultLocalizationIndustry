@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: testing/web-platform/tests/scheduler/post-task-multiple-scheduler-order.window.js
+# Commit: 0773f669c498
+# Full Hash: 0773f669c4983032149421e810a114d573614c07
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2025-02-27 21:52:52
+# Regressor Bug: 1920115
+# File Overlap Count: 2
+# Description:
+#   Bug 1920115 - Allow selecting tasks from all existing web schedulers for main thread r=jjaschke,smaug
+#   
+#   This is a missing step in the current implementation. When we about
+#   to select a task, it should pick one from all scheduled tasks, including
+#   the ones scheduled by different schedulers.
+# ==============================================================================
+
+diff -r 4b579a1c9b46 -r 0773f669c498 testing/web-platform/tests/scheduler/post-task-multiple-scheduler-order.window.js
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/testing/web-platform/tests/scheduler/post-task-multiple-scheduler-order.window.js	Thu Feb 27 16:17:36 2025 +0000
+@@ -0,0 +1,37 @@
++// META: title=Scheduler: Tasks run order when multiple scheduler interfere the same event loop
++promise_test(async t => {
++
++  const iframe = document.createElement("iframe");
++
++  iframe.onload = async function() {
++    const runOrder = [];
++    const tasks = [];
++
++    tasks.push(window.scheduler.postTask(function(){runOrder.push("outer")}));
++    tasks.push(iframe.contentWindow.scheduler.postTask(function(){runOrder.push("inner")}));
++
++    await Promise.all(tasks);
++
++    assert_equals(runOrder.toString(),'outer,inner');
++  }
++
++  document.body.appendChild(iframe);
++}, 'Test scheduler.postTask() from two different schedulers with the same priority will run based on their enqueue order.');
++
++promise_test(async t => {
++  const iframe = document.createElement("iframe");
++
++  iframe.onload = async function() {
++    const runOrder = [];
++    const tasks = [];
++
++    tasks.push(window.scheduler.postTask(function(){runOrder.push("outer")}));
++    tasks.push(iframe.contentWindow.scheduler.postTask(function(){runOrder.push("inner")}, {priority: "user-blocking"}));
++
++    await Promise.all(tasks);
++
++    assert_equals(runOrder.toString(),'inner,outer');
++  }
++
++  document.body.appendChild(iframe);
++}, 'Test scheduler.postTask() from two different schedulers with different priorities will run based on their priorities');

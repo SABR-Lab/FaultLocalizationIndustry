@@ -1,0 +1,36 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/BrowsingContext.cpp
+# Commit: 4a3438f0772b
+# Full Hash: 4a3438f0772b77cd515dadfa4060053518d4d223
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2021-10-05 03:52:32
+# Description:
+#   Bug 1732911 - Hold a PendingDiscard during BrowsingContext::Detach in parent, r=kmag
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D127483
+# ==============================================================================
+
+diff -r 931869dfc94f -r 4a3438f0772b docshell/base/BrowsingContext.cpp
+--- a/docshell/base/BrowsingContext.cpp	Mon Oct 04 20:51:29 2021 +0000
++++ b/docshell/base/BrowsingContext.cpp	Mon Oct 04 21:04:05 2021 +0000
+@@ -814,11 +814,17 @@
+   MOZ_DIAGNOSTIC_ASSERT(mEverAttached);
+   MOZ_DIAGNOSTIC_ASSERT(!mIsDiscarded);
+ 
++  if (XRE_IsParentProcess()) {
++    Canonical()->AddPendingDiscard();
++  }
+   auto callListeners =
+-      MakeScopeExit([listeners = std::move(mDiscardListeners), id = Id()] {
++      MakeScopeExit([&, listeners = std::move(mDiscardListeners), id = Id()] {
+         for (const auto& listener : listeners) {
+           listener(id);
+         }
++        if (XRE_IsParentProcess()) {
++          Canonical()->RemovePendingDiscard();
++        }
+       });
+ 
+   nsCOMPtr<nsIRequestContextService> rcsvc =

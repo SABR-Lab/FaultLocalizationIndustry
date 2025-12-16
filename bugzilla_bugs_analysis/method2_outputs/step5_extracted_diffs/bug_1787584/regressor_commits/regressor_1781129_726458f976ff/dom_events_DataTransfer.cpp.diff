@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/events/DataTransfer.cpp
+# Commit: 726458f976ff
+# Full Hash: 726458f976fff2b05bb0eaf7e940cd7be06d75f5
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2022-08-03 03:42:48
+# Regressor Bug: 1781129
+# File Overlap Count: 1
+# Description:
+#   Bug 1781129 - Part 1: Use BigBuffer for IPCDataTransfer, r=edgar
+#   
+#   The IPCDataTransfer type is used to transfer Clipboard/Drag & Drop payloads
+#   over IPC to allow them to be written to or read from the relevant system
+#   interfaces. Previously, the system which was used was somewhat complex, and
+# ==============================================================================
+
+diff -r 1aa5ec22f47a -r 726458f976ff dom/events/DataTransfer.cpp
+--- a/dom/events/DataTransfer.cpp	Tue Aug 02 17:08:59 2022 +0000
++++ b/dom/events/DataTransfer.cpp	Tue Aug 02 17:15:41 2022 +0000
+@@ -1501,7 +1501,10 @@
+ 
+   uint32_t i = 0;
+   for (const IPCDataTransferItem& item : aIpcDataTransfer.items()) {
+-    MOZ_ASSERT(item.data().type() == IPCDataTransferData::TnsString);
++    if (item.data().type() != IPCDataTransferData::TIPCDataTransferString) {
++      MOZ_ASSERT_UNREACHABLE("Expected transferable item to be a string");
++      continue;
++    }
+     RefPtr<nsVariantCC> variant = new nsVariantCC();
+     nsresult rv = nsContentUtils::IPCTransferableItemToVariant(
+         item, variant, ContentChild::GetSingleton());

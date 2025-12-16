@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/NativeLayerWayland.h
+# Commit: 3c74d415fafd
+# Full Hash: 3c74d415fafd4bff5576ed0a2256c1a0232b5937
+# Author: Robert Mader <robert.mader@posteo.de>
+# Date: 2021-06-11 09:42:05
+# Regressor Bug: 1711244
+# File Overlap Count: 2
+# Description:
+#   Bug 1711244 - Integrate NativeLayerWayland with WaylandVsyncSource, r=stransky,gfx-reviewers,jrmuizel
+#   
+#   Make the vsync source request frame callbacks from opaque native
+#   layers. This is necessary as opaque layers may occlude the
+#   MozContainer surface, which is normally used for frame callbacks.
+# ==============================================================================
+
+diff -r bc5ca21bf534 -r 3c74d415fafd gfx/layers/NativeLayerWayland.h
+--- a/gfx/layers/NativeLayerWayland.h	Thu Jun 10 14:58:53 2021 +0000
++++ b/gfx/layers/NativeLayerWayland.h	Thu Jun 10 15:12:54 2021 +0000
+@@ -35,6 +35,10 @@
+   static already_AddRefed<NativeLayerRootWayland> CreateForMozContainer(
+       MozContainer* aContainer);
+ 
++  virtual NativeLayerRootWayland* AsNativeLayerRootWayland() override {
++    return this;
++  }
++
+   // Overridden methods
+   already_AddRefed<NativeLayer> CreateLayer(
+       const IntSize& aSize, bool aIsOpaque,
+@@ -60,6 +64,7 @@
+       bool aIsOpaque) override;
+ 
+   void AfterFrameClockAfterPaint();
++  void RequestFrameCallback(CallbackFunc aCallbackFunc, void* aCallbackData);
+ 
+  protected:
+   explicit NativeLayerRootWayland(MozContainer* aContainer);
+@@ -79,6 +84,8 @@
+   RefPtr<widget::WaylandShmBuffer> mShmBuffer;
+   bool mCompositorRunning = true;
+   gulong mGdkAfterPaintId = 0;
++  RefPtr<CallbackMultiplexHelper> mCallbackMultiplexHelper;
++  bool mCommitRequested = false;
+ };
+ 
+ class NativeLayerWayland : public NativeLayer {

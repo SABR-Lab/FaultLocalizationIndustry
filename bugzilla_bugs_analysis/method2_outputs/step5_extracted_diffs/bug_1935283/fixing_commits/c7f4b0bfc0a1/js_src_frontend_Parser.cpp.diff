@@ -1,0 +1,31 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/frontend/Parser.cpp
+# Commit: c7f4b0bfc0a1
+# Full Hash: c7f4b0bfc0a191a876fcdfdfff47791be03e46c5
+# Author: Debadree Chatterjee <debadree333@gmail.com>
+# Date: 2024-12-06 09:28:31
+# Description:
+#   Bug 1935283 - SyntaxError on using decls without binding list. r=arai
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D231279
+# ==============================================================================
+
+diff -r 0731fc0f120c -r c7f4b0bfc0a1 js/src/frontend/Parser.cpp
+--- a/js/src/frontend/Parser.cpp	Thu Dec 05 17:42:12 2024 +0000
++++ b/js/src/frontend/Parser.cpp	Thu Dec 05 17:56:42 2024 +0000
+@@ -4834,6 +4834,13 @@
+         errorAt(namePos.begin, JSMSG_BAD_CONST_DECL);
+         return errorResult();
+       }
++#ifdef ENABLE_EXPLICIT_RESOURCE_MANAGEMENT
++      if (declKind == DeclarationKind::Using ||
++          declKind == DeclarationKind::AwaitUsing) {
++        errorAt(namePos.begin, JSMSG_BAD_USING_DECL);
++        return errorResult();
++      }
++#endif
+     }
+   }
+ 

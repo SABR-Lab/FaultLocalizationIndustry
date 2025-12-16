@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/extensions/WebExtensionPolicy.h
+# Commit: 0e68db4ad6af
+# Full Hash: 0e68db4ad6afe1f43d97533316d80e5aadd96082
+# Author: Luca Greco <lgreco@mozilla.com>
+# Date: 2020-07-01 21:32:12
+# Regressor Bug: 1609920
+# File Overlap Count: 2
+# Description:
+#   Bug 1609920 - part 1: Allow the WebExtension Framework to register a moz-extension service worker. r=dom-workers-and-storage-reviewers,asuth,mixedpuppy
+#   
+#   - Adds the new about:config pref "extensions.backgroundServiceWorker.enabled" (currently defaults to false).
+#   - Adds the background.service_worker property to the manifest JSON schema definition
+#   - Locks background.service_worker manifest property behind the new preference
+# ==============================================================================
+
+diff -r 2a107eabe00c -r 0e68db4ad6af toolkit/components/extensions/WebExtensionPolicy.h
+--- a/toolkit/components/extensions/WebExtensionPolicy.h	Mon Jun 29 16:18:44 2020 +0000
++++ b/toolkit/components/extensions/WebExtensionPolicy.h	Wed Jun 10 12:13:29 2020 +0000
+@@ -142,6 +142,14 @@
+   void GetReadyPromise(JSContext* aCx, JS::MutableHandleObject aResult) const;
+   dom::Promise* ReadyPromise() const { return mReadyPromise; }
+ 
++  void GetBackgroundWorker(nsString& aScriptURL) const {
++    aScriptURL.Assign(mBackgroundWorkerScript);
++  }
++
++  bool IsManifestBackgroundWorker(const nsAString& aWorkerScriptURL) const {
++    return mBackgroundWorkerScript.Equals(aWorkerScriptURL);
++  }
++
+   static void GetActiveExtensions(
+       dom::GlobalObject& aGlobal,
+       nsTArray<RefPtr<WebExtensionPolicy>>& aResults);
+@@ -161,6 +169,7 @@
+ 
+   static bool UseRemoteWebExtensions(dom::GlobalObject& aGlobal);
+   static bool IsExtensionProcess(dom::GlobalObject& aGlobal);
++  static bool BackgroundServiceWorkerEnabled(dom::GlobalObject& aGlobal);
+ 
+   nsISupports* GetParentObject() const { return mParent; }
+ 
+@@ -198,6 +207,7 @@
+   MatchGlobSet mWebAccessiblePaths;
+ 
+   dom::Nullable<nsTArray<nsString>> mBackgroundScripts;
++  nsString mBackgroundWorkerScript = EmptyString();
+ 
+   nsTArray<RefPtr<WebExtensionContentScript>> mContentScripts;
+ 

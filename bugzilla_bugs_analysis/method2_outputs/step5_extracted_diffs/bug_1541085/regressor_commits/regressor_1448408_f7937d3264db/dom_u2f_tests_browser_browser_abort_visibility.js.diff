@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/u2f/tests/browser/browser_abort_visibility.js
+# Commit: f7937d3264db
+# Full Hash: f7937d3264db00771b46cb1fcba71640d8df05cb
+# Author: J.C. Jones <jjones@mozilla.com>
+# Date: 2019-03-30 09:32:04
+# Regressor Bug: 1448408
+# File Overlap Count: 2
+# Description:
+#   Bug 1448408 - Web Authentication - Don't immediately abort on visibility events r=keeler
+#   
+#   The published recommendation of L1 for WebAuthn changed the visibility/focus
+#   listening behaviors to a SHOULD [1], and Chromium, for reasons like our SoftU2F
+#   bug [0], opted to not interrupt on tabswitch/visibility change.
+# ==============================================================================
+
+diff -r a5c4f7e6069a -r f7937d3264db dom/u2f/tests/browser/browser_abort_visibility.js
+--- a/dom/u2f/tests/browser/browser_abort_visibility.js	Fri Mar 29 19:38:53 2019 +0000
++++ b/dom/u2f/tests/browser/browser_abort_visibility.js	Fri Mar 29 17:59:08 2019 +0000
+@@ -80,15 +80,23 @@
+ 
+   // Open another tab and switch to it. The first will lose focus.
+   let tab_get = await BrowserTestUtils.openNewForegroundTab(gBrowser, TEST_URL);
++
++  // Start a GetAssertion() request in the second tab. That will abort the first.
++  await startGetAssertionRequest(tab_get);
++  await waitForStatus(tab_get, "pending");
+   await waitForStatus(tab_create, "aborted");
+ 
+-  // Start a GetAssertion() request in the second tab.
++  // Start a second request in the second tab. It should remain pending.
+   await startGetAssertionRequest(tab_get);
++  await waitForStatus(tab_get, "pending");
++
++  // Switch back to the first tab. The second should still be pending
++  await BrowserTestUtils.switchTab(gBrowser, tab_create);
+   await assertStatus(tab_get, "pending");
+ 
+-  // Switch back to the first tab, the get() request is aborted.
+-  await BrowserTestUtils.switchTab(gBrowser, tab_create);
+-  await waitForStatus(tab_get, "aborted");
++  // Switch back to the get tab. The second should remain pending
++  await BrowserTestUtils.switchTab(gBrowser, tab_get);
++  await assertStatus(tab_get, "pending");
+ 
+   // Close tabs.
+   BrowserTestUtils.removeTab(tab_create);

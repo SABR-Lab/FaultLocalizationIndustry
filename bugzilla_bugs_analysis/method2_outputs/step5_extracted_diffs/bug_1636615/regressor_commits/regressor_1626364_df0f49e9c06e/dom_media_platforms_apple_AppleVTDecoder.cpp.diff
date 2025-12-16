@@ -1,0 +1,66 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/platforms/apple/AppleVTDecoder.cpp
+# Commit: df0f49e9c06e
+# Full Hash: df0f49e9c06ee394066a5cbed15041c7acb000a0
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2020-05-06 09:37:16
+# Regressor Bug: 1626364
+# File Overlap Count: 2
+# Description:
+#   Bug 1626364: Report errors in VideoToolkit h264 decode PlatformCallback. r=jya
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D69443
+# ==============================================================================
+
+diff -r 60d719fdbb52 -r df0f49e9c06e dom/media/platforms/apple/AppleVTDecoder.cpp
+--- a/dom/media/platforms/apple/AppleVTDecoder.cpp	Tue May 05 21:13:38 2020 +0000
++++ b/dom/media/platforms/apple/AppleVTDecoder.cpp	Mon Apr 20 16:25:15 2020 +0000
+@@ -184,7 +184,15 @@
+       kVTDecodeFrame_EnableAsynchronousDecompression;
+   rv = VTDecompressionSessionDecodeFrame(
+       mSession, sample, decodeFlags, CreateAppleFrameRef(aSample), &infoFlags);
+-  if (rv != noErr && !(infoFlags & kVTDecodeInfo_FrameDropped)) {
++  if (infoFlags & kVTDecodeInfo_FrameDropped) {
++    MonitorAutoLock mon(mMonitor);
++    // Smile and nod
++    NS_WARNING("Decoder synchronously dropped frame");
++    mPromise.ResolveIfExists(DecodedData(), __func__);
++    return;
++  }
++
++  if (rv != noErr) {
+     LOG("AppleVTDecoder: Error %d VTDecompressionSessionDecodeFrame", rv);
+     NS_WARNING("Couldn't pass frame to decoder");
+     // It appears that even when VTDecompressionSessionDecodeFrame returned a
+@@ -279,9 +287,12 @@
+       static_cast<AppleVTDecoder::AppleFrameRef*>(sourceFrameRefCon));
+ 
+   // Validate our arguments.
+-  if (status != noErr || !image) {
++  if (status != noErr) {
++    NS_WARNING("VideoToolbox decoder returned an error");
++    decoder->OnDecodeError(status);
++    return;
++  } else if (!image) {
+     NS_WARNING("VideoToolbox decoder returned no data");
+-    image = nullptr;
+   } else if (flags & kVTDecodeInfo_FrameDropped) {
+     NS_WARNING("  ...frame tagged as dropped...");
+   } else {
+@@ -432,6 +443,14 @@
+       static_cast<unsigned long long>(mReorderQueue.Length()));
+ }
+ 
++void AppleVTDecoder::OnDecodeError(OSStatus aError) {
++  MonitorAutoLock mon(mMonitor);
++  mPromise.RejectIfExists(
++      MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR,
++                  RESULT_DETAIL("OnDecodeError:%x", aError)),
++      __func__);
++}
++
+ nsresult AppleVTDecoder::WaitForAsynchronousFrames() {
+   OSStatus rv = VTDecompressionSessionWaitForAsynchronousFrames(mSession);
+   if (rv != noErr) {

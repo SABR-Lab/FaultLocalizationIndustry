@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/style/StyleAnimationValue.cpp
+# Commit: 63603267402e
+# Full Hash: 63603267402ee93d6551ef60c35191d99aaee06b
+# Author: Zach Hoffman <zach@zrhoffman.net>
+# Date: 2023-12-18 17:17:57
+# Regressor Bug: 1846516
+# File Overlap Count: 3
+# Description:
+#   Bug 1846516 - [css-properties-values-api] Introduce AnimatedPropertyID/AnimatedPropertIDSet. r=firefox-animation-reviewers,firefox-style-system-reviewers,layout-reviewers,emilio,hiro
+#   
+#   This will make possible to animate custom properties on Gecko side. For now, the
+#   animation code keeps only dealing with nsCSSPropertyID, so behavior is unchanged.
+#   
+# ==============================================================================
+
+diff -r 753bc39f59ff -r 63603267402e layout/style/StyleAnimationValue.cpp
+--- a/layout/style/StyleAnimationValue.cpp	Mon Dec 18 09:24:07 2023 +0000
++++ b/layout/style/StyleAnimationValue.cpp	Mon Dec 18 09:24:08 2023 +0000
+@@ -17,6 +17,7 @@
+ #include "mozilla/UniquePtr.h"
+ #include "nsCOMArray.h"
+ #include "nsString.h"
++#include "mozilla/AnimatedPropertyID.h"
+ #include "mozilla/ComputedStyle.h"
+ #include "nsComputedDOMStyle.h"
+ #include "nsCSSPseudoElements.h"
+@@ -155,13 +156,13 @@
+ }
+ 
+ void AnimationValue::SerializeSpecifiedValue(
+-    nsCSSPropertyID aProperty, const StylePerDocumentStyleData* aRawData,
+-    nsACString& aString) const {
++    const AnimatedPropertyID& aProperty,
++    const StylePerDocumentStyleData* aRawData, nsACString& aString) const {
+   MOZ_ASSERT(mServo);
+-  Servo_AnimationValue_Serialize(mServo, aProperty, aRawData, &aString);
++  Servo_AnimationValue_Serialize(mServo, aProperty.mID, aRawData, &aString);
+ }
+ 
+-bool AnimationValue::IsInterpolableWith(nsCSSPropertyID aProperty,
++bool AnimationValue::IsInterpolableWith(const AnimatedPropertyID& aProperty,
+                                         const AnimationValue& aToValue) const {
+   if (IsNull() || aToValue.IsNull()) {
+     return false;

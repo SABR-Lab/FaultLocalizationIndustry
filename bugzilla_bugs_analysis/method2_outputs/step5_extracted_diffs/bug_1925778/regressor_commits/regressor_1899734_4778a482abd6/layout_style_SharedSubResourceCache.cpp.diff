@@ -1,0 +1,78 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/style/SharedSubResourceCache.cpp
+# Commit: 4778a482abd6
+# Full Hash: 4778a482abd6ba484aa2d8ec1062700bbfbd3062
+# Author: Tooru Fujisawa <arai_a@mac.com>
+# Date: 2024-10-02 09:50:09
+# Regressor Bug: 1899734
+# File Overlap Count: 2
+# Description:
+#   Bug 1899734 - Part 8: Add performance entry when stylesheet is created from a cache. r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D223354
+# ==============================================================================
+
+diff -r b59dcea26b32 -r 4778a482abd6 layout/style/SharedSubResourceCache.cpp
+--- a/layout/style/SharedSubResourceCache.cpp	Tue Oct 01 12:17:23 2024 +0000
++++ b/layout/style/SharedSubResourceCache.cpp	Tue Oct 01 12:17:24 2024 +0000
+@@ -6,14 +6,58 @@
+ 
+ #include "SharedSubResourceCache.h"
+ 
++#include "mozilla/UniquePtr.h"
+ #include "mozilla/dom/CacheablePerformanceTimingData.h"
++#include "mozilla/dom/Document.h"
++#include "mozilla/dom/Performance.h"
++#include "mozilla/dom/PerformanceResourceTimingBinding.h"
++#include "mozilla/dom/PerformanceStorage.h"
++#include "mozilla/dom/PerformanceTiming.h"
+ #include "nsCOMPtr.h"
++#include "nsDOMNavigationTiming.h"
+ #include "nsIHttpChannel.h"
+ #include "nsIRequest.h"
+ #include "nsITimedChannel.h"
++#include "nsPIDOMWindow.h"
+ 
+ namespace mozilla {
+ 
++namespace SharedSubResourceCacheUtils {
++
++void AddPerformanceEntryForCache(
++    const nsString& aEntryName, const nsString& aInitiatorType,
++    const SubResourceNetworkMetadataHolder* aNetworkMetadata,
++    TimeStamp aStartTime, TimeStamp aEndTime, dom::Document* aDocument) {
++  if (!aNetworkMetadata || !aNetworkMetadata->GetPerfData()) {
++    return;
++  }
++
++  nsPIDOMWindowInner* win = aDocument->GetInnerWindow();
++  if (!win) {
++    return;
++  }
++  RefPtr<dom::Performance> performance = win->GetPerformance();
++  if (!performance) {
++    return;
++  }
++
++  // TODO: Bug 1751383.
++  auto renderBlocking = dom::RenderBlockingStatusType::Non_blocking;
++
++  UniquePtr<dom::PerformanceTimingData> data(
++      dom::PerformanceTimingData::Create(*aNetworkMetadata->GetPerfData(), 0,
++                                         aStartTime, aEndTime, renderBlocking));
++  if (!data) {
++    return;
++  }
++
++  dom::PerformanceStorage* storage = performance->AsPerformanceStorage();
++  MOZ_ASSERT(storage);
++  storage->AddEntry(aEntryName, aInitiatorType, std::move(data));
++}
++
++}  // namespace SharedSubResourceCacheUtils
++
+ SubResourceNetworkMetadataHolder::SubResourceNetworkMetadataHolder(
+     nsIRequest* aRequest) {
+   nsCOMPtr<nsITimedChannel> timedChannel = do_QueryInterface(aRequest);

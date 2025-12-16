@@ -1,0 +1,120 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentParent.cpp
+# Commit: 93e3344dd1f7
+# Full Hash: 93e3344dd1f7454dc46c1553dd05e5e3bc78c349
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2020-08-26 03:24:37
+# Regressor Bug: 1636728
+# File Overlap Count: 1
+# Description:
+#   Bug 1636728 - Centralize printing entry points in nsGlobalWindowOuter, and move cloning out of nsPrintJob. r=jwatt,geckoview-reviewers,smaug,agi
+#   
+#   This centralizes our print and preview setup in nsGlobalWindowOuter so
+#   that we never re-clone a clone, and so that we reuse the window.open()
+#   codepath to create the browsing context to clone into.
+# ==============================================================================
+
+diff -r 2969f3de028f -r 93e3344dd1f7 dom/ipc/ContentParent.cpp
+--- a/dom/ipc/ContentParent.cpp	Tue Aug 25 02:58:57 2020 +0000
++++ b/dom/ipc/ContentParent.cpp	Tue Aug 25 17:45:12 2020 +0000
+@@ -15,6 +15,7 @@
+ 
+ #include "chrome/common/process_watcher.h"
+ #include "mozilla/Result.h"
++#include "nsIBrowserDOMWindow.h"
+ 
+ #ifdef ACCESSIBILITY
+ #  include "mozilla/a11y/PDocAccessible.h"
+@@ -4933,9 +4934,10 @@
+ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
+     PBrowserParent* aThisTab, BrowsingContext* aParent, bool aSetOpener,
+     const uint32_t& aChromeFlags, const bool& aCalledFromJS,
+-    const bool& aWidthSpecified, nsIURI* aURIToLoad, const nsCString& aFeatures,
+-    const float& aFullZoom, BrowserParent* aNextRemoteBrowser,
+-    const nsString& aName, nsresult& aResult,
++    const bool& aWidthSpecified, const bool& aForPrinting,
++    const bool& aForPrintPreview, nsIURI* aURIToLoad,
++    const nsCString& aFeatures, const float& aFullZoom,
++    BrowserParent* aNextRemoteBrowser, const nsString& aName, nsresult& aResult,
+     nsCOMPtr<nsIRemoteTab>& aNewRemoteTab, bool* aWindowIsNew,
+     int32_t& aOpenLocation, nsIPrincipal* aTriggeringPrincipal,
+     nsIReferrerInfo* aReferrerInfo, bool aLoadURI,
+@@ -4953,9 +4955,13 @@
+   openInfo->mForceNoOpener = !aSetOpener;
+   openInfo->mParent = aParent;
+   openInfo->mIsRemote = true;
++  openInfo->mIsForPrinting = aForPrinting;
++  openInfo->mIsForPrintPreview = aForPrintPreview;
+   openInfo->mNextRemoteBrowser = aNextRemoteBrowser;
+   openInfo->mOriginAttributes = aOriginAttributes;
+ 
++  MOZ_ASSERT_IF(aForPrintPreview, aForPrinting);
++
+   RefPtr<BrowserParent> topParent = BrowserParent::GetFrom(aThisTab);
+   while (topParent && topParent->GetBrowserBridgeParent()) {
+     topParent = topParent->GetBrowserBridgeParent()->Manager();
+@@ -5018,17 +5024,19 @@
+   }
+ 
+   aOpenLocation = nsWindowWatcher::GetWindowOpenLocation(
+-      outerWin, aChromeFlags, aCalledFromJS, aWidthSpecified);
++      outerWin, aChromeFlags, aCalledFromJS, aWidthSpecified, aForPrinting);
+ 
+   MOZ_ASSERT(aOpenLocation == nsIBrowserDOMWindow::OPEN_NEWTAB ||
+-             aOpenLocation == nsIBrowserDOMWindow::OPEN_NEWWINDOW);
+-
+-  if (aOpenLocation == nsIBrowserDOMWindow::OPEN_NEWTAB) {
+-    if (NS_WARN_IF(!browserDOMWin)) {
+-      aResult = NS_ERROR_ABORT;
+-      return IPC_OK();
+-    }
+-
++             aOpenLocation == nsIBrowserDOMWindow::OPEN_NEWWINDOW ||
++             aOpenLocation == nsIBrowserDOMWindow::OPEN_PRINT_BROWSER);
++
++  if (NS_WARN_IF(!browserDOMWin)) {
++    // Opening in the same window or headless requires an nsIBrowserDOMWindow.
++    aOpenLocation = nsIBrowserDOMWindow::OPEN_NEWWINDOW;
++  }
++
++  if (aOpenLocation == nsIBrowserDOMWindow::OPEN_NEWTAB ||
++      aOpenLocation == nsIBrowserDOMWindow::OPEN_PRINT_BROWSER) {
+     RefPtr<Element> openerElement = do_QueryObject(frame);
+ 
+     nsCOMPtr<nsIOpenURIInFrameParams> params =
+@@ -5144,7 +5152,8 @@
+ mozilla::ipc::IPCResult ContentParent::RecvCreateWindow(
+     PBrowserParent* aThisTab, const MaybeDiscarded<BrowsingContext>& aParent,
+     PBrowserParent* aNewTab, const uint32_t& aChromeFlags,
+-    const bool& aCalledFromJS, const bool& aWidthSpecified, nsIURI* aURIToLoad,
++    const bool& aCalledFromJS, const bool& aWidthSpecified,
++    const bool& aForPrinting, const bool& aForPrintPreview, nsIURI* aURIToLoad,
+     const nsCString& aFeatures, const float& aFullZoom,
+     const IPC::Principal& aTriggeringPrincipal, nsIContentSecurityPolicy* aCsp,
+     nsIReferrerInfo* aReferrerInfo, const OriginAttributes& aOriginAttributes,
+@@ -5223,9 +5232,10 @@
+   int32_t openLocation = nsIBrowserDOMWindow::OPEN_NEWWINDOW;
+   mozilla::ipc::IPCResult ipcResult = CommonCreateWindow(
+       aThisTab, aParent.get(), !!newBCOpener, aChromeFlags, aCalledFromJS,
+-      aWidthSpecified, aURIToLoad, aFeatures, aFullZoom, newTab, VoidString(),
+-      rv, newRemoteTab, &cwi.windowOpened(), openLocation, aTriggeringPrincipal,
+-      aReferrerInfo, /* aLoadUri = */ false, aCsp, aOriginAttributes);
++      aWidthSpecified, aForPrinting, aForPrintPreview, aURIToLoad, aFeatures,
++      aFullZoom, newTab, VoidString(), rv, newRemoteTab, &cwi.windowOpened(),
++      openLocation, aTriggeringPrincipal, aReferrerInfo, /* aLoadUri = */ false,
++      aCsp, aOriginAttributes);
+   if (!ipcResult) {
+     return ipcResult;
+   }
+@@ -5297,7 +5307,8 @@
+   nsresult rv;
+   mozilla::ipc::IPCResult ipcResult = CommonCreateWindow(
+       aThisTab, aParent.get(), /* aSetOpener = */ false, aChromeFlags,
+-      aCalledFromJS, aWidthSpecified, aURIToLoad, aFeatures, aFullZoom,
++      aCalledFromJS, aWidthSpecified, /* aForPrinting = */ false,
++      /* aForPrintPreview = */ false, aURIToLoad, aFeatures, aFullZoom,
+       /* aNextRemoteBrowser = */ nullptr, aName, rv, newRemoteTab, &windowIsNew,
+       openLocation, aTriggeringPrincipal, aReferrerInfo,
+       /* aLoadUri = */ true, aCsp, aOriginAttributes);

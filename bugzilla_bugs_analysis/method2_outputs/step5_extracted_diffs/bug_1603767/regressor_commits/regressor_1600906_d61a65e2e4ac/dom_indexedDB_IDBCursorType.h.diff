@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/IDBCursorType.h
+# Commit: d61a65e2e4ac
+# Full Hash: d61a65e2e4acda7fe99c0cd06edec1e790917d09
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2020-01-10 21:49:10
+# Regressor Bug: 1600906
+# File Overlap Count: 1
+# Description:
+#   Bug 1600906 - Transform Cursor into a template depending on the cursor type. r=dom-workers-and-storage-reviewers,ytausky
+#   
+#   This change reduces the number of data members and state in individual classes
+#   and ensures that for each cursor type only the data members actually used
+#   exist at compile time rather than requiring various assertions and case
+# ==============================================================================
+
+diff -r a114b9b8e6ea -r d61a65e2e4ac dom/indexedDB/IDBCursorType.h
+--- a/dom/indexedDB/IDBCursorType.h	Fri Jan 10 14:21:18 2020 +0000
++++ b/dom/indexedDB/IDBCursorType.h	Fri Jan 10 14:21:43 2020 +0000
+@@ -71,7 +71,9 @@
+ 
+   explicit CommonCursorDataBase(Key aKey);
+ 
+-  Key mKey;
++  Key mKey;  ///< The current key, i.e. the key representing the cursor's
++             ///< position
++             ///< (https://w3c.github.io/IndexedDB/#cursor-position).
+ };
+ 
+ template <IDBCursorType CursorType>
+@@ -99,8 +101,11 @@
+     return GetObjectStoreKey().GetBuffer().get();
+   }
+ 
+-  Key mLocaleAwareKey;
+-  Key mObjectStoreKey;
++  Key mLocaleAwareKey;  ///< If the index's mLocale is set, this is mKey
++                        ///< converted to mLocale. Otherwise, it is unset.
++  Key mObjectStoreKey;  ///< The key representing the cursor's object store
++                        ///< position
++  ///< (https://w3c.github.io/IndexedDB/#cursor-object-store-position).
+ };
+ 
+ struct ValueCursorDataBase {

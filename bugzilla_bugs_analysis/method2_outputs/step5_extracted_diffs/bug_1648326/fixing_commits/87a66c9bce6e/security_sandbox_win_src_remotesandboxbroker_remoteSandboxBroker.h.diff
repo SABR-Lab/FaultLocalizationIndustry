@@ -1,0 +1,28 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/win/src/remotesandboxbroker/remoteSandboxBroker.h
+# Commit: 87a66c9bce6e
+# Full Hash: 87a66c9bce6e60c232336ac5b64238befbead24f
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2020-07-01 21:32:12
+# Description:
+#   Bug 1648326 - Don't dispatch runnable on the running taskqueue. r=bobowen,jld
+#   
+#   The current taskqueue is blocked until the current function has finished; Running the event loop would only process events on the running thread.
+#   
+#   Additionally, we make mIPCLaunchThread an nsISerialEventTarget to guarantee that at shutdown the tasks are run in order regardless of the IPC Launch Thread type.
+# ==============================================================================
+
+diff -r 1c8faab05606 -r 87a66c9bce6e security/sandbox/win/src/remotesandboxbroker/remoteSandboxBroker.h
+--- a/security/sandbox/win/src/remotesandboxbroker/remoteSandboxBroker.h	Tue Jun 30 16:03:02 2020 +0000
++++ b/security/sandbox/win/src/remotesandboxbroker/remoteSandboxBroker.h	Wed Jul 01 06:46:59 2020 +0000
+@@ -56,7 +56,7 @@
+   // We bind the RemoteSandboxBrokerParent to the IPC launch thread.
+   // As such, we must close its channel on the same thread. So we save
+   // a reference to the IPC launch thread here.
+-  nsCOMPtr<nsIEventTarget> mIPCLaunchThread;
++  nsCOMPtr<nsISerialEventTarget> mIPCLaunchThread;
+ 
+   // True if we've been shutdown.
+   bool mShutdown = false;

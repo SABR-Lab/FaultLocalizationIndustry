@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/AudioConduit.cpp
+# Commit: d0b311007c03
+# Full Hash: d0b311007c033e83824f5f6996a70ab9e870f31f
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 5
+# Description:
+#   Bug 1654112 - Get RTCP BYE and RTP timeout handling working again (from Bug 1595479) r=mjf,dminor
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D106145
+# ==============================================================================
+
+diff -r daa9eac709dc -r d0b311007c03 dom/media/webrtc/libwebrtcglue/AudioConduit.cpp
+--- a/dom/media/webrtc/libwebrtcglue/AudioConduit.cpp	Fri Feb 19 16:20:38 2021 +0000
++++ b/dom/media/webrtc/libwebrtcglue/AudioConduit.cpp	Fri Feb 19 15:56:41 2021 -0600
+@@ -187,6 +187,34 @@
+       mDtmfPayloadType, mDtmfPayloadFrequency, eventCode, lengthMs);
+ }
+ 
++void WebrtcAudioConduit::OnRtcpBye() {
++  RefPtr<WebrtcAudioConduit> self = this;
++  NS_DispatchToMainThread(media::NewRunnableFrom([self]() mutable {
++    MOZ_ASSERT(NS_IsMainThread());
++    if (self->mRtcpEventObserver) {
++      self->mRtcpEventObserver->OnRtcpBye();
++    }
++    return NS_OK;
++  }));
++}
++
++void WebrtcAudioConduit::OnRtcpTimeout() {
++  RefPtr<WebrtcAudioConduit> self = this;
++  NS_DispatchToMainThread(media::NewRunnableFrom([self]() mutable {
++    MOZ_ASSERT(NS_IsMainThread());
++    if (self->mRtcpEventObserver) {
++      self->mRtcpEventObserver->OnRtcpTimeout();
++    }
++    return NS_OK;
++  }));
++}
++
++void WebrtcAudioConduit::SetRtcpEventObserver(
++    mozilla::RtcpEventObserver* observer) {
++  MOZ_ASSERT(NS_IsMainThread());
++  mRtcpEventObserver = observer;
++}
++
+ void WebrtcAudioConduit::GetRtpSources(
+     nsTArray<dom::RTCRtpSourceEntry>& outSources) {
+   MOZ_ASSERT(NS_IsMainThread());
+@@ -894,6 +922,7 @@
+   mMutex.AssertCurrentThreadOwns();
+ 
+   mRecvStreamConfig.rtcp_send_transport = this;
++  mRecvStreamConfig.rtp.rtcp_event_observer = this;
+   mRecvStream = mCall->Call()->CreateAudioReceiveStream(mRecvStreamConfig);
+   if (!mRecvStream) {
+     return kMediaConduitUnknownError;

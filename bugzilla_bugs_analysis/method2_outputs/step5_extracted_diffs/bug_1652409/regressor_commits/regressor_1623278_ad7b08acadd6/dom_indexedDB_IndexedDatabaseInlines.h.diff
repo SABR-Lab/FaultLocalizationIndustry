@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/IndexedDatabaseInlines.h
+# Commit: ad7b08acadd6
+# Full Hash: ad7b08acadd691fc86b52ba7f8babfaa57972c56
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2020-03-19 17:04:52
+# Regressor Bug: 1623278
+# File Overlap Count: 1
+# Description:
+#   Bug 1623278 - Use SafeRefPtr for FileInfo. r=dom-workers-and-storage-reviewers,asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D65550
+# ==============================================================================
+
+diff -r bb094a6084b3 -r ad7b08acadd6 dom/indexedDB/IndexedDatabaseInlines.h
+--- a/dom/indexedDB/IndexedDatabaseInlines.h	Thu Mar 19 09:32:53 2020 +0000
++++ b/dom/indexedDB/IndexedDatabaseInlines.h	Thu Mar 19 09:33:31 2020 +0000
+@@ -48,7 +48,7 @@
+ }
+ 
+ inline StructuredCloneFileParent::StructuredCloneFileParent(
+-    FileType aType, RefPtr<indexedDB::FileInfo> aFileInfo)
++    FileType aType, SafeRefPtr<indexedDB::FileInfo> aFileInfo)
+     : StructuredCloneFileBase{aType}, mContents{Some(std::move(aFileInfo))} {
+   MOZ_ASSERT(**mContents);
+   MOZ_COUNT_CTOR(StructuredCloneFileParent);
+@@ -75,9 +75,9 @@
+   MOZ_COUNT_DTOR(StructuredCloneFileParent);
+ }
+ 
+-inline RefPtr<indexedDB::FileInfo> StructuredCloneFileParent::FileInfoPtr()
++inline SafeRefPtr<indexedDB::FileInfo> StructuredCloneFileParent::FileInfoPtr()
+     const {
+-  return **mContents;
++  return (*mContents)->clonePtr();
+ }
+ 
+ inline RefPtr<dom::Blob> StructuredCloneFileChild::BlobPtr() const {

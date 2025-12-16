@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/nsLineLayout.cpp
+# Commit: 0fd4431f5279
+# Full Hash: 0fd4431f527935234d764a167cc5a20acfc323eb
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2023-09-28 21:51:27
+# Regressor Bug: 1731541
+# File Overlap Count: 1
+# Description:
+#   Bug 1731541 - Implement text-wrap: balance for nsBlockFrame reflow. r=emilio
+#   
+#   A simple form of balance for short blocks, implemented by incrementally reducing
+#   the effective inline-size used during line-breaking, up to the point where an
+#   extra line would be created.
+# ==============================================================================
+
+diff -r 5926241957b4 -r 0fd4431f5279 layout/generic/nsLineLayout.cpp
+--- a/layout/generic/nsLineLayout.cpp	Thu Sep 28 08:31:20 2023 +0000
++++ b/layout/generic/nsLineLayout.cpp	Thu Sep 28 08:31:20 2023 +0000
+@@ -140,7 +140,8 @@
+                                    nscoord aISize, nscoord aBSize,
+                                    bool aImpactedByFloats, bool aIsTopOfPage,
+                                    WritingMode aWritingMode,
+-                                   const nsSize& aContainerSize) {
++                                   const nsSize& aContainerSize,
++                                   nscoord aInset) {
+   NS_ASSERTION(nullptr == mRootSpan, "bad linelayout user");
+   LAYOUT_WARN_IF_FALSE(aISize != NS_UNCONSTRAINEDSIZE,
+                        "have unconstrained width; this should only result from "
+@@ -193,6 +194,9 @@
+   psd->mIStart = aICoord;
+   psd->mICoord = aICoord;
+   psd->mIEnd = aICoord + aISize;
++  // Set up inset to be used for text-wrap:balance implementation, but only if
++  // the available size is at least 2*inset.
++  psd->mInset = aISize < aInset * 2 ? 0 : aInset;
+   mContainerSize = aContainerSize;
+ 
+   mBStartEdge = aBCoord;
+@@ -406,6 +410,7 @@
+   psd->mIStart = aIStart;
+   psd->mICoord = aIStart;
+   psd->mIEnd = aIEnd;
++  psd->mInset = mCurrentSpan->mInset;
+   psd->mBaseline = aBaseline;
+ 
+   nsIFrame* frame = aSpanReflowInput->mFrame;
+@@ -801,7 +806,7 @@
+                        "have unconstrained width; this should only result from "
+                        "very large sizes, not attempts at intrinsic width "
+                        "calculation");
+-  nscoord availableSpaceOnLine = psd->mIEnd - psd->mICoord;
++  nscoord availableSpaceOnLine = psd->mIEnd - psd->mICoord - psd->mInset;
+ 
+   // Setup reflow input for reflowing the frame
+   Maybe<ReflowInput> reflowInputHolder;

@@ -1,0 +1,29 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/streamconv/converters/nsHTTPCompressConv.cpp
+# Commit: 63dc52c69902
+# Full Hash: 63dc52c699029c7bca12aaa65d5148b6d4431f21
+# Author: Randell Jesup <rjesup@mozilla.com>
+# Date: 2024-03-19 16:41:28
+# Regressor Bug: 1356686
+# File Overlap Count: 2
+# Description:
+#   Bug 1356686: Put OMT decompression behind a pref r=necko-reviewers,valentin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D204957
+# ==============================================================================
+
+diff -r 6e9726c26d07 -r 63dc52c69902 netwerk/streamconv/converters/nsHTTPCompressConv.cpp
+--- a/netwerk/streamconv/converters/nsHTTPCompressConv.cpp	Mon Mar 18 20:04:01 2024 +0000
++++ b/netwerk/streamconv/converters/nsHTTPCompressConv.cpp	Mon Mar 18 20:04:02 2024 +0000
+@@ -140,7 +140,8 @@
+ 
+   nsCOMPtr<nsISerialEventTarget> target;
+   rv = req->GetDeliveryTarget(getter_AddRefs(target));
+-  if (NS_FAILED(rv) || !target || target->IsOnCurrentThread()) {
++  if ((NS_FAILED(rv) || !target || target->IsOnCurrentThread()) &&
++      StaticPrefs::network_decompression_off_mainthread()) {
+     // No retargetting was performed.  Decompress off MainThread,
+     // and dispatch results back to MainThread
+     nsCOMPtr<nsISerialEventTarget> backgroundThread;

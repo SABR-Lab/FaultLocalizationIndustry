@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: servo/components/style/properties/cascade.rs
+# Commit: 2de2533b5e62
+# Full Hash: 2de2533b5e622f7f6f75e6ad9ec773b1cf997cc8
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2024-09-11 21:40:06
+# Regressor Bug: 1909625
+# File Overlap Count: 2
+# Description:
+#   Bug 1909625 - Ignore CSS zoom and text zoom for canvas. r=gfx-reviewers,lsalzman
+#   
+#   The spec doesn't mention anything about applying them, and other
+#   browsers don't, so let's just be consistent...
+#   
+# ==============================================================================
+
+diff -r c5bedc884f33 -r 2de2533b5e62 servo/components/style/properties/cascade.rs
+--- a/servo/components/style/properties/cascade.rs	Wed Sep 11 13:21:58 2024 +0000
++++ b/servo/components/style/properties/cascade.rs	Wed Sep 11 13:46:45 2024 +0000
+@@ -1253,7 +1253,7 @@
+         );
+         debug_assert!(
+             !text_scale.text_zoom_enabled(),
+-            "We only ever disable text zoom (in svg:text), never enable it"
++            "We only ever disable text zoom never enable it"
+         );
+         let device = builder.device;
+         builder.mutate_font().unzoom_fonts(device);
+@@ -1263,9 +1263,8 @@
+         debug_assert!(self.seen.contains(LonghandId::Zoom));
+         // NOTE(emilio): Intentionally not using the effective zoom here, since all the inherited
+         // zooms are already applied.
+-        let zoom = builder.get_box().clone_zoom();
+         let old_size = builder.get_font().clone_font_size();
+-        let new_size = old_size.zoom(zoom);
++        let new_size = old_size.zoom(builder.resolved_specified_zoom());
+         if old_size == new_size {
+             return;
+         }

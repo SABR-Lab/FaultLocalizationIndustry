@@ -1,0 +1,95 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/xul/nsMenuBarListener.h
+# Commit: f11c529b2407
+# Full Hash: f11c529b240799df93c4dd8c17ecd8636f9b10de
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-01-04 09:43:05
+# Regressor Bug: 1805414
+# File Overlap Count: 2
+# Description:
+#   Bug 1805414 - Remove nsMenuFrame and nsMenuParent. r=smaug,Jamie,desktop-theme-reviewers,settings-reviewers,dao
+#   
+#   Move most the event handling stuff to the DOM. I've left nsMenuBarFrame
+#   for now, but I will be removing that in the future.
+#   
+# ==============================================================================
+
+diff -r 11d72eaa9cd9 -r f11c529b2407 layout/xul/nsMenuBarListener.h
+--- a/layout/xul/nsMenuBarListener.h	Tue Jan 03 21:55:14 2023 +0000
++++ b/layout/xul/nsMenuBarListener.h	Tue Jan 03 22:06:01 2023 +0000
+@@ -23,6 +23,8 @@
+ namespace dom {
+ class EventTarget;
+ class KeyboardEvent;
++class XULMenuParentElement;
++class XULButtonElement;
+ }  // namespace dom
+ }  // namespace mozilla
+ 
+@@ -53,34 +55,36 @@
+   static int32_t GetMenuAccessKey();
+ 
+   /**
+-   * IsAccessKeyPressed() returns true if the modifier state of aEvent matches
+-   * the modifier state of access key.
++   * IsAccessKeyPressed() returns true if the modifier state of the event
++   * matches the modifier state of access key.
+    */
+-  static bool IsAccessKeyPressed(mozilla::dom::KeyboardEvent* aEvent);
++  static bool IsAccessKeyPressed(mozilla::dom::KeyboardEvent&);
+ 
+  protected:
+   virtual ~nsMenuBarListener();
+ 
+-  nsresult KeyUp(mozilla::dom::Event* aMouseEvent);
+-  nsresult KeyDown(mozilla::dom::Event* aMouseEvent);
+-  nsresult KeyPress(mozilla::dom::Event* aMouseEvent);
+-  nsresult Blur(mozilla::dom::Event* aEvent);
+-  nsresult OnWindowDeactivated(mozilla::dom::Event* aEvent);
+-  nsresult MouseDown(mozilla::dom::Event* aMouseEvent);
+-  nsresult Fullscreen(mozilla::dom::Event* aEvent);
++  bool IsMenuOpen() const;
++
++  MOZ_CAN_RUN_SCRIPT nsresult KeyUp(mozilla::dom::Event* aMouseEvent);
++  MOZ_CAN_RUN_SCRIPT nsresult KeyDown(mozilla::dom::Event* aMouseEvent);
++  MOZ_CAN_RUN_SCRIPT nsresult KeyPress(mozilla::dom::Event* aMouseEvent);
++  MOZ_CAN_RUN_SCRIPT nsresult Blur(mozilla::dom::Event* aEvent);
++  MOZ_CAN_RUN_SCRIPT nsresult OnWindowDeactivated(mozilla::dom::Event* aEvent);
++  MOZ_CAN_RUN_SCRIPT nsresult MouseDown(mozilla::dom::Event* aMouseEvent);
++  MOZ_CAN_RUN_SCRIPT nsresult Fullscreen(mozilla::dom::Event* aEvent);
+ 
+   static void InitAccessKey();
+ 
+   static mozilla::Modifiers GetModifiersForAccessKey(
+-      mozilla::dom::KeyboardEvent* event);
++      mozilla::dom::KeyboardEvent& event);
+ 
+   /**
+    * Given a key event for an Alt+shortcut combination,
+    * return the menu, if any, that would be opened. If aPeek
+    * is false, then play a beep and deactivate the menubar on Windows.
+    */
+-  nsMenuFrame* GetMenuForKeyEvent(mozilla::dom::KeyboardEvent* aKeyEvent,
+-                                  bool aPeek);
++  mozilla::dom::XULButtonElement* GetMenuForKeyEvent(
++      mozilla::dom::KeyboardEvent& aKeyEvent);
+ 
+   /**
+    * Call MarkAsReservedByChrome if the user's preferences indicate that
+@@ -90,12 +94,13 @@
+ 
+   // This should only be called by the nsMenuBarListener during event dispatch,
+   // thus ensuring that this doesn't get destroyed during the process.
+-  void ToggleMenuActiveState();
++  MOZ_CAN_RUN_SCRIPT void ToggleMenuActiveState();
+ 
+   bool Destroyed() const { return !mMenuBarFrame; }
+ 
+   // The menu bar object.
+   nsMenuBarFrame* mMenuBarFrame;
++  mozilla::dom::XULMenuParentElement* mContent;
+   // The event target to listen to the events.
+   // XXX Should this store this as strong reference?  However,
+   //     OnDestroyMenuBarFrame() should be called at destroying mMenuBarFrame.

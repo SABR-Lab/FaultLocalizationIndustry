@@ -1,0 +1,74 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmFrameIter.cpp
+# Commit: 25281e1775c9
+# Full Hash: 25281e1775c9bd2c600fc897ce877d7da55ce3d8
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-10-30 03:48:30
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 4: Untie frame iteration from Frame::tls. r=lth
+#   
+#   Here we replace usage of Frame::tls in frame iteration with GetNearestEffectiveTls.
+#   We also maintain current tls for frame iteration object to not to call GetNearestEffectiveTls everytime.
+#   
+# ==============================================================================
+
+diff -r 82fbedcdde75 -r 25281e1775c9 js/src/wasm/WasmFrameIter.cpp
+--- a/js/src/wasm/WasmFrameIter.cpp	Fri Oct 23 18:17:37 2020 +0000
++++ b/js/src/wasm/WasmFrameIter.cpp	Fri Oct 23 18:17:37 2020 +0000
+@@ -42,12 +42,14 @@
+       codeRange_(nullptr),
+       lineOrBytecode_(0),
+       fp_(fp ? fp : activation->wasmExitFP()),
++      tls_(nullptr),
+       unwoundIonCallerFP_(nullptr),
+       unwoundIonFrameType_(jit::FrameType(-1)),
+       unwind_(Unwind::False),
+       unwoundAddressOfReturnAddress_(nullptr),
+       resumePCinCurrentFrame_(nullptr) {
+   MOZ_ASSERT(fp_);
++  tls_ = GetNearestEffectiveTls(fp_);
+ 
+   // When the stack is captured during a trap (viz., to create the .stack
+   // for an Error object), use the pc/bytecode information captured by the
+@@ -59,7 +61,7 @@
+     const TrapData& trapData = activation->wasmTrapData();
+     void* unwoundPC = trapData.unwoundPC;
+ 
+-    code_ = &fp_->instance()->code();
++    code_ = &tls_->instance->code();
+     MOZ_ASSERT(code_ == LookupCode(unwoundPC));
+ 
+     codeRange_ = code_->lookupFuncRange(unwoundPC);
+@@ -196,12 +198,18 @@
+     return;
+   }
+ 
+-  MOZ_ASSERT(code_ == &fp_->instance()->code());
+   MOZ_ASSERT(codeRange_->kind() == CodeRange::Function);
+ 
+   const CallSite* callsite = code_->lookupCallSite(returnAddress);
+   MOZ_ASSERT(callsite);
+ 
++  if (callsite->mightBeCrossInstance()) {
++    tls_ = ExtractCallerTlsFromFrameWithTls(prevFP);
++  }
++
++  MOZ_ASSERT(code_ == &fp_->instance()->code());
++  MOZ_ASSERT(fp_->instance() == tls()->instance);
++
+   lineOrBytecode_ = callsite->lineOrBytecode();
+ 
+   MOZ_ASSERT(!done());
+@@ -274,7 +282,7 @@
+ 
+ Instance* WasmFrameIter::instance() const {
+   MOZ_ASSERT(!done());
+-  return fp_->instance();
++  return tls_->instance;
+ }
+ 
+ void** WasmFrameIter::unwoundAddressOfReturnAddress() const {

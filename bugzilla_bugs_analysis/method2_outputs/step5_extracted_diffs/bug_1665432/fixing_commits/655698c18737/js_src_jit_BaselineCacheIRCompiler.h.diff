@@ -1,0 +1,28 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/BaselineCacheIRCompiler.h
+# Commit: 655698c18737
+# Full Hash: 655698c18737242eda9190ce601a19b54c3826ef
+# Author: Iain Ireland <iireland@mozilla.com>
+# Date: 2020-09-18 09:45:00
+# Description:
+#   Bug 1665432: Avoid clobbering code register when calling CreateThis r=jandem
+#   
+#   Relative to `CallScriptedFunction`, `CallInlinedFunction` has an extra register (`codeReg`) alive when calling `CreateThis`, which was not being saved. On x64 we got lucky and it was assigned to a preserved register, but x86 broke.
+#   
+#   I took the opportunity to do a little bit more cleanup of `CreateThis` and document the justification for reloading `calleeReg`.
+# ==============================================================================
+
+diff -r 5b344e00670b -r 655698c18737 js/src/jit/BaselineCacheIRCompiler.h
+--- a/js/src/jit/BaselineCacheIRCompiler.h	Thu Sep 17 16:10:12 2020 +0000
++++ b/js/src/jit/BaselineCacheIRCompiler.h	Thu Sep 17 06:50:04 2020 +0000
+@@ -65,7 +65,7 @@
+   void pushFunApplyArgs(Register argcReg, Register calleeReg, Register scratch,
+                         Register scratch2, bool isJitCall);
+   void createThis(Register argcReg, Register calleeReg, Register scratch,
+-                  CallFlags flags);
++                  CallFlags flags, LiveGeneralRegisterSet liveNonGCRegs);
+   template <typename T>
+   void storeThis(const T& newThis, Register argcReg, CallFlags flags);
+   void updateReturnValue();

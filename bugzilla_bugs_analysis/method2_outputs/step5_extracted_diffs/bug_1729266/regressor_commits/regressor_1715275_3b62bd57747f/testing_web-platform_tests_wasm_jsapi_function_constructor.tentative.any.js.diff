@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: testing/web-platform/tests/wasm/jsapi/function/constructor.tentative.any.js
+# Commit: 3b62bd57747f
+# Full Hash: 3b62bd57747f21c800a93da325d999fa5efb3850
+# Author: Jessica Tallon <jtallon@igalia.com>
+# Date: 2021-09-03 03:51:58
+# Regressor Bug: 1715275
+# File Overlap Count: 1
+# Description:
+#   Bug 1715275 - Add support for a JS WebAssembly.Function object r=rhunt
+#   
+#   This introduces a new Constructor WebAssembly.Function which is part of
+#   the WASM JS-API type reflection work. This allows normal JS functions to
+#   be wrapped with a type and used with WebAssembly objects (e.g. Tables).
+# ==============================================================================
+
+diff -r f6f4514d09bf -r 3b62bd57747f testing/web-platform/tests/wasm/jsapi/function/constructor.tentative.any.js
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/testing/web-platform/tests/wasm/jsapi/function/constructor.tentative.any.js	Thu Sep 02 15:58:18 2021 +0000
+@@ -0,0 +1,35 @@
++// META: global=window,dedicatedworker,jsshell
++// META: script=/wasm/jsapi/assertions.js
++
++function addxy(x, y) {
++    return x + y
++}
++
++test(() => {
++    var fun = new WebAssembly.Function({parameters: ["i32", "i32"], results: ["i32"]}, addxy);
++    assert_true(fun instanceof WebAssembly.Function)
++}, "construct with JS function")
++
++test(() => {
++    assert_throws_js(TypeError, () => new WebAssembly.Function({parameters: []}, addxy))
++}, "fail with missing results")
++
++test(() => {
++    assert_throws_js(TypeError, () => new WebAssembly.Function({results: []}, addxy))
++}, "fail with missing parameters")
++
++test(() => {
++    assert_throws_js(TypeError, () => new WebAssembly.Function({parameters: [1], results: [true]}, addxy))
++}, "fail with non-string parameters & results")
++
++test(() => {
++    assert_throws_js(TypeError, () => new WebAssembly.Function({parameters: ["invalid"], results: ["invalid"]}, addxy))
++}, "fail with non-existent parameter and result type")
++
++test(() => {
++    assert_throws_js(TypeError, () => new WebAssembly.Function({parameters: [], results: []}, 72))
++}, "fail with non-function object")
++
++test(()  => {
++    assert_throws_js(TypeError, () => new WebAssembly.Function({parameters: [], results: []}, {}))
++}, "fail to construct with non-callable object")

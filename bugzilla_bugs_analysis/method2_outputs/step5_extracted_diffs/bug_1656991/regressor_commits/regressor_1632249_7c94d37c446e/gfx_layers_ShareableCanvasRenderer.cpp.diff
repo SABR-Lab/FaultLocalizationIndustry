@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ShareableCanvasRenderer.cpp
+# Commit: 7c94d37c446e
+# Full Hash: 7c94d37c446ea0d996bf6e6e04eb66101e126b5c
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-06-11 09:34:54
+# Regressor Bug: 1632249
+# File Overlap Count: 1
+# Description:
+#   Bug 1632249 - WebXR compositing fixes. r=imanol
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D78117
+# ==============================================================================
+
+diff -r 204b899f436d -r 7c94d37c446e gfx/layers/ShareableCanvasRenderer.cpp
+--- a/gfx/layers/ShareableCanvasRenderer.cpp	Thu Jun 11 06:37:35 2020 +0000
++++ b/gfx/layers/ShareableCanvasRenderer.cpp	Thu Jun 11 06:37:36 2020 +0000
+@@ -11,6 +11,7 @@
+ #include "mozilla/layers/TextureClientSharedSurface.h"
+ #include "mozilla/layers/CompositableForwarder.h"
+ 
++#include "ClientWebGLContext.h"
+ #include "gfxUtils.h"
+ #include "GLScreenBuffer.h"
+ #include "nsICanvasRenderingContextInternal.h"
+@@ -122,7 +123,12 @@
+ 
+     if (!webgl) return nullptr;
+     if (!forwarder) return nullptr;
+-    const auto desc = webgl::GetFrontBuffer(*webgl, forwarder);
++
++    auto texType = layers::TextureType::Unknown;
++    if (forwarder) {
++      texType = layers::PreferredCanvasTextureType(*forwarder);
++    }
++    const auto desc = webgl->GetFrontBuffer(nullptr, texType);
+     if (!desc) return nullptr;
+     return GetFrontBufferFromDesc(*desc, flags);
+   };

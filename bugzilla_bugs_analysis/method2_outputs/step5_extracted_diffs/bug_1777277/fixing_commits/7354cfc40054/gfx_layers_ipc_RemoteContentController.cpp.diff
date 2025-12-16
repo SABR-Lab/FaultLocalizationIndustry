@@ -1,0 +1,31 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/RemoteContentController.cpp
+# Commit: 7354cfc40054
+# Full Hash: 7354cfc40054087a334cdf4024fd30f6987f6284
+# Author: Botond Ballo <botond@mozilla.com>
+# Date: 2022-06-30 09:55:19
+# Description:
+#   Bug 1777277 - Guard against infinite recursion in RemoteContentController::NotifyScaleGestureComplete(). r=mccr8
+#   
+#   However, also add a MOZ_ASSERT because GetGeckoContentControllerForRoot()
+#   returning a RemoteContentController here is unexpected and should be
+#   investigated further.
+# ==============================================================================
+
+diff -r dc3bd015fb5f -r 7354cfc40054 gfx/layers/ipc/RemoteContentController.cpp
+--- a/gfx/layers/ipc/RemoteContentController.cpp	Wed Jun 29 20:03:13 2022 +0000
++++ b/gfx/layers/ipc/RemoteContentController.cpp	Wed Jun 29 20:53:59 2022 +0000
+@@ -423,7 +423,10 @@
+   RefPtr<GeckoContentController> rootController =
+       CompositorBridgeParent::GetGeckoContentControllerForRoot(aGuid.mLayersId);
+   if (rootController) {
+-    rootController->NotifyScaleGestureComplete(aGuid, aScale);
++    MOZ_ASSERT(rootController != this);
++    if (rootController != this) {
++      rootController->NotifyScaleGestureComplete(aGuid, aScale);
++    }
+   }
+ }
+ 

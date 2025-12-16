@@ -1,0 +1,88 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/notification/NotificationUtils.cpp
+# Commit: 2e24d997d5de
+# Full Hash: 2e24d997d5de727be8e44b522e57d7ff7db52486
+# Author: Sandor Molnar <smolnar@mozilla.com>
+# Date: 2025-07-16 21:45:35
+# Regressor Bug: 1972117
+# File Overlap Count: 1
+# Description:
+#   Revert "Bug 1972117: apply code formatting via Lando" for causing assertion failures @ MozPromise.h
+#   
+#   This reverts commit e76333b4d7fb2d323e797f12bde50ccc99a51a85.
+#   
+#   Revert "Bug 1972117 - Part 4: Clear notifications on service worker unregistration r=asuth"
+# ==============================================================================
+
+diff -r c257659aa2b4 -r 2e24d997d5de dom/notification/NotificationUtils.cpp
+--- a/dom/notification/NotificationUtils.cpp	Wed Jul 16 19:15:43 2025 +0300
++++ b/dom/notification/NotificationUtils.cpp	Wed Jul 16 19:18:03 2025 +0300
+@@ -168,66 +168,6 @@
+                                  : NS_NOTIFICATION_STORAGE_CONTRACTID);
+ }
+ 
+-class NotificationsCallback : public nsINotificationStorageCallback {
+- public:
+-  NS_DECL_ISUPPORTS
+-
+-  already_AddRefed<NotificationsPromise> Promise() {
+-    return mPromiseHolder.Ensure(__func__);
+-  }
+-
+-  NS_IMETHOD Done(
+-      const nsTArray<RefPtr<nsINotificationStorageEntry>>& aEntries) final {
+-    AssertIsOnMainThread();
+-
+-    nsTArray<IPCNotification> notifications(aEntries.Length());
+-    for (const auto& entry : aEntries) {
+-      auto result = NotificationStorageEntry::ToIPC(*entry);
+-      if (result.isErr()) {
+-        continue;
+-      }
+-      MOZ_ASSERT(!result.inspect().id().IsEmpty());
+-      notifications.AppendElement(result.unwrap());
+-    }
+-
+-    mPromiseHolder.Resolve(std::move(notifications), __func__);
+-    return NS_OK;
+-  }
+-
+- protected:
+-  virtual ~NotificationsCallback() {
+-    // We may be shutting down prematurely without getting the result, so make
+-    // sure to settle the promise.
+-    mPromiseHolder.RejectIfExists(NS_ERROR_DOM_INVALID_STATE_ERR, __func__);
+-  };
+-
+-  MozPromiseHolder<NotificationsPromise> mPromiseHolder;
+-};
+-
+-NS_IMPL_ISUPPORTS(NotificationsCallback, nsINotificationStorageCallback)
+-
+-already_AddRefed<NotificationsPromise> GetStoredNotificationsForScope(
+-    nsIPrincipal* aPrincipal, const nsACString& aScope, const nsAString& aTag) {
+-  nsString origin;
+-  nsresult rv = GetOrigin(aPrincipal, origin);
+-  if (NS_WARN_IF(NS_FAILED(rv))) {
+-    return NotificationsPromise::CreateAndReject(rv, __func__).forget();
+-  }
+-
+-  RefPtr<NotificationsCallback> callback = new NotificationsCallback();
+-  RefPtr<NotificationsPromise> promise = callback->Promise();
+-
+-  nsCOMPtr<nsINotificationStorage> notificationStorage =
+-      GetNotificationStorage(aPrincipal->GetIsInPrivateBrowsing());
+-
+-  rv = notificationStorage->Get(origin, NS_ConvertUTF8toUTF16(aScope), aTag,
+-                                callback);
+-  if (NS_WARN_IF(NS_FAILED(rv))) {
+-    return NotificationsPromise::CreateAndReject(rv, __func__).forget();
+-  }
+-  return promise.forget();
+-}
+-
+ nsresult PersistNotification(nsIPrincipal* aPrincipal,
+                              const IPCNotification& aNotification,
+                              const nsString& aScope) {

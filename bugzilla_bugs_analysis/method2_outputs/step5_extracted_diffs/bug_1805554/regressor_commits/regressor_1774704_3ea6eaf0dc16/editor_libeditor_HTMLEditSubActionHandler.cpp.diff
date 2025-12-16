@@ -1,0 +1,169 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/HTMLEditSubActionHandler.cpp
+# Commit: 3ea6eaf0dc16
+# Full Hash: 3ea6eaf0dc166b86dfd68dd10738774991419795
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-08-04 09:46:07
+# Regressor Bug: 1774704
+# File Overlap Count: 1
+# Description:
+#   Bug 1774704 - part 9: Get rid of `EditorBase::TopLevelEditSubActionData::mNewBlockElement` due to unused r=m_kato
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D152982
+# ==============================================================================
+
+diff -r 8896439912aa -r 3ea6eaf0dc16 editor/libeditor/HTMLEditSubActionHandler.cpp
+--- a/editor/libeditor/HTMLEditSubActionHandler.cpp	Thu Aug 04 05:31:12 2022 +0000
++++ b/editor/libeditor/HTMLEditSubActionHandler.cpp	Thu Aug 04 05:39:15 2022 +0000
+@@ -559,34 +559,6 @@
+         break;
+     }
+ 
+-    // If we created a new block, make sure caret is in it.
+-    if (TopLevelEditSubActionDataRef().mNewBlockElement &&
+-        SelectionRef().IsCollapsed() && SelectionRef().RangeCount()) {
+-      const auto firstRangeStartPoint =
+-          GetFirstSelectionStartPoint<EditorRawDOMPoint>();
+-      if (MOZ_LIKELY(firstRangeStartPoint.IsSet())) {
+-        const Result<EditorRawDOMPoint, nsresult> pointToPutCaretOrError =
+-            HTMLEditUtils::ComputePointToPutCaretInElementIfOutside<
+-                EditorRawDOMPoint>(
+-                *TopLevelEditSubActionDataRef().mNewBlockElement,
+-                firstRangeStartPoint);
+-        if (MOZ_UNLIKELY(pointToPutCaretOrError.isErr())) {
+-          NS_WARNING(
+-              "HTMLEditUtils::ComputePointToPutCaretInElementIfOutside() "
+-              "failed, but ignored");
+-        } else if (pointToPutCaretOrError.inspect().IsSet()) {
+-          nsresult rv = CollapseSelectionTo(pointToPutCaretOrError.inspect());
+-          if (MOZ_UNLIKELY(rv == NS_ERROR_EDITOR_DESTROYED)) {
+-            NS_WARNING("EditorBase::CollapseSelectionTo() failed");
+-            return NS_ERROR_EDITOR_DESTROYED;
+-          }
+-          NS_WARNING_ASSERTION(
+-              NS_SUCCEEDED(rv),
+-              "EditorBase::CollapseSelectionTo() failed, but ignored");
+-        }
+-      }
+-    }
+-
+     // Adjust selection for insert text, html paste, and delete actions if
+     // we haven't removed new empty blocks.  Note that if empty block parents
+     // are removed, Selection should've been adjusted by the method which
+@@ -1815,7 +1787,6 @@
+       return EditActionHandled();
+     }
+     // We want to collapse selection in the editable block element.
+-    TopLevelEditSubActionDataRef().mNewBlockElement = nullptr;
+     blockElementToPutCaret = editableBlockElement;
+   }
+ 
+@@ -3277,7 +3248,6 @@
+     }
+     MOZ_ASSERT(createNewListElementResult.GetNewNode());
+ 
+-    TopLevelEditSubActionDataRef().mNewBlockElement = nullptr;
+     // Put selection in new list item and don't restore the Selection.
+     createNewListElementResult.IgnoreCaretPointSuggestion();
+     aRanges.ClearSavedRanges();
+@@ -3585,8 +3555,6 @@
+ 
+       MOZ_ASSERT(createNewListElementResult.GetNewNode());
+       listItemOrListToPutCaret = createNewListElementResult.GetNewNode();
+-      TopLevelEditSubActionDataRef().mNewBlockElement = nullptr;
+-
+       curList = createNewListElementResult.UnwrapNewNode();
+ 
+       // atContent is now referring the right node with mOffset but
+@@ -4468,7 +4436,6 @@
+         return rv;
+       }
+     }
+-    TopLevelEditSubActionDataRef().mNewBlockElement = nullptr;
+     aRanges.ClearSavedRanges();
+     nsresult rv = aRanges.Collapse(EditorDOMPoint(newDivElement, 0u));
+     NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "AutoRangeArray::Collapse() failed");
+@@ -4537,7 +4504,6 @@
+         // New list element is created, so we should put caret into the new list
+         // element.
+         latestNewBlockElement = subListElement;
+-        TopLevelEditSubActionDataRef().mNewBlockElement = nullptr;
+       }
+       if (pointToPutCaretOrError.inspect().IsSet()) {
+         pointToPutCaret = pointToPutCaretOrError.unwrap();
+@@ -4614,7 +4580,6 @@
+       }
+ 
+       latestNewBlockElement = divElement;
+-      TopLevelEditSubActionDataRef().mNewBlockElement = nullptr;
+     }
+ 
+     // Move the content into the <div> which has start margin.
+@@ -4760,7 +4725,6 @@
+       }
+     }
+     aRanges.ClearSavedRanges();
+-    TopLevelEditSubActionDataRef().mNewBlockElement = nullptr;
+     nsresult rv = aRanges.Collapse(EditorRawDOMPoint(newBlockquoteElement, 0u));
+     NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                          "EditorBase::CollapseSelectionToStartOf() failed");
+@@ -4829,7 +4793,6 @@
+         // New list element is created, so we should put caret into the new list
+         // element.
+         latestNewBlockElement = subListElement;
+-        TopLevelEditSubActionDataRef().mNewBlockElement = nullptr;
+       }
+       if (pointToPutCaretOrError.inspect().IsSet()) {
+         pointToPutCaret = pointToPutCaretOrError.unwrap();
+@@ -4947,7 +4910,6 @@
+       MOZ_ASSERT(createNewBlockquoteElementResult.GetNewNode());
+       blockquoteElement = createNewBlockquoteElementResult.UnwrapNewNode();
+       latestNewBlockElement = blockquoteElement;
+-      TopLevelEditSubActionDataRef().mNewBlockElement = nullptr;
+     }
+ 
+     // tuck the node into the end of the active blockquote
+@@ -6126,7 +6088,6 @@
+       return newDivElementOrError.unwrapErr();
+     }
+     aRanges.ClearSavedRanges();
+-    TopLevelEditSubActionDataRef().mNewBlockElement = nullptr;
+     EditorDOMPoint pointToPutCaret = newDivElementOrError.UnwrapCaretPoint();
+     nsresult rv = aRanges.Collapse(pointToPutCaret);
+     NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "AutoRangeArray::Collapse() failed");
+@@ -6145,7 +6106,6 @@
+   aRanges.RestoreFromSavedRanges();
+   // If restored range is collapsed outside the latest cased <div> element,
+   // we should move caret into the <div>.
+-  TopLevelEditSubActionDataRef().mNewBlockElement = nullptr;
+   if (maybeCreateDivElementResult.GetNewNode() && aRanges.IsCollapsed() &&
+       !aRanges.Ranges().IsEmpty()) {
+     const auto firstRangeStartRawPoint =
+@@ -10072,7 +10032,6 @@
+     nsresult rv = EnsureCaretInElementIfCollapsedOutside(*focusElement);
+     NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                          "EnsureCaretInElementIfCollapsedOutside() failed");
+-    TopLevelEditSubActionDataRef().mNewBlockElement = nullptr;
+     return EditActionHandled(rv);
+   }
+ 
+@@ -10102,9 +10061,6 @@
+     }
+   }
+ 
+-  // XXX Is this right thing?
+-  TopLevelEditSubActionDataRef().mNewBlockElement = nullptr;
+-
+   RefPtr<Element> divElement;
+   rv = MoveSelectedContentsToDivElementToMakeItAbsolutePosition(
+       address_of(divElement), aEditingHost);
+@@ -10147,7 +10103,6 @@
+   rv = EnsureCaretInElementIfCollapsedOutside(*divElement);
+   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                        "EnsureCaretInElementIfCollapsedOutside() failed");
+-  TopLevelEditSubActionDataRef().mNewBlockElement = nullptr;
+   return EditActionHandled(rv);
+ }
+ 

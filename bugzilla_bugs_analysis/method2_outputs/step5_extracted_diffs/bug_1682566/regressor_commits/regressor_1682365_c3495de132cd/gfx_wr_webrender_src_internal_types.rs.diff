@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/internal_types.rs
+# Commit: c3495de132cd
+# Full Hash: c3495de132cd01ce51341fb38b4e2f001dea14f5
+# Author: Glenn Watson <git@intuitionlibrary.com>
+# Date: 2020-12-18 04:07:40
+# Regressor Bug: 1682365
+# File Overlap Count: 1
+# Description:
+#   Bug 1682365 - Pt 1 - Remove PrevPassAlpha and PrevPassColor r=nical
+#   
+#   Remove usage of the implicit prev pass alpha and color texture
+#   samplers from batching / renderer / shader code. They are replaced
+#   by explicit references to the texture ID for the source task.
+# ==============================================================================
+
+diff -r 897f30ea5f53 -r c3495de132cd gfx/wr/webrender/src/internal_types.rs
+--- a/gfx/wr/webrender/src/internal_types.rs	Thu Dec 17 20:54:57 2020 +0000
++++ b/gfx/wr/webrender/src/internal_types.rs	Thu Dec 17 19:53:54 2020 +0000
+@@ -268,10 +268,6 @@
+     TextureCache(CacheTextureId, ImageBufferKind, Swizzle),
+     /// An external image texture, mananged by the embedding.
+     External(DeferredResolveIndex, ImageBufferKind),
+-    /// The alpha target of the immediately-preceding pass.
+-    PrevPassAlpha,
+-    /// The color target of the immediately-preceding pass.
+-    PrevPassColor,
+     /// Select a dummy 1x1 white texture. This can be used by image
+     /// shaders that want to draw a solid color.
+     Dummy,
+@@ -285,10 +281,7 @@
+             TextureSource::External(_, image_buffer_kind) => image_buffer_kind,
+ 
+             // Render tasks use texture arrays for now.
+-            TextureSource::PrevPassAlpha
+-            | TextureSource::PrevPassColor
+-            | TextureSource::Dummy => ImageBufferKind::Texture2DArray,
+-
++            TextureSource::Dummy => ImageBufferKind::Texture2DArray,
+ 
+             TextureSource::Invalid => ImageBufferKind::Texture2D,
+         }

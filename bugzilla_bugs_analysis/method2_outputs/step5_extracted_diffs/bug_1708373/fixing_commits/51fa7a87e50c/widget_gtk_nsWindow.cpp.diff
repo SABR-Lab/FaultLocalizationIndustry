@@ -1,0 +1,53 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/nsWindow.cpp
+# Commit: 51fa7a87e50c
+# Full Hash: 51fa7a87e50c170d2457452417aa61a1aca3bf9b
+# Author: Robert Mader <robert.mader@posteo.de>
+# Date: 2021-04-29 21:42:31
+# Description:
+#   Bug 1708373 - Fix GetWindowOrigin(), r=stransky
+#   
+#   This effectively reverts D113404 and moves the responsibility to initialize
+#   the out-variables into the function, avoiding static analysis complains
+#   about non-initialized data.
+# ==============================================================================
+
+diff -r ce1992bc7170 -r 51fa7a87e50c widget/gtk/nsWindow.cpp
+--- a/widget/gtk/nsWindow.cpp	Thu Apr 29 11:46:46 2021 +0000
++++ b/widget/gtk/nsWindow.cpp	Thu Apr 29 11:47:48 2021 +0000
+@@ -388,9 +388,12 @@
+ }
+ 
+ void GetWindowOrigin(GdkWindow* aWindow, int* aX, int* aY) {
+-  MOZ_RELEASE_ASSERT(aWindow);
+-
+-  gdk_window_get_origin(aWindow, aX, aY);
++  *aX = 0;
++  *aY = 0;
++
++  if (aWindow) {
++    gdk_window_get_origin(aWindow, aX, aY);
++  }
+ 
+   // TODO(bug 1655924): gdk_window_get_origin is can block waiting for the x
+   // server for a long time, we would like to use the implementation below
+@@ -1553,7 +1556,7 @@
+     // The newBounds are in coordinates relative to the parent window/popup.
+     // The NotifyWindowMoved requires the coordinates relative to the toplevel.
+     // We use the gdk_window_get_origin to get correct coordinates.
+-    gint x = 0, y = 0;
++    gint x, y;
+     GetWindowOrigin(gtk_widget_get_window(GTK_WIDGET(mShell)), &x, &y);
+     NotifyWindowMoved(GdkCoordToDevicePixels(x), GdkCoordToDevicePixels(y));
+   }
+@@ -2587,7 +2590,7 @@
+ }
+ 
+ LayoutDeviceIntPoint nsWindow::WidgetToScreenOffset() {
+-  nsIntPoint origin(0, 0);
++  nsIntPoint origin;
+   GetWindowOrigin(mGdkWindow, &origin.x, &origin.y);
+ 
+   return GdkPointToDevicePixels({origin.x, origin.y});

@@ -1,0 +1,111 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/WebrtcGmpVideoCodec.h
+# Commit: 3ca24e761cc3
+# Full Hash: 3ca24e761cc31bbb71c659661874a995ef3d3db1
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 6
+# Description:
+#   Bug 1654112 - Remove WebrtcGmpPCHandleSetter and plumb pc handles explicitly. r=bwc
+#   
+#   With the libwebrtc update codecs will be created off-main.
+#   WebrtcGmpPCHandleSetter not only adds a lot of indirection, it is also
+#   main-thread-only. With this patch we can create gmp codecs on any thread.
+# ==============================================================================
+
+diff -r 1913c332695e -r 3ca24e761cc3 dom/media/webrtc/libwebrtcglue/WebrtcGmpVideoCodec.h
+--- a/dom/media/webrtc/libwebrtcglue/WebrtcGmpVideoCodec.h	Wed Feb 10 09:58:11 2021 +0100
++++ b/dom/media/webrtc/libwebrtcglue/WebrtcGmpVideoCodec.h	Wed Feb 10 10:34:14 2021 +0100
+@@ -55,32 +55,12 @@
+ 
+ namespace mozilla {
+ 
+-// Class that allows code on the other side of webrtc.org to tell
+-// WebrtcGmpVideoEncoder/Decoder what PC they should send errors to.
+-// This is necessary because webrtc.org gives us no way to plumb the handle
+-// through, nor does it give us any way to inform it of an error that will
+-// make it back to the PC that cares (except for errors encountered
+-// synchronously in functions like InitEncode/Decode, which will not happen
+-// because GMP init is async).
+-// Right now, this is used in MediaPipelineFactory.
+-class WebrtcGmpPCHandleSetter {
+- public:
+-  explicit WebrtcGmpPCHandleSetter(const std::string& aPCHandle);
+-
+-  ~WebrtcGmpPCHandleSetter();
+-
+-  static std::string GetCurrentHandle();
+-
+- private:
+-  static std::string sCurrentHandle;
+-};
+-
+ class GmpInitDoneRunnable : public Runnable {
+  public:
+-  explicit GmpInitDoneRunnable(const std::string& aPCHandle)
++  explicit GmpInitDoneRunnable(std::string aPCHandle)
+       : Runnable("GmpInitDoneRunnable"),
+         mResult(WEBRTC_VIDEO_CODEC_OK),
+-        mPCHandle(aPCHandle) {}
++        mPCHandle(std::move(aPCHandle)) {}
+ 
+   NS_IMETHOD Run() override {
+     if (mResult == WEBRTC_VIDEO_CODEC_OK) {
+@@ -113,7 +93,7 @@
+ 
+  private:
+   int32_t mResult;
+-  std::string mPCHandle;
++  const std::string mPCHandle;
+   std::string mError;
+ };
+ 
+@@ -172,7 +152,7 @@
+ class WebrtcGmpVideoEncoder : public GMPVideoEncoderCallbackProxy,
+                               public RefCountedWebrtcVideoEncoder {
+  public:
+-  WebrtcGmpVideoEncoder();
++  explicit WebrtcGmpVideoEncoder(std::string aPCHandle);
+ 
+   // Implement VideoEncoder interface, sort of.
+   // (We cannot use |Release|, since that's needed for nsRefPtr)
+@@ -302,7 +282,7 @@
+   Mutex mCallbackMutex;
+   webrtc::EncodedImageCallback* mCallback;
+   uint64_t mCachedPluginId;
+-  std::string mPCHandle;
++  const std::string mPCHandle;
+ };
+ 
+ // Basically a strong ref to a RefCountedWebrtcVideoEncoder, that also
+@@ -352,7 +332,7 @@
+ 
+ class WebrtcGmpVideoDecoder : public GMPVideoDecoderCallbackProxy {
+  public:
+-  WebrtcGmpVideoDecoder();
++  explicit WebrtcGmpVideoDecoder(std::string aPCHandle);
+   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(WebrtcGmpVideoDecoder);
+ 
+   // Implement VideoEncoder interface, sort of.
+@@ -437,7 +417,7 @@
+   webrtc::DecodedImageCallback* mCallback;
+   Atomic<uint64_t> mCachedPluginId;
+   Atomic<GMPErr, ReleaseAcquire> mDecoderStatus;
+-  std::string mPCHandle;
++  const std::string mPCHandle;
+ };
+ 
+ // Basically a strong ref to a WebrtcGmpVideoDecoder, that also translates
+@@ -447,7 +427,8 @@
+ // the "real" encoder.
+ class WebrtcVideoDecoderProxy : public WebrtcVideoDecoder {
+  public:
+-  WebrtcVideoDecoderProxy() : mDecoderImpl(new WebrtcGmpVideoDecoder) {}
++  explicit WebrtcVideoDecoderProxy(std::string aPCHandle)
++      : mDecoderImpl(new WebrtcGmpVideoDecoder(std::move(aPCHandle))) {}
+ 
+   virtual ~WebrtcVideoDecoderProxy() {
+     RegisterDecodeCompleteCallback(nullptr);

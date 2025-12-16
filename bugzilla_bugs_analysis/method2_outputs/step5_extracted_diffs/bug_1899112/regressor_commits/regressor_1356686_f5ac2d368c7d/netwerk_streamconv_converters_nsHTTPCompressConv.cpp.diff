@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/streamconv/converters/nsHTTPCompressConv.cpp
+# Commit: f5ac2d368c7d
+# Full Hash: f5ac2d368c7d44f585bea0397dedcd879e2b8ab4
+# Author: Randell Jesup <rjesup@mozilla.com>
+# Date: 2024-03-20 04:48:34
+# Regressor Bug: 1356686
+# File Overlap Count: 2
+# Description:
+#   Bug 1356686: Put OMT decompression behind a pref r=necko-reviewers,valentin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D204957
+# ==============================================================================
+
+diff -r 356510340dd1 -r f5ac2d368c7d netwerk/streamconv/converters/nsHTTPCompressConv.cpp
+--- a/netwerk/streamconv/converters/nsHTTPCompressConv.cpp	Tue Mar 19 17:27:23 2024 +0000
++++ b/netwerk/streamconv/converters/nsHTTPCompressConv.cpp	Tue Mar 19 17:27:23 2024 +0000
+@@ -137,7 +137,9 @@
+   if (!req) {
+     return NS_ERROR_NO_INTERFACE;
+   }
+-
++  if (!StaticPrefs::network_decompression_off_mainthread()) {
++    return NS_OK;
++  }
+   nsCOMPtr<nsISerialEventTarget> target;
+   rv = req->GetDeliveryTarget(getter_AddRefs(target));
+   if (NS_FAILED(rv) || !target || target->IsOnCurrentThread()) {

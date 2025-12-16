@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/CanvasDrawEventRecorder.cpp
+# Commit: ce28584e3869
+# Full Hash: ce28584e386976fc6df815260cdfebd8e6ffbadd
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2023-12-19 05:06:09
+# Regressor Bug: 1829026
+# File Overlap Count: 1
+# Description:
+#   Bug 1829026 - Update CanvasTranslator to work with DrawTargetWebgl. r=aosmond
+#   
+#   This adds the necessary infrastructure for CanvasTranslator to allocate DrawTargetWebgl
+#   instead of just allocating TextureData, and to use RemoteTextureMap to handle sending
+#   the DrawTargetWebgl frames to the compositor.
+# ==============================================================================
+
+diff -r bb4029ea69bb -r ce28584e3869 gfx/layers/CanvasDrawEventRecorder.cpp
+--- a/gfx/layers/CanvasDrawEventRecorder.cpp	Mon Dec 18 18:10:46 2023 +0000
++++ b/gfx/layers/CanvasDrawEventRecorder.cpp	Mon Dec 18 18:10:46 2023 +0000
+@@ -43,6 +43,7 @@
+ }
+ 
+ bool CanvasDrawEventRecorder::Init(TextureType aTextureType,
++                                   gfx::BackendType aBackendType,
+                                    UniquePtr<Helpers> aHelpers) {
+   mHelpers = std::move(aHelpers);
+ 
+@@ -91,7 +92,8 @@
+     return false;
+   }
+ 
+-  if (!mHelpers->InitTranslator(aTextureType, std::move(header->handle),
++  if (!mHelpers->InitTranslator(aTextureType, aBackendType,
++                                std::move(header->handle),
+                                 std::move(bufferHandles), mDefaultBufferSize,
+                                 std::move(readerSem), std::move(writerSem),
+                                 /* aUseIPDLThread */ false)) {

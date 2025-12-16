@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/Zone.cpp
+# Commit: bcd63afc2d34
+# Full Hash: bcd63afc2d3449830cfe6f51c03373f890ef6435
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2023-07-06 04:06:52
+# Regressor Bug: 1837620
+# File Overlap Count: 1
+# Description:
+#   Bug 1837620 - Part 6: Make edges for multiple shape guard weak too r=sfink
+#   
+#   To make the edges for the multiple shape guard weak we need a way to find and
+#   update the objects used to hold these edges. The simplest way to do this is to
+#   add a vector in the zone.  I don't believe that there are not huge numbers of
+# ==============================================================================
+
+diff -r 24e0b10be67a -r bcd63afc2d34 js/src/gc/Zone.cpp
+--- a/js/src/gc/Zone.cpp	Wed Jul 05 16:58:38 2023 +0000
++++ b/js/src/gc/Zone.cpp	Wed Jul 05 16:58:38 2023 +0000
+@@ -196,6 +196,7 @@
+   js_delete(finalizationObservers_.ref().release());
+ 
+   MOZ_ASSERT(gcWeakMapList().isEmpty());
++  MOZ_ASSERT(objectsWithWeakPointers.ref().empty());
+ 
+   JSRuntime* rt = runtimeFromAnyThread();
+   if (this == rt->gc.systemZone) {
+@@ -992,3 +993,9 @@
+   finalizationObservers_ = js::MakeUnique<FinalizationObservers>(this);
+   return bool(finalizationObservers_.ref());
+ }
++
++bool Zone::registerObjectWithWeakPointers(JSObject* obj) {
++  MOZ_ASSERT(obj->getClass()->hasTrace());
++  MOZ_ASSERT(!IsInsideNursery(obj));
++  return objectsWithWeakPointers.ref().append(obj);
++}

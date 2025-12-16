@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/mtransport/nr_socket_tcp.cpp
+# Commit: b83124cf3a89
+# Full Hash: b83124cf3a891091773bcfe2cd15e36155fc5a2d
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2019-09-18 21:49:27
+# Regressor Bug: 1569183
+# File Overlap Count: 2
+# Description:
+#   Bug 1569183: Teach WebrtcTCPSocket to use TLS when configured to. r=mjf,mayhemer
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D45103
+# ==============================================================================
+
+diff -r b879a0044cf3 -r b83124cf3a89 media/mtransport/nr_socket_tcp.cpp
+--- a/media/mtransport/nr_socket_tcp.cpp	Tue Sep 17 18:17:18 2019 +0000
++++ b/media/mtransport/nr_socket_tcp.cpp	Tue Sep 17 18:17:24 2019 +0000
+@@ -97,14 +97,20 @@
+ int NrTcpSocket::connect(nr_transport_addr* aAddr) {
+   r_log(LOG_GENERIC, LOG_DEBUG, "NrTcpSocket::Connect %p\n", this);
+ 
+-  nsCString remote_addr;
++  nsCString remote_host;
+   int remote_port;
+ 
+-  if (NS_WARN_IF(nr_transport_addr_get_addrstring_and_port(aAddr, &remote_addr,
++  if (NS_WARN_IF(nr_transport_addr_get_addrstring_and_port(aAddr, &remote_host,
+                                                            &remote_port))) {
+     return R_FAILED;
+   }
+ 
++  bool use_tls = false;
++  if (my_addr_.tls_host[0]) {
++    remote_host = my_addr_.tls_host;
++    use_tls = true;
++  }
++
+   nsCString local_addr;
+   int local_port;
+ 
+@@ -115,8 +121,8 @@
+ 
+   mWebrtcTCPSocket = new WebrtcTCPSocketWrapper(this);
+ 
+-  mWebrtcTCPSocket->AsyncOpen(remote_addr, remote_port, local_addr, local_port,
+-                              mConfig);
++  mWebrtcTCPSocket->AsyncOpen(remote_host, remote_port, local_addr, local_port,
++                              use_tls, mConfig);
+ 
+   // trigger nr_socket_buffered to set write/read callback
+   return R_WOULDBLOCK;

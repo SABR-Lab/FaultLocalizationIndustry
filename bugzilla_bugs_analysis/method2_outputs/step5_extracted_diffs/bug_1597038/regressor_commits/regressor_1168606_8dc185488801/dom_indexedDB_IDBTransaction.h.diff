@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/IDBTransaction.h
+# Commit: 8dc185488801
+# Full Hash: 8dc185488801ddb66e681cedb9b52941437561a8
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2019-11-05 21:49:23
+# Regressor Bug: 1168606
+# File Overlap Count: 1
+# Description:
+#   Bug 1168606 - Send extra records with every ObjectStoreCursorResponse if enabled by pref. r=ttung,asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D43252
+# ==============================================================================
+
+diff -r 9d8b02674d45 -r 8dc185488801 dom/indexedDB/IDBTransaction.h
+--- a/dom/indexedDB/IDBTransaction.h	Tue Nov 05 13:24:31 2019 +0000
++++ b/dom/indexedDB/IDBTransaction.h	Tue Nov 05 12:48:36 2019 +0000
+@@ -25,6 +25,7 @@
+ 
+ class DOMException;
+ class DOMStringList;
++class IDBCursor;
+ class IDBDatabase;
+ class IDBObjectStore;
+ class IDBOpenDBRequest;
+@@ -67,6 +68,7 @@
+   nsTArray<RefPtr<IDBObjectStore>> mObjectStores;
+   nsTArray<RefPtr<IDBObjectStore>> mDeletedObjectStores;
+   RefPtr<StrongWorkerRef> mWorkerRef;
++  nsTArray<IDBCursor*> mCursors;
+ 
+   // Tagged with mMode. If mMode is VERSION_CHANGE then mBackgroundActor will be
+   // a BackgroundVersionChangeTransactionChild. Otherwise it will be a
+@@ -250,6 +252,10 @@
+   // Only for VERSION_CHANGE transactions.
+   int64_t NextIndexId();
+ 
++  void InvalidateCursorCaches();
++  void RegisterCursor(IDBCursor* aCursor);
++  void UnregisterCursor(IDBCursor* aCursor);
++
+   NS_DECL_ISUPPORTS_INHERITED
+   NS_DECL_NSIRUNNABLE
+   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(IDBTransaction, DOMEventTargetHelper)
+@@ -279,7 +285,7 @@
+ 
+   void OnNewRequest();
+ 
+-  void OnRequestFinished(bool aActorDestroyedNormally);
++  void OnRequestFinished(bool aRequestCompletedSuccessfully);
+ };
+ 
+ }  // namespace dom

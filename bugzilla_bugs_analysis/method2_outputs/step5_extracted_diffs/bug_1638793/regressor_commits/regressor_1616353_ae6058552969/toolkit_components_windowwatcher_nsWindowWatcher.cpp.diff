@@ -1,0 +1,83 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/windowwatcher/nsWindowWatcher.cpp
+# Commit: ae6058552969
+# Full Hash: ae60585529692199780c400877001c11e1d7eac9
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-04-07 03:53:09
+# Regressor Bug: 1616353
+# File Overlap Count: 1
+# Description:
+#   Bug 1616353 - Part 5: Always set the opener for chrome windows late, r=kmag
+#   
+#   This is OK, as all chrome BrowsingContext instances are always in the same
+#   BrowsingContextGroup, so we don't need to have the initial opener avaliable when
+#   creating the BrowsingContext to determine its BrowsingContextGroup.
+# ==============================================================================
+
+diff -r f42bb5b48c1b -r ae6058552969 toolkit/components/windowwatcher/nsWindowWatcher.cpp
+--- a/toolkit/components/windowwatcher/nsWindowWatcher.cpp	Mon Apr 06 14:29:43 2020 +0000
++++ b/toolkit/components/windowwatcher/nsWindowWatcher.cpp	Mon Apr 06 14:29:45 2020 +0000
+@@ -963,6 +963,19 @@
+     newBC->SetOnePermittedSandboxedNavigator(parentBC);
+   }
+ 
++  if (!aForceNoOpener && parentBC) {
++    // If we've created a new content window, its opener should have been set
++    // when its BrowsingContext was created, in order to ensure that the context
++    // is loaded within the correct BrowsingContextGroup.
++    if (windowIsNew && newBC->IsContent()) {
++      MOZ_RELEASE_ASSERT(newBC->GetOpenerId() == parentBC->Id());
++      MOZ_RELEASE_ASSERT(!!parentBC == newBC->HadOriginalOpener());
++    } else {
++      // Update the opener for an existing or chrome BC.
++      newBC->SetOpener(parentBC);
++    }
++  }
++
+   RefPtr<nsDocShell> newDocShell(nsDocShell::Cast(newBC->GetDocShell()));
+ 
+   // As required by spec, new windows always start out same-process, even if the
+@@ -984,22 +997,6 @@
+   RefPtr<nsGlobalWindowOuter> win(
+       nsGlobalWindowOuter::Cast(newBC->GetDOMWindow()));
+   if (win) {
+-    if (!aForceNoOpener) {
+-      if (windowIsNew) {
+-        // If this is a new window, its opener should have been set when its
+-        // BrowsingContext was created. If not, we need to set it ourselves.
+-        MOZ_DIAGNOSTIC_ASSERT(newBC->GetOpenerId() ==
+-                              (parentBC ? parentBC->Id() : 0));
+-        MOZ_DIAGNOSTIC_ASSERT(!!parentBC == newBC->HadOriginalOpener());
+-      } else {
+-        newBC->SetOpener(parentBC);
+-      }
+-    } else if (parentWindow && parentWindow != win) {
+-      MOZ_ASSERT(
+-          win->TabGroup() != parentWindow->TabGroup(),
+-          "If we're forcing no opener, they should be in different tab groups");
+-    }
+-
+     if (windowIsNew) {
+ #ifdef DEBUG
+       // Assert that we're not loading things right now.  If we are, when
+@@ -1014,16 +1011,10 @@
+         doc->SetIsInitialDocument(true);
+       }
+     }
+-  } else {
+-    MOZ_ASSERT(!windowIsNew, "New windows are always created in-process");
+-    if (!aForceNoOpener) {
+-      // FIXME: We need to change the opener of this window, but
+-      // BrowsingContext::SetOpener can only be called by the process which
+-      // currently owns the BrowsingContext, and that isn't us.
+-      // newBC->SetOpener(parentBC);
+-    }
+   }
+ 
++  MOZ_ASSERT(win || !windowIsNew, "New windows are always created in-process");
++
+   *aResult = do_AddRef(newBC).take();
+ 
+   if (isNewToplevelWindow) {

@@ -1,0 +1,64 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/security/trusted-types/TrustedTypeUtils.cpp
+# Commit: f3b4d635577f
+# Full Hash: f3b4d635577f5bfa3fc51024f96f58b2d3019912
+# Author: Frédéric Wang <fwang@igalia.com>
+# Date: 2025-01-23 21:50:52
+# Description:
+#   Bug 1942517 - Skip trusted type check for DOMParser when global object is not a Window. r=smaug
+#   
+#   Adds tests for TT sinks when the global object is neither a Window nor a
+#   WorkerGlobalScope and adjust TrustedTypeUtils accordingly.
+#   
+# ==============================================================================
+
+diff -r c4c21220ccc5 -r f3b4d635577f dom/security/trusted-types/TrustedTypeUtils.cpp
+--- a/dom/security/trusted-types/TrustedTypeUtils.cpp	Thu Jan 23 13:32:15 2025 +0000
++++ b/dom/security/trusted-types/TrustedTypeUtils.cpp	Thu Jan 23 13:44:09 2025 +0000
+@@ -440,8 +440,10 @@
+     }
+     piDOMWindowInner = globalObject->GetAsInnerWindow();
+     if (!piDOMWindowInner) {
+-      aError.ThrowTypeError("globalObject isn't an inner window");
+-      return nullptr;
++      // Global object is not a Window. This can happen when DOM APIs are used
++      // in some contexts where Trusted Types don't apply (e.g. bug 1942517),
++      // so just return the input string.
++      return GetAsString(aInput);
+     }
+     if (ownerDocLoadedAsData && piDOMWindowInner->GetExtantDoc() &&
+         !piDOMWindowInner->GetExtantDoc()
+@@ -482,8 +484,7 @@
+     // HasPolicyWithRequireTrustedTypesForDirective.
+     MOZ_ASSERT(requireTrustedTypesForDirectiveState !=
+                RequireTrustedTypesForDirectiveState::NONE);
+-  } else {
+-    MOZ_ASSERT(IsWorkerGlobal(globalObject->GetGlobalJSObject()));
++  } else if (IsWorkerGlobal(globalObject->GetGlobalJSObject())) {
+     MOZ_ASSERT(!NS_IsMainThread());
+     WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
+     const mozilla::ipc::CSPInfo& cspInfo = workerPrivate->GetCSPInfo();
+@@ -493,6 +494,11 @@
+         RequireTrustedTypesForDirectiveState::NONE) {
+       return GetAsString(aInput);
+     }
++  } else {
++    // Global object is neither Window nor WorkerGlobalScope. This can happen
++    // when DOM APIs are used in some contexts where Trusted Types don't apply
++    // (e.g. bugs 1942517 and 1936219), so just return the input string.
++    return GetAsString(aInput);
+   }
+ 
+   RefPtr<ExpectedType> convertedInput;
+@@ -746,6 +752,9 @@
+   } else {
+     JSObject* globalJSObject = global->GetGlobalJSObject();
+     if (!globalJSObject || !IsWorkerGlobal(globalJSObject)) {
++      // Global object is neither a Window not a WorkerGlobalScope, this can
++      // happen in some contexts where Trusted Types don't apply (chrome JS
++      // globals) so just treat arguments as trusted.
+       return true;
+     }
+     MOZ_ASSERT(!NS_IsMainThread());

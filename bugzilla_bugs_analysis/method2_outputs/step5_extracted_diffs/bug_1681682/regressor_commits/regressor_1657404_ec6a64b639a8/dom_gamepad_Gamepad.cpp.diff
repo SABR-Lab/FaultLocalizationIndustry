@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/gamepad/Gamepad.cpp
+# Commit: ec6a64b639a8
+# Full Hash: ec6a64b639a82e957376c09a71aef7ce62b3a5aa
+# Author: Chris Martin <cmartin@mozilla.com>
+# Date: 2020-12-03 09:47:26
+# Regressor Bug: 1657404
+# File Overlap Count: 1
+# Description:
+#   Bug 1657404 - Implement a strongly-typed, service-dependent gamepad handle r=handyman,aklotz
+#   
+#   Currently, the gamepad code uses a uint32_t as a handle and does some trickery
+#   with it by trying to create a unique ID and adding an offset to it for VR code.
+#   
+# ==============================================================================
+
+diff -r 6792f28b99bd -r ec6a64b639a8 dom/gamepad/Gamepad.cpp
+--- a/dom/gamepad/Gamepad.cpp	Wed Dec 02 22:36:35 2020 +0000
++++ b/dom/gamepad/Gamepad.cpp	Wed Dec 02 23:06:05 2020 +0000
+@@ -36,14 +36,14 @@
+ }
+ 
+ Gamepad::Gamepad(nsISupports* aParent, const nsAString& aID, int32_t aIndex,
+-                 uint32_t aHashKey, GamepadMappingType aMapping,
++                 GamepadHandle aHandle, GamepadMappingType aMapping,
+                  GamepadHand aHand, uint32_t aDisplayID, uint32_t aNumButtons,
+                  uint32_t aNumAxes, uint32_t aNumHaptics,
+                  uint32_t aNumLightIndicator, uint32_t aNumTouchEvents)
+     : mParent(aParent),
+       mID(aID),
+       mIndex(aIndex),
+-      mHashKey(aHashKey),
++      mHandle(aHandle),
+       mDisplayId(aDisplayID),
+       mTouchIdHashValue(0),
+       mMapping(aMapping),
+@@ -59,11 +59,11 @@
+   mPose = new GamepadPose(aParent);
+   for (uint32_t i = 0; i < aNumHaptics; ++i) {
+     mHapticActuators.AppendElement(
+-        new GamepadHapticActuator(mParent, mHashKey, i));
++        new GamepadHapticActuator(mParent, mHandle, i));
+   }
+   for (uint32_t i = 0; i < aNumLightIndicator; ++i) {
+     mLightIndicators.AppendElement(
+-        new GamepadLightIndicator(mParent, mHashKey, i));
++        new GamepadLightIndicator(mParent, mHandle, i));
+   }
+   for (uint32_t i = 0; i < aNumTouchEvents; ++i) {
+     mTouchEvents.AppendElement(new GamepadTouch(mParent));
+@@ -177,7 +177,7 @@
+ 
+ already_AddRefed<Gamepad> Gamepad::Clone(nsISupports* aParent) {
+   RefPtr<Gamepad> out =
+-      new Gamepad(aParent, mID, mIndex, mHashKey, mMapping, mHand, mDisplayId,
++      new Gamepad(aParent, mID, mIndex, mHandle, mMapping, mHand, mDisplayId,
+                   mButtons.Length(), mAxes.Length(), mHapticActuators.Length(),
+                   mLightIndicators.Length(), mTouchEvents.Length());
+   out->SyncState(this);

@@ -1,0 +1,65 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/serviceworkers/test/sw_always_updating_inter_sw_postmessage.sjs
+# Commit: fb720435215f
+# Full Hash: fb720435215fa5be3b2bd2101f3a54382954b70c
+# Author: Andrew Sutherland <asutherland@asutherland.org>
+# Date: 2024-10-24 09:44:34
+# Regressor Bug: 1544232
+# File Overlap Count: 4
+# Description:
+#   Bug 1544232 - Limit lifetime extension of SWs by SWs to the sender's lifetime. r=edenchuang
+#   
+#   This patch introduces an explicit concept of lifetimes with mechanisms
+#   in place so that actions taken by Clients (windows or non-ServiceWorker
+#   orkers) will extend the lifetime of a ServiceWorker, but a ServiceWorker
+# ==============================================================================
+
+diff -r 25452f6623a0 -r fb720435215f dom/serviceworkers/test/sw_always_updating_inter_sw_postmessage.sjs
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/dom/serviceworkers/test/sw_always_updating_inter_sw_postmessage.sjs	Thu Oct 24 03:02:42 2024 +0000
+@@ -0,0 +1,43 @@
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++// This file is derived from `self_update_worker.sjs`.
++"use strict";
++
++// We import the entirety of the normal, non-infinitely-updating SW rather than
++// having meaningful script logic here.  This indirection doesn't really change
++// anything.
++const WORKER_BODY = `
++console.log("Version", version, "importing helper");
++importScripts("sw_inter_sw_postmessage.js");
++console.log("Version", version, "imported helper");
++`;
++
++function handleRequest(request, response) {
++  let count = getState("count");
++  dump(`SJS: existing count is ${count}\n`);
++  if (count === "") {
++    count = 1;
++  } else {
++    count = parseInt(count);
++    // test-verify mode unfortunately doesn't do anything on its own to reset
++    // SJS state, which is unfortunate.  Our test only goes up to 5, so when we
++    // hit 6 wrap back to 1.
++    if (count === 6) {
++      count = 1;
++    }
++  }
++  dump(`SJS: using count of ${count}\n`);
++
++  let worker = "var version = " + count + ";\n";
++  worker = worker + WORKER_BODY;
++
++  dump(`SJS BODY::::\n\n${worker}\n\n`);
++
++  // This header is necessary for making this script able to be loaded.
++  response.setHeader("Content-Type", "application/javascript");
++
++  // If this is the first request, return the first source.
++  response.write(worker);
++  setState("count", "" + (count + 1));
++}

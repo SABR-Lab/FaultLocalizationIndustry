@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsRange.h
+# Commit: 82ee04923c59
+# Full Hash: 82ee04923c5942496fba9cc19feab47e54f5926f
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2025-05-09 04:15:00
+# Regressor Bug: 1932150
+# File Overlap Count: 1
+# Description:
+#   Bug 1932150 - Update ranges to correctly set and update nodes for flattened selection r=jjaschke,smaug,dom-core
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D231589
+# ==============================================================================
+
+diff -r a4ef62ad447f -r 82ee04923c59 dom/base/nsRange.h
+--- a/dom/base/nsRange.h	Thu May 08 13:37:20 2025 +0000
++++ b/dom/base/nsRange.h	Thu May 08 13:37:21 2025 +0000
+@@ -100,7 +100,8 @@
+   static already_AddRefed<nsRange> Create(
+       const mozilla::RangeBoundaryBase<SPT, SRT>& aStartBoundary,
+       const mozilla::RangeBoundaryBase<EPT, ERT>& aEndBoundary,
+-      ErrorResult& aRv);
++      ErrorResult& aRv,
++      AllowRangeCrossShadowBoundary = AllowRangeCrossShadowBoundary::No);
+ 
+   NS_DECL_ISUPPORTS_INHERITED
+   NS_IMETHODIMP_(void) DeleteCycleCollectable(void) override;
+@@ -160,17 +161,23 @@
+    * collapsed at the end point.  Similarly, if they are in different root,
+    * the range will be collapsed at the end point.
+    */
+-  nsresult SetStartAndEnd(nsINode* aStartContainer, uint32_t aStartOffset,
+-                          nsINode* aEndContainer, uint32_t aEndOffset) {
++  nsresult SetStartAndEnd(
++      nsINode* aStartContainer, uint32_t aStartOffset, nsINode* aEndContainer,
++      uint32_t aEndOffset,
++      AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary =
++          AllowRangeCrossShadowBoundary::No) {
+     return SetStartAndEnd(RawRangeBoundary(aStartContainer, aStartOffset),
+-                          RawRangeBoundary(aEndContainer, aEndOffset));
++                          RawRangeBoundary(aEndContainer, aEndOffset),
++                          aAllowCrossShadowBoundary);
+   }
+   template <typename SPT, typename SRT, typename EPT, typename ERT>
+   nsresult SetStartAndEnd(
+       const mozilla::RangeBoundaryBase<SPT, SRT>& aStartBoundary,
+-      const mozilla::RangeBoundaryBase<EPT, ERT>& aEndBoundary) {
+-    return AbstractRange::SetStartAndEndInternal(aStartBoundary, aEndBoundary,
+-                                                 this);
++      const mozilla::RangeBoundaryBase<EPT, ERT>& aEndBoundary,
++      AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary =
++          AllowRangeCrossShadowBoundary::No) {
++    return AbstractRange::SetStartAndEndInternal(
++        aStartBoundary, aEndBoundary, this, aAllowCrossShadowBoundary);
+   }
+ 
+   /**

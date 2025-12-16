@@ -1,0 +1,105 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/ActorsParent.cpp
+# Commit: 9dd238ab3298
+# Full Hash: 9dd238ab32980e473daf6a7572beb86157d59c26
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-10-15 16:18:18
+# Regressor Bug: 1866402
+# File Overlap Count: 1
+# Description:
+#   Bug 1866402 - Add support for initializing persistent storage to QuotaManager::OpenStorageDirectory; r=dom-storage-reviewers,jari
+#   
+#   QuotaManager::OpenStorageDirectory can now detect the requested persistence
+#   scope and initialize persistent storage if it's needed.
+#   
+# ==============================================================================
+
+diff -r 0fa1a6bd74cf -r 9dd238ab3298 dom/indexedDB/ActorsParent.cpp
+--- a/dom/indexedDB/ActorsParent.cpp	Tue Oct 15 04:55:54 2024 +0000
++++ b/dom/indexedDB/ActorsParent.cpp	Tue Oct 15 05:12:36 2024 +0000
+@@ -5065,7 +5065,7 @@
+   nsTHashMap<nsStringHashKey, DatabaseMaintenance*> mDatabaseMaintenances;
+   nsresult mResultCode;
+   Atomic<bool> mAborted;
+-  bool mInitializeOriginsFailed;
++  bool mOpenStorageForAllRepositoriesFailed;
+   State mState;
+ 
+  public:
+@@ -5075,7 +5075,7 @@
+         mStartTime(PR_Now()),
+         mResultCode(NS_OK),
+         mAborted(false),
+-        mInitializeOriginsFailed(false),
++        mOpenStorageForAllRepositoriesFailed(false),
+         mState(State::Initial) {
+     AssertIsOnBackgroundThread();
+     MOZ_ASSERT(aQuotaClient);
+@@ -5144,7 +5144,7 @@
+   nsresult CreateIndexedDatabaseManager();
+ 
+   RefPtr<UniversalDirectoryLockPromise> OpenStorageDirectory(
+-      bool aInitializeOrigins);
++      const PersistenceScope& aPersistenceScope, bool aInitializeOrigins);
+ 
+   // Runs on the PBackground thread. Once QuotaManager has given a lock it will
+   // call DirectoryOpen().
+@@ -13077,7 +13077,7 @@
+ }
+ 
+ RefPtr<UniversalDirectoryLockPromise> Maintenance::OpenStorageDirectory(
+-    bool aInitializeOrigins) {
++    const PersistenceScope& aPersistenceScope, bool aInitializeOrigins) {
+   AssertIsOnBackgroundThread();
+   MOZ_ASSERT(!QuotaClient::IsShuttingDownOnBackgroundThread());
+   MOZ_ASSERT(!mDirectoryLock);
+@@ -13089,7 +13089,7 @@
+ 
+   // Return a shared lock for <profile>/storage/*/*/idb
+   return quotaManager->OpenStorageDirectory(
+-      PersistenceScope::CreateFromNull(), OriginScope::FromNull(),
++      aPersistenceScope, OriginScope::FromNull(),
+       Nullable<Client::Type>(Client::IDB),
+       /* aExclusive */ false, aInitializeOrigins, DirectoryLockCategory::None,
+       SomeRef(mPendingDirectoryLock));
+@@ -13113,7 +13113,8 @@
+   // make sure it's initialized here (all non-persistent origins need to be
+   // cleaned up and quota info needs to be loaded for them).
+ 
+-  OpenStorageDirectory(/* aInitializeOrigins */ true)
++  OpenStorageDirectory(PersistenceScope::CreateFromNull(),
++                       /* aInitializeOrigins */ true)
+       ->Then(
+           GetCurrentSerialEventTarget(), __func__,
+           [self = RefPtr(this)](
+@@ -13128,7 +13129,7 @@
+             // persistent repository can still be processed.
+ 
+             self->mPendingDirectoryLock = nullptr;
+-            self->mInitializeOriginsFailed = true;
++            self->mOpenStorageForAllRepositoriesFailed = true;
+ 
+             if (NS_WARN_IF(QuotaClient::IsShuttingDownOnBackgroundThread()) ||
+                 self->IsAborted()) {
+@@ -13136,7 +13137,9 @@
+               return;
+             }
+ 
+-            self->OpenStorageDirectory(/* aInitializeOrigins */ false)
++            self->OpenStorageDirectory(PersistenceScope::CreateFromValue(
++                                           PERSISTENCE_TYPE_PERSISTENT),
++                                       /* aInitializeOrigins */ true)
+                 ->Then(GetCurrentSerialEventTarget(), __func__,
+                        [self](const UniversalDirectoryLockPromise::
+                                   ResolveOrRejectValue& aValue) {
+@@ -13241,7 +13244,7 @@
+ 
+     const bool persistent = persistenceType == PERSISTENCE_TYPE_PERSISTENT;
+ 
+-    if (!persistent && mInitializeOriginsFailed) {
++    if (!persistent && mOpenStorageForAllRepositoriesFailed) {
+       // Non-persistent (best effort) repositories can't be processed if
+       // temporary storage initialization failed.
+       continue;

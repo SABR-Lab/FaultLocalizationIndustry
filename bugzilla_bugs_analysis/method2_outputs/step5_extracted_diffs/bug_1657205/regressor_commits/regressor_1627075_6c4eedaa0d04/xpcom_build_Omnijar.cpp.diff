@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: xpcom/build/Omnijar.cpp
+# Commit: 6c4eedaa0d04
+# Full Hash: 6c4eedaa0d04b5117e19758e8f1a72028d90e2d6
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2020-07-02 15:21:09
+# Regressor Bug: 1627075
+# File Overlap Count: 1
+# Description:
+#   Bug 1627075 - Allow lazily initializing nsZipArchives r=froydnj
+#   
+#   Opening our Omnijars can be expensive, and it should be deferrable until after
+#   startup is completed, provided we have a startup cache. In a previous patch in this
+#   stack, we implemented caching of the zip central directory for omnijars, but we
+# ==============================================================================
+
+diff -r f5106898239f -r 6c4eedaa0d04 xpcom/build/Omnijar.cpp
+--- a/xpcom/build/Omnijar.cpp	Thu Jul 02 02:49:49 2020 +0000
++++ b/xpcom/build/Omnijar.cpp	Thu Jul 02 03:12:49 2020 +0000
+@@ -93,20 +93,30 @@
+       centralBufLength = 0;
+     }
+   }
+-  if (NS_FAILED(zipReader->OpenArchive(file, centralBuf, centralBufLength))) {
++  if (NS_FAILED(zipReader->OpenArchive(
++          file, MakeSpan(centralBuf, centralBufLength)))) {
+     return;
+   }
+ 
+-  if (cache && !centralBuf) {
+-    size_t bufSize;
+-
+-    // Annoyingly, nsZipArchive and the startupcache use different types to
+-    // represent bytes (uint8_t vs char), so we have to do a little dance to
+-    // convert the UniquePtr over.
+-    UniquePtr<char[]> centralBuf(reinterpret_cast<char*>(
+-        zipReader->CopyCentralDirectoryBuffer(&bufSize).release()));
+-    if (centralBuf) {
+-      cache->PutBuffer(startupCacheKey.get(), std::move(centralBuf), bufSize);
++  if (!centralBuf) {
++    if (NS_FAILED(zipReader->OpenArchive(file))) {
++      return;
++    }
++    if (cache) {
++      size_t bufSize;
++      // Annoyingly, nsZipArchive and the startupcache use different types to
++      // represent bytes (uint8_t vs char), so we have to do a little dance to
++      // convert the UniquePtr over.
++      UniquePtr<char[]> centralBuf(reinterpret_cast<char*>(
++          zipReader->CopyCentralDirectoryBuffer(&bufSize).release()));
++      if (centralBuf) {
++        cache->PutBuffer(startupCacheKey.get(), std::move(centralBuf), bufSize);
++      }
++    }
++  } else {
++    if (NS_FAILED(zipReader->LazyOpenArchive(
++            file, MakeSpan(centralBuf, centralBufLength)))) {
++      return;
+     }
+   }
+ 

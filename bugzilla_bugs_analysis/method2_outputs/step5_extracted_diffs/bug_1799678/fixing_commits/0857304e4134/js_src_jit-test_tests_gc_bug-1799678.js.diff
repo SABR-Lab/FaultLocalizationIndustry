@@ -1,0 +1,41 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit-test/tests/gc/bug-1799678.js
+# Commit: 0857304e4134
+# Full Hash: 0857304e41340efdad42d8f1c78d0a0206491b5c
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2022-11-10 04:48:58
+# Description:
+#   Bug 1799678 - Fix assertion that assumed it could be only happen on the main thread r=sfink
+#   
+#   JS::RuntimeHeapIsMinorCollecting() gets the JSContext from TLS, but
+#   IsMarkedInternal() can be called from a helper thread where this is null.
+#   
+# ==============================================================================
+
+diff -r 50db218ab916 -r 0857304e4134 js/src/jit-test/tests/gc/bug-1799678.js
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/js/src/jit-test/tests/gc/bug-1799678.js	Wed Nov 09 09:37:00 2022 +0000
+@@ -0,0 +1,21 @@
++gczeal(0);
++setMarkStackLimit(1);
++loadFile(`
++  function wasmEvalText(str, imports) {
++    let binary = wasmTextToBinary(str);
++    m = new WebAssembly.Module(binary);
++    return new WebAssembly.Instance(m, imports);
++  }
++  let WasmFuncrefValues = [
++    wasmEvalText(\`(module (func (export "")))\`).exports[''],
++  ];
++  g1 = newGlobal({newCompartment: true});
++  gczeal(10,10);
++`);
++for (let i = 0; i < 1000; ++i)
++  loadFile("}");
++function loadFile(lfVarx) {
++  try {
++    evaluate(lfVarx);
++  } catch (lfVare) {}
++}

@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/base/PresShell.cpp
+# Commit: 6851b7bd79f0
+# Full Hash: 6851b7bd79f0a4a916a1bc33f585c3625c2a26f8
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2024-01-27 09:22:04
+# Regressor Bug: 1875424
+# File Overlap Count: 1
+# Description:
+#   Bug 1875424 - Make `PresShell::HandleEvent` flush pending synthetic mouse move at handling `eMouseMove` r=smaug
+#   
+#   `mouse_boundary_events_after_removing_last_over_element.html` expects that
+#   a `mouseover` should be fired between `click` and `mousemove`, but it's
+#   dispatched by a synthetic mouse move event caused by removing the click target.
+# ==============================================================================
+
+diff -r f50fbce47f44 -r 6851b7bd79f0 layout/base/PresShell.cpp
+--- a/layout/base/PresShell.cpp	Fri Jan 26 15:05:37 2024 +0000
++++ b/layout/base/PresShell.cpp	Fri Jan 26 15:05:37 2024 +0000
+@@ -6946,10 +6946,16 @@
+ 
+   if (mPresContext) {
+     switch (aGUIEvent->mMessage) {
++      case eMouseMove:
++        if (!aGUIEvent->AsMouseEvent()->IsReal()) {
++          break;
++        }
++        [[fallthrough]];
+       case eMouseDown:
+       case eMouseUp: {
+-        // We should flush pending mousemove event before that because the event
+-        // may occur without proper boundary event.  E.g., if a mousedown event
++        // We should flush pending mousemove event now because some mouse
++        // boundary events which should've already been dispatched before a user
++        // input may have not been dispatched.  E.g., if a mousedown event
+         // listener removed or appended an element under the cursor and mouseup
+         // event comes immediately after that, mouseover or mouseout may have
+         // not been dispatched on the new element yet.
+@@ -6959,6 +6965,8 @@
+         // eMouseUp.  That could cause unexpected behavior if a `mouseover`
+         // event listener assumes it's always disptached before `mousedown`.
+         // However, we're not sure whether it could happen with users' input.
++        // FIXME: Perhaps, we need to do this for all events which are directly
++        // caused by user input, e.g., eKeyDown, etc.
+         RefPtr<PresShell> rootPresShell =
+             mPresContext->IsRoot() ? this : GetRootPresShell();
+         if (rootPresShell && rootPresShell->mSynthMouseMoveEvent.IsPending()) {

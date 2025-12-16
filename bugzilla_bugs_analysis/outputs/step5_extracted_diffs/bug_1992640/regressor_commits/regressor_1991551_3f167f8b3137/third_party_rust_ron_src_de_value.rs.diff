@@ -1,0 +1,100 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/ron/src/de/value.rs
+# Commit: 3f167f8b3137
+# Full Hash: 3f167f8b313749f50f135e189e5854bef7ac0c73
+# Author: Erich Gubler <erichdongubler@gmail.com>
+# Date: 2025-10-03 18:08 +0000
+# Regressor Bug: 1991551
+# File Overlap Count: 23
+# Overlapping Files: third_party/rust/wgpu-hal/Cargo.toml, supply-chain/audits.toml, third_party/rust/naga/src/back/spv/writer.rs, third_party/rust/naga/src/back/msl/writer.rs, third_party/rust/wgpu-types/src/lib.rs
+# Description:
+#   Bug 1991551 - build(webgpu): update WGPU to 8c4aebc0c1b75e3f7412dfc180745a0717fc30ec r=webgpu-reviewers,supply-chain-reviewers,nical
+# ==============================================================================
+
+diff -r 823439f307a0 -r 3f167f8b3137 third_party/rust/ron/src/de/value.rs
+--- a/third_party/rust/ron/src/de/value.rs	Fri Oct 03 18:01:30 2025 +0000
++++ b/third_party/rust/ron/src/de/value.rs	Fri Oct 03 18:08:29 2025 +0000
+@@ -1,4 +1,5 @@
+-use std::fmt;
++use alloc::{borrow::ToOwned, boxed::Box, string::String, vec::Vec};
++use core::fmt;
+ 
+ use serde::{
+     de::{Error, MapAccess, SeqAccess, Visitor},
+@@ -10,7 +11,7 @@
+     value::{Map, Number, Value},
+ };
+ 
+-impl std::str::FromStr for Value {
++impl core::str::FromStr for Value {
+     type Err = crate::error::SpannedError;
+ 
+     /// Creates a value from a string reference.
+@@ -237,7 +238,8 @@
+ 
+ #[cfg(test)]
+ mod tests {
+-    use std::str::FromStr;
++    use alloc::vec;
++    use core::str::FromStr;
+ 
+     use super::*;
+ 
+@@ -286,13 +288,16 @@
+ 
+     #[test]
+     fn test_tuples_error() {
+-        use crate::de::{Error, Position, SpannedError};
++        use crate::de::{Error, Position, Span, SpannedError};
+ 
+         assert_eq!(
+             Value::from_str("Foo:").unwrap_err(),
+             SpannedError {
+                 code: Error::TrailingCharacters,
+-                position: Position { col: 4, line: 1 }
++                span: Span {
++                    start: Position { line: 1, col: 4 },
++                    end: Position { line: 1, col: 4 }
++                }
+             },
+         );
+     }
+@@ -302,9 +307,9 @@
+         assert_eq!(
+             eval("(inf, -inf, NaN)"),
+             Value::Seq(vec![
+-                Value::Number(Number::new(std::f32::INFINITY)),
+-                Value::Number(Number::new(std::f32::NEG_INFINITY)),
+-                Value::Number(Number::new(std::f32::NAN)),
++                Value::Number(Number::new(core::f32::INFINITY)),
++                Value::Number(Number::new(core::f32::NEG_INFINITY)),
++                Value::Number(Number::new(core::f32::NAN)),
+             ]),
+         );
+     }
+@@ -418,7 +423,10 @@
+             "(r#:42)".parse::<Value>().unwrap_err(),
+             crate::error::SpannedError {
+                 code: crate::Error::ExpectedString,
+-                position: crate::error::Position { line: 1, col: 4 },
++                span: crate::error::Span {
++                    start: crate::error::Position { line: 1, col: 3 },
++                    end: crate::error::Position { line: 1, col: 4 },
++                }
+             },
+         );
+ 
+@@ -429,7 +437,10 @@
+             "( /*".parse::<Value>().unwrap_err(),
+             crate::error::SpannedError {
+                 code: crate::Error::UnclosedBlockComment,
+-                position: crate::error::Position { line: 1, col: 5 },
++                span: crate::error::Span {
++                    start: crate::error::Position { line: 1, col: 3 },
++                    end: crate::error::Position { line: 1, col: 5 },
++                }
+             },
+         );
+     }

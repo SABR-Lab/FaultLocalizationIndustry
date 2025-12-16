@@ -1,0 +1,81 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/GC.cpp
+# Commit: 453aa2faad97
+# Full Hash: 453aa2faad97ce68b33bef75cd232e37d759556e
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2022-10-29 09:50:10
+# Regressor Bug: 1797755
+# File Overlap Count: 1
+# Description:
+#   Bug 1797755 - Part 4: Remove option to set maximum mark stack capacity in release builds r=sfink
+#   
+#   Currently we have a GC parameter that allows setting a maximum mark stack
+#   capacity. This is only ever used by test code, not in the browser. This
+#   requires extra unnecessary work in release builds if we move to a different
+# ==============================================================================
+
+diff -r d33708e4f8ec -r 453aa2faad97 js/src/gc/GC.cpp
+--- a/js/src/gc/GC.cpp	Fri Oct 28 15:17:43 2022 +0000
++++ b/js/src/gc/GC.cpp	Fri Oct 28 15:17:43 2022 +0000
+@@ -825,10 +825,12 @@
+ 
+     MOZ_ALWAYS_TRUE(tunables.setParameter(JSGC_MAX_BYTES, maxbytes));
+ 
++#ifdef JS_GC_ZEAL
+     const char* size = getenv("JSGC_MARK_STACK_LIMIT");
+     if (size) {
+       setMarkStackLimit(atoi(size), lock);
+     }
++#endif
+ 
+     if (!nursery().init(lock)) {
+       return false;
+@@ -1008,12 +1010,6 @@
+     case JSGC_SLICE_TIME_BUDGET_MS:
+       defaultTimeBudgetMS_ = value;
+       break;
+-    case JSGC_MARK_STACK_LIMIT:
+-      if (value == 0) {
+-        return false;
+-      }
+-      setMarkStackLimit(value, lock);
+-      break;
+     case JSGC_INCREMENTAL_GC_ENABLED:
+       setIncrementalGCEnabled(value != 0);
+       break;
+@@ -1076,9 +1072,6 @@
+     case JSGC_SLICE_TIME_BUDGET_MS:
+       defaultTimeBudgetMS_ = TuningDefaults::DefaultTimeBudgetMS;
+       break;
+-    case JSGC_MARK_STACK_LIMIT:
+-      setMarkStackLimit(MarkStack::DefaultCapacity, lock);
+-      break;
+     case JSGC_INCREMENTAL_GC_ENABLED:
+       setIncrementalGCEnabled(TuningDefaults::IncrementalGCEnabled);
+       break;
+@@ -1157,8 +1150,6 @@
+       MOZ_RELEASE_ASSERT(defaultTimeBudgetMS_ >= 0);
+       MOZ_RELEASE_ASSERT(defaultTimeBudgetMS_ <= UINT32_MAX);
+       return uint32_t(defaultTimeBudgetMS_);
+-    case JSGC_MARK_STACK_LIMIT:
+-      return marker.maxCapacity();
+     case JSGC_HIGH_FREQUENCY_TIME_LIMIT:
+       return tunables.highFrequencyThreshold().ToMilliseconds();
+     case JSGC_SMALL_HEAP_SIZE_MAX:
+@@ -1229,12 +1220,14 @@
+   }
+ }
+ 
++#ifdef JS_GC_ZEAL
+ void GCRuntime::setMarkStackLimit(size_t limit, AutoLockGC& lock) {
+   MOZ_ASSERT(!JS::RuntimeHeapIsBusy());
+   AutoUnlockGC unlock(lock);
+   AutoStopVerifyingBarriers pauseVerification(rt, false);
+   marker.setMaxCapacity(limit);
+ }
++#endif
+ 
+ void GCRuntime::setIncrementalGCEnabled(bool enabled) {
+   incrementalGCEnabled = enabled;

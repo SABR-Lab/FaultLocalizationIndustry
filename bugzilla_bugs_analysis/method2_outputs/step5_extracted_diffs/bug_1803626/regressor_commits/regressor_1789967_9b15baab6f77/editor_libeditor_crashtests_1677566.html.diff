@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/crashtests/1677566.html
+# Commit: 9b15baab6f77
+# Full Hash: 9b15baab6f77d09eca2956276f66fee97555e4a1
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-09-22 09:56:47
+# Regressor Bug: 1789967
+# File Overlap Count: 1
+# Description:
+#   Bug 1789967 - part 3: Make `HTMLEditor::CollapseSelectionToEndOfLastLeafNodeOfDocument` and `HTMLEditor::InitEditorContentAndSelection` do nothing if the document is partially editable r=m_kato
+#   
+#   They and their callees work with the result of `GetRoot()` which is the document
+#   element or the body element.  If the body is not editable, `Selection` should
+#   not be updated in non-editable region nor `<br>` elements should not be
+# ==============================================================================
+
+diff -r 4d1e93c629da -r 9b15baab6f77 editor/libeditor/crashtests/1677566.html
+--- a/editor/libeditor/crashtests/1677566.html	Thu Sep 22 06:24:38 2022 +0000
++++ b/editor/libeditor/crashtests/1677566.html	Thu Sep 22 06:27:37 2022 +0000
+@@ -1,24 +1,26 @@
+ <!DOCTYPE html>
+ <html>
+ <head>
+-    <script>
+-      document.addEventListener('DOMContentLoaded', () => {
+-        const table = document.getElementById('id_39')
+-        const paragraph = document.getElementById('id_41')
+-        document.documentElement.contentEditable = true
+-        const selection = document.getSelection()
+-        selection.setBaseAndExtent(document, 0, document.documentElement, 1)
+-        paragraph.contentEditable = false
+-        table.insertRow(0)
+-        document.execCommand('forwardDelete', false, null)
+-      })
+-    </script>
++<script>
++document.addEventListener('DOMContentLoaded', () => {
++  const table = document.querySelector("table");
++  // For emulating traditional behavior, collapse Selection to end of the
++  // <table>.
++  getSelection().collapse(table, table.childNodes.length);
++  const paragraph = document.querySelector("p");
++  document.documentElement.contentEditable = true;
++  getSelection().setBaseAndExtent(document, 0, document.documentElement, 1);
++  paragraph.contentEditable = false;
++  table.insertRow(0);
++  document.execCommand("forwardDelete");
++});
++</script>
+ </head>
+-<p id='id_41'>
++<p>
+     <del>
+-        <button contenteditable='true'>
++        <button contenteditable>
+         </button>
+-        <table id='id_39'>
++        <table>
+         </table>
+     </del>
+ </p>

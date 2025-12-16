@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/webgpu/Queue.cpp
+# Commit: bb417e100de0
+# Full Hash: bb417e100de0ebd57bd27994fe6aacc36a8e6aaf
+# Author: Erich Gubler <erichdongubler@gmail.com>
+# Date: 2024-03-01 16:49:23
+# Regressor Bug: 1879988
+# File Overlap Count: 1
+# Description:
+#   Bug 1879988: fix(webgpu): impl. proper conv. to byte offsets for range args. in `GPUQueue.writeBuffer` r=webgpu-reviewers,bradwerth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D201668
+# ==============================================================================
+
+diff -r d8f7bebaa31a -r bb417e100de0 dom/webgpu/Queue.cpp
+--- a/dom/webgpu/Queue.cpp	Fri Mar 01 02:27:40 2024 +0000
++++ b/dom/webgpu/Queue.cpp	Fri Mar 01 03:40:12 2024 +0000
+@@ -69,18 +69,32 @@
+     return;
+   }
+ 
+-  dom::ProcessTypedArraysFixed(aData, [&](const Span<const uint8_t>& aData) {
+-    uint64_t length = aData.Length();
+-    const auto checkedSize = aSize.WasPassed()
+-                                 ? CheckedInt<size_t>(aSize.Value())
+-                                 : CheckedInt<size_t>(length) - aDataOffset;
+-    if (!checkedSize.isValid()) {
++  size_t elementByteSize = aData.IsArrayBufferView()
++                               ? byteSize(aData.GetAsArrayBufferView().Type())
++                               : 1;
++  dom::ProcessTypedArraysFixed(aData, [&, elementByteSize](
++                                          const Span<const uint8_t>& aData) {
++    uint64_t byteLength = aData.Length();
++
++    auto checkedByteOffset =
++        CheckedInt<uint64_t>(aDataOffset) * elementByteSize;
++    if (!checkedByteOffset.isValid()) {
+       aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
+       return;
+     }
++    auto offset = checkedByteOffset.value();
+ 
+-    const auto& size = checkedSize.value();
+-    if (aDataOffset + size > length) {
++    const auto checkedByteSize =
++        aSize.WasPassed() ? CheckedInt<size_t>(aSize.Value()) * elementByteSize
++                          : CheckedInt<size_t>(byteLength) - offset;
++    if (!checkedByteSize.isValid()) {
++      aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
++      return;
++    }
++    auto size = checkedByteSize.value();
++
++    auto checkedByteEnd = CheckedInt<uint64_t>(offset) + size;
++    if (!checkedByteEnd.isValid() || checkedByteEnd.value() > byteLength) {
+       aRv.ThrowAbortError(nsPrintfCString("Wrong data size %" PRIuPTR, size));
+       return;
+     }

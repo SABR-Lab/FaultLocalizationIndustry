@@ -1,0 +1,70 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/serviceworkers/test/test_navigationPreload_disable_crash.html
+# Commit: 40c22bd043ba
+# Full Hash: 40c22bd043bac8fa0c7ee3618572b6b9f3769a76
+# Author: Peter Van der Beken <peterv@propagandism.org>
+# Date: 2022-05-03 15:57:51
+# Description:
+#   Bug 1764935 - Deal properly with Promise creation failure in NavigationPreloadManager. r=asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D144341
+# ==============================================================================
+
+diff -r 3f83c6e28484 -r 40c22bd043ba dom/serviceworkers/test/test_navigationPreload_disable_crash.html
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/dom/serviceworkers/test/test_navigationPreload_disable_crash.html	Tue May 03 08:23:25 2022 +0000
+@@ -0,0 +1,52 @@
++<!--
++  Any copyright is dedicated to the Public Domain.
++  http://creativecommons.org/publicdomain/zero/1.0/
++-->
++<!DOCTYPE HTML>
++<html>
++<head>
++  <title>Failure to create a Promise shouldn't crash</title>
++  <script src="/tests/SimpleTest/SimpleTest.js"></script>
++  <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
++</head>
++<body>
++<p id="display"></p>
++<div id="content" style="display: none">
++</div>
++<pre id="test"></pre>
++<script class="testbody" type="text/javascript">
++  async function runTest() {
++    const iframe = document.createElement('iframe');
++    document.getElementById("content").appendChild(iframe);
++
++    const serviceWorker = iframe.contentWindow.navigator.serviceWorker;
++    const worker = await iframe.contentWindow.navigator.serviceWorker.register("empty.js", {});
++
++    iframe.remove();
++
++    // We can't wait for this promise to settle, because the global's
++    // browsing context has been discarded when the iframe was removed.
++    // We're just checking if this call crashes, which would happen
++    // immediately, so ignoring the promise should be fine.
++    worker.navigationPreload.disable();
++    ok(true, "navigationPreload.disable() failed but didn't crash.");
++
++    SimpleTest.finish();
++  }
++
++  SimpleTest.waitForExplicitFinish();
++  // We can't call unregister on the worker after its browsing context has been
++  // discarded, so use SpecialPowers.removeAllServiceWorkerData.
++  SimpleTest.registerCleanupFunction(() => SpecialPowers.removeAllServiceWorkerData());
++  onload = function() {
++    SpecialPowers.pushPrefEnv({"set": [
++      ["dom.serviceWorkers.exemptFromPerDomainMax", true],
++      ["dom.serviceWorkers.enabled", true],
++      ["dom.serviceWorkers.navigationPreload.enabled", true],
++      ["dom.serviceWorkers.testing.enabled", true],
++    ]}, runTest);
++  };
++</script>
++</pre>
++</body>
++</html>

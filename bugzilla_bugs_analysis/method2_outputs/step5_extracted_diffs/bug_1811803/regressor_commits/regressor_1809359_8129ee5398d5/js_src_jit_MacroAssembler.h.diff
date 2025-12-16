@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/MacroAssembler.h
+# Commit: 8129ee5398d5
+# Full Hash: 8129ee5398d5ce34183dd2ca51c3aa1d27e9c318
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2023-01-20 03:46:23
+# Regressor Bug: 1809359
+# File Overlap Count: 1
+# Description:
+#   Bug 1809359 - Inline SetElementMegamorphic r=jandem
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D166401
+# ==============================================================================
+
+diff -r a4156a9d0b2b -r 8129ee5398d5 js/src/jit/MacroAssembler.h
+--- a/js/src/jit/MacroAssembler.h	Thu Jan 19 22:22:32 2023 +0000
++++ b/js/src/jit/MacroAssembler.h	Thu Jan 19 23:53:40 2023 +0000
+@@ -5085,6 +5085,7 @@
+ 
+   void loadMegamorphicCache(Register dest);
+   void loadStringToAtomCacheLastLookups(Register dest);
++  void loadMegamorphicSetPropCache(Register dest);
+ 
+   void loadAtomOrSymbolAndHash(ValueOperand value, Register outId,
+                                Register outHash, Label* cacheMiss);
+@@ -5113,6 +5114,18 @@
+                                         Register scratch1, Register scratch2,
+                                         Register scratch3, Register output,
+                                         Label* cacheHit, bool hasOwn);
++#ifdef JS_CODEGEN_X86
++  // See MegamorphicSetElement in LIROps.yaml
++  void emitMegamorphicCachedSetSlot(
++      ValueOperand id, Register obj, Register scratch1, ValueOperand value,
++      Label* cacheHit,
++      void (*emitPreBarrier)(MacroAssembler&, const Address&, MIRType));
++#else
++  void emitMegamorphicCachedSetSlot(
++      ValueOperand id, Register obj, Register scratch1, Register scratch2,
++      Register scratch3, ValueOperand value, Label* cacheHit,
++      void (*emitPreBarrier)(MacroAssembler&, const Address&, MIRType));
++#endif
+ 
+   void loadDOMExpandoValueGuardGeneration(
+       Register obj, ValueOperand output,

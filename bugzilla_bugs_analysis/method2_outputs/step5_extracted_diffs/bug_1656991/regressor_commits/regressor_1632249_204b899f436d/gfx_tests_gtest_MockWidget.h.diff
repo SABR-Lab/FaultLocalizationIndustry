@@ -1,0 +1,37 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/tests/gtest/MockWidget.h
+# Commit: 204b899f436d
+# Full Hash: 204b899f436d99f0eae759af3ccfcbaabfbbb428
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-06-11 09:34:54
+# Regressor Bug: 1632249
+# File Overlap Count: 1
+# Description:
+#   Bug 1632249 - Support compositing out-of-process WebGL. r=handyman,lsalzman,nical,geckoview-reviewers,agi,imanol
+#   
+#   * Majorly simplity CanvasRenderer
+#   * Replace GLScreenBuffer with trivial GLSwapChain
+#   * Use descriptor structs so that future SharedSurface changes aren't so painful
+# ==============================================================================
+
+diff -r 3f5baab34b1f -r 204b899f436d gfx/tests/gtest/MockWidget.h
+--- a/gfx/tests/gtest/MockWidget.h	Thu Jun 11 06:36:55 2020 +0000
++++ b/gfx/tests/gtest/MockWidget.h	Thu Jun 11 06:37:35 2020 +0000
+@@ -33,13 +33,10 @@
+ 
+   void* GetNativeData(uint32_t aDataType) override {
+     if (aDataType == NS_NATIVE_OPENGL_CONTEXT) {
+-      mozilla::gl::SurfaceCaps caps = mozilla::gl::SurfaceCaps::ForRGB();
+-      caps.preserve = false;
+-      caps.bpp16 = false;
+       nsCString discardFailureId;
+       RefPtr<GLContext> context = GLContextProvider::CreateOffscreen(
+-          IntSize(mCompWidth, mCompHeight), caps,
+-          CreateContextFlags::REQUIRE_COMPAT_PROFILE, &discardFailureId);
++          {mCompWidth, mCompHeight},
++          {CreateContextFlags::REQUIRE_COMPAT_PROFILE}, &discardFailureId);
+       return context.forget().take();
+     }
+     return nullptr;

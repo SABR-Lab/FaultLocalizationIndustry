@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsContentUtils.cpp
+# Commit: 2f66ab2d9d10
+# Full Hash: 2f66ab2d9d1010406fb5a9227421922e6b14f9c1
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2021-05-12 17:48:59
+# Regressor Bug: 1710756
+# File Overlap Count: 1
+# Description:
+#   Bug 1710756 - Expose FocusOptions.preventsFocusRing to error pages. r=edgar
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D114910
+# ==============================================================================
+
+diff -r 02ea24efbd7c -r 2f66ab2d9d10 dom/base/nsContentUtils.cpp
+--- a/dom/base/nsContentUtils.cpp	Wed May 12 10:44:33 2021 +0000
++++ b/dom/base/nsContentUtils.cpp	Wed May 12 10:47:50 2021 +0000
+@@ -2130,6 +2130,20 @@
+ }
+ 
+ /* static */
++bool nsContentUtils::IsCallerChromeOrErrorPage(JSContext* aCx,
++                                               JSObject* aObject) {
++  if (ThreadsafeIsSystemCaller(aCx)) {
++    return true;
++  }
++  nsGlobalWindowInner* win = xpc::WindowOrNull(aObject);
++  if (!win) {
++    return false;
++  }
++  Document* doc = win->GetExtantDoc();
++  return doc && IsErrorPage(doc->GetDocumentURI());
++}
++
++/* static */
+ bool nsContentUtils::ShouldResistFingerprinting() {
+   return StaticPrefs::privacy_resistFingerprinting();
+ }

@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/Marking.cpp
+# Commit: fabb8df993fb
+# Full Hash: fabb8df993fb044dbf52c3c74f6d679cd42c7f73
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2021-03-17 21:25:27
+# Regressor Bug: 1698543
+# File Overlap Count: 4
+# Description:
+#   Bug 1698543 - Rework handling of interaction between incremental barriers and rope flattening r=sfink
+#   
+#   Currently we have a special path for performing barriers during rope flattening to take account of the fact that this overwrites the cell header word of ropes temporarily, making these cells untraceable.
+#   
+#   The problem is that a rope can already be in the barrier buffer before flattening starts and so we need to check for this when processing the buffer.
+# ==============================================================================
+
+diff -r 181aeda5c83a -r fabb8df993fb js/src/gc/Marking.cpp
+--- a/js/src/gc/Marking.cpp	Wed Mar 17 08:50:18 2021 +0000
++++ b/js/src/gc/Marking.cpp	Wed Mar 17 09:01:16 2021 +0000
+@@ -1014,21 +1014,6 @@
+   trc->performBarrier(JS::GCCellPtr(cell, cell->getTraceKind()));
+ }
+ 
+-void js::gc::PerformIncrementalBarrierDuringFlattening(JSString* str) {
+-  TenuredCell* cell = &str->asTenured();
+-
+-  // Skip recording ropes. Buffering them is problematic because they will have
+-  // their flags temporarily overwritten during flattening. Fortunately their
+-  // children will also be barriered by flattening process so we don't need to
+-  // traverse them.
+-  if (str->isRope()) {
+-    cell->markBlack();
+-    return;
+-  }
+-
+-  PerformIncrementalBarrier(cell);
+-}
+-
+ template <typename T>
+ void js::GCMarker::markAndTraverse(T* thing) {
+   if (thing->isPermanentAndMayBeShared()) {
+@@ -4147,6 +4132,7 @@
+   MOZ_ASSERT(CurrentThreadCanAccessRuntime(runtime()));
+   MOZ_ASSERT(!runtime()->gc.isBackgroundMarking());
+   MOZ_ASSERT(!cell.asCell()->isForwarded());
++  MOZ_ASSERT(!cell.asCell()->hasTempHeaderData());
+ 
+   // Mark the cell here to prevent us recording it again.
+   if (!cell.asCell()->asTenured().markIfUnmarked()) {
+@@ -4199,14 +4185,21 @@
+   MOZ_ASSERT(!cell.asCell()->isForwarded());
+ 
+   ApplyGCThingTyped(cell, [this](auto thing) {
+-    if (!ShouldMark(this, thing)) {
+-      return;
++    MOZ_ASSERT(ShouldMark(this, thing));
++    MOZ_ASSERT(thing->isMarkedBlack());
++
++    if constexpr (std::is_same_v<decltype(thing), JSString*>) {
++      if (thing->isBeingFlattened()) {
++        // This string is an interior node of a rope that is currently being
++        // flattened. The flattening process invokes the barrier on all nodes in
++        // the tree, so interior nodes need not be traversed.
++        return;
++      }
+     }
+ 
+     CheckTracedThing(this, thing);
+     AutoClearTracingSource acts(this);
+ 
+-    MOZ_ASSERT(thing->isMarkedBlack());
+     traverse(thing);
+   });
+ }

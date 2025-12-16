@@ -1,0 +1,83 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/HttpChannelParent.cpp
+# Commit: 2289e685031e
+# Full Hash: 2289e685031e878fee593b86cea90025b43d1fe9
+# Author: Junior Hsu <juhsu@mozilla.com>
+# Date: 2020-06-30 10:00:42
+# Regressor Bug: 1633935
+# File Overlap Count: 1
+# Description:
+#   Bug 1633935 - P10 wait PHttpChannel::OnStartRequestSent for permission/cookie update from parent, r=mayhemer,necko-reviewers
+#   
+#   Depends on D77751
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D77752
+# ==============================================================================
+
+diff -r 673030046319 -r 2289e685031e netwerk/protocol/http/HttpChannelParent.cpp
+--- a/netwerk/protocol/http/HttpChannelParent.cpp	Tue Jun 30 00:33:54 2020 +0000
++++ b/netwerk/protocol/http/HttpChannelParent.cpp	Tue Jun 30 00:34:06 2020 +0000
+@@ -1374,9 +1374,8 @@
+ 
+   RefPtr<HttpBaseChannel> chan = do_QueryObject(aRequest);
+   if (!chan) {
+-    nsCOMPtr<nsIMultiPartChannel> multiPartChannel =
+-        do_QueryInterface(aRequest);
+-    if (multiPartChannel) {
++    if (nsCOMPtr<nsIMultiPartChannel> multiPartChannel =
++            do_QueryInterface(aRequest)) {
+       isMultiPart = true;
+       nsCOMPtr<nsIChannel> baseChannel;
+       multiPartChannel->GetBaseChannel(getter_AddRefs(baseChannel));
+@@ -1487,8 +1486,11 @@
+   nsHttpResponseHead* responseHead = chan->GetResponseHead();
+   bool useResponseHead = !!responseHead;
+   nsHttpResponseHead cleanedUpResponseHead;
+-  if (responseHead &&
+-      (responseHead->HasHeader(nsHttp::Set_Cookie) || multiPartID)) {
++
++  bool hasSetCookie =
++      responseHead && responseHead->HasHeader(nsHttp::Set_Cookie);
++
++  if (hasSetCookie || multiPartID) {
+     cleanedUpResponseHead = *responseHead;
+     cleanedUpResponseHead.ClearHeader(nsHttp::Set_Cookie);
+     if (multiPartID) {
+@@ -1530,7 +1532,19 @@
+     cleanedUpRequest = true;
+   }
+ 
++  bool isDocument = chan->IsDocument();
++  if (!isDocument) {
++    rv = chan->GetIsMainDocumentChannel(&isDocument);
++    NS_ENSURE_SUCCESS(rv, rv);
++  }
++
++  // Bug 1645901: Currently Set-Cookie is passed to child process on main
++  // thread, which is racy with PBackground. We should have a way to set cookie
++  // in child for Set-Cookie response header.
++  args.shouldWaitForOnStartRequestSent() = isDocument || hasSetCookie;
++
+   rv = NS_OK;
++
+   if (mIPCClosed ||
+       !mBgParent->OnStartRequest(
+           *responseHead, useResponseHead,
+@@ -1540,6 +1554,15 @@
+   }
+   requestHead->Exit();
+ 
++  // Need to wait for the permission to content process, which is sent via
++  // PContent in AboutToLoadHttpFtpDocumentForChild. For multipart channel,
++  // send only one time since the permissions are the same.
++  if (NS_SUCCEEDED(rv) && args.shouldWaitForOnStartRequestSent() &&
++      multiPartID.valueOr(0) == 0) {
++    LOG(("HttpChannelParent::SendOnStartRequestSent\n"));
++    Unused << SendOnStartRequestSent();
++  }
++
+   return rv;
+ }
+ 

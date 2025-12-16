@@ -1,0 +1,52 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/image.rs
+# Commit: c64546d80cf8
+# Full Hash: c64546d80cf844f0d958dd174e4d95cae6ca14d8
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2019-09-28 09:46:05
+# Description:
+#   Bug 1582975 - Ensure that we don't attempt to iterate over image tiles outside the range. r=jrmuizel
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D47468
+# ==============================================================================
+
+diff -r 16d04cad3cf9 -r c64546d80cf8 gfx/wr/webrender/src/image.rs
+--- a/gfx/wr/webrender/src/image.rs	Fri Sep 27 20:17:01 2019 +0000
++++ b/gfx/wr/webrender/src/image.rs	Fri Sep 27 19:10:27 2019 +0000
+@@ -186,14 +186,18 @@
+     type Item = Tile;
+ 
+     fn next(&mut self) -> Option<Self::Item> {
++        // If we reach the end of a row, reset to the beginning of the next row.
+         if self.current_tile.x >= self.x.tile_range.end {
+             self.current_tile.y += 1;
+-            if self.current_tile.y >= self.y.tile_range.end {
+-                return None;
+-            }
+             self.current_tile.x = self.x.tile_range.start;
+         }
+ 
++        // Stop iterating if we reach the last tile. We may start here if there
++        // were no tiles to iterate over.
++        if self.current_tile.x >= self.x.tile_range.end || self.current_tile.y >= self.y.tile_range.end {
++            return None;
++        }
++
+         let tile_offset = self.current_tile;
+ 
+         let mut segment_rect = LayoutRect {
+@@ -371,8 +375,11 @@
+     let visible_tiles_end = f32::ceil((layout_visible_range.end - layout_tiling_origin) / layout_tile_size) as i32;
+ 
+     // Combine the above two to get the tiles in the image that are visible this frame.
+-    let tiles_start = i32::max(image_tiles.start, visible_tiles_start);
++    let mut tiles_start = i32::max(image_tiles.start, visible_tiles_start);
+     let tiles_end = i32::min(image_tiles.end, visible_tiles_end);
++    if tiles_start > tiles_end {
++        tiles_start = tiles_end;
++    }
+ 
+     // The size in layout space of the boundary tiles.
+     let first_tile_layout_size = if tiles_start == image_tiles.start {

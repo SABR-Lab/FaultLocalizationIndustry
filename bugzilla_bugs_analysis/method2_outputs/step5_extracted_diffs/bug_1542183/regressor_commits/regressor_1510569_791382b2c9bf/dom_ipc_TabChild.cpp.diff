@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/TabChild.cpp
+# Commit: 791382b2c9bf
+# Full Hash: 791382b2c9bf60371b68c0dd4d2ed26e4b846901
+# Author: Barret Rennie <barret@brennie.ca>
+# Date: 2019-04-04 04:33:36
+# Regressor Bug: 1510569
+# File Overlap Count: 1
+# Description:
+#   Bug 1510569 - Port onStatusChange notifications inside WebProgressChild.jsm to C++ r=baku
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D25446
+# ==============================================================================
+
+diff -r 31b206e2046f -r 791382b2c9bf dom/ipc/TabChild.cpp
+--- a/dom/ipc/TabChild.cpp	Wed Apr 03 17:31:41 2019 +0000
++++ b/dom/ipc/TabChild.cpp	Wed Apr 03 17:31:54 2019 +0000
+@@ -540,7 +540,8 @@
+   nsCOMPtr<nsIDocShell> docShell = do_GetInterface(WebNavigation());
+   MOZ_ASSERT(docShell);
+ 
+-  const uint32_t notifyMask = nsIWebProgress::NOTIFY_CONTENT_BLOCKING;
++  const uint32_t notifyMask =
++      nsIWebProgress::NOTIFY_STATUS | nsIWebProgress::NOTIFY_CONTENT_BLOCKING;
+ 
+   mStatusFilter = new nsBrowserStatusFilter();
+ 
+@@ -3300,8 +3301,25 @@
+ NS_IMETHODIMP TabChild::OnStatusChange(nsIWebProgress* aWebProgress,
+                                        nsIRequest* aRequest, nsresult aStatus,
+                                        const char16_t* aMessage) {
+-  return NS_ERROR_NOT_IMPLEMENTED;
++  if (!IPCOpen()) {
++    return NS_OK;
++  }
++
++  Maybe<WebProgressData> webProgressData;
++  RequestData requestData;
++
++  nsresult rv = PrepareProgressListenerData(aWebProgress, aRequest,
++                                            webProgressData, requestData);
++
++  NS_ENSURE_SUCCESS(rv, rv);
++
++  const nsString message(aMessage);
++
++  Unused << SendOnStatusChange(webProgressData, requestData, aStatus, message);
++
++  return NS_OK;
+ }
++
+ NS_IMETHODIMP TabChild::OnSecurityChange(nsIWebProgress* aWebProgress,
+                                          nsIRequest* aRequest,
+                                          uint32_t aState) {

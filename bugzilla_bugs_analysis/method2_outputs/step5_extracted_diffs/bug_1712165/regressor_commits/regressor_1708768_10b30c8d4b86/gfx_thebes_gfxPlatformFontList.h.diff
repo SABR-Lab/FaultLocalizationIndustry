@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxPlatformFontList.h
+# Commit: 10b30c8d4b86
+# Full Hash: 10b30c8d4b860b7d39de8d46fd186474407626b2
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2021-05-14 21:58:21
+# Regressor Bug: 1708768
+# File Overlap Count: 1
+# Description:
+#   Bug 1708768 - Create a pref to defer gfxPlatformFontList initialization until first use, and enable this on macOS. r=lsalzman
+#   
+#   This gives the RegisterFonts thread more time to complete its work, so that
+#   the main thread doesn't have to wait for it in InitFontList.
+#   
+# ==============================================================================
+
+diff -r c03c7df7cd61 -r 10b30c8d4b86 gfx/thebes/gfxPlatformFontList.h
+--- a/gfx/thebes/gfxPlatformFontList.h	Fri May 14 18:05:44 2021 +0000
++++ b/gfx/thebes/gfxPlatformFontList.h	Fri May 14 18:05:44 2021 +0000
+@@ -169,7 +169,16 @@
+   // platform-specific font families.
+   typedef nsTArray<FontFamily> PrefFontList;
+ 
+-  static gfxPlatformFontList* PlatformFontList() { return sPlatformFontList; }
++  static gfxPlatformFontList* PlatformFontList() {
++    // Currently, only macOS uses lazy font-list initialization; on other
++    // platforms we create it during gfxPlatform::Init().
++    if (!sPlatformFontList) {
++      if (!gfxPlatform::GetPlatform()->CreatePlatformFontList()) {
++        MOZ_CRASH("Could not initialize gfxPlatformFontList");
++      }
++    }
++    return sPlatformFontList;
++  }
+ 
+   static bool Initialize(gfxPlatformFontList* aList) {
+     sPlatformFontList = aList;

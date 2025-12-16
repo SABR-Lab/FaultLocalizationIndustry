@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/FinalizationRegistry.cpp
+# Commit: 5a6684922b98
+# Full Hash: 5a6684922b980d32b05bd7210cfadc34e734a845
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2020-03-21 21:28:09
+# Regressor Bug: 1623973
+# File Overlap Count: 2
+# Description:
+#   Bug 1623973 - Make FinalizationRegistryObject active record set and registrations map values weak r=sfink
+#   
+#   This removes tracing for the values of the registration map and the active record set and sweeps them instead. This requires maintaining a map of FinalizationRegistryObjects on the zone.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D67677
+# ==============================================================================
+
+diff -r c4d2ca8f78b7 -r 5a6684922b98 js/src/gc/FinalizationRegistry.cpp
+--- a/js/src/gc/FinalizationRegistry.cpp	Thu Mar 19 16:42:42 2020 +0000
++++ b/js/src/gc/FinalizationRegistry.cpp	Fri Mar 20 21:57:22 2020 +0000
+@@ -11,12 +11,23 @@
+ #include "builtin/FinalizationRegistryObject.h"
+ #include "gc/GCRuntime.h"
+ #include "gc/Zone.h"
++#include "vm/JSContext.h"
+ 
+ #include "gc/PrivateIterators-inl.h"
+ 
+ using namespace js;
+ using namespace js::gc;
+ 
++bool GCRuntime::addFinalizationRegistry(JSContext* cx,
++                                        FinalizationRegistryObject* registry) {
++  if (!cx->zone()->finalizationRegistries().put(registry)) {
++    ReportOutOfMemory(cx);
++    return false;
++  }
++
++  return true;
++}
++
+ bool GCRuntime::registerWithFinalizationRegistry(JSContext* cx,
+                                                  HandleObject target,
+                                                  HandleObject record) {
+@@ -67,6 +78,12 @@
+   // Sweep finalization registry data and queue finalization records for cleanup
+   // for any entries whose target is dying and remove them from the map.
+ 
++  Zone::FinalizationRegistrySet& set = zone->finalizationRegistries();
++  set.sweep();
++  for (auto r = set.all(); !r.empty(); r.popFront()) {
++    r.front()->as<FinalizationRegistryObject>().sweep();
++  }
++
+   Zone::FinalizationRecordMap& map = zone->finalizationRecordMap();
+   for (Zone::FinalizationRecordMap::Enum e(map); !e.empty(); e.popFront()) {
+     FinalizationRecordVector& records = e.front().value();

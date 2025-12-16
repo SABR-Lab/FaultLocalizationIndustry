@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/AudioStream.h
+# Commit: 3000680ad5f4
+# Full Hash: 3000680ad5f46c43b409bdd5468dff476634aec7
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2022-04-20 21:53:00
+# Regressor Bug: 1743834
+# File Overlap Count: 1
+# Description:
+#   Bug 1743834 - Wait for the audio callbacks to start being called before using the audio clock. r=alwu,media-playback-reviewers
+#   
+#   Because we're generally using high latency on the cubeb stream used by
+#   AudioStream instance, it can take some time for the callbacks to start being
+#   called, and the for the audio clock (cubeb_stream_get_position(...)) to advance.
+# ==============================================================================
+
+diff -r 048e93d0a274 -r 3000680ad5f4 dom/media/AudioStream.h
+--- a/dom/media/AudioStream.h	Wed Apr 20 12:07:09 2022 +0000
++++ b/dom/media/AudioStream.h	Wed Apr 20 12:07:10 2022 +0000
+@@ -297,6 +297,9 @@
+ 
+   bool IsPlaybackCompleted() const;
+ 
++  // Returns true if at least one DataCallback has been called.
++  bool CallbackStarted() const { return mCallbacksStarted; }
++
+  protected:
+   friend class AudioClock;
+ 
+@@ -386,6 +389,7 @@
+   std::atomic<bool> mPreservesPitch;
+   // Audio thread only
+   bool mAudioThreadChanged = false;
++  Atomic<bool> mCallbacksStarted;
+ };
+ 
+ }  // namespace mozilla

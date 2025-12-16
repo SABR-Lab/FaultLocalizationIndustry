@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/BufferTexture.cpp
+# Commit: 7a990fa02246
+# Full Hash: 7a990fa022462c702adacfac907a0fc178940b9d
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2020-10-21 09:51:28
+# Regressor Bug: 1595994
+# File Overlap Count: 1
+# Description:
+#   Bug 1595994 - P1D. Properly serialize display size when sending image over IPC. r=mattwoodrow
+#   
+#   The code always assumed that the size of the image with the Y plane dimensions, which, while often the case, isn't correct.
+#   We remove the assertions that the display offset was always (0,0) and properly carry the actual data over IPC.
+#   
+# ==============================================================================
+
+diff -r 4c7f671c7b69 -r 7a990fa02246 gfx/layers/BufferTexture.cpp
+--- a/gfx/layers/BufferTexture.cpp	Tue Oct 20 23:29:30 2020 +0000
++++ b/gfx/layers/BufferTexture.cpp	Tue Oct 20 23:30:04 2020 +0000
+@@ -154,8 +154,9 @@
+ }
+ 
+ BufferTextureData* BufferTextureData::CreateForYCbCr(
+-    KnowsCompositor* aAllocator, gfx::IntSize aYSize, uint32_t aYStride,
+-    gfx::IntSize aCbCrSize, uint32_t aCbCrStride, StereoMode aStereoMode,
++    KnowsCompositor* aAllocator, const gfx::IntRect& aDisplay,
++    const gfx::IntSize& aYSize, uint32_t aYStride,
++    const gfx::IntSize& aCbCrSize, uint32_t aCbCrStride, StereoMode aStereoMode,
+     gfx::ColorDepth aColorDepth, gfx::YUVColorSpace aYUVColorSpace,
+     gfx::ColorRange aColorRange, TextureFlags aTextureFlags) {
+   uint32_t bufSize = ImageDataSerializer::ComputeYCbCrBufferSize(
+@@ -186,8 +187,8 @@
+           : true;
+ 
+   YCbCrDescriptor descriptor =
+-      YCbCrDescriptor(aYSize, aYStride, aCbCrSize, aCbCrStride, yOffset,
+-                      cbOffset, crOffset, aStereoMode, aColorDepth,
++      YCbCrDescriptor(aDisplay, aYSize, aYStride, aCbCrSize, aCbCrStride,
++                      yOffset, cbOffset, crOffset, aStereoMode, aColorDepth,
+                       aYUVColorSpace, aColorRange, hasIntermediateBuffer);
+ 
+   // extra SIMD padding needed for SWGL
+@@ -226,6 +227,10 @@
+   return ImageDataSerializer::SizeFromBufferDescriptor(mDescriptor);
+ }
+ 
++gfx::IntRect BufferTextureData::GetPictureRect() const {
++  return ImageDataSerializer::RectFromBufferDescriptor(mDescriptor);
++}
++
+ Maybe<gfx::IntSize> BufferTextureData::GetCbCrSize() const {
+   return ImageDataSerializer::CbCrSizeFromBufferDescriptor(mDescriptor);
+ }

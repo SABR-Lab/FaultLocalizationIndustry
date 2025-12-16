@@ -1,0 +1,36 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/CanonicalBrowsingContext.cpp
+# Commit: 3b7697e19437
+# Full Hash: 3b7697e19437fb8d4a63cefa69b87ed76bdd3ae3
+# Author: Alexandra Borovova <aborovova@mozilla.com>
+# Date: 2025-09-10 21:28:29
+# Description:
+#   Bug 1987777 - Reapply language and timezone overrides only when they exist and add the checks for WindowContext to avoid the crash. r=dom-core,smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D264378
+# ==============================================================================
+
+diff -r 181eaac46885 -r 3b7697e19437 docshell/base/CanonicalBrowsingContext.cpp
+--- a/docshell/base/CanonicalBrowsingContext.cpp	Wed Sep 10 11:52:56 2025 +0000
++++ b/docshell/base/CanonicalBrowsingContext.cpp	Wed Sep 10 12:06:02 2025 +0000
+@@ -272,10 +272,14 @@
+   txn.SetTopInnerSizeForRFP(GetTopInnerSizeForRFP());
+   txn.SetIPAddressSpace(GetIPAddressSpace());
+ 
+-  // Reapply language override to update the corresponding realm.
+-  txn.SetLanguageOverride(GetLanguageOverride());
+-  // Reapply timezone override to update the corresponding realm.
+-  txn.SetTimezoneOverride(GetTimezoneOverride());
++  if (!GetLanguageOverride().IsEmpty()) {
++    // Reapply language override to update the corresponding realm.
++    txn.SetLanguageOverride(GetLanguageOverride());
++  }
++  if (!GetTimezoneOverride().IsEmpty()) {
++    // Reapply timezone override to update the corresponding realm.
++    txn.SetTimezoneOverride(GetTimezoneOverride());
++  }
+ 
+   // Propagate some settings on BrowsingContext replacement so they're not lost
+   // on bfcached navigations. These are important for GeckoView (see bug

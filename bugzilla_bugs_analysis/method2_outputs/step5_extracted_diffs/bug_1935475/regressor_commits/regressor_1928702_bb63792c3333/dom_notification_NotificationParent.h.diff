@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/notification/NotificationParent.h
+# Commit: bb63792c3333
+# Full Hash: bb63792c3333a7911bdfad9e9e9ec58bb48bad93
+# Author: Kagami Sascha Rosylight <saschanaz@outlook.com>
+# Date: 2024-11-08 04:19:40
+# Regressor Bug: 1928702
+# File Overlap Count: 1
+# Description:
+#   Bug 1928702 - Part 2: Create PNotification via PBackground r=asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D227687
+# ==============================================================================
+
+diff -r 93937caf6d13 -r bb63792c3333 dom/notification/NotificationParent.h
+--- a/dom/notification/NotificationParent.h	Thu Nov 07 17:32:03 2024 +0000
++++ b/dom/notification/NotificationParent.h	Thu Nov 07 17:32:03 2024 +0000
+@@ -22,11 +22,34 @@
+   NS_DECL_THREADSAFE_ISUPPORTS
+   NS_DECL_NSIOBSERVER
+ 
++  NotificationParent(NotNull<nsIPrincipal*> aPrincipal,
++                     NotNull<nsIPrincipal*> aEffectiveStoragePrincipal,
++                     bool aIsSecureContext, const nsAString& aId,
++                     const nsAString& aScope,
++                     const IPCNotificationOptions& aOptions)
++      : mPrincipal(aPrincipal),
++        mEffectiveStoragePrincipal(aEffectiveStoragePrincipal),
++        mIsSecureContext(aIsSecureContext),
++        mId(aId),
++        mScope(aScope),
++        mOptions(aOptions) {};
++
+   IPCResult RecvShow(ShowResolver&& aResolver);
+   IPCResult RecvClose();
+ 
++  nsresult BindToMainThread(
++      Endpoint<PNotificationParent>&& aParentEndpoint,
++      PBackgroundParent::CreateNotificationParentResolver&& aResolver);
++
+  private:
+   ~NotificationParent() = default;
++
++  NotNull<nsCOMPtr<nsIPrincipal>> mPrincipal;
++  NotNull<nsCOMPtr<nsIPrincipal>> mEffectiveStoragePrincipal;
++  bool mIsSecureContext;
++  nsString mId;
++  nsString mScope;
++  IPCNotificationOptions mOptions;
+ };
+ 
+ }  // namespace mozilla::dom::notification

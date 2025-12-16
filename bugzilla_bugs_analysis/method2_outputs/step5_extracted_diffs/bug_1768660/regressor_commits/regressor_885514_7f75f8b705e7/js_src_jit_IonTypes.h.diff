@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/IonTypes.h
+# Commit: 7f75f8b705e7
+# Full Hash: 7f75f8b705e72090c3faa76aa8bac440c6d0fde6
+# Author: Iain Ireland <iireland@mozilla.com>
+# Date: 2022-03-31 09:35:41
+# Regressor Bug: 885514
+# File Overlap Count: 2
+# Description:
+#   Bug 885514: Support bailouts for finally r=jandem
+#   
+#   This is mostly modeled after the catch code. The main difference is that finally expects to resume in code where there are two additional values on the stack, so we store the exception in the ExceptionBailoutInfo and write it into the stack frame in BaselineStackBuilder.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D142118
+# ==============================================================================
+
+diff -r 8cd3f1a267ae -r 7f75f8b705e7 js/src/jit/IonTypes.h
+--- a/js/src/jit/IonTypes.h	Wed Mar 30 23:19:47 2022 +0000
++++ b/js/src/jit/IonTypes.h	Wed Mar 30 23:19:47 2022 +0000
+@@ -168,6 +168,9 @@
+   // A bailout to baseline from Ion on exception to handle Debugger hooks.
+   IonExceptionDebugMode,
+ 
++  // A bailout to baseline from Ion on exception to handle a finally block.
++  Finally,
++
+   // We returned to a stack frame after invalidating its IonScript.
+   OnStackInvalidation,
+ 
+@@ -211,6 +214,8 @@
+       return "UninitializedLexical";
+     case BailoutKind::IonExceptionDebugMode:
+       return "IonExceptionDebugMode";
++    case BailoutKind::Finally:
++      return "Finally";
+     case BailoutKind::OnStackInvalidation:
+       return "OnStackInvalidation";
+     case BailoutKind::Unreachable:

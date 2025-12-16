@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/MIR.cpp
+# Commit: 3e40bdd11ab5
+# Full Hash: 3e40bdd11ab5aa13a583162bb8394a234465c3a2
+# Author: Lars T Hansen <lhansen@mozilla.com>
+# Date: 2021-10-18 16:09:29
+# Regressor Bug: 1727084
+# File Overlap Count: 6
+# Description:
+#   Bug 1727084 - Memory64 - Ion operations. r=yury
+#   
+#   Add memory64 generalizations for Ion for all operations (except bulk
+#   memory, done in an earlier patch).
+#   
+# ==============================================================================
+
+diff -r 44b0c0bed8a6 -r 3e40bdd11ab5 js/src/jit/MIR.cpp
+--- a/js/src/jit/MIR.cpp	Mon Oct 18 09:58:15 2021 +0000
++++ b/js/src/jit/MIR.cpp	Mon Oct 18 09:58:16 2021 +0000
+@@ -4650,16 +4650,22 @@
+     return this;
+   }
+ 
+-  MOZ_ASSERT(baseArg->type() == MIRType::Int32);
+-  CheckedInt<uint32_t> ptr = baseArg->toConstant()->toInt32();
+-
++  if (baseArg->type() == MIRType::Int32) {
++    CheckedInt<uint32_t> ptr = baseArg->toConstant()->toInt32();
++    ptr += offset();
++    if (!ptr.isValid()) {
++      return this;
++    }
++    return MConstant::New(alloc, Int32Value(ptr.value()));
++  }
++
++  MOZ_ASSERT(baseArg->type() == MIRType::Int64);
++  CheckedInt<uint64_t> ptr = baseArg->toConstant()->toInt64();
+   ptr += offset();
+-
+   if (!ptr.isValid()) {
+     return this;
+   }
+-
+-  return MConstant::New(alloc, Int32Value(ptr.value()));
++  return MConstant::NewInt64(alloc, ptr.value());
+ }
+ 
+ bool MWasmAlignmentCheck::congruentTo(const MDefinition* ins) const {

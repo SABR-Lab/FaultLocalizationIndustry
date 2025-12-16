@@ -1,0 +1,40 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/ScriptLoader.cpp
+# Commit: 46fc4caba7a5
+# Full Hash: 46fc4caba7a5751f2d2c2c7869ecc45a419fc156
+# Author: Yulia <ystartsev@mozilla.com>
+# Date: 2023-04-15 09:29:27
+# Description:
+#   Bug 1824803; r=allstarschh
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D174100
+# ==============================================================================
+
+diff -r 4bd416956309 -r 46fc4caba7a5 dom/workers/ScriptLoader.cpp
+--- a/dom/workers/ScriptLoader.cpp	Fri Apr 14 16:24:51 2023 +0000
++++ b/dom/workers/ScriptLoader.cpp	Fri Apr 14 16:26:01 2023 +0000
+@@ -1528,8 +1528,20 @@
+       mScriptLoader->mSyncLoopTarget == mSyncLoopTarget,
+       "Unexpected SyncLoopTarget. Check if the sync loop was closed early");
+ 
+-  if (!mLoadedRequests[0]->GetContext()->IsTopLevel()) {
+-    return true;
++  {
++    // There is a possibility that we cleaned up while this task was waiting to
++    // run. If this has happened, return and exit.
++    MutexAutoLock lock(mScriptLoader->CleanUpLock());
++    if (mScriptLoader->CleanedUp()) {
++      return true;
++    }
++
++    const auto& requestHandle = mLoadedRequests[0];
++    // Check if the request is still valid.
++    if (requestHandle->IsEmpty() ||
++        !requestHandle->GetContext()->IsTopLevel()) {
++      return true;
++    }
+   }
+ 
+   return mScriptLoader->StoreCSP();

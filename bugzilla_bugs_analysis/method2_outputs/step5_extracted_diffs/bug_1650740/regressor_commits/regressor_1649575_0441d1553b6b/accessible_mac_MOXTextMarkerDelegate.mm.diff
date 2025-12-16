@@ -1,0 +1,90 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/mac/MOXTextMarkerDelegate.mm
+# Commit: 0441d1553b6b
+# Full Hash: 0441d1553b6bbf99d711300680eccd335e0b3545
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2020-07-03 03:56:55
+# Regressor Bug: 1649575
+# File Overlap Count: 1
+# Description:
+#   Bug 1649575 - Part 3: Introduce MOXTextMarkerDelegate. r=morgan
+#   
+#   The delegate is associated with accessible documents (either local or remote).
+#   
+#   I made a separate protocol for all the text marker stuff as it really is a seperate API.
+# ==============================================================================
+
+diff -r 65f8e705d730 -r 0441d1553b6b accessible/mac/MOXTextMarkerDelegate.mm
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/accessible/mac/MOXTextMarkerDelegate.mm	Thu Jul 02 21:33:07 2020 +0000
+@@ -0,0 +1,68 @@
++/* -*- Mode: Objective-C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++#import <Cocoa/Cocoa.h>
++
++#import "MOXTextMarkerDelegate.h"
++
++using namespace mozilla::a11y;
++
++static nsDataHashtable<nsUint64HashKey, MOXTextMarkerDelegate*> sDelegates;
++
++@implementation MOXTextMarkerDelegate
++
+++ (id)getOrCreateForDoc:(mozilla::a11y::AccessibleOrProxy)aDoc {
++  MOZ_ASSERT(!aDoc.IsNull());
++
++  MOXTextMarkerDelegate* delegate = sDelegates.Get(aDoc.Bits());
++  if (!delegate) {
++    delegate = [[MOXTextMarkerDelegate alloc] initWithDoc:aDoc];
++    sDelegates.Put(aDoc.Bits(), delegate);
++    [delegate retain];
++  }
++
++  return delegate;
++}
++
+++ (void)destroyForDoc:(mozilla::a11y::AccessibleOrProxy)aDoc {
++  MOZ_ASSERT(!aDoc.IsNull());
++
++  MOXTextMarkerDelegate* delegate = sDelegates.Get(aDoc.Bits());
++  if (delegate) {
++    sDelegates.Remove(aDoc.Bits());
++    [delegate release];
++  }
++}
++
++- (id)initWithDoc:(AccessibleOrProxy)aDoc {
++  MOZ_ASSERT(!aDoc.IsNull(), "Cannot init MOXTextDelegate with null");
++  if ((self = [super init])) {
++    mGeckoDocAccessible = aDoc;
++  }
++
++  return self;
++}
++
++- (id)moxStartTextMarker {
++  return nil;
++}
++
++- (id)moxEndTextMarker {
++  return nil;
++}
++
++- (NSString*)moxStringForTextMarkerRange:(id)textMarkerRange {
++  return nil;
++}
++
++- (NSNumber*)moxLengthForTextMarkerRange:(id)textMarkerRange {
++  return nil;
++}
++
++- (id)moxTextMarkerRangeForUnorderedTextMarkers:(NSArray*)textMarkers {
++  return nil;
++}
++
++@end

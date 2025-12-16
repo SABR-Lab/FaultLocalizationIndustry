@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: testing/web-platform/tests/html/syntax/speculative-charset/speculative-script.tentative.html
+# Commit: 9a8abd87cc79
+# Full Hash: 9a8abd87cc7935f29b94248c1a6f8203faa14403
+# Author: Henri Sivonen <hsivonen@hsivonen.fi>
+# Date: 2021-12-08 21:43:06
+# Regressor Bug: 1701828
+# File Overlap Count: 10
+# Description:
+#   Bug 1701828 - meta charset rewrite. r=smaug
+#   
+#   Implements https://github.com/whatwg/html/issues/6962 . Improves performance
+#   when <meta charset> occurs in head but after the first kilobyte and aligns
+#   behavior better with WebKit and Blink.
+# ==============================================================================
+
+diff --git a/testing/web-platform/tests/html/syntax/speculative-charset/speculative-script.tentative.html b/testing/web-platform/tests/html/syntax/speculative-charset/speculative-script.tentative.html
+new file mode 100644
+--- /dev/null
++++ b/testing/web-platform/tests/html/syntax/speculative-charset/speculative-script.tentative.html
+@@ -0,0 +1,27 @@
++<!DOCTYPE html>
++<html>
++<head>
++<meta charset="windows-1253">
++<title>Speculative script</title>
++<script src=/resources/testharness.js></script>
++<script src=/resources/testharnessreport.js></script>
++<script src=/common/utils.js></script>
++<body>
++<script>
++const uuid = token();
++
++window.onmessage = function(e) {
++  // The script is first speculatively loaded in the windows-1253 context (inherited from this doc), so
++  // the Greek hex NCR turns into a byte. This byte is stored. Then the script is fetched
++  // non-speculatively, because the Greek hexNCR in the URL makes the URL not match in the
++  // windows-1251 context. Now the Greek hex NCR turns in to a decimal NCR and the original Greek
++  // character comes back as a byte that gets a Cyrillic interpretation.
++  assert_equals(e.data, `token: ${uuid}, character: &#950;, previous character: \u0436, byte: \u0436`, "Check result");
++  done();
++}
++
++setup({single_test: true});
++const iframe = document.createElement('iframe');
++iframe.src = `support/speculative-script.py?uuid=${uuid}`;
++document.body.appendChild(iframe);
++</script>

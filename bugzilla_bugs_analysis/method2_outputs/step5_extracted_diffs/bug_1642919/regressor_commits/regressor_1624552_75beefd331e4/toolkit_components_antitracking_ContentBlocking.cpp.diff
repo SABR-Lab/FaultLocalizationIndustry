@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/antitracking/ContentBlocking.cpp
+# Commit: 75beefd331e4
+# Full Hash: 75beefd331e41a202e652d4427a58a3e3d207762
+# Author: Dimi Lee <dlee@mozilla.com>
+# Date: 2020-04-08 21:42:38
+# Regressor Bug: 1624552
+# File Overlap Count: 1
+# Description:
+#   Bug 1624552 - P2. Merge reporting channel and tracking channel for ContentBlockingNotifier::OnEvent r=timhuang,baku
+#   
+#   The only place is using different the reporting channel and the tracking channel
+#   is ContentBlocking::AllowAccessFor, which use the top-window of the
+#   parent window (reporting) and the parent window (tracking).
+# ==============================================================================
+
+diff -r 277c9d5c6e33 -r 75beefd331e4 toolkit/components/antitracking/ContentBlocking.cpp
+--- a/toolkit/components/antitracking/ContentBlocking.cpp	Wed Apr 08 10:04:10 2020 +0000
++++ b/toolkit/components/antitracking/ContentBlocking.cpp	Wed Apr 08 10:04:23 2020 +0000
+@@ -381,8 +381,8 @@
+   }
+ 
+   auto storePermission =
+-      [parentInnerWindow, topOuterWindow, topInnerWindow, trackingOrigin,
+-       trackingPrincipal, aReason, behavior,
++      [parentInnerWindow, topInnerWindow, trackingOrigin, trackingPrincipal,
++       aReason, behavior,
+        topLevelWindowId](int aAllowMode) -> RefPtr<StorageAccessGrantPromise> {
+     nsAutoCString permissionKey;
+     AntiTrackingUtils::CreateStoragePermissionKey(trackingOrigin,
+@@ -394,11 +394,8 @@
+     // Let's inform the parent window.
+     nsGlobalWindowInner::Cast(parentInnerWindow)->StorageAccessGranted();
+ 
+-    nsIChannel* channel =
+-        topOuterWindow->GetCurrentInnerWindow()->GetExtantDoc()->GetChannel();
+-
+     ContentBlockingNotifier::OnEvent(
+-        channel, parentInnerWindow->GetExtantDoc()->GetChannel(), false,
++        parentInnerWindow->GetExtantDoc()->GetChannel(), false,
+         CookieJarSettings::IsRejectThirdPartyWithExceptions(behavior)
+             ? nsIWebProgressListener::STATE_COOKIES_BLOCKED_FOREIGN
+             : nsIWebProgressListener::STATE_COOKIES_BLOCKED_TRACKER,

@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: xpcom/build/XPCOMInit.cpp
+# Commit: 4eba64480f86
+# Full Hash: 4eba64480f8685b8e017bc073b899e09ac169516
+# Author: Adam Brouwers-Harries <abrouwersharries@mozilla.com>
+# Date: 2024-04-05 09:39:00
+# Regressor Bug: 1865930
+# File Overlap Count: 1
+# Description:
+#   Bug 1865930: Add support for stopping the profiler using UNIX signals r=canaltinova,profiler-reviewers
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D203146
+# ==============================================================================
+
+diff -r 2b8e4c563c2f -r 4eba64480f86 xpcom/build/XPCOMInit.cpp
+--- a/xpcom/build/XPCOMInit.cpp	Thu Apr 04 17:34:28 2024 +0000
++++ b/xpcom/build/XPCOMInit.cpp	Thu Apr 04 17:40:14 2024 +0000
+@@ -325,6 +325,8 @@
+   if (NS_WARN_IF(NS_FAILED(rv))) {
+     return rv;
+   }
++
++  // Initialise the profiler
+   AUTO_PROFILER_INIT2;
+ 
+   // Set up the timer globals/timer thread
+@@ -464,6 +466,11 @@
+   // to the directory service.
+   nsDirectoryService::gService->RegisterCategoryProviders();
+ 
++  // Now that both the profiler and directory services have been started
++  // we can find the download directory, where the profiler can write
++  // profiles if necessary
++  profiler_lookup_download_directory();
++
+   // Init mozilla::SharedThreadPool (which needs the service manager).
+   mozilla::SharedThreadPool::InitStatics();
+ 

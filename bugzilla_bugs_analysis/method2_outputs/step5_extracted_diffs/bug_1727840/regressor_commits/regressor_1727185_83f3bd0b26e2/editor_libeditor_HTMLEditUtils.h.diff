@@ -1,0 +1,66 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/HTMLEditUtils.h
+# Commit: 83f3bd0b26e2
+# Full Hash: 83f3bd0b26e203bedcae8b14ab5995633b4b3275
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2021-08-25 09:54:00
+# Regressor Bug: 1727185
+# File Overlap Count: 1
+# Description:
+#   Bug 1727185 - Add `MOZ_DIAGNOSTIC_ASSERT` to the constructors of `DeleteNodeTransaction` and `SplitNodeTransaction` and make their users return error before hitting it r=m_kato
+#   
+#   On Thunderbird, we still have a bug to delete `<html>` and `<body>` elements
+#   (bug 1727201).  However, it's hard to know where deletes the unexpected elements
+#   from warning messages in the log.  Additionally, it's really serious bug
+# ==============================================================================
+
+diff -r 8868fe82dafd -r 83f3bd0b26e2 editor/libeditor/HTMLEditUtils.h
+--- a/editor/libeditor/HTMLEditUtils.h	Wed Aug 25 00:21:01 2021 +0000
++++ b/editor/libeditor/HTMLEditUtils.h	Wed Aug 25 00:39:41 2021 +0000
+@@ -80,22 +80,37 @@
+   /*
+    * IsRemovalNode() returns true when parent of aContent is editable even
+    * if aContent isn't editable.
++   * This is a valid method to check it if you find the content from point
++   * of view of siblings or parents of aContent.
++   * Note that padding `<br>` element for empty editor and manual native
++   * anonymous content should be deletable even after `HTMLEditor` is destroyed
++   * because they are owned/managed by `HTMLEditor`.
+    */
+   static bool IsRemovableNode(const nsIContent& aContent) {
+-    return aContent.GetParentNode() && aContent.GetParentNode()->IsEditable() &&
+-           &aContent != aContent.OwnerDoc()->GetBody() &&
+-           &aContent != aContent.OwnerDoc()->GetDocumentElement();
++    return EditorUtils::IsPaddingBRElementForEmptyEditor(aContent) ||
++           aContent.IsRootOfNativeAnonymousSubtree() ||
++           (aContent.GetParentNode() &&
++            aContent.GetParentNode()->IsEditable() &&
++            &aContent != aContent.OwnerDoc()->GetBody() &&
++            &aContent != aContent.OwnerDoc()->GetDocumentElement());
+   }
+ 
+   /**
+    * IsRemovableFromParentNode() returns true when aContent is editable, has a
+    * parent node and the parent node is also editable.
++   * This is a valid method to check it if you find the content from point
++   * of view of descendants of aContent.
++   * Note that padding `<br>` element for empty editor and manual native
++   * anonymous content should be deletable even after `HTMLEditor` is destroyed
++   * because they are owned/managed by `HTMLEditor`.
+    */
+   static bool IsRemovableFromParentNode(const nsIContent& aContent) {
+-    return aContent.IsEditable() && aContent.GetParentNode() &&
+-           aContent.GetParentNode()->IsEditable() &&
+-           &aContent != aContent.OwnerDoc()->GetBody() &&
+-           &aContent != aContent.OwnerDoc()->GetDocumentElement();
++    return EditorUtils::IsPaddingBRElementForEmptyEditor(aContent) ||
++           aContent.IsRootOfNativeAnonymousSubtree() ||
++           (aContent.IsEditable() && aContent.GetParentNode() &&
++            aContent.GetParentNode()->IsEditable() &&
++            &aContent != aContent.OwnerDoc()->GetBody() &&
++            &aContent != aContent.OwnerDoc()->GetDocumentElement());
+   }
+ 
+   /**

@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/mtransport/ipc/WebrtcTCPSocket.cpp
+# Commit: b83124cf3a89
+# Full Hash: b83124cf3a891091773bcfe2cd15e36155fc5a2d
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2019-09-18 21:49:27
+# Regressor Bug: 1569183
+# File Overlap Count: 2
+# Description:
+#   Bug 1569183: Teach WebrtcTCPSocket to use TLS when configured to. r=mjf,mayhemer
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D45103
+# ==============================================================================
+
+diff -r b879a0044cf3 -r b83124cf3a89 media/mtransport/ipc/WebrtcTCPSocket.cpp
+--- a/media/mtransport/ipc/WebrtcTCPSocket.cpp	Tue Sep 17 18:17:18 2019 +0000
++++ b/media/mtransport/ipc/WebrtcTCPSocket.cpp	Tue Sep 17 18:17:24 2019 +0000
+@@ -138,7 +138,7 @@
+ 
+ nsresult WebrtcTCPSocket::Open(const nsCString& aHost, const int& aPort,
+                                const nsCString& aLocalAddress,
+-                               const int& aLocalPort,
++                               const int& aLocalPort, bool aUseTls,
+                                const net::LoadInfoArgs& aArgs,
+                                const nsCString& aAlpn,
+                                NrSocketProxyConfig::ProxyPolicy aProxyPolicy) {
+@@ -151,7 +151,9 @@
+   }
+ 
+   mOpened = true;
+-  nsCString spec = NS_LITERAL_CSTRING("http://") + aHost;
++  nsCString schemePrefix =
++      aUseTls ? NS_LITERAL_CSTRING("https://") : NS_LITERAL_CSTRING("http://");
++  nsCString spec = schemePrefix + aHost;
+ 
+   nsresult rv = NS_MutateURI(NS_STANDARDURLMUTATOR_CONTRACTID)
+                     .SetSpec(spec)
+@@ -165,6 +167,7 @@
+ 
+   mLoadInfoArgs = aArgs;
+   mAlpn = aAlpn;
++  mTls = aUseTls;
+   if (aProxyPolicy == NrSocketProxyConfig::kForceProxy) {
+     mForceProxy = true;
+   }
+@@ -270,7 +273,7 @@
+   }
+ 
+   AutoTArray<nsCString, 1> socketTypes;
+-  if (mSsl) {
++  if (mTls) {
+     socketTypes.AppendElement(NS_LITERAL_CSTRING("ssl"));
+   }
+ 

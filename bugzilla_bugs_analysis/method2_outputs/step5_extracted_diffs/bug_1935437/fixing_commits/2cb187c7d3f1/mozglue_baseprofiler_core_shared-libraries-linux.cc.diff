@@ -1,0 +1,31 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: mozglue/baseprofiler/core/shared-libraries-linux.cc
+# Commit: 2cb187c7d3f1
+# Full Hash: 2cb187c7d3f15302a7c2665b10157f50155cdbf1
+# Author: Nazım Can Altınova <canaltinova@gmail.com>
+# Date: 2024-12-12 21:24:33
+# Description:
+#   Bug 1935437 - Check in case libName could be nullptr before passing it inside the std::string constructor in LoadedLibraryInfo constructor r=profiler-reviewers,florian
+#   
+#   Before the shared-libraries code deduplication, we were using nsCString for the
+#   `LoadedLibraryInfo::mName`. After the deduplication we started to use
+#   `std::string`.
+# ==============================================================================
+
+diff -r a12102e64074 -r 2cb187c7d3f1 mozglue/baseprofiler/core/shared-libraries-linux.cc
+--- a/mozglue/baseprofiler/core/shared-libraries-linux.cc	Thu Dec 12 13:22:36 2024 +0000
++++ b/mozglue/baseprofiler/core/shared-libraries-linux.cc	Thu Dec 12 13:31:03 2024 +0000
+@@ -740,7 +740,10 @@
+     }
+   }
+ 
+-  libInfoList->push_back(LoadedLibraryInfo(dl_info->dlpi_name, baseAddress,
++  // Check in case it's a nullptr, as we will construct a std::string with it.
++  // It's UB to pass nullptr to the std::string constructor.
++  const char* libName = dl_info->dlpi_name ? dl_info->dlpi_name : "";
++  libInfoList->push_back(LoadedLibraryInfo(libName, baseAddress,
+                                            firstMappingStart, lastMappingEnd));
+ 
+   return 0;

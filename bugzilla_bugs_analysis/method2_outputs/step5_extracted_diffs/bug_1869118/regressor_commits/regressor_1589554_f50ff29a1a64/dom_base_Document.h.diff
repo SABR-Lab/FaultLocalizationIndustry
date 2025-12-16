@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/Document.h
+# Commit: f50ff29a1a64
+# Full Hash: f50ff29a1a649e3aad723b592bdd2c3c325b3d99
+# Author: Vincent Hilla <vhilla@mozilla.com>
+# Date: 2023-12-06 05:18:37
+# Regressor Bug: 1589554
+# File Overlap Count: 1
+# Description:
+#   Bug 1589554 - Part 1: Screen Wake Lock boilerplate. r=dom-core,smaug,emilio,edgar
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D189508
+# ==============================================================================
+
+diff -r 00afe2e46b1b -r f50ff29a1a64 dom/base/Document.h
+--- a/dom/base/Document.h	Tue Dec 05 23:29:16 2023 +0000
++++ b/dom/base/Document.h	Tue Dec 05 23:58:06 2023 +0000
+@@ -54,6 +54,7 @@
+ #include "mozilla/dom/TreeOrderedArray.h"
+ #include "mozilla/dom/ViewportMetaData.h"
+ #include "mozilla/dom/LargestContentfulPaint.h"
++#include "mozilla/dom/WakeLockBinding.h"
+ #include "mozilla/glean/GleanMetrics.h"
+ #include "nsAtom.h"
+ #include "nsCOMArray.h"
+@@ -276,6 +277,7 @@
+ class TouchList;
+ class TreeWalker;
+ enum class ViewportFitType : uint8_t;
++class WakeLockSentinel;
+ class WindowContext;
+ class WindowGlobalChild;
+ class WindowProxyHolder;
+@@ -3536,6 +3538,8 @@
+   // https://drafts.csswg.org/cssom-view/#evaluate-media-queries-and-report-changes
+   void EvaluateMediaQueriesAndReportChanges(bool aRecurse);
+ 
++  nsTHashSet<RefPtr<WakeLockSentinel>>& ActiveWakeLocks(WakeLockType aType);
++
+   // ParentNode
+   nsIHTMLCollection* Children();
+   uint32_t ChildElementCount();
+@@ -5165,6 +5169,10 @@
+   // 2)  We haven't had Destroy() called on us yet.
+   nsCOMPtr<nsILayoutHistoryState> mLayoutHistoryState;
+ 
++  // Mapping of wake lock types to sets of wake locks sentinels
++  // https://w3c.github.io/screen-wake-lock/#internal-slots
++  nsTHashMap<WakeLockType, nsTHashSet<RefPtr<WakeLockSentinel>>> mActiveLocks;
++
+   // The parsed viewport metadata of the last modified <meta name=viewport>
+   // element.
+   UniquePtr<ViewportMetaData> mLastModifiedViewportMetaData;

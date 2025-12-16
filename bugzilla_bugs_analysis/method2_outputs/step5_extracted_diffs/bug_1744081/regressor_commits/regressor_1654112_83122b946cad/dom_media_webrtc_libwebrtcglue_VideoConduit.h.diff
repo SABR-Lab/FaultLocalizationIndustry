@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/VideoConduit.h
+# Commit: 83122b946cad
+# Full Hash: 83122b946cada91c9df705e66e4cbca68eb49852
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 5
+# Description:
+#   Bug 1654112 - Make MediaSessionConduit::DeliverPacket async. r=bwc
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D107064
+# ==============================================================================
+
+diff -r 0e22eb5eaa5c -r 83122b946cad dom/media/webrtc/libwebrtcglue/VideoConduit.h
+--- a/dom/media/webrtc/libwebrtcglue/VideoConduit.h	Thu Mar 25 16:55:12 2021 -0500
++++ b/dom/media/webrtc/libwebrtcglue/VideoConduit.h	Thu Feb 25 17:40:18 2021 +0100
+@@ -88,14 +88,14 @@
+    * APIs used by the registered external transport to this Conduit to
+    * feed in received RTP Frames to the VideoEngine for decoding
+    */
+-  MediaConduitErrorCode ReceivedRTPPacket(const void* data, int len,
+-                                          webrtc::RTPHeader& header) override;
++  void ReceivedRTPPacket(const uint8_t* data, int len,
++                         webrtc::RTPHeader& header) override;
+ 
+   /**
+    * APIs used by the registered external transport to this Conduit to
+    * feed in received RTCP Frames to the VideoEngine for decoding
+    */
+-  MediaConduitErrorCode ReceivedRTCPPacket(const void* data, int len) override;
++  void ReceivedRTCPPacket(const uint8_t* data, int len) override;
+   Maybe<DOMHighResTimeStamp> LastRtcpReceived() const override;
+   DOMHighResTimeStamp GetNow() const override { return mCall->GetNow(); }
+ 
+@@ -272,7 +272,7 @@
+   MediaConduitErrorCode CreateRecvStream();
+   void DeleteRecvStream();
+ 
+-  MediaConduitErrorCode DeliverPacket(const void* data, int len) override;
++  void DeliverPacket(rtc::CopyOnWriteBuffer packet, PacketType type) override;
+ 
+   bool RequiresNewSendStream(const VideoCodecConfig& newConfig) const;
+ 

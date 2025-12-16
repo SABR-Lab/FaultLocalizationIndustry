@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/WarpBuilderShared.h
+# Commit: 5806df2b62db
+# Full Hash: 5806df2b62db0f8f918bab1df43595b3d3b31885
+# Author: André Bargull <andre.bargull@gmail.com>
+# Date: 2021-11-10 09:24:53
+# Regressor Bug: 1739650
+# File Overlap Count: 1
+# Description:
+#   Bug 1739650 - Part 1: Support array scalar replacement for MApplyArray. r=iain
+#   
+#   This follows the approach we use when performing scalar replacement for `arguments`
+#   in `MApplyArgsObj`. Scalar replacement is currently restricted to `MNewArrayObject`,
+#   because only this instruction is guaranteed to be packed.
+# ==============================================================================
+
+diff -r ee898d5997e1 -r 5806df2b62db js/src/jit/WarpBuilderShared.h
+--- a/js/src/jit/WarpBuilderShared.h	Tue Nov 09 16:27:21 2021 +0000
++++ b/js/src/jit/WarpBuilderShared.h	Tue Nov 09 16:30:03 2021 +0000
+@@ -136,6 +136,18 @@
+     MOZ_ALWAYS_TRUE(args_.reserve(numActuals));
+   }
+ 
++  [[nodiscard]] bool initForApplyArray(MDefinition* callee,
++                                       MDefinition* thisVal,
++                                       uint32_t numActuals) {
++    MOZ_ASSERT(args_.empty());
++    MOZ_ASSERT(!constructing_);
++
++    setCallee(callee);
++    setThis(thisVal);
++
++    return args_.reserve(numActuals);
++  }
++
+   void popCallStack(MBasicBlock* current) { current->popn(numFormals()); }
+ 
+   [[nodiscard]] bool pushCallStack(MBasicBlock* current) {

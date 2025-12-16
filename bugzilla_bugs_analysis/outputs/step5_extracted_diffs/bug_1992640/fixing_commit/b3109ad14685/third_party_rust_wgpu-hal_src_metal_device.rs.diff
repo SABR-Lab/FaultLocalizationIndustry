@@ -1,0 +1,37 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/wgpu-hal/src/metal/device.rs
+# Commit: b3109ad14685
+# Full Hash: b3109ad14685624ada7861083ff5332aec9a7818
+# Author: Andy Leiserson <aleiserson@mozilla.com>
+# Date: 2025-10-07 17:00 +0000
+# Description:
+#   Bug 1992842 - Update wgpu to upstream 1072b878 (2025-10-06) r=webgpu-reviewers,supply-chain-reviewers,ErichDonGubler
+# ==============================================================================
+
+diff -r 1d3f000cf1f9 -r b3109ad14685 third_party/rust/wgpu-hal/src/metal/device.rs
+--- a/third_party/rust/wgpu-hal/src/metal/device.rs	Tue Oct 07 16:51:44 2025 +0000
++++ b/third_party/rust/wgpu-hal/src/metal/device.rs	Tue Oct 07 17:00:40 2025 +0000
+@@ -1580,7 +1580,7 @@
+         &self,
+         fence: &super::Fence,
+         wait_value: crate::FenceValue,
+-        timeout_ms: u32,
++        timeout: Option<core::time::Duration>,
+     ) -> DeviceResult<bool> {
+         if wait_value <= fence.completed_value.load(atomic::Ordering::Acquire) {
+             return Ok(true);
+@@ -1603,8 +1603,10 @@
+             if let MTLCommandBufferStatus::Completed = cmd_buf.status() {
+                 return Ok(true);
+             }
+-            if start.elapsed().as_millis() >= timeout_ms as u128 {
+-                return Ok(false);
++            if let Some(timeout) = timeout {
++                if start.elapsed() >= timeout {
++                    return Ok(false);
++                }
+             }
+             thread::sleep(core::time::Duration::from_millis(1));
+         }

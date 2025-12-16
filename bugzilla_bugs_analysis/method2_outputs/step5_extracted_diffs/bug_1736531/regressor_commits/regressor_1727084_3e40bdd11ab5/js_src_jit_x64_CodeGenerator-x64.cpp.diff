@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/x64/CodeGenerator-x64.cpp
+# Commit: 3e40bdd11ab5
+# Full Hash: 3e40bdd11ab5aa13a583162bb8394a234465c3a2
+# Author: Lars T Hansen <lhansen@mozilla.com>
+# Date: 2021-10-18 16:09:29
+# Regressor Bug: 1727084
+# File Overlap Count: 6
+# Description:
+#   Bug 1727084 - Memory64 - Ion operations. r=yury
+#   
+#   Add memory64 generalizations for Ion for all operations (except bulk
+#   memory, done in an earlier patch).
+#   
+# ==============================================================================
+
+diff -r 44b0c0bed8a6 -r 3e40bdd11ab5 js/src/jit/x64/CodeGenerator-x64.cpp
+--- a/js/src/jit/x64/CodeGenerator-x64.cpp	Mon Oct 18 09:58:15 2021 +0000
++++ b/js/src/jit/x64/CodeGenerator-x64.cpp	Mon Oct 18 09:58:16 2021 +0000
+@@ -564,6 +564,8 @@
+   uint32_t offset = mir->access().offset();
+   MOZ_ASSERT(offset < masm.wasmMaxOffsetGuardLimit());
+ 
++  // ptr is a GPR and is either a 32-bit value zero-extended to 64-bit, or a
++  // true 64-bit value.
+   const LAllocation* ptr = ins->ptr();
+   Operand srcAddr = ptr->isBogus()
+                         ? Operand(HeapReg, offset)

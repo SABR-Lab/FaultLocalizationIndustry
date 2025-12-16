@@ -1,0 +1,80 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/painting/nsDisplayList.cpp
+# Commit: 73c915ed013b
+# Full Hash: 73c915ed013b1b6a0435a839e95c38023984612b
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2024-03-23 09:29:17
+# Regressor Bug: 1886506
+# File Overlap Count: 1
+# Description:
+#   Bug 1886506 - Fix caret paint invalidation issues. r=sefeng
+#   
+#   The caret position is in the DOM, and sometimes can get out of sync.
+#   
+#   While that is an issue, it's not new: The code before the regressing bug
+# ==============================================================================
+
+diff -r dda9d04389e1 -r 73c915ed013b layout/painting/nsDisplayList.cpp
+--- a/layout/painting/nsDisplayList.cpp	Fri Mar 22 12:19:50 2024 +0000
++++ b/layout/painting/nsDisplayList.cpp	Fri Mar 22 12:20:14 2024 +0000
+@@ -1104,28 +1104,36 @@
+     return;
+   }
+ 
+-  RefPtr<nsCaret> caret = state->mPresShell->GetCaret();
+-  // This code run for each pres shell and caret->GetPaintGeometry
+-  // will return nullptr for invisible caret. So only one caret
+-  // can be painted at a time.
+-  state->mCaretFrame = caret->GetPaintGeometry(&mCaretRect);
+-
+-  // Check if the display root for the caret matches the display
+-  // root that we're painting, and only use it if it matches. Likely
+-  // we only need this for popup.
+-  if (state->mCaretFrame &&
+-      nsLayoutUtils::GetDisplayRootFrame(state->mCaretFrame) !=
+-          nsLayoutUtils::GetDisplayRootFrame(aReferenceFrame)) {
+-    state->mCaretFrame = nullptr;
+-  }
+-
+-  // Caret frames add visual area to their frame, but we don't update the
+-  // overflow area. Use flags to make sure we build display items for that frame
+-  // instead.
+-  if (state->mCaretFrame) {
+-    MOZ_ASSERT(state->mCaretFrame->PresShell() == state->mPresShell);
+-    MarkFrameForDisplay(state->mCaretFrame, aReferenceFrame);
+-  }
++  state->mCaretFrame = [&]() -> nsIFrame* {
++    RefPtr<nsCaret> caret = state->mPresShell->GetCaret();
++    nsIFrame* currentCaret = caret->GetPaintGeometry(&mCaretRect);
++
++    if (auto* oldCaret = caret->GetLastPaintedFrame();
++        oldCaret && oldCaret != currentCaret) {
++      // Make sure to rebuild the old caret if it has changed.
++      MarkFrameForDisplay(oldCaret, aReferenceFrame);
++    }
++
++    if (!currentCaret) {
++      return nullptr;
++    }
++
++    // Check if the display root for the caret matches the display root that
++    // we're painting, and only use it if it matches. Likely we only need this
++    // for popup.
++    if (nsLayoutUtils::GetDisplayRootFrame(currentCaret) !=
++        nsLayoutUtils::GetDisplayRootFrame(aReferenceFrame)) {
++      return nullptr;
++    }
++
++    // Caret frames add visual area to their frame, but we don't update the
++    // overflow area. Use flags to make sure we build display items for that
++    // frame instead.
++    MOZ_ASSERT(currentCaret->PresShell() == state->mPresShell);
++    MarkFrameForDisplay(currentCaret, aReferenceFrame);
++    caret->SetLastPaintedFrame(currentCaret);
++    return currentCaret;
++  }();
+ }
+ 
+ // A non-blank paint is a paint that does not just contain the canvas

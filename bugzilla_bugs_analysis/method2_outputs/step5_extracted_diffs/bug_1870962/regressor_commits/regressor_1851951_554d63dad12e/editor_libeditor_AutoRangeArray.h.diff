@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/AutoRangeArray.h
+# Commit: 554d63dad12e
+# Full Hash: 554d63dad12e4d1f2560e99de1fafac9a97da026
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2023-09-27 09:02:41
+# Regressor Bug: 1851951
+# File Overlap Count: 1
+# Description:
+#   Bug 1851951 - Make `HTMLEditor` refer computed `display` instead of the HTML default style at considering block or inline element r=m_kato
+#   
+#   Blink [1] and WebKit [2] refers `display-outside` value when they consider whether an
+#   element is a block or an inline.
+#   
+# ==============================================================================
+
+diff -r 97dc7be3b93c -r 554d63dad12e editor/libeditor/AutoRangeArray.h
+--- a/editor/libeditor/AutoRangeArray.h	Wed Sep 27 02:50:33 2023 +0000
++++ b/editor/libeditor/AutoRangeArray.h	Wed Sep 27 03:01:26 2023 +0000
+@@ -10,7 +10,8 @@
+ #include "EditorBase.h"      // for EditorBase
+ #include "EditorDOMPoint.h"  // for EditorDOMPoint, EditorDOMRange, etc
+ #include "EditorForwards.h"
+-#include "SelectionState.h"  // for SelectionState
++#include "HTMLEditHelpers.h"  // for BlockInlineCheck
++#include "SelectionState.h"   // for SelectionState
+ 
+ #include "mozilla/ErrorResult.h"        // for ErrorResult
+ #include "mozilla/IntegerRange.h"       // for IntegerRange
+@@ -422,6 +423,8 @@
+    * range.  Finally, updates ranges to keep edit target ranges as expected.
+    *
+    * @param aHTMLEditor         The HTMLEditor which will handle the splittings.
++   * @param aBlockInlineCheck   Considering block vs inline with whether the
++   *                            computed style or the HTML default style.
+    * @param aElement            The editing host.
+    * @param aAncestorLimiter    A content node which you don't want this to
+    *                            split it.
+@@ -430,7 +433,8 @@
+    */
+   [[nodiscard]] MOZ_CAN_RUN_SCRIPT Result<EditorDOMPoint, nsresult>
+   SplitTextAtEndBoundariesAndInlineAncestorsAtBothBoundaries(
+-      HTMLEditor& aHTMLEditor, const dom::Element& aEditingHost,
++      HTMLEditor& aHTMLEditor, BlockInlineCheck aBlockInlineCheck,
++      const dom::Element& aEditingHost,
+       const nsIContent* aAncestorLimiter = nullptr);
+ 
+   /**

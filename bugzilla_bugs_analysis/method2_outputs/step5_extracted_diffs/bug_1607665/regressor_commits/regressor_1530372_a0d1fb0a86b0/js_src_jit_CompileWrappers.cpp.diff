@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/CompileWrappers.cpp
+# Commit: a0d1fb0a86b0
+# Full Hash: a0d1fb0a86b04c74a8809c35230382f90cdfe779
+# Author: André Bargull <andre.bargull@gmail.com>
+# Date: 2020-01-07 21:57:58
+# Regressor Bug: 1530372
+# File Overlap Count: 1
+# Description:
+#   Bug 1530372 - Part 4: Support nursery allocation for BigInt. r=sfink,jandem
+#   
+#   Most of the code was copied from the String nursery allocation code paths and
+#   then adjusted to work with BigInts. Where applicable, the newly added BigInt
+#   functions were placed right next to the String functions, so it's easier to
+# ==============================================================================
+
+diff -r 9ae1e055de13 -r a0d1fb0a86b0 js/src/jit/CompileWrappers.cpp
+--- a/js/src/jit/CompileWrappers.cpp	Thu Jan 02 13:04:45 2020 +0000
++++ b/js/src/jit/CompileWrappers.cpp	Mon Jan 06 12:49:45 2020 +0000
+@@ -118,6 +118,11 @@
+   return zone()->runtimeFromAnyThread()->gc.addressOfNurseryPosition();
+ }
+ 
++void* CompileZone::addressOfBigIntNurseryPosition() {
++  // Objects and BigInts share a nursery, for now at least.
++  return zone()->runtimeFromAnyThread()->gc.addressOfNurseryPosition();
++}
++
+ const void* CompileZone::addressOfNurseryCurrentEnd() {
+   return zone()->runtimeFromAnyThread()->gc.addressOfNurseryCurrentEnd();
+ }
+@@ -132,6 +137,12 @@
+   return zone()->runtimeFromAnyThread()->gc.addressOfStringNurseryCurrentEnd();
+ }
+ 
++const void* CompileZone::addressOfBigIntNurseryCurrentEnd() {
++  // Similar to Strings, BigInts also share the nursery with other nursery
++  // allocatable things.
++  return zone()->runtimeFromAnyThread()->gc.addressOfBigIntNurseryCurrentEnd();
++}
++
+ uint32_t* CompileZone::addressOfNurseryAllocCount() {
+   return zone()->runtimeFromAnyThread()->gc.addressOfNurseryAllocCount();
+ }
+@@ -141,6 +152,11 @@
+          zone()->allocNurseryStrings;
+ }
+ 
++bool CompileZone::canNurseryAllocateBigInts() {
++  return zone()->runtimeFromAnyThread()->gc.nursery().canAllocateBigInts() &&
++         zone()->allocNurseryBigInts;
++}
++
+ void CompileZone::setMinorGCShouldCancelIonCompilations() {
+   MOZ_ASSERT(CurrentThreadCanAccessZone(zone()));
+   JSRuntime* rt = zone()->runtimeFromMainThread();

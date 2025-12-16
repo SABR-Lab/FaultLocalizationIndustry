@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/public/experimental/TypedData.h
+# Commit: 44c3e9e78d0a
+# Full Hash: 44c3e9e78d0a1b76debac327bab0a94661e3df36
+# Author: Steve Fink <sfink@mozilla.com>
+# Date: 2021-08-13 09:27:46
+# Regressor Bug: 1720422
+# File Overlap Count: 1
+# Description:
+#   Bug 1720422 - Support Rooted<...view type...> operations. r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D120652
+# ==============================================================================
+
+diff -r 6880cf8c51bc -r 44c3e9e78d0a js/public/experimental/TypedData.h
+--- a/js/public/experimental/TypedData.h	Thu Aug 12 20:44:18 2021 +0000
++++ b/js/public/experimental/TypedData.h	Thu Aug 12 20:44:18 2021 +0000
+@@ -608,6 +608,43 @@
+ 
+ }  // namespace JS
+ 
++namespace js {
++
++template <class Wrapper>
++class WrappedPtrOperations_ABoVBase {
++  auto get() const { return static_cast<const Wrapper*>(this)->get(); }
++
++ public:
++  explicit operator bool() const { return bool(get()); }
++  JSObject* asObject() const { return get().asObject(); }
++  bool isDetached() const { return get().isDetached(); }
++};
++
++template <typename Wrapper>
++class WrappedPtrOperations<JS::ArrayBufferOrView, Wrapper>
++    : public WrappedPtrOperations_ABoVBase<Wrapper> {};
++template <typename Wrapper>
++class WrappedPtrOperations<JS::ArrayBuffer, Wrapper>
++    : public WrappedPtrOperations_ABoVBase<Wrapper> {};
++template <typename Wrapper>
++class WrappedPtrOperations<JS::ArrayBufferView, Wrapper>
++    : public WrappedPtrOperations_ABoVBase<Wrapper> {};
++template <typename Wrapper>
++class WrappedPtrOperations<JS::DataView, Wrapper>
++    : public WrappedPtrOperations_ABoVBase<Wrapper> {};
++template <typename Wrapper>
++class WrappedPtrOperations<JS::TypedArray_base, Wrapper>
++    : public WrappedPtrOperations_ABoVBase<Wrapper> {};
++
++#define DECL_TYPED_ARRAY_ROOTED_BASE(_1, _2, Name)                      \
++  template <typename Wrapper>                                           \
++  class WrappedPtrOperations<JS::TypedArray<JS::Scalar::Name>, Wrapper> \
++      : public WrappedPtrOperations_ABoVBase<Wrapper> {};
++JS_FOR_EACH_TYPED_ARRAY(DECL_TYPED_ARRAY_ROOTED_BASE)
++#undef DECL_TYPED_ARRAY_ROOTED_BASE
++
++}  // namespace js
++
+ /*
+  * JS_Is(type)Array(JSObject* maybeWrapped)
+  *

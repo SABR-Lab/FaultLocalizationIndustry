@@ -1,0 +1,118 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/cairo/cairo/src/cairo-xcb-surface.c
+# Commit: 3cdfb39376b7
+# Full Hash: 3cdfb39376b736597fe658a322389117686b7e82
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2024-05-07 09:13:07
+# Regressor Bug: 1892913
+# File Overlap Count: 3
+# Description:
+#   Bug 1892913 - patch 1 - Update cairo source to 1.18.0 r=gfx-reviewers,lsalzman
+#   
+#   Wholesale replacement of files in gfx/cairo/cairo with contents of the 1.18.0 release tarball,
+#   omitting subdirectories that are not part of the core library build.
+#   
+# ==============================================================================
+
+diff -r 9daa351f875b -r 3cdfb39376b7 gfx/cairo/cairo/src/cairo-xcb-surface.c
+--- a/gfx/cairo/cairo/src/cairo-xcb-surface.c	Mon May 06 19:22:35 2024 +0000
++++ b/gfx/cairo/cairo/src/cairo-xcb-surface.c	Mon May 06 19:25:12 2024 +0000
+@@ -50,12 +50,6 @@
+ #include "cairo-surface-backend-private.h"
+ #include "cairo-compositor-private.h"
+ 
+-#if CAIRO_HAS_XLIB_XCB_FUNCTIONS
+-slim_hidden_proto (cairo_xcb_surface_create);
+-slim_hidden_proto (cairo_xcb_surface_create_for_bitmap);
+-slim_hidden_proto (cairo_xcb_surface_create_with_xrender_format);
+-#endif
+-
+ /**
+  * SECTION:cairo-xcb
+  * @Title: XCB Surfaces
+@@ -155,7 +149,7 @@
+     }
+ 
+     if (unlikely (surface->base.status))
+-	_cairo_xcb_connection_free_pixmap (connection, pixmap);
++	xcb_free_pixmap (connection->xcb_connection, pixmap);
+ 
+     _cairo_xcb_connection_release (connection);
+ 
+@@ -220,7 +214,7 @@
+ 	}
+ 
+ 	if (surface->owns_pixmap)
+-	    _cairo_xcb_connection_free_pixmap (surface->connection, surface->drawable);
++	    xcb_free_pixmap (surface->connection->xcb_connection, surface->drawable);
+ 	_cairo_xcb_connection_release (surface->connection);
+     }
+ 
+@@ -423,7 +417,7 @@
+ 						 pixmap,
+ 						 0, 0,
+ 						 width, height);
+-	_cairo_xcb_connection_free_pixmap (connection, pixmap);
++	xcb_free_pixmap (connection->xcb_connection, pixmap);
+     }
+ 
+     if (unlikely (reply == NULL)) {
+@@ -912,8 +906,7 @@
+ 				       cairo_scaled_font_t          *scaled_font,
+ 				       cairo_glyph_t                *glyphs,
+ 				       int                           num_glyphs,
+-				       cairo_bool_t                  overlap,
+-				       cairo_bool_t                  permit_subpixel_antialiasing)
++				       cairo_bool_t                  overlap)
+ {
+     cairo_xcb_surface_t *surface = (cairo_xcb_surface_t *) extents->surface;
+     cairo_surface_t *fallback = _cairo_xcb_surface_fallback (surface, extents);
+@@ -1237,9 +1230,6 @@
+ 					       xrender_format,
+ 					       width, height);
+ }
+-#if CAIRO_HAS_XLIB_XCB_FUNCTIONS
+-slim_hidden_def (cairo_xcb_surface_create);
+-#endif
+ 
+ /**
+  * cairo_xcb_surface_create_for_bitmap:
+@@ -1288,9 +1278,6 @@
+ 					       cairo_xcb_screen->connection->standard_formats[CAIRO_FORMAT_A1],
+ 					       width, height);
+ }
+-#if CAIRO_HAS_XLIB_XCB_FUNCTIONS
+-slim_hidden_def (cairo_xcb_surface_create_for_bitmap);
+-#endif
+ 
+ /**
+  * cairo_xcb_surface_create_with_xrender_format:
+@@ -1380,9 +1367,6 @@
+ 					       format->id,
+ 					       width, height);
+ }
+-#if CAIRO_HAS_XLIB_XCB_FUNCTIONS
+-slim_hidden_def (cairo_xcb_surface_create_with_xrender_format);
+-#endif
+ 
+ /* This does the necessary fixup when a surface's drawable or size changed. */
+ static void
+@@ -1452,9 +1436,6 @@
+     surface->width  = width;
+     surface->height = height;
+ }
+-#if CAIRO_HAS_XLIB_XCB_FUNCTIONS
+-slim_hidden_def (cairo_xcb_surface_set_size);
+-#endif
+ 
+ /**
+  * cairo_xcb_surface_set_drawable:
+@@ -1527,6 +1508,3 @@
+     surface->width  = width;
+     surface->height = height;
+ }
+-#if CAIRO_HAS_XLIB_XCB_FUNCTIONS
+-slim_hidden_def (cairo_xcb_surface_set_drawable);
+-#endif

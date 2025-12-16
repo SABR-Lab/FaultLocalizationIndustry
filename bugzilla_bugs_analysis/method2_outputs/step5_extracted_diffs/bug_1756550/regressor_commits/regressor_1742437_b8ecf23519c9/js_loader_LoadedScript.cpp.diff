@@ -1,0 +1,99 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/loader/LoadedScript.cpp
+# Commit: b8ecf23519c9
+# Full Hash: b8ecf23519c9ab5180d08f00c712674bfe968dac
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-02-21 21:39:46
+# Regressor Bug: 1742437
+# File Overlap Count: 5
+# Description:
+#   Bug 1742437 - re-scope all generic module/script loader files under js/loader; r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D138133
+# ==============================================================================
+
+diff -r 85fd9fc9cffa -r b8ecf23519c9 js/loader/LoadedScript.cpp
+--- a/js/loader/LoadedScript.cpp	Mon Feb 21 15:39:08 2022 +0000
++++ b/js/loader/LoadedScript.cpp	Mon Feb 21 15:39:09 2022 +0000
+@@ -12,8 +12,7 @@
+ #include "jsfriendapi.h"
+ #include "js/Modules.h"  // JS::{Get,Set}ModulePrivate
+ 
+-namespace mozilla {
+-namespace dom {
++namespace JS::loader {
+ 
+ //////////////////////////////////////////////////////////////
+ // LoadedScript
+@@ -41,7 +40,7 @@
+ NS_IMPL_CYCLE_COLLECTING_RELEASE(LoadedScript)
+ 
+ LoadedScript::LoadedScript(ScriptKind aKind, ScriptFetchOptions* aFetchOptions,
+-                           nsIURI* aBaseURL, Element* aElement)
++                           nsIURI* aBaseURL, mozilla::dom::Element* aElement)
+     : mKind(aKind),
+       mFetchOptions(aFetchOptions),
+       mBaseURL(aBaseURL),
+@@ -50,7 +49,7 @@
+   MOZ_ASSERT(mBaseURL);
+ }
+ 
+-LoadedScript::~LoadedScript() { DropJSObjects(this); }
++LoadedScript::~LoadedScript() { mozilla::DropJSObjects(this); }
+ 
+ void LoadedScript::AssociateWithScript(JSScript* aScript) {
+   // Set a JSScript's private value to point to this object. The JS engine will
+@@ -96,7 +95,7 @@
+ //////////////////////////////////////////////////////////////
+ 
+ EventScript::EventScript(ScriptFetchOptions* aFetchOptions, nsIURI* aBaseURL,
+-                         Element* aElement)
++                         mozilla::dom::Element* aElement)
+     : LoadedScript(ScriptKind::eEvent, aFetchOptions, aBaseURL, aElement) {}
+ 
+ //////////////////////////////////////////////////////////////
+@@ -104,7 +103,7 @@
+ //////////////////////////////////////////////////////////////
+ 
+ ClassicScript::ClassicScript(ScriptFetchOptions* aFetchOptions,
+-                             nsIURI* aBaseURL, Element* aElement)
++                             nsIURI* aBaseURL, mozilla::dom::Element* aElement)
+     : LoadedScript(ScriptKind::eClassic, aFetchOptions, aBaseURL, aElement) {}
+ 
+ //////////////////////////////////////////////////////////////
+@@ -135,7 +134,7 @@
+ NS_IMPL_RELEASE_INHERITED(ModuleScript, LoadedScript)
+ 
+ ModuleScript::ModuleScript(ScriptFetchOptions* aFetchOptions, nsIURI* aBaseURL,
+-                           Element* aElement)
++                           mozilla::dom::Element* aElement)
+     : LoadedScript(ScriptKind::eModule, aFetchOptions, aBaseURL, aElement),
+       mDebuggerDataInitialized(false) {
+   MOZ_ASSERT(!ModuleRecord());
+@@ -173,7 +172,7 @@
+   MOZ_ASSERT(JS::GetModulePrivate(mModuleRecord).isUndefined());
+   JS::SetModulePrivate(mModuleRecord, JS::PrivateValue(this));
+ 
+-  HoldJSObjects(this);
++  mozilla::HoldJSObjects(this);
+ }
+ 
+ void ModuleScript::SetParseError(const JS::Value& aError) {
+@@ -183,7 +182,7 @@
+ 
+   UnlinkModuleRecord();
+   mParseError = aError;
+-  HoldJSObjects(this);
++  mozilla::HoldJSObjects(this);
+ }
+ 
+ void ModuleScript::SetErrorToRethrow(const JS::Value& aError) {
+@@ -203,5 +202,4 @@
+   mDebuggerDataInitialized = true;
+ }
+ 
+-}  // namespace dom
+-}  // namespace mozilla
++}  // namespace JS::loader

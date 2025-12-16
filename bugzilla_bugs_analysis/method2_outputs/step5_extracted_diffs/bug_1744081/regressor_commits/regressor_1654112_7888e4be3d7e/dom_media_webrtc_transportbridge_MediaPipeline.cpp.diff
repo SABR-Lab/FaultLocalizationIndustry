@@ -1,0 +1,34 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/transportbridge/MediaPipeline.cpp
+# Commit: 7888e4be3d7e
+# Full Hash: 7888e4be3d7e633739cf590e73b0a3af0ef3f9fc
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 5
+# Description:
+#   Bug 1654112 - Fix remote-inbound-rtp.packetsReceived. r=bwc
+#   
+#   There are two problems with this stat:
+#   - The BaseSeq tracking logic in MediaPipeline doesn't account for multiple ssrcs
+#     (rtx)
+# ==============================================================================
+
+diff -r 6b3195b0e545 -r 7888e4be3d7e dom/media/webrtc/transportbridge/MediaPipeline.cpp
+--- a/dom/media/webrtc/transportbridge/MediaPipeline.cpp	Mon Sep 06 16:04:25 2021 +0200
++++ b/dom/media/webrtc/transportbridge/MediaPipeline.cpp	Wed Sep 08 10:34:57 2021 +0200
+@@ -489,12 +489,6 @@
+   ++mRtpPacketsSent;
+   mRtpBytesSent += aPacket.len();
+ 
+-  if (!mRtpSendBaseSeq) {
+-    MOZ_ASSERT(aPacket.len() >= 4);
+-    // Parse the sequence number of the first rtp packet as base_seq.
+-    mRtpSendBaseSeq.emplace((aPacket.data()[2] << 8) | aPacket.data()[3]);
+-  }
+-
+   if (!(mRtpPacketsSent % 100)) {
+     MOZ_LOG(gMediaPipelineLog, LogLevel::Info,
+             ("RTP sent packet count for %s Pipeline %p: %u (%" PRId64 " bytes)",

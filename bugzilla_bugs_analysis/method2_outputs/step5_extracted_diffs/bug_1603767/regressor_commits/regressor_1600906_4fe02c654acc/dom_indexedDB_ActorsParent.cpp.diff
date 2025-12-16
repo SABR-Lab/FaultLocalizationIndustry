@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/ActorsParent.cpp
+# Commit: 4fe02c654acc
+# Full Hash: 4fe02c654acca4b063bf0b06b5f1d6eb82c4fb55
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2019-12-05 04:11:08
+# Regressor Bug: 1600906
+# File Overlap Count: 1
+# Description:
+#   Bug 1600906 - Make use of FlippedOnce in ThreadRunnable. r=dom-workers-and-storage-reviewers,ytausky
+#   
+#   Depends on D55680
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D55681
+# ==============================================================================
+
+diff -r 4e0758ff6af7 -r 4fe02c654acc dom/indexedDB/ActorsParent.cpp
+--- a/dom/indexedDB/ActorsParent.cpp	Wed Dec 04 14:21:51 2019 +0000
++++ b/dom/indexedDB/ActorsParent.cpp	Wed Dec 04 14:21:05 2019 +0000
+@@ -5269,8 +5269,8 @@
+   const uint32_t mSerialNumber;
+ 
+   // These two values are only modified on the connection thread.
+-  bool mFirstRun;
+-  bool mContinueRunning;
++  FlippedOnce<true> mFirstRun;
++  FlippedOnce<true> mContinueRunning;
+ 
+  public:
+   ThreadRunnable();
+@@ -12220,9 +12220,7 @@
+ 
+ ConnectionPool::ThreadRunnable::ThreadRunnable()
+     : Runnable("dom::indexedDB::ConnectionPool::ThreadRunnable"),
+-      mSerialNumber(++sNextSerialNumber),
+-      mFirstRun(true),
+-      mContinueRunning(true) {
++      mSerialNumber(++sNextSerialNumber) {
+   AssertIsOnBackgroundThread();
+ }
+ 
+@@ -12236,11 +12234,11 @@
+   MOZ_ASSERT(mContinueRunning);
+ 
+   if (!mFirstRun) {
+-    mContinueRunning = false;
+-    return NS_OK;
+-  }
+-
+-  mFirstRun = false;
++    mContinueRunning.Flip();
++    return NS_OK;
++  }
++
++  mFirstRun.Flip();
+ 
+   {
+     // Scope for the profiler label.

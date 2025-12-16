@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/TaskQueueWrapper.cpp
+# Commit: c7dbdd82e8e8
+# Full Hash: c7dbdd82e8e8f9cf93fe92dca922755320f36b29
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 3
+# Description:
+#   Bug 1654112 - Set main thread as current TaskQueue when calling into libwebrtc so that audio calling works. r=bwc
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D102286
+# ==============================================================================
+
+diff -r 7e00d78d6389 -r c7dbdd82e8e8 dom/media/webrtc/libwebrtcglue/TaskQueueWrapper.cpp
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/dom/media/webrtc/libwebrtcglue/TaskQueueWrapper.cpp	Mon Feb 01 09:28:23 2021 +0100
+@@ -0,0 +1,44 @@
++/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-*/
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
++ * You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++#include "TaskQueueWrapper.h"
++
++namespace mozilla {
++namespace {
++class MainWorker {
++ public:
++  const UniquePtr<TaskQueueWrapper> mTaskQueue;
++  MediaEventListener mShutdownListener;
++  const UniquePtr<media::ShutdownBlockingTicket> mTicket;
++  MainWorker(UniquePtr<TaskQueueWrapper> aTaskQueue)
++      : mTaskQueue(std::move(aTaskQueue)),
++        mTicket(MakeUnique<media::ShutdownBlockingTicket>(
++            u"MainWorker::mTicket"_ns, NS_LITERAL_STRING_FROM_CSTRING(__FILE__),
++            __LINE__)) {}
++};
++
++UniquePtr<MainWorker> gMainWorker;
++}  // namespace
++
++TaskQueueWrapper* TaskQueueWrapper::GetMainWorker() {
++  MOZ_ASSERT(NS_IsMainThread());
++  if (!gMainWorker) {
++    gMainWorker = MakeUnique<MainWorker>(
++        MakeUnique<TaskQueueWrapper>(MakeRefPtr<TaskQueue>(
++            do_AddRef(GetMainThreadEventTarget()), "MainWorker")));
++    gMainWorker->mShutdownListener =
++        gMainWorker->mTicket->ShutdownEvent().Connect(
++            GetMainThreadEventTarget(), [] {
++              gMainWorker->mShutdownListener.Disconnect();
++              // Destroying the main thread worker on main thread will deadlock
++              // if there are pending tasks, since it's sync. Do it async.
++              gMainWorker->mTaskQueue->mTaskQueue->BeginShutdown()->Then(
++                  GetMainThreadSerialEventTarget(), __func__,
++                  [worker = std::move(gMainWorker)] { Unused << worker; });
++            });
++  }
++  return gMainWorker->mTaskQueue.get();
++}
++}  // namespace mozilla

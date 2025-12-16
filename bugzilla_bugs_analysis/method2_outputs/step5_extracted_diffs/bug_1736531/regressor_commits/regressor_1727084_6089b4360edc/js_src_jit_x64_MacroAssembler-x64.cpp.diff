@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/x64/MacroAssembler-x64.cpp
+# Commit: 6089b4360edc
+# Full Hash: 6089b4360edcfb3a4bda506e37be8ca75a9f15a6
+# Author: Lars T Hansen <lhansen@mozilla.com>
+# Date: 2021-10-18 16:09:29
+# Regressor Bug: 1727084
+# File Overlap Count: 6
+# Description:
+#   Bug 1727084 - Memory64 - Non-atomic-RMW baseline operations. r=yury
+#   
+#   Implement scalar, SIMD, and atomic loads and stores for the baseline
+#   compiler for x64, x86, arm64, and arm32.  Atomic RMW operations and
+#   wait/notify are in the next patch.
+# ==============================================================================
+
+diff -r b9d32ef0ad83 -r 6089b4360edc js/src/jit/x64/MacroAssembler-x64.cpp
+--- a/js/src/jit/x64/MacroAssembler-x64.cpp	Mon Oct 18 07:31:55 2021 +0000
++++ b/js/src/jit/x64/MacroAssembler-x64.cpp	Mon Oct 18 07:31:55 2021 +0000
+@@ -1494,19 +1494,18 @@
+ }
+ 
+ void MacroAssembler::wasmBoundsCheck64(Condition cond, Register64 index,
+-                                       Register64 boundsCheckLimit,
+-                                       Label* label) {
++                                       Register64 boundsCheckLimit, Label* ok) {
+   cmpPtr(index.reg, boundsCheckLimit.reg);
+-  j(cond, label);
++  j(cond, ok);
+   if (JitOptions.spectreIndexMasking) {
+     cmovCCq(cond, Operand(boundsCheckLimit.reg), index.reg);
+   }
+ }
+ 
+ void MacroAssembler::wasmBoundsCheck64(Condition cond, Register64 index,
+-                                       Address boundsCheckLimit, Label* label) {
++                                       Address boundsCheckLimit, Label* ok) {
+   cmpPtr(index.reg, Operand(boundsCheckLimit));
+-  j(cond, label);
++  j(cond, ok);
+   if (JitOptions.spectreIndexMasking) {
+     cmovCCq(cond, Operand(boundsCheckLimit), index.reg);
+   }

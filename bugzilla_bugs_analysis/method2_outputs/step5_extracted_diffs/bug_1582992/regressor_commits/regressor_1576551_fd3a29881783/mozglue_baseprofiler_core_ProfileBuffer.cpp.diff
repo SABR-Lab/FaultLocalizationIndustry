@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: mozglue/baseprofiler/core/ProfileBuffer.cpp
+# Commit: fd3a29881783
+# Full Hash: fd3a29881783aad22258c96c6ea04220a40f2648
+# Author: Gerald Squelart <gsquelart@mozilla.com>
+# Date: 2019-09-18 09:56:40
+# Regressor Bug: 1576551
+# File Overlap Count: 1
+# Description:
+#   Bug 1576551 - Store BlocksRingBuffer outside of ProfileBuffer - r=gregtatum
+#   
+#   The main `BlocksRingBuffer`s will be stored in `CorePS` (outside of
+#   `ProfileBuffer`s), as we need to be able to safely access the underlying buffers
+#   when profilers are not enabled.
+# ==============================================================================
+
+diff -r 3dfc76ea7bd9 -r fd3a29881783 mozglue/baseprofiler/core/ProfileBuffer.cpp
+--- a/mozglue/baseprofiler/core/ProfileBuffer.cpp	Wed Sep 18 01:19:14 2019 +0000
++++ b/mozglue/baseprofiler/core/ProfileBuffer.cpp	Wed Sep 18 01:19:21 2019 +0000
+@@ -20,16 +20,25 @@
+ // 65536 bytes should be plenty for a single backtrace.
+ static constexpr auto DuplicationBufferBytes = MakePowerOfTwo32<65536>();
+ 
+-// mEntries doesn't need its own mutex, because it is guarded by gPSMutex.
+-ProfileBuffer::ProfileBuffer(PowerOfTwo32 aCapacity)
+-    : mEntries(BlocksRingBuffer::ThreadSafety::WithoutMutex, aCapacity),
++ProfileBuffer::ProfileBuffer(BlocksRingBuffer& aBuffer, PowerOfTwo32 aCapacity)
++    : mEntries(aBuffer),
+       mDuplicationBuffer(MakeUnique<BlocksRingBuffer::Byte[]>(
+-          DuplicationBufferBytes.Value())) {}
++          DuplicationBufferBytes.Value())) {
++  // Only ProfileBuffer should control this buffer, and it should be empty when
++  // there is no ProfileBuffer using it.
++  MOZ_ASSERT(mEntries.BufferLength().isNothing());
++  // Allocate the requested capacity.
++  mEntries.Set(aCapacity);
++}
+ 
+ ProfileBuffer::~ProfileBuffer() {
+   while (mStoredMarkers.peek()) {
+     delete mStoredMarkers.popHead();
+   }
++  // Only ProfileBuffer controls this buffer, and it should be empty when there
++  // is no ProfileBuffer using it.
++  mEntries.Reset();
++  MOZ_ASSERT(mEntries.BufferLength().isNothing());
+ }
+ 
+ /* static */

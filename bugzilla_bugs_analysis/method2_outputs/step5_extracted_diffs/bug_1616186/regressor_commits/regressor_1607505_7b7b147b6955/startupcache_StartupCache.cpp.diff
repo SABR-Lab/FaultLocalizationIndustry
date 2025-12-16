@@ -1,0 +1,121 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: startupcache/StartupCache.cpp
+# Commit: 7b7b147b6955
+# Full Hash: 7b7b147b6955cee07e0c115993446bfbd59cf7e2
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2020-02-13 03:57:45
+# Regressor Bug: 1607505
+# File Overlap Count: 3
+# Description:
+#   Bug 1607505 - Start writing StartupCache earlier in shutdown r=froydnj
+#   
+#   The initial thought for getting the StartupCache out of the shutdown
+#   path was to simply not write it during shutdown, as it should write
+#   60 seconds after startup, and the theory was that if the user shut
+# ==============================================================================
+
+diff -r 0b8589ddbacf -r 7b7b147b6955 startupcache/StartupCache.cpp
+--- a/startupcache/StartupCache.cpp	Wed Feb 12 16:22:10 2020 +0000
++++ b/startupcache/StartupCache.cpp	Wed Feb 12 19:02:12 2020 +0000
+@@ -147,26 +147,7 @@
+       mPrefetchThread(nullptr) {}
+ 
+ StartupCache::~StartupCache() {
+-  if (mTimer) {
+-    mTimer->Cancel();
+-  }
+-
+-  // Generally, the in-memory table should be empty here,
+-  // but an early shutdown means either mTimer didn't run
+-  // or the write thread is still running.
+   WaitOnWriteThread();
+-  WaitOnPrefetchThread();
+-
+-  // If we shutdown quickly timer wont have fired. Instead of writing
+-  // it on the main thread and block the shutdown we simply wont update
+-  // the startup cache. Always do this if the file doesn't exist since
+-  // we use it part of the package step.
+-  if (!mCacheData.initialized() || ShouldCompactCache()) {
+-    mDirty = true;
+-    auto result = WriteToDisk();
+-    Unused << NS_WARN_IF(result.isErr());
+-  }
+-
+   UnregisterWeakMemoryReporter(this);
+ }
+ 
+@@ -613,6 +594,25 @@
+   }
+ }
+ 
++void StartupCache::MaybeInitShutdownWrite() {
++  if (mTimer) {
++    mTimer->Cancel();
++  }
++  gShutdownInitiated = true;
++
++  MaybeSpawnWriteThread();
++
++  // If we shutdown quickly timer wont have fired. Instead of writing
++  // it on the main thread and block the shutdown we simply wont update
++  // the startup cache. Always do this if the file doesn't exist since
++  // we use it part of the package step.
++  if (!mCacheData.initialized() || ShouldCompactCache()) {
++    mDirty = true;
++    auto result = WriteToDisk();
++    Unused << NS_WARN_IF(result.isErr());
++  }
++}
++
+ void StartupCache::IgnoreDiskCache() {
+   gIgnoreDiskCache = true;
+   if (gStartupCache) gStartupCache->InvalidateCache();
+@@ -690,22 +690,28 @@
+    * if the StartupCache object is valid.
+    */
+   StartupCache* startupCacheObj = static_cast<StartupCache*>(aClosure);
+-  if (startupCacheObj->mWrittenOnce) {
++  startupCacheObj->MaybeSpawnWriteThread();
++}
++
++/*
++ * See StartupCache::WriteTimeout above - this is just the non-static body.
++ */
++void StartupCache::MaybeSpawnWriteThread() {
++  if (mWrittenOnce || mWriteThread) {
+     return;
+   }
+ 
+-  if (startupCacheObj->mCacheData.initialized() &&
+-      !startupCacheObj->ShouldCompactCache()) {
++  if (mCacheData.initialized() && !ShouldCompactCache()) {
+     return;
+   }
+ 
+-  startupCacheObj->WaitOnPrefetchThread();
+-  startupCacheObj->mStartupWriteInitiated = false;
+-  startupCacheObj->mDirty = true;
+-  startupCacheObj->mCacheData.reset();
+-  startupCacheObj->mWriteThread = PR_CreateThread(
+-      PR_USER_THREAD, StartupCache::ThreadedWrite, startupCacheObj,
+-      PR_PRIORITY_NORMAL, PR_GLOBAL_THREAD, PR_JOINABLE_THREAD, 512 * 1024);
++  WaitOnPrefetchThread();
++  mStartupWriteInitiated = false;
++  mDirty = true;
++  mCacheData.reset();
++  mWriteThread = PR_CreateThread(PR_USER_THREAD, StartupCache::ThreadedWrite,
++                                 this, PR_PRIORITY_NORMAL, PR_GLOBAL_THREAD,
++                                 PR_JOINABLE_THREAD, 512 * 1024);
+ }
+ 
+ // We don't want to refcount StartupCache, so we'll just
+@@ -720,6 +726,7 @@
+   if (strcmp(topic, NS_XPCOM_SHUTDOWN_OBSERVER_ID) == 0) {
+     // Do not leave the thread running past xpcom shutdown
+     sc->WaitOnWriteThread();
++    sc->WaitOnPrefetchThread();
+     StartupCache::gShutdownInitiated = true;
+   } else if (strcmp(topic, "startupcache-invalidate") == 0) {
+     sc->InvalidateCache(data && nsCRT::strcmp(data, u"memoryOnly") == 0);

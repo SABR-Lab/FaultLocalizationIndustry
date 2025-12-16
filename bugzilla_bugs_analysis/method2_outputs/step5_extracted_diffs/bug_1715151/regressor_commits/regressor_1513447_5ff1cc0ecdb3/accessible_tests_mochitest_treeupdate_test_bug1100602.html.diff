@@ -1,0 +1,125 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/tests/mochitest/treeupdate/test_bug1100602.html
+# Commit: 5ff1cc0ecdb3
+# Full Hash: 5ff1cc0ecdb3cc503d6e0b6f5509eda78d551c7a
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2021-05-05 04:13:36
+# Regressor Bug: 1513447
+# File Overlap Count: 1
+# Description:
+#   Bug 1513447 - Use generated marker elements for list bullet accessibles. r=Jamie
+#   
+#   In 1513447 there is a demonstrated instance in which the generated
+#   marker is replaced with another one and throws the list item bullet
+#   state into an unknown state. To remedy this we need to observe when such
+# ==============================================================================
+
+diff -r 029a5e8fa8f3 -r 5ff1cc0ecdb3 accessible/tests/mochitest/treeupdate/test_bug1100602.html
+--- a/accessible/tests/mochitest/treeupdate/test_bug1100602.html	Tue May 04 18:46:44 2021 +0000
++++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
+@@ -1,103 +0,0 @@
+-<html>
+-
+-<head>
+-  <title>Test hide/show events for HTMLListBulletAccessibles on list restyle</title>
+-  <link rel="stylesheet" type="text/css"
+-        href="chrome://mochikit/content/tests/SimpleTest/test.css" />
+-
+-  <script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
+-
+-  <script type="application/javascript"
+-          src="../common.js"></script>
+-  <script type="application/javascript"
+-          src="../name.js"></script>
+-  <script type="application/javascript"
+-          src="../events.js"></script>
+-
+-  <script type="application/javascript">
+-    /**
+-     * Change list style type to none.
+-     */
+-    function hideBullet() {
+-      this.eventSeq = [];
+-      this.liAcc = getAccessible("list_element");
+-      this.bullet = this.liAcc.firstChild;
+-
+-      this.eventSeq.push(new invokerChecker(EVENT_HIDE, this.bullet));
+-      this.eventSeq.push(new invokerChecker(EVENT_REORDER, this.liAcc));
+-
+-      this.invoke = function hideBullet_invoke() {
+-        getNode("list").setAttribute("style", "list-style-type: none;");
+-      };
+-
+-      this.finalCheck = function hideBullet_finalCheck() {
+-        is(this.liAcc.name, "list element",
+-          "Check that first child of LI is not a bullet.");
+-      };
+-
+-      this.getID = function hideBullet_getID() {
+-        return "Hide bullet by setting style to none";
+-      };
+-    }
+-
+-    /**
+-     * Change list style type to circles.
+-     */
+-    function showBullet() {
+-      this.eventSeq = [];
+-      this.liAcc = getAccessible("list_element");
+-
+-      this.eventSeq.push(new invokerChecker(EVENT_SHOW,
+-                                            function(aNode) { return aNode.firstChild; },
+-                                            this.liAcc));
+-      this.eventSeq.push(new invokerChecker(EVENT_REORDER, this.liAcc));
+-
+-      this.invoke = function showBullet_invoke() {
+-        getNode("list").setAttribute("style", "list-style-type: circle;");
+-      };
+-
+-      this.finalCheck = function showBullet_finalCheck() {
+-        is(this.liAcc.name, "◦ list element",
+-          "Check that first child of LI is a circle bullet.");
+-      };
+-
+-      this.getID = function showBullet_getID() {
+-        return "Show bullet by setting style to circle";
+-      };
+-    }
+-
+-    var gQueue = null;
+-    function doTest() {
+-      var list = getNode("list");
+-      list.setAttribute("style", "list-style-type: circle;");
+-
+-      gQueue = new eventQueue();
+-      gQueue.push(new hideBullet());
+-      gQueue.push(new showBullet());
+-      gQueue.invoke(); // SimpleTest.finish();
+-    }
+-
+-    SimpleTest.waitForExplicitFinish();
+-    addA11yLoadEvent(doTest);
+-  </script>
+-
+-</head>
+-
+-<body>
+-
+-  <a target="_blank"
+-     href="https://bugzilla.mozilla.org/show_bug.cgi?id=1100602"
+-     title="[e10s] crash in mozilla::a11y::ProxyAccessible::Shutdown()">
+-    Mozilla Bug 1100602
+-  </a>
+-  <p id="display"></p>
+-  <div id="content" style="display: none"></div>
+-  <pre id="test">
+-  </pre>
+-
+-  <ol id="list">
+-    <li id="list_element">list element</li>
+-  </ol>
+-
+-</body>
+-</html>

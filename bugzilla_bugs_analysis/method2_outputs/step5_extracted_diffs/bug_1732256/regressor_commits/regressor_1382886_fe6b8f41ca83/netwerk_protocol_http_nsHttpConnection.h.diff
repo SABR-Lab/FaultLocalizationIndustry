@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/nsHttpConnection.h
+# Commit: fe6b8f41ca83
+# Full Hash: fe6b8f41ca8320bf889c5a84b3ea1cad07dc4016
+# Author: Dragana Damjanovic <dd.mozilla@gmail.com>
+# Date: 2021-09-17 21:50:08
+# Regressor Bug: 1382886
+# File Overlap Count: 1
+# Description:
+#   Bug 1382886 - Refactor EnsureNPNComplete r=necko-reviewers,kershaw
+#   
+#   Extract Check0RttEnabled
+#   The old code checks 0RTT state then does a DriveHandshake then checks 0RTT again. This is done in this way because before DriveHandshake is called for the first time 0RTT states are not set.  DriveHandshake is sometimes called as a side effect by IsAlive() check. The new code makes this less complex and just calls DriveHandshaek before checking 0RTT.
+#   Extract code for setting 0RTT telemetry values.
+# ==============================================================================
+
+diff -r af80802b2175 -r fe6b8f41ca83 netwerk/protocol/http/nsHttpConnection.h
+--- a/netwerk/protocol/http/nsHttpConnection.h	Fri Sep 17 13:15:44 2021 +0000
++++ b/netwerk/protocol/http/nsHttpConnection.h	Fri Sep 17 13:19:00 2021 +0000
+@@ -243,6 +243,8 @@
+   [[nodiscard]] nsresult DisableTCPKeepalives();
+ 
+   bool CheckCanWrite0RTTData();
++  void Check0RttEnabled(nsISSLSocketControl* ssl);
++  void EarlyDataTelemetry(int16_t tlsVersion, bool earlyDataAccepted);
+ 
+  private:
+   // mTransaction only points to the HTTP Transaction callbacks if the

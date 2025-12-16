@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/ffvpx/libavutil/frame.c
+# Commit: 186e2a334f2d
+# Full Hash: 186e2a334f2deb37b29f44b28bc8c83babeeb9a4
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2024-02-09 09:37:17
+# Regressor Bug: 1877221
+# File Overlap Count: 1
+# Description:
+#   Bug 1877221 - Pull in new ffmpeg code, reapply patch. r=media-playback-reviewers,chunmin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D199909
+# ==============================================================================
+
+diff -r c5920de78d16 -r 186e2a334f2d media/ffvpx/libavutil/frame.c
+--- a/media/ffvpx/libavutil/frame.c	Thu Feb 08 10:39:53 2024 +0000
++++ b/media/ffvpx/libavutil/frame.c	Thu Feb 08 10:39:54 2024 +0000
+@@ -833,7 +833,6 @@
+ 
+ static int frame_copy_video(AVFrame *dst, const AVFrame *src)
+ {
+-    const uint8_t *src_data[4];
+     int planes;
+ 
+     if (dst->width  < src->width ||
+@@ -848,10 +847,9 @@
+         if (!dst->data[i] || !src->data[i])
+             return AVERROR(EINVAL);
+ 
+-    memcpy(src_data, src->data, sizeof(src_data));
+-    av_image_copy(dst->data, dst->linesize,
+-                  src_data, src->linesize,
+-                  dst->format, src->width, src->height);
++    av_image_copy2(dst->data, dst->linesize,
++                   src->data, src->linesize,
++                   dst->format, src->width, src->height);
+ 
+     return 0;
+ }

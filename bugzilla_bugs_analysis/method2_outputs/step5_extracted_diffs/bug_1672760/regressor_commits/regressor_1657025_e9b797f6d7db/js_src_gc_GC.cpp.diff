@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/GC.cpp
+# Commit: e9b797f6d7db
+# Full Hash: e9b797f6d7db42f5ee5c0023ce5fc020759a5e4c
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2020-10-13 21:43:51
+# Regressor Bug: 1657025
+# File Overlap Count: 1
+# Description:
+#   Bug 1657025 - Wait for all background GC tasks to finish before collecting memory stats r=sfink
+#   
+#   This adds a new function to wait for all background tasks after a GC has
+#   finished. It does remove the wait on background free task from FinishGC but I
+#   couldn't see anywhere that would matter and try is green with this patch.
+# ==============================================================================
+
+diff -r d338a3af3f80 -r e9b797f6d7db js/src/gc/GC.cpp
+--- a/js/src/gc/GC.cpp	Tue Oct 13 10:16:46 2020 +0000
++++ b/js/src/gc/GC.cpp	Mon Oct 12 19:03:20 2020 +0000
+@@ -7781,8 +7781,21 @@
+     JS::PrepareForIncrementalGC(cx);
+     JS::FinishIncrementalGC(cx, reason);
+   }
+-
+-  cx->runtime()->gc.waitBackgroundFreeEnd();
++}
++
++void js::gc::WaitForBackgroundTasks(JSContext* cx) {
++  cx->runtime()->gc.waitForBackgroundTasks();
++}
++
++void GCRuntime::waitForBackgroundTasks() {
++  MOZ_ASSERT(!isIncrementalGCInProgress());
++  MOZ_ASSERT(sweepTask.isIdle());
++  MOZ_ASSERT(decommitTask.isIdle());
++  MOZ_ASSERT(sweepMarkTask.isIdle());
++
++  allocTask.join();
++  freeTask.join();
++  nursery().joinDecommitTask();
+ }
+ 
+ Realm* js::NewRealm(JSContext* cx, JSPrincipals* principals,

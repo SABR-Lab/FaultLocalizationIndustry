@@ -1,0 +1,75 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/HostWebGLContext.cpp
+# Commit: 7e2a2b1b416f
+# Full Hash: 7e2a2b1b416f1a64c6548aab29e92acc9554ae7d
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Fix all webgl regression tests according to CI. r=handyman
+#   
+#   (This is a combination of 31 commits)
+#   
+#   * Fix Linux compilation.
+# ==============================================================================
+
+diff -r ccfa767dba64 -r 7e2a2b1b416f dom/canvas/HostWebGLContext.cpp
+--- a/dom/canvas/HostWebGLContext.cpp	Wed Jan 08 22:19:16 2020 +0000
++++ b/dom/canvas/HostWebGLContext.cpp	Wed Jan 08 22:19:23 2020 +0000
+@@ -27,10 +27,32 @@
+ #include "WebGLVertexArray.h"
+ #include "WebGLQuery.h"
+ 
++#include "mozilla/StaticMutex.h"
++
+ namespace mozilla {
+ 
+ LazyLogModule gWebGLBridgeLog("webglbridge");
+ 
++// -
++
++static StaticMutex sContextSetLock;
++
++static std::unordered_set<HostWebGLContext*>& DeferredStaticContextSet() {
++  static std::unordered_set<HostWebGLContext*> sContextSet;
++  return sContextSet;
++}
++
++LockedOutstandingContexts::LockedOutstandingContexts()
++    : contexts(DeferredStaticContextSet()) {
++  sContextSetLock.Lock();
++}
++
++LockedOutstandingContexts::~LockedOutstandingContexts() {
++  sContextSetLock.Unlock();
++}
++
++// -
++
+ /*static*/
+ UniquePtr<HostWebGLContext> HostWebGLContext::Create(
+     OwnerData&& ownerData, const webgl::InitContextDesc& desc,
+@@ -46,11 +68,18 @@
+   if (mOwnerData.outOfProcess) {
+     mOwnerData.outOfProcess->mCommandSink->mHostContext = this;
+   }
+-  WebGLMemoryTracker::AddContext(this);
++
++  {
++    StaticMutexAutoLock lock(sContextSetLock);
++    auto& contexts = DeferredStaticContextSet();
++    (void)contexts.insert(this);
++  }
+ }
+ 
+ HostWebGLContext::~HostWebGLContext() {
+-  WebGLMemoryTracker::RemoveContext(this);
++  StaticMutexAutoLock lock(sContextSetLock);
++  auto& contexts = DeferredStaticContextSet();
++  (void)contexts.erase(this);
+ }
+ 
+ // -

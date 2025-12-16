@@ -1,0 +1,39 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/windowwatcher/nsWindowWatcher.cpp
+# Commit: d0acf898fb0d
+# Full Hash: d0acf898fb0d00fac535141d777659ef6702b710
+# Author: Kris Maglione <maglione.k@gmail.com>
+# Date: 2019-09-12 21:52:31
+# Description:
+#   Bug 1574593: Silently ignore load attempt on/from discarded BrowsingContext. r=nika
+#   
+#   The (non-normative) window.open spec does not specify what should happen when
+#   window.open is called on a window with a null/discarded browsing context, but
+#   in general the lookup and creation rules do not make sense when the window has
+# ==============================================================================
+
+diff -r d54701f32f28 -r d0acf898fb0d toolkit/components/windowwatcher/nsWindowWatcher.cpp
+--- a/toolkit/components/windowwatcher/nsWindowWatcher.cpp	Thu Sep 12 14:35:46 2019 +0300
++++ b/toolkit/components/windowwatcher/nsWindowWatcher.cpp	Thu Sep 12 11:37:01 2019 +0000
+@@ -646,6 +646,19 @@
+   RefPtr<BrowsingContext> parentBC(
+       parentWindow ? parentWindow->GetBrowsingContext() : nullptr);
+ 
++  // Return null for any attempt to trigger a load from a discarded browsing
++  // context. The spec is non-normative, and doesn't specify what should happen
++  // when window.open is called on a window with a null browsing context, but it
++  // does give us broad discretion over when we can decide to ignore an open
++  // request and return null.
++  //
++  // Regardless, we cannot trigger a cross-process load from a discarded
++  // browsing context, and ideally we should behave consistently whether a load
++  // is same-process or cross-process.
++  if (parentBC && parentBC->IsDiscarded()) {
++    return NS_ERROR_ABORT;
++  }
++
+   // try to find an extant browsing context with the given name
+   newBC = GetBrowsingContextByName(name, aForceNoOpener, parentBC);
+ 

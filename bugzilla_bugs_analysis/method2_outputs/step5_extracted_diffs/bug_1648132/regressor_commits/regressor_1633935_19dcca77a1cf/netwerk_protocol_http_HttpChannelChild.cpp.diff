@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/HttpChannelChild.cpp
+# Commit: 19dcca77a1cf
+# Full Hash: 19dcca77a1cf1c590dfda293418aec84cce701de
+# Author: Junior Hsu <juhsu@mozilla.com>
+# Date: 2020-06-24 09:31:07
+# Regressor Bug: 1633935
+# File Overlap Count: 1
+# Description:
+#   Bug 1633935 - P1 allow OnStartRequest go thru pBg IPC, r=mayhemer
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D73529
+# ==============================================================================
+
+diff -r 91c26c5b1e33 -r 19dcca77a1cf netwerk/protocol/http/HttpChannelChild.cpp
+--- a/netwerk/protocol/http/HttpChannelChild.cpp	Tue Jun 23 18:34:42 2020 +0000
++++ b/netwerk/protocol/http/HttpChannelChild.cpp	Tue Jun 23 16:56:15 2020 +0000
+@@ -389,6 +389,26 @@
+   mApplicationCache->InitAsHandle(aGroupID, aClientID);
+ }
+ 
++void HttpChannelChild::ProcessOnStartRequest(
++    const nsHttpResponseHead& aResponseHead, const bool& aUseResponseHead,
++    const nsHttpHeaderArray& aRequestHeaders,
++    const HttpChannelOnStartRequestArgs& aArgs) {
++  LOG(("HttpChannelChild::ProcessOnStartRequest [this=%p]\n", this));
++  MOZ_ASSERT(OnSocketThread());
++  MOZ_ASSERT(!mMultiPartID,
++             "Should only send OnStartRequest on the main-thread channel when "
++             "using multi-part!");
++  MOZ_RELEASE_ASSERT(!mFlushedForDiversion,
++                     "Should not be receiving any more callbacks from parent!");
++
++  mEventQ->RunOrEnqueue(new NeckoTargetChannelFunctionEvent(
++      this, [self = UnsafePtr<HttpChannelChild>(this), aResponseHead,
++             aUseResponseHead, aRequestHeaders, aArgs]() {
++        self->OnStartRequest(aResponseHead, aUseResponseHead, aRequestHeaders,
++                             aArgs);
++      }));
++}
++
+ mozilla::ipc::IPCResult HttpChannelChild::RecvOnStartRequest(
+     const nsHttpResponseHead& aResponseHead, const bool& aUseResponseHead,
+     const nsHttpHeaderArray& aRequestHeaders,

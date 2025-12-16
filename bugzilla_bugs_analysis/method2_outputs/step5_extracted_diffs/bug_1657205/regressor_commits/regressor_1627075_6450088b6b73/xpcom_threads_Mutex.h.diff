@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: xpcom/threads/Mutex.h
+# Commit: 6450088b6b73
+# Full Hash: 6450088b6b73ffc17c79cd7097b1bfe30d00e207
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2020-09-14 21:29:41
+# Regressor Bug: 1627075
+# File Overlap Count: 1
+# Description:
+#   Bug 1656261 - Back out all recent StartupCache work r=RyanVM
+#   
+#   This backs out all work from bug 1627075 as well as all of its
+#   descendents. There were a few conflicts when backing this out but
+#   overall it was pretty clean, so I would say it's a fairly mild
+# ==============================================================================
+
+diff -r b0fabcd60430 -r 6450088b6b73 xpcom/threads/Mutex.h
+--- a/xpcom/threads/Mutex.h	Mon Sep 14 17:32:40 2020 +0000
++++ b/xpcom/threads/Mutex.h	Mon Sep 14 17:00:53 2020 +0000
+@@ -8,9 +8,7 @@
+ #define mozilla_Mutex_h
+ 
+ #include "mozilla/BlockingResourceBase.h"
+-#include "mozilla/Maybe.h"
+ #include "mozilla/PlatformMutex.h"
+-#include "mozilla/Unused.h"
+ 
+ //
+ // Provides:
+@@ -160,25 +158,6 @@
+ 
+   ~BaseAutoLock(void) { mLock.Unlock(); }
+ 
+-  /**
+-   * TryMake
+-   * Tries to lock the mutex with TryLock, and returns true with aOutAutoLock
+-   * containing the BaseAutoLock if TryLock was successful. Otherwise returns
+-   * false.
+-   *
+-   * @param aLock A valid mozilla::Mutex* returned by
+-   *              mozilla::Mutex::NewMutex.
+-   * @param aOutAutoLock A Maybe<BaseAutoLock<T>> to fill if TryLock succeeds.
+-   **/
+-  [[nodiscard]] static bool TryMake(T aLock,
+-                                    Maybe<BaseAutoLock<T>>& aOutAutoLock) {
+-    if (aLock.TryLock()) {
+-      aOutAutoLock.emplace(aLock, /* aPlaceholder: */ true);
+-      return true;
+-    }
+-    return false;
+-  }
+-
+   // Assert that aLock is the mutex passed to the constructor and that the
+   // current thread owns the mutex.  In coding patterns such as:
+   //
+@@ -215,18 +194,8 @@
+   BaseAutoLock& operator=(BaseAutoLock&);
+   static void* operator new(size_t) noexcept(true);
+ 
+-  // This is the internal cconstructor used by TryMake. We need it to be a
+-  // constructor to distinguish it from the public constructor, so we add a
+-  // dummy variable to track that.
+-  BaseAutoLock(T aLock, bool aPlaceholder) : mLock(aLock) {
+-    Unused << aPlaceholder;
+-  }
+-
+   friend class BaseAutoUnlock<T>;
+ 
+-  // So that Maybe can access our private constructor
+-  friend class Maybe<BaseAutoLock<T>>;
+-
+   T mLock;
+ };
+ 

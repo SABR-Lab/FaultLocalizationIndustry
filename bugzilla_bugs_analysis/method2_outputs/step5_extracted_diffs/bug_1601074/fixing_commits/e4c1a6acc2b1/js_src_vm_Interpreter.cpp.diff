@@ -1,0 +1,28 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/Interpreter.cpp
+# Commit: e4c1a6acc2b1
+# Full Hash: e4c1a6acc2b152f69aefa80f46b8c14d999cc385
+# Author: Chris Fallin <cfallin@mozilla.com>
+# Date: 2019-12-05 04:11:08
+# Description:
+#   Bug 1601074: Fix preliminary-objects-set issue wrt NEWOBJECT_WITHGROUP. r=iain
+#   
+#   The recent addition of the JSOP_NEWOBJECT_WITHGROUP opcode for bug
+#   1598347 (itself a regression fix for 1580246) has led to an issue when
+#   more than a certain number of array elements with the same group are
+# ==============================================================================
+
+diff -r d8b0a5b0a5af -r e4c1a6acc2b1 js/src/vm/Interpreter.cpp
+--- a/js/src/vm/Interpreter.cpp	Wed Dec 04 09:56:50 2019 +0000
++++ b/js/src/vm/Interpreter.cpp	Wed Dec 04 00:47:39 2019 +0000
+@@ -5259,7 +5259,7 @@
+   } else {
+     obj->setGroup(group);
+ 
+-    if (!IsInsideNursery(obj)) {
++    if (!withTemplateGroup) {
+       AutoSweepObjectGroup sweep(group);
+       if (PreliminaryObjectArray* preliminaryObjects =
+               group->maybePreliminaryObjects(sweep)) {

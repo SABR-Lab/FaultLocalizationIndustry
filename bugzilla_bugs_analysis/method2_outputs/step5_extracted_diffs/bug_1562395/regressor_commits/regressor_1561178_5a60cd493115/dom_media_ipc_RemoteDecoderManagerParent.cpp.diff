@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/ipc/RemoteDecoderManagerParent.cpp
+# Commit: 5a60cd493115
+# Full Hash: 5a60cd493115214a5a3cf1cd0037e25ae6645e2c
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2019-06-28 16:12:48
+# Regressor Bug: 1561178
+# File Overlap Count: 1
+# Description:
+#   Bug 1561178 - Use Endpoints for VideoBridge construction, and support the possibility that there are multiple at the same time. r=jya
+#   
+#   In the future we're going to want VideoBridge connections from the RDD process into both the parent process and the GPU process.
+#   This does the preparation work for unifying the way we create VideoBridges (using Endpoints, required for cross-process connections),
+#   and detects which one to use based on where the video will be composited.
+# ==============================================================================
+
+diff -r c9f9bba02acf -r 5a60cd493115 dom/media/ipc/RemoteDecoderManagerParent.cpp
+--- a/dom/media/ipc/RemoteDecoderManagerParent.cpp	Fri Jun 28 06:32:16 2019 +0000
++++ b/dom/media/ipc/RemoteDecoderManagerParent.cpp	Fri Jun 28 07:00:41 2019 +0000
+@@ -114,8 +114,9 @@
+ #endif
+   if (XRE_IsGPUProcess()) {
+     sRemoteDecoderManagerParentThread->Dispatch(
+-        NS_NewRunnableFunction("RemoteDecoderManagerParent::StartupThreads",
+-                               []() { layers::VideoBridgeChild::Startup(); }),
++        NS_NewRunnableFunction(
++            "RemoteDecoderManagerParent::StartupThreads",
++            []() { layers::VideoBridgeChild::StartupForGPUProcess(); }),
+         NS_DISPATCH_NORMAL);
+   }
+ 

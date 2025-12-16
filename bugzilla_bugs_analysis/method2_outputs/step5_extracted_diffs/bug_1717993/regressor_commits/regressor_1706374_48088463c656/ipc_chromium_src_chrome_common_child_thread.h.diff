@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: ipc/chromium/src/chrome/common/child_thread.h
+# Commit: 48088463c656
+# Full Hash: 48088463c6568b03a3e6a4ca6417dd9b650ced2a
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2021-06-22 21:29:07
+# Regressor Bug: 1706374
+# File Overlap Count: 2
+# Description:
+#   Bug 1706374 - Part 12a: Initialize NodeController when creating IO thread, r=handyman
+#   
+#   This also consumes the existing channel created when launching a process to
+#   create the the conneciton required by NodeController for communicating between
+#   processes. In part 12b, consumers of the broken APIs will be adjusted to use
+# ==============================================================================
+
+diff -r b09ae4c3a94b -r 48088463c656 ipc/chromium/src/chrome/common/child_thread.h
+--- a/ipc/chromium/src/chrome/common/child_thread.h	Mon Jun 21 21:53:10 2021 +0000
++++ b/ipc/chromium/src/chrome/common/child_thread.h	Mon Jun 21 21:53:10 2021 +0000
+@@ -9,7 +9,9 @@
+ 
+ #include "base/thread.h"
+ #include "chrome/common/ipc_channel.h"
++#include "mojo/core/ports/port_ref.h"
+ #include "mozilla/UniquePtr.h"
++#include "mozilla/ipc/ScopedPort.h"
+ 
+ class ResourceDispatcher;
+ 
+@@ -30,7 +32,9 @@
+   // Returns the one child thread.
+   static ChildThread* current();
+ 
+-  mozilla::UniquePtr<IPC::Channel> TakeChannel() { return std::move(channel_); }
++  mozilla::ipc::ScopedPort TakeInitialPort() {
++    return std::move(initial_port_);
++  }
+ 
+   // Thread implementation.
+   virtual void Init() override;
+@@ -45,7 +49,8 @@
+   MessageLoop* owner_loop_;
+ 
+   IPC::Channel::ChannelId channel_name_;
+-  mozilla::UniquePtr<IPC::Channel> channel_;
++
++  mozilla::ipc::ScopedPort initial_port_;
+ 
+   Thread::Options options_;
+ 

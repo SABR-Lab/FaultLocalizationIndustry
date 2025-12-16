@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxPlatformMac.h
+# Commit: 0895df8f4a77
+# Full Hash: 0895df8f4a7708200f6b752e798c609628b39650
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2021-04-30 21:45:04
+# Regressor Bug: 1707655
+# File Overlap Count: 1
+# Description:
+#   Bug 1707655 - Move the activation of supplemental fonts on macOS to a separate thread and try to get it started earlier. r=lsalzman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D113552
+# ==============================================================================
+
+diff -r 097daf3a851d -r 0895df8f4a77 gfx/thebes/gfxPlatformMac.h
+--- a/gfx/thebes/gfxPlatformMac.h	Fri Apr 30 13:11:37 2021 +0000
++++ b/gfx/thebes/gfxPlatformMac.h	Fri Apr 30 13:50:47 2021 +0000
+@@ -22,6 +22,17 @@
+   gfxPlatformMac();
+   virtual ~gfxPlatformMac();
+ 
++  // Call early in startup to register the macOS supplemental language fonts
++  // so that they're usable by the browser. This is intended to be called as
++  // early as possible, before most services etc are initialized; it starts
++  // a separate thread to register the fonts, because this is quite slow.
++  static void RegisterSupplementalFonts();
++
++  // Call from the main thread at the point where we need to start using the
++  // font list; this will wait (if necessary) for the registration thread to
++  // finish.
++  static void WaitForFontRegistration();
++
+   static gfxPlatformMac* GetPlatform() {
+     return (gfxPlatformMac*)gfxPlatform::GetPlatform();
+   }
+@@ -85,6 +96,8 @@
+   static uint32_t ReadAntiAliasingThreshold();
+ 
+   uint32_t mFontAntiAliasingThreshold;
++
++  static PRThread* sFontRegistrationThread;
+ };
+ 
+ #endif /* GFX_PLATFORM_MAC_H */

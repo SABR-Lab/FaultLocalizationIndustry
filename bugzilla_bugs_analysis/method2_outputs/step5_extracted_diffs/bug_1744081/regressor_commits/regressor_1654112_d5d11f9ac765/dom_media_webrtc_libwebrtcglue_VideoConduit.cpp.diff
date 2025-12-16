@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/VideoConduit.cpp
+# Commit: d5d11f9ac765
+# Full Hash: d5d11f9ac765493245a020af66bb1c371ba3ba1a
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 1
+# Description:
+#   Bug 1654112 - Fix static-analysis errors. r=bwc
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D108079
+# ==============================================================================
+
+diff -r 83122b946cad -r d5d11f9ac765 dom/media/webrtc/libwebrtcglue/VideoConduit.cpp
+--- a/dom/media/webrtc/libwebrtcglue/VideoConduit.cpp	Thu Feb 25 17:40:18 2021 +0100
++++ b/dom/media/webrtc/libwebrtcglue/VideoConduit.cpp	Wed Mar 10 18:22:57 2021 +0100
+@@ -335,20 +335,24 @@
+   mRecvStreamConfig.renderer = this;
+ 
+   mSendPluginCreated = mEncoderFactory->CreatedGmpPluginEvent().Connect(
+-      GetMainThreadSerialEventTarget(), [this](uint64_t aPluginID) {
+-        mSendCodecPluginIDs.AppendElement(aPluginID);
++      GetMainThreadSerialEventTarget(),
++      [self = detail::RawPtr(this)](uint64_t aPluginID) {
++        self.get()->mSendCodecPluginIDs.AppendElement(aPluginID);
+       });
+   mSendPluginReleased = mEncoderFactory->ReleasedGmpPluginEvent().Connect(
+-      GetMainThreadSerialEventTarget(), [this](uint64_t aPluginID) {
+-        mSendCodecPluginIDs.RemoveElement(aPluginID);
++      GetMainThreadSerialEventTarget(),
++      [self = detail::RawPtr(this)](uint64_t aPluginID) {
++        self.get()->mSendCodecPluginIDs.RemoveElement(aPluginID);
+       });
+   mRecvPluginCreated = mDecoderFactory->CreatedGmpPluginEvent().Connect(
+-      GetMainThreadSerialEventTarget(), [this](uint64_t aPluginID) {
+-        mRecvCodecPluginIDs.AppendElement(aPluginID);
++      GetMainThreadSerialEventTarget(),
++      [self = detail::RawPtr(this)](uint64_t aPluginID) {
++        self.get()->mRecvCodecPluginIDs.AppendElement(aPluginID);
+       });
+   mRecvPluginReleased = mDecoderFactory->ReleasedGmpPluginEvent().Connect(
+-      GetMainThreadSerialEventTarget(), [this](uint64_t aPluginID) {
+-        mRecvCodecPluginIDs.RemoveElement(aPluginID);
++      GetMainThreadSerialEventTarget(),
++      [self = detail::RawPtr(this)](uint64_t aPluginID) {
++        self.get()->mRecvCodecPluginIDs.RemoveElement(aPluginID);
+       });
+ }
+ 

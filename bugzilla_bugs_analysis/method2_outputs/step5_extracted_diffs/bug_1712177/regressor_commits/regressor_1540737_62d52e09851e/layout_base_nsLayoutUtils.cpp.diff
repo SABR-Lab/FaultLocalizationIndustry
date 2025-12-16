@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/base/nsLayoutUtils.cpp
+# Commit: 62d52e09851e
+# Full Hash: 62d52e09851eeef665ca67ba97ee22139c174945
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2021-05-16 09:17:48
+# Regressor Bug: 1540737
+# File Overlap Count: 1
+# Description:
+#   Bug 1540737 - Implement Paint() for all display items, and nsDisplayList so that we can paint without using FrameLayerBuilder. r=miko
+#   
+#   This creates a new leaf nsDisplayWrapper item for consumers that just want an empty wrapper, with a Paint method that asserts. This lets us leaves Paint pure-virtual on nsDisplayWrapList, and lets the compiler force us to implement it for the other leaf types.
+#   
+#   It also disables flattening of transform/opacity items. This is because they flatten the items even when used with FlattenedDisplayItemIterator, even though this doesn't add markers to replace them (only FLB does this). We could in theory fix this, but I don't think FLB performance matters much any more.
+# ==============================================================================
+
+diff -r 00af531b9d94 -r 62d52e09851e layout/base/nsLayoutUtils.cpp
+--- a/layout/base/nsLayoutUtils.cpp	Sat May 15 22:38:45 2021 +0000
++++ b/layout/base/nsLayoutUtils.cpp	Sat May 15 22:38:45 2021 +0000
+@@ -3080,7 +3080,7 @@
+ 
+   std::stringstream lsStream;
+   nsIFrame::PrintDisplayList(aBuilder, *aList, lsStream);
+-  if (aManager->GetRoot()) {
++  if (aManager && aManager->GetRoot()) {
+     aManager->GetRoot()->SetDisplayListLog(lsStream.str().c_str());
+   }
+ }
+@@ -3510,7 +3510,7 @@
+   gfxUtils::sDumpPaintFile = savedDumpFile;
+ #endif
+ 
+-  if (StaticPrefs::layers_dump_client_layers()) {
++  if (StaticPrefs::layers_dump_client_layers() && layerManager) {
+     std::stringstream ss;
+     FrameLayerBuilder::DumpRetainedLayerTree(layerManager, ss, false);
+     print_stderr(ss);

@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: mozglue/baseprofiler/core/ProfileBuffer.cpp
+# Commit: 3dfc76ea7bd9
+# Full Hash: 3dfc76ea7bd9606fbdbe6a632b4bf5fb09be9828
+# Author: Gerald Squelart <gsquelart@mozilla.com>
+# Date: 2019-09-18 09:56:40
+# Regressor Bug: 1576551
+# File Overlap Count: 1
+# Description:
+#   Bug 1576551 - Assume capacity is in 8-byte entries - r=gregtatum
+#   
+#   Now that we are using a byte-oriented `BlocksRingBuffer` instead of an array of
+#   9-byte `ProfileBufferEntry`'s, internally the profiler sets the buffer size in
+#   bytes. However all external users (popup, tests, etc.) still assume that the
+# ==============================================================================
+
+diff -r 524f84e0fc78 -r 3dfc76ea7bd9 mozglue/baseprofiler/core/ProfileBuffer.cpp
+--- a/mozglue/baseprofiler/core/ProfileBuffer.cpp	Wed Sep 18 01:19:12 2019 +0000
++++ b/mozglue/baseprofiler/core/ProfileBuffer.cpp	Wed Sep 18 01:19:14 2019 +0000
+@@ -172,10 +172,15 @@
+ }
+ 
+ ProfilerBufferInfo ProfileBuffer::GetProfilerBufferInfo() const {
+-  return {
+-      BufferRangeStart(), BufferRangeEnd(), mEntries.BufferLength()->Value(),
+-      mIntervalsNs,       mOverheadsNs,     mLockingsNs,
+-      mCleaningsNs,       mCountersNs,      mThreadsNs};
++  return {BufferRangeStart(),
++          BufferRangeEnd(),
++          mEntries.BufferLength()->Value() / 8,  // 8 bytes per entry.
++          mIntervalsNs,
++          mOverheadsNs,
++          mLockingsNs,
++          mCleaningsNs,
++          mCountersNs,
++          mThreadsNs};
+ }
+ 
+ /* ProfileBufferCollector */

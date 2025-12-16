@@ -1,0 +1,41 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/printing/tests/browser_preview_print_link_modulepreload.js
+# Commit: 635806b9356c
+# Full Hash: 635806b9356cd535ff079a4cfceb9ca954ac23da
+# Author: Yoshi Cheng-Hao Huang <allstars.chh@gmail.com>
+# Date: 2022-07-11 15:47:29
+# Description:
+#   Bug 1777496 - Check if ModuleLoader exists before calling SetAcquiringImportMaps. r=smaug
+#   
+#   For the print preview documents, they are cloned from the original document in
+#   Document::CreateStaticClone[1]. But the cloned document isn't attched to any
+#   nsIContentViewer yet so it won't have any global object. The document is
+# ==============================================================================
+
+diff -r d83579bec018 -r 635806b9356c toolkit/components/printing/tests/browser_preview_print_link_modulepreload.js
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/toolkit/components/printing/tests/browser_preview_print_link_modulepreload.js	Mon Jul 11 09:38:55 2022 +0000
+@@ -0,0 +1,21 @@
++/* Any copyright is dedicated to the Public Domain.
++   http://creativecommons.org/publicdomain/zero/1.0/ */
++
++"use strict";
++
++const TEST_PATH = getRootDirectory(gTestPath).replace(
++  "chrome://mochitests/content",
++  "https://example.com"
++);
++
++add_task(async function testLinkModulePreload() {
++  await SpecialPowers.pushPrefEnv({
++    set: [["dom.importMaps.enabled", true]],
++  });
++
++  await PrintHelper.withTestPage(async helper => {
++    await helper.startPrint();
++    ok(true, "We did not crash.");
++    await helper.closeDialog();
++  }, "file_link_modulepreload.html");
++});

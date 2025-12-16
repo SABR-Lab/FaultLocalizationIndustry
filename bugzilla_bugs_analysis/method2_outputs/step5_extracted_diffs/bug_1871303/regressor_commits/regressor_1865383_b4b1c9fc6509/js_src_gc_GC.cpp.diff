@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/GC.cpp
+# Commit: b4b1c9fc6509
+# Full Hash: b4b1c9fc65090f4a10a3d214d98766de25c14a68
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2023-11-21 04:58:33
+# Regressor Bug: 1865383
+# File Overlap Count: 2
+# Description:
+#   Bug 1865383 - Check slice budget when we start marking or sweeping r=sfink
+#   
+#   The patch forces a budget check when we start marking or sweeping unless we
+#   have just started a GC slice in the current state.
+#   
+# ==============================================================================
+
+diff -r 64a78f18c3fa -r b4b1c9fc6509 js/src/gc/GC.cpp
+--- a/js/src/gc/GC.cpp	Mon Nov 20 16:27:28 2023 +0000
++++ b/js/src/gc/GC.cpp	Mon Nov 20 16:28:11 2023 +0000
+@@ -3000,6 +3000,13 @@
+ 
+   AutoMajorGCProfilerEntry s(this);
+ 
++  if (initialState != State::Mark) {
++    sliceBudget.forceCheck();
++    if (sliceBudget.isOverBudget()) {
++      return NotFinished;
++    }
++  }
++
+   if (processTestMarkQueue() == QueueYielded) {
+     return NotFinished;
+   }

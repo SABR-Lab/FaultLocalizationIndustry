@@ -1,0 +1,69 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/DMABufFormats.cpp
+# Commit: bf6209fd39e8
+# Full Hash: bf6209fd39e85664974d19bfc1c8cb6d06d48a21
+# Author: stransky <stransky@redhat.com>
+# Date: 2025-02-05 16:56:59
+# Regressor Bug: 1944490
+# File Overlap Count: 1
+# Description:
+#   Bug 1944490 [Linux] Ensure DMABufFormats provides basic dmabuf formats r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D236688
+# ==============================================================================
+
+diff -r a374b7104d05 -r bf6209fd39e8 widget/gtk/DMABufFormats.cpp
+--- a/widget/gtk/DMABufFormats.cpp	Wed Feb 05 11:23:30 2025 +0000
++++ b/widget/gtk/DMABufFormats.cpp	Wed Feb 05 11:26:53 2025 +0000
+@@ -151,7 +151,6 @@
+     }
+   }
+   DRMFormat* GetFormat(uint32_t aFormat, bool aRequestScanoutFormat) {
+-    MOZ_ASSERT(!mPendingTranche);
+     for (const auto& tranche : mTranches) {
+       if (aRequestScanoutFormat && !tranche->IsScanout()) {
+         continue;
+@@ -306,9 +305,8 @@
+ 
+ DRMFormat* DMABufFormats::GetFormat(uint32_t aFormat,
+                                     bool aRequestScanoutFormat) {
+-  return mDMABufFeedback
+-             ? mDMABufFeedback->GetFormat(aFormat, aRequestScanoutFormat)
+-             : nullptr;
++  MOZ_DIAGNOSTIC_ASSERT(mDMABufFeedback);
++  return mDMABufFeedback->GetFormat(aFormat, aRequestScanoutFormat);
+ }
+ 
+ void DMABufFormats::InitFeedback(zwp_linux_dmabuf_v1* aDMABuf,
+@@ -337,6 +335,29 @@
+   PendingDMABufFeedbackDone();
+ }
+ 
++void DMABufFormats::EnsureBasicFormats() {
++  MOZ_DIAGNOSTIC_ASSERT(!mPendingDMABufFeedback,
++                        "Can't add extra formats during init!");
++  if (!mDMABufFeedback) {
++    mDMABufFeedback = MakeUnique<DMABufFeedback>();
++  }
++  if (!GetFormat(GBM_FORMAT_XRGB8888)) {
++    LOGDMABUF(
++        ("DMABufFormats::EnsureBasicFormats(): GBM_FORMAT_XRGB8888 is missing, "
++         "adding."));
++    mDMABufFeedback->PendingTranche()->AddFormat(GBM_FORMAT_XRGB8888,
++                                                 DRM_FORMAT_MOD_INVALID);
++  }
++  if (!GetFormat(GBM_FORMAT_ARGB8888)) {
++    LOGDMABUF(
++        ("DMABufFormats::EnsureBasicFormats(): GBM_FORMAT_ARGB8888 is missing, "
++         "adding."));
++    mDMABufFeedback->PendingTranche()->AddFormat(GBM_FORMAT_ARGB8888,
++                                                 DRM_FORMAT_MOD_INVALID);
++  }
++  mDMABufFeedback->PendingTrancheDone();
++}
++
+ DMABufFormats::DMABufFormats() {}
+ 
+ DMABufFormats::~DMABufFormats() {

@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/libcubeb/src/cubeb_pulse.c
+# Commit: 9794b0a3bffc
+# Full Hash: 9794b0a3bffc474951b33527b738488717caffbf
+# Author: Alex Chronopoulos <achronop@gmail.com>
+# Date: 2019-12-12 21:50:40
+# Regressor Bug: 1603384
+# File Overlap Count: 1
+# Description:
+#   Bug 1603384 - Update cubeb from upstream to aa63601. r=padenot
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D56872
+# ==============================================================================
+
+diff -r 7d77d727cd1e -r 9794b0a3bffc media/libcubeb/src/cubeb_pulse.c
+--- a/media/libcubeb/src/cubeb_pulse.c	Thu Dec 12 17:46:46 2019 +0200
++++ b/media/libcubeb/src/cubeb_pulse.c	Thu Dec 12 15:24:23 2019 +0000
+@@ -576,6 +576,11 @@
+   unsigned int channels_from_layout = cubeb_channel_layout_nb_channels(layout);
+   assert(channels_from_layout <= UINT8_MAX);
+   cm->channels = (uint8_t) channels_from_layout;
++
++  // Special case single channel center mapping as mono.
++  if (cm->channels == 1 && cm->map[0] == PA_CHANNEL_POSITION_FRONT_CENTER) {
++    cm->map[0] = PA_CHANNEL_POSITION_MONO;
++  }
+ }
+ 
+ static void pulse_context_destroy(cubeb * ctx);
+@@ -1178,21 +1183,6 @@
+   return CUBEB_OK;
+ }
+ 
+-struct sink_input_info_result {
+-  pa_cvolume * cvol;
+-  pa_threaded_mainloop * mainloop;
+-};
+-
+-static void
+-sink_input_info_cb(pa_context * c, pa_sink_input_info const * i, int eol, void * u)
+-{
+-  struct sink_input_info_result * r = u;
+-  if (!eol) {
+-    *r->cvol = i->volume;
+-  }
+-  WRAP(pa_threaded_mainloop_signal)(r->mainloop, 0);
+-}
+-
+ typedef struct {
+   char * default_sink_name;
+   char * default_source_name;

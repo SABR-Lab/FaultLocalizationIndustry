@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/spatial_tree.rs
+# Commit: 9fa6f71111d0
+# Full Hash: 9fa6f71111d0d77477abc4502b721d8d4ba23604
+# Author: Glenn Watson <git@intuitionlibrary.com>
+# Date: 2022-02-20 21:58:21
+# Regressor Bug: 1749380
+# File Overlap Count: 1
+# Description:
+#   Bug 1749380 - Part 1 - Improve how WR handles bounding rects for off-screen surfaces r=gfx-reviewers
+#   
+#   This patch introduces a number of subtle but important changes
+#   to how we deal with off-screen surfaces. The overall goals are:
+#   
+# ==============================================================================
+
+diff -r 336a2aa0a29e -r 9fa6f71111d0 gfx/wr/webrender/src/spatial_tree.rs
+--- a/gfx/wr/webrender/src/spatial_tree.rs	Sat Feb 19 23:27:02 2022 +0000
++++ b/gfx/wr/webrender/src/spatial_tree.rs	Sun Feb 20 18:56:54 2022 +0000
+@@ -1012,19 +1012,17 @@
+         CoordinateSpaceMapping::Transform(transform)
+     }
+ 
+-    pub fn is_relative_transform_complex(
++    /// Returns true if both supplied spatial nodes are in the same coordinate system
++    /// (implies the relative transform produce axis-aligned rects).
++    pub fn is_matching_coord_system(
+         &self,
+-        child_index: SpatialNodeIndex,
+-        parent_index: SpatialNodeIndex,
++        index0: SpatialNodeIndex,
++        index1: SpatialNodeIndex,
+     ) -> bool {
+-        if child_index == parent_index {
+-            return false;
+-        }
++        let node0 = self.get_spatial_node(index0);
++        let node1 = self.get_spatial_node(index1);
+ 
+-        let child = self.get_spatial_node(child_index);
+-        let parent = self.get_spatial_node(parent_index);
+-
+-        child.coordinate_system_id != parent.coordinate_system_id
++        node0.coordinate_system_id == node1.coordinate_system_id
+     }
+ 
+     fn get_world_transform_impl(

@@ -1,0 +1,77 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasession/MediaSession.h
+# Commit: a18103008464
+# Full Hash: a181030084641bd94f8f55bb215921735c1406b1
+# Author: alwu <alwu@mozilla.com>
+# Date: 2020-09-23 09:59:09
+# Regressor Bug: 1665527
+# File Overlap Count: 1
+# Description:
+#   Bug 1665527 - part2 : notify media session status based on its document's activity state. r=chunmin
+#   
+#   Because of D90771, we need media session to notifty its status correctly in order to deactivate the controller. Therefore, when its document becomes inactive (in bfcahce), we should treat media session as inactive and notify it to `MediaStatusManager` in order to clear the active media session if needed.
+#   
+#   In addition, add some assertions to ensure we won't modify or set any attributes on media session when its document is inactive.
+# ==============================================================================
+
+diff -r b97b8759b686 -r a18103008464 dom/media/mediasession/MediaSession.h
+--- a/dom/media/mediasession/MediaSession.h	Tue Sep 22 20:21:44 2020 +0000
++++ b/dom/media/mediasession/MediaSession.h	Tue Sep 22 21:46:13 2020 +0000
+@@ -15,6 +15,7 @@
+ #include "mozilla/ErrorResult.h"
+ #include "mozilla/EnumeratedArray.h"
+ #include "nsCycleCollectionParticipant.h"
++#include "nsIDocumentActivity.h"
+ #include "nsWrapperCache.h"
+ 
+ class nsPIDOMWindowInner;
+@@ -35,11 +36,12 @@
+   double mLastReportedPlaybackPosition;
+ };
+ 
+-class MediaSession final : public nsISupports, public nsWrapperCache {
++class MediaSession final : public nsIDocumentActivity, public nsWrapperCache {
+  public:
+   // Ref counting and cycle collection
+   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
+   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(MediaSession)
++  NS_DECL_NSIDOCUMENTACTIVITY
+ 
+   explicit MediaSession(nsPIDOMWindowInner* aParent);
+ 
+@@ -78,16 +80,18 @@
+   bool IsActive() const;
+ 
+  private:
+-  // Propagate media context status to the media session controller in the
+-  // chrome process when we create or destroy the media session.
+-  enum class SessionStatus : bool {
+-    eDestroyed = false,
+-    eCreated = true,
++  // When the document which media session belongs to is going to be destroyed,
++  // or is in the bfcache, then the session would be inactive. Otherwise, it's
++  // active all the time.
++  enum class SessionDocStatus : bool {
++    eInactive = false,
++    eActive = true,
+   };
++  void SetMediaSessionDocStatus(SessionDocStatus aState);
+ 
+   // These methods are used to propagate media session's status to the chrome
+   // process.
+-  void NotifyMediaSessionStatus(SessionStatus aState);
++  void NotifyMediaSessionDocStatus(SessionDocStatus aState);
+   void NotifyMetadataUpdated();
+   void NotifyEnableSupportedAction(MediaSessionAction aAction);
+   void NotifyDisableSupportedAction(MediaSessionAction aAction);
+@@ -114,6 +118,8 @@
+       MediaSessionPlaybackState::None;
+ 
+   Maybe<PositionState> mPositionState;
++  RefPtr<Document> mDoc;
++  SessionDocStatus mSessionDocState = SessionDocStatus::eInactive;
+ };
+ 
+ }  // namespace dom

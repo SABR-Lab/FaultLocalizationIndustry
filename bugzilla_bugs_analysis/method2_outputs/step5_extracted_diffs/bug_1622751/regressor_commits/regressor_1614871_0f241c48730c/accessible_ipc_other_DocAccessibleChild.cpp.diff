@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/ipc/other/DocAccessibleChild.cpp
+# Commit: 0f241c48730c
+# Full Hash: 0f241c48730c6e4cce24bc9970408087045ca2ab
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2020-03-14 10:28:42
+# Regressor Bug: 1614871
+# File Overlap Count: 1
+# Description:
+#   Bug 1614871 part 1: Make non-Windows ProxyAccessible::ChildAtPoint cross into in-process iframes. r=eeejay
+#   
+#   Accessible::ChildAtPoint can return an Accessible in a descendant document.
+#   Thus, we must return the result PDocAccessible via IPC, not just the id.
+#   Previously, we only returned the id, but we'd fail when we tried to look it up if it belonged to a descendant document.
+# ==============================================================================
+
+diff -r 51fa8835f5d8 -r 0f241c48730c accessible/ipc/other/DocAccessibleChild.cpp
+--- a/accessible/ipc/other/DocAccessibleChild.cpp	Fri Mar 13 01:42:05 2020 +0000
++++ b/accessible/ipc/other/DocAccessibleChild.cpp	Fri Mar 13 06:14:30 2020 +0000
+@@ -1605,10 +1605,10 @@
+ 
+ mozilla::ipc::IPCResult DocAccessibleChild::RecvAccessibleAtPoint(
+     const uint64_t& aID, const int32_t& aX, const int32_t& aY,
+-    const bool& aNeedsScreenCoords, const uint32_t& aWhich, uint64_t* aResult,
+-    bool* aOk) {
+-  *aResult = 0;
+-  *aOk = false;
++    const bool& aNeedsScreenCoords, const uint32_t& aWhich,
++    PDocAccessibleChild** aResultDoc, uint64_t* aResultID) {
++  *aResultDoc = nullptr;
++  *aResultID = 0;
+   Accessible* acc = IdToAccessible(aID);
+   if (acc && !acc->IsDefunct() && !nsAccUtils::MustPrune(acc)) {
+     int32_t x = aX;
+@@ -1623,8 +1623,10 @@
+     Accessible* result = acc->ChildAtPoint(
+         x, y, static_cast<Accessible::EWhichChildAtPoint>(aWhich));
+     if (result) {
+-      *aResult = reinterpret_cast<uint64_t>(result->UniqueID());
+-      *aOk = true;
++      // Accessible::ChildAtPoint can return an Accessible from a descendant
++      // document.
++      *aResultDoc = result->Document()->IPCDoc();
++      *aResultID = reinterpret_cast<uint64_t>(result->UniqueID());
+     }
+   }
+ 

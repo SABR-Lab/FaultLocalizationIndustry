@@ -1,0 +1,113 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/ClientWebGLContext.cpp
+# Commit: b9f43d8a6c2d
+# Full Hash: b9f43d8a6c2d9504dde533d3db13111ae4d31d06
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2022-07-12 21:56:41
+# Regressor Bug: 1777426
+# File Overlap Count: 2
+# Description:
+#   Bug 1777426 - Support fast readbacks in CopyToSwapChain with async present. r=sotaro,jgilbert
+#   
+#   Currently CopyToSwapChain creates spurious copies of the back buffer when SharedSurfaces aren't exportable (= ToSurfaceDescriptor returns Nothing from SharedSurface_Basic). These then later get read back into a CPU memory buffer when PresentFrontBufferToCompositor is used to send the buffer to RemoteTextureMap. This has associated performance and memory costs.
+#   
+#   Conceptually, we want Present/CopyToSwapChain to just do the right thing and automatically push buffers to RemoteTextureMap, rather than secondarily needing a hidden call to PresentFrontBufferToCompositor. Then we can get rid of the need to create front buffers whose only purpose is to shuttle data to PresentFrontBufferToCompositor which then shuttles it RemoteTextureMap.
+# ==============================================================================
+
+diff -r 0a598b1533e6 -r b9f43d8a6c2d dom/canvas/ClientWebGLContext.cpp
+--- a/dom/canvas/ClientWebGLContext.cpp	Tue Jul 12 06:49:11 2022 +0000
++++ b/dom/canvas/ClientWebGLContext.cpp	Tue Jul 12 06:56:19 2022 +0000
+@@ -391,27 +391,61 @@
+ }
+ 
+ void ClientWebGLContext::Present(WebGLFramebufferJS* const xrFb,
+-                                 const bool webvr) {
++                                 const bool webvr,
++                                 const webgl::SwapChainOptions& options) {
+   const auto texType = GetTexTypeForSwapChain();
+-  Present(xrFb, texType, webvr);
++  Present(xrFb, texType, webvr, options);
++}
++
++// Fill in remote texture ids to SwapChainOptions if async present is enabled.
++webgl::SwapChainOptions ClientWebGLContext::PrepareAsyncSwapChainOptions(
++    WebGLFramebufferJS* fb, bool webvr,
++    const webgl::SwapChainOptions& options) {
++  // Currently remote texture ids should only be set internally.
++  MOZ_ASSERT(!options.remoteTextureOwnerId.IsValid() &&
++             !options.remoteTextureId.IsValid());
++  auto& ownerId = fb ? fb->mRemoteTextureOwnerId : mRemoteTextureOwnerId;
++  auto& textureId = fb ? fb->mLastRemoteTextureId : mLastRemoteTextureId;
++  // Async present only works when out-of-process. It is not supported in WebVR.
++  // Allow it if it is either forced or if the pref is set.
++  if (!IsContextLost() && !mNotLost->inProcess && !webvr &&
++      (options.forceAsyncPresent ||
++       StaticPrefs::webgl_out_of_process_async_present())) {
++    if (!ownerId) {
++      ownerId = Some(layers::RemoteTextureOwnerId::GetNext());
++    }
++    textureId = Some(layers::RemoteTextureId::GetNext());
++    webgl::SwapChainOptions asyncOptions = options;
++    asyncOptions.remoteTextureOwnerId = *ownerId;
++    asyncOptions.remoteTextureId = *textureId;
++    return asyncOptions;
++  }
++  // Clear the current remote texture id so that we disable async.
++  textureId = Nothing();
++  return options;
+ }
+ 
+ void ClientWebGLContext::Present(WebGLFramebufferJS* const xrFb,
+                                  const layers::TextureType type,
+-                                 const bool webvr) {
++                                 const bool webvr,
++                                 const webgl::SwapChainOptions& options) {
+   if (!mIsCanvasDirty && !xrFb) return;
+   if (!xrFb) {
+     mIsCanvasDirty = false;
+   }
+   CancelAutoFlush();
+-  Run<RPROC(Present)>(xrFb ? xrFb->mId : 0, type, webvr);
++  webgl::SwapChainOptions asyncOptions =
++      PrepareAsyncSwapChainOptions(xrFb, webvr, options);
++  Run<RPROC(Present)>(xrFb ? xrFb->mId : 0, type, webvr, asyncOptions);
+ }
+ 
+ void ClientWebGLContext::CopyToSwapChain(
+     WebGLFramebufferJS* const fb, const webgl::SwapChainOptions& options) {
+   CancelAutoFlush();
+   const auto texType = GetTexTypeForSwapChain();
+-  Run<RPROC(CopyToSwapChain)>(fb ? fb->mId : 0, texType, options);
++  webgl::SwapChainOptions asyncOptions =
++      PrepareAsyncSwapChainOptions(fb, false, options);
++  Run<RPROC(CopyToSwapChain)>(fb ? fb->mId : 0, texType, asyncOptions);
+ }
+ 
+ void ClientWebGLContext::EndOfFrame() {
+@@ -432,19 +466,11 @@
+   const auto& child = mNotLost->outOfProcess;
+   child->FlushPendingCmds();
+ 
+-  bool asyncPresent = !vr && StaticPrefs::webgl_out_of_process_async_present();
+-  if (asyncPresent) {
+-    const auto textureId = layers::RemoteTextureId::GetNext();
+-    auto& ownerId = fb ? fb->mOwnerId : mOwnerId;
+-    if (!ownerId) {
+-      ownerId = Some(layers::RemoteTextureOwnerId::GetNext());
+-    }
+-
+-    if (!child->SendPresentFrontBufferToCompositor(fb ? fb->mId : 0, textureId,
+-                                                   *ownerId))
+-      return {};
+-
+-    return Some(layers::SurfaceDescriptorRemoteTexture(textureId, *ownerId));
++  // If valid remote texture data was set for async present, then use it.
++  const auto& ownerId = fb ? fb->mRemoteTextureOwnerId : mRemoteTextureOwnerId;
++  const auto& textureId = fb ? fb->mLastRemoteTextureId : mLastRemoteTextureId;
++  if (ownerId && textureId) {
++    return Some(layers::SurfaceDescriptorRemoteTexture(*textureId, *ownerId));
+   }
+ 
+   Maybe<layers::SurfaceDescriptor> ret;

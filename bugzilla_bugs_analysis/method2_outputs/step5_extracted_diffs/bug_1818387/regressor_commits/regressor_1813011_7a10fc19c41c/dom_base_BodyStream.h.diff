@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/BodyStream.h
+# Commit: 7a10fc19c41c
+# Full Hash: 7a10fc19c41c3e8d61443237892c7f45ddceea00
+# Author: Kagami Sascha Rosylight <krosylight@mozilla.com>
+# Date: 2023-02-18 04:50:51
+# Regressor Bug: 1813011
+# File Overlap Count: 1
+# Description:
+#   Bug 1813011 - Part 2: Return unsettled promise from BodyStream::PullCallbackImpl r=smaug
+#   
+#   ... and resolve it after successful enqueue. Note that this never rejects it since ErrorNative will do it for us.
+#   
+#   eWaiting/eReading/eWriting is merged into eInitialized and the state assertions now use promise state.
+# ==============================================================================
+
+diff -r acb4e003bfae -r 7a10fc19c41c dom/base/BodyStream.h
+--- a/dom/base/BodyStream.h	Fri Feb 17 18:32:24 2023 +0000
++++ b/dom/base/BodyStream.h	Fri Feb 17 18:32:25 2023 +0000
+@@ -140,15 +140,8 @@
+     // This is the beginning state before any reading operation.
+     eInitializing,
+ 
+-    // RequestDataCallback has not been called yet. We haven't started to read
+-    // data from the stream yet.
+-    eWaiting,
+-
+-    // We are reading data in a separate I/O thread.
+-    eReading,
+-
+-    // We are ready to write something in the JS Buffer.
+-    eWriting,
++    // Stream is initialized and being consumed.
++    eInitialized,
+ 
+     // Operation completed.
+     eClosed,
+@@ -161,6 +154,9 @@
+   nsCOMPtr<nsIGlobalObject> mGlobal;
+   RefPtr<BodyStreamHolder> mStreamHolder;
+   nsCOMPtr<nsIEventTarget> mOwningEventTarget;
++  // Same as mGlobal but set to nullptr on OnInputStreamReady (on the owning
++  // thread).
++  RefPtr<Promise> mPullPromise;
+ 
+   // This is the original inputStream received during the CTOR. It will be
+   // converted into an nsIAsyncInputStream and stored into mInputStream at the

@@ -1,0 +1,87 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/client/TextureClient.h
+# Commit: ce28584e3869
+# Full Hash: ce28584e386976fc6df815260cdfebd8e6ffbadd
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2023-12-19 05:06:09
+# Regressor Bug: 1829026
+# File Overlap Count: 1
+# Description:
+#   Bug 1829026 - Update CanvasTranslator to work with DrawTargetWebgl. r=aosmond
+#   
+#   This adds the necessary infrastructure for CanvasTranslator to allocate DrawTargetWebgl
+#   instead of just allocating TextureData, and to use RemoteTextureMap to handle sending
+#   the DrawTargetWebgl frames to the compositor.
+# ==============================================================================
+
+diff -r bb4029ea69bb -r ce28584e3869 gfx/layers/client/TextureClient.h
+--- a/gfx/layers/client/TextureClient.h	Mon Dec 18 18:10:46 2023 +0000
++++ b/gfx/layers/client/TextureClient.h	Mon Dec 18 18:10:46 2023 +0000
+@@ -70,6 +70,7 @@
+ class TextureClientPool;
+ #endif
+ class TextureForwarder;
++struct RemoteTextureOwnerId;
+ 
+ /**
+  * TextureClient is the abstraction that allows us to share data between the
+@@ -99,6 +100,9 @@
+ 
+   // Do not use an accelerated texture type.
+   ALLOC_DO_NOT_ACCELERATE = 1 << 8,
++
++  // Force allocation of remote/recorded texture, or fail if not possible.
++  ALLOC_FORCE_REMOTE = 1 << 9,
+ };
+ 
+ enum class BackendSelector { Content, Canvas };
+@@ -223,6 +227,10 @@
+           canConcurrentlyReadLock(true) {}
+   };
+ 
++  static TextureData* Create(
++      TextureType aTextureType, gfx::SurfaceFormat aFormat,
++      const gfx::IntSize& aSize, TextureAllocationFlags aAllocFlags,
++      gfx::BackendType aBackendType = gfx::BackendType::NONE);
+   static TextureData* Create(TextureForwarder* aAllocator,
+                              gfx::SurfaceFormat aFormat, gfx::IntSize aSize,
+                              KnowsCompositor* aKnowsCompositor,
+@@ -255,6 +263,8 @@
+     return nullptr;
+   }
+ 
++  virtual void ReturnSnapshot(already_AddRefed<gfx::SourceSurface> aSnapshot) {}
++
+   virtual bool BorrowMappedData(MappedTextureData&) { return false; }
+ 
+   virtual bool BorrowMappedYCbCrData(MappedYCbCrTextureData&) { return false; }
+@@ -312,6 +322,10 @@
+     return mozilla::ipc::FileDescriptor();
+   }
+ 
++  virtual void SetRemoteTextureOwnerId(RemoteTextureOwnerId) {}
++
++  virtual bool RequiresRefresh() const { return false; }
++
+  protected:
+   MOZ_COUNTED_DEFAULT_CTOR(TextureData)
+ };
+@@ -447,6 +461,8 @@
+ 
+   already_AddRefed<gfx::SourceSurface> BorrowSnapshot();
+ 
++  void ReturnSnapshot(already_AddRefed<gfx::SourceSurface> aSnapshot);
++
+   /**
+    * Similar to BorrowDrawTarget but provides direct access to the texture's
+    * bits instead of a DrawTarget.
+@@ -703,6 +719,7 @@
+ 
+   TextureData* mData;
+   RefPtr<gfx::DrawTarget> mBorrowedDrawTarget;
++  bool mBorrowedSnapshot = false;
+ 
+   TextureFlags mFlags;
+ 

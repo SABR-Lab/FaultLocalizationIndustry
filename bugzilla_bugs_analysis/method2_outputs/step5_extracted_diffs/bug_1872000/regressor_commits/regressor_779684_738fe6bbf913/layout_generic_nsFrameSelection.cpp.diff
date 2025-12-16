@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/nsFrameSelection.cpp
+# Commit: 738fe6bbf913
+# Full Hash: 738fe6bbf913710aed2d6b4a24b99c562619af8d
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2023-12-23 09:52:03
+# Regressor Bug: 779684
+# File Overlap Count: 1
+# Description:
+#   Bug 779684 - part 1: Get rid of `nsIFrameEnumerator` interface r=emilio
+#   
+#   It's inherited only by `nsFrameIterator`, and `nsFrameIterator` can be declared
+#   in a header file. So, the interface is not required and removing it can avoid
+#   virtual calls.
+# ==============================================================================
+
+diff -r be94de3bcd0f -r 738fe6bbf913 layout/generic/nsFrameSelection.cpp
+--- a/layout/generic/nsFrameSelection.cpp	Sat Dec 23 03:36:53 2023 +0000
++++ b/layout/generic/nsFrameSelection.cpp	Sat Dec 23 05:39:38 2023 +0000
+@@ -27,6 +27,7 @@
+ 
+ #include "nsCOMPtr.h"
+ #include "nsDebug.h"
++#include "nsFrameTraversal.h"
+ #include "nsString.h"
+ #include "nsISelectionListener.h"
+ #include "nsContentCID.h"
+@@ -45,7 +46,6 @@
+ #include "nsCSSFrameConstructor.h"
+ 
+ #include "nsGkAtoms.h"
+-#include "nsIFrameTraversal.h"
+ #include "nsLayoutUtils.h"
+ #include "nsLayoutCID.h"
+ #include "nsBidiPresUtils.h"
+@@ -1019,7 +1019,7 @@
+       mozilla::intl::BidiEmbeddingLevel::LTR();
+   nsIFrame* foundFrame = aFrameIn;
+ 
+-  nsCOMPtr<nsIFrameEnumerator> frameTraversal;
++  RefPtr<nsFrameIterator> frameTraversal;
+   nsresult result;
+   nsCOMPtr<nsIFrameTraversal> trav(
+       do_CreateInstance(kFrameTraversalCID, &result));

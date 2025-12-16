@@ -1,0 +1,73 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/serviceworkers/ServiceWorkerUtils.cpp
+# Commit: 0e68db4ad6af
+# Full Hash: 0e68db4ad6afe1f43d97533316d80e5aadd96082
+# Author: Luca Greco <lgreco@mozilla.com>
+# Date: 2020-07-01 21:32:12
+# Regressor Bug: 1609920
+# File Overlap Count: 2
+# Description:
+#   Bug 1609920 - part 1: Allow the WebExtension Framework to register a moz-extension service worker. r=dom-workers-and-storage-reviewers,asuth,mixedpuppy
+#   
+#   - Adds the new about:config pref "extensions.backgroundServiceWorker.enabled" (currently defaults to false).
+#   - Adds the background.service_worker property to the manifest JSON schema definition
+#   - Locks background.service_worker manifest property behind the new preference
+# ==============================================================================
+
+diff -r 2a107eabe00c -r 0e68db4ad6af dom/serviceworkers/ServiceWorkerUtils.cpp
+--- a/dom/serviceworkers/ServiceWorkerUtils.cpp	Mon Jun 29 16:18:44 2020 +0000
++++ b/dom/serviceworkers/ServiceWorkerUtils.cpp	Wed Jun 10 12:13:29 2020 +0000
+@@ -79,9 +79,25 @@
+     return;
+   }
+ 
++  auto hasHTTPScheme = [](nsIURI* aURI) -> bool {
++    return aURI->SchemeIs("http") || aURI->SchemeIs("https");
++  };
++  auto hasMozExtScheme = [](nsIURI* aURI) -> bool {
++    return aURI->SchemeIs("moz-extension");
++  };
++
++  nsCOMPtr<nsIPrincipal> principal = principalOrErr.unwrap();
++
++  auto isExtension = !!BasePrincipal::Cast(principal)->AddonPolicy();
++  auto hasValidURISchemes = !isExtension ? hasHTTPScheme : hasMozExtScheme;
++
+   // https://w3c.github.io/ServiceWorker/#start-register-algorithm step 3.
+-  if (!aScriptURI->SchemeIs("http") && !aScriptURI->SchemeIs("https")) {
+-    aRv.ThrowTypeError("Script URL's scheme is not 'http' or 'https'");
++  if (!hasValidURISchemes(aScriptURI)) {
++    auto message =
++        !isExtension
++            ? NS_LITERAL_CSTRING("Script URL's scheme is not 'http' or 'https'")
++            : NS_LITERAL_CSTRING("Script URL's scheme is not 'moz-extension'");
++    aRv.ThrowTypeError(message);
+     return;
+   }
+ 
+@@ -92,8 +108,12 @@
+   }
+ 
+   // https://w3c.github.io/ServiceWorker/#start-register-algorithm step 8.
+-  if (!aScopeURI->SchemeIs("http") && !aScopeURI->SchemeIs("https")) {
+-    aRv.ThrowTypeError("Scope URL's scheme is not 'http' or 'https'");
++  if (!hasValidURISchemes(aScopeURI)) {
++    auto message =
++        !isExtension
++            ? NS_LITERAL_CSTRING("Scope URL's scheme is not 'http' or 'https'")
++            : NS_LITERAL_CSTRING("Scope URL's scheme is not 'moz-extension'");
++    aRv.ThrowTypeError(message);
+     return;
+   }
+ 
+@@ -118,8 +138,6 @@
+     return;
+   }
+ 
+-  nsCOMPtr<nsIPrincipal> principal = principalOrErr.unwrap();
+-
+   // Unfortunately we don't seem to have an obvious window id here; in
+   // particular ClientInfo does not have one.
+   nsresult rv = principal->CheckMayLoadWithReporting(

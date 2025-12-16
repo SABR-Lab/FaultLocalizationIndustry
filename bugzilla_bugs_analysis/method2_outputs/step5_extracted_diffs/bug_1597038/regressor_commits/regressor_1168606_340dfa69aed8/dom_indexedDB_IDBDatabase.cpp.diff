@@ -1,0 +1,79 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/IDBDatabase.cpp
+# Commit: 340dfa69aed8
+# Full Hash: 340dfa69aed87f29b9fdeef59a650ad5eb8c1b7b
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2019-09-30 16:21:37
+# Regressor Bug: 1168606
+# File Overlap Count: 1
+# Description:
+#   Bug 1168606 - Remove duplication in uses of IDB_LOG_MARK. r=ttung,asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D46576
+# ==============================================================================
+
+diff -r a864ed2ae59a -r 340dfa69aed8 dom/indexedDB/IDBDatabase.cpp
+--- a/dom/indexedDB/IDBDatabase.cpp	Mon Sep 30 08:54:17 2019 +0000
++++ b/dom/indexedDB/IDBDatabase.cpp	Fri Sep 27 10:11:45 2019 +0000
+@@ -424,12 +424,9 @@
+   // number to keep in sync with the parent.
+   const uint64_t requestSerialNumber = IDBRequest::NextSerialNumber();
+ 
+-  IDB_LOG_MARK(
+-      "IndexedDB %s: Child  Transaction[%lld] Request[%llu]: "
++  IDB_LOG_MARK_CHILD_TRANSACTION_REQUEST(
+       "database(%s).transaction(%s).createObjectStore(%s)",
+-      "IndexedDB %s: C T[%lld] R[%llu]: "
+-      "IDBDatabase.createObjectStore()",
+-      IDB_LOG_ID_STRING(), transaction->LoggingSerialNumber(),
++      "IDBDatabase.createObjectStore()", transaction->LoggingSerialNumber(),
+       requestSerialNumber, IDB_LOG_STRINGIFY(this),
+       IDB_LOG_STRINGIFY(transaction), IDB_LOG_STRINGIFY(objectStore));
+ 
+@@ -482,12 +479,9 @@
+   // number to keep in sync with the parent.
+   const uint64_t requestSerialNumber = IDBRequest::NextSerialNumber();
+ 
+-  IDB_LOG_MARK(
+-      "IndexedDB %s: Child  Transaction[%lld] Request[%llu]: "
++  IDB_LOG_MARK_CHILD_TRANSACTION_REQUEST(
+       "database(%s).transaction(%s).deleteObjectStore(\"%s\")",
+-      "IndexedDB %s: C T[%lld] R[%llu]: "
+-      "IDBDatabase.deleteObjectStore()",
+-      IDB_LOG_ID_STRING(), transaction->LoggingSerialNumber(),
++      "IDBDatabase.deleteObjectStore()", transaction->LoggingSerialNumber(),
+       requestSerialNumber, IDB_LOG_STRINGIFY(this),
+       IDB_LOG_STRINGIFY(transaction), NS_ConvertUTF16toUTF8(aName).get());
+ }
+@@ -629,10 +623,8 @@
+   BackgroundTransactionChild* actor =
+       new BackgroundTransactionChild(transaction);
+ 
+-  IDB_LOG_MARK(
+-      "IndexedDB %s: Child  Transaction[%lld]: "
+-      "database(%s).transaction(%s)",
+-      "IndexedDB %s: C T[%lld]: IDBDatabase.transaction()", IDB_LOG_ID_STRING(),
++  IDB_LOG_MARK_CHILD_TRANSACTION(
++      "database(%s).transaction(%s)", "IDBDatabase.transaction()",
+       transaction->LoggingSerialNumber(), IDB_LOG_STRINGIFY(this),
+       IDB_LOG_STRINGIFY(transaction));
+ 
+@@ -692,12 +684,10 @@
+   BackgroundDatabaseRequestChild* actor =
+       new BackgroundDatabaseRequestChild(this, request);
+ 
+-  IDB_LOG_MARK(
+-      "IndexedDB %s: Child  Request[%llu]: "
+-      "database(%s).createMutableFile(%s)",
+-      "IndexedDB %s: C R[%llu]: IDBDatabase.createMutableFile()",
+-      IDB_LOG_ID_STRING(), request->LoggingSerialNumber(),
+-      IDB_LOG_STRINGIFY(this), NS_ConvertUTF16toUTF8(aName).get());
++  IDB_LOG_MARK_CHILD_REQUEST(
++      "database(%s).createMutableFile(%s)", "IDBDatabase.createMutableFile()",
++      request->LoggingSerialNumber(), IDB_LOG_STRINGIFY(this),
++      NS_ConvertUTF16toUTF8(aName).get());
+ 
+   mBackgroundActor->SendPBackgroundIDBDatabaseRequestConstructor(actor, params);
+ 

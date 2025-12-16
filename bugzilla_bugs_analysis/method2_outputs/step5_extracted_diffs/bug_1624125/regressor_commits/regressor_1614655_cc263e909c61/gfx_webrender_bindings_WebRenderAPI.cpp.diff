@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/webrender_bindings/WebRenderAPI.cpp
+# Commit: cc263e909c61
+# Full Hash: cc263e909c61d2d9c7d7cc1ccb8d24c8d09bf5b7
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2020-03-19 03:53:34
+# Regressor Bug: 1614655
+# File Overlap Count: 2
+# Description:
+#   Bug 1614655 - Part 2: Allow 1:n mapping of Gecko - WR display items r=jrmuizel
+#   
+#   This patch changes the underlying storage for WR display items in DisplayItemCache
+#   from Vec<Option<CachedDisplayItem> to Vec<Vec<CachedDisplayItem>>.
+#   This allows storing multiple WebRender display items for one Gecko display item.
+# ==============================================================================
+
+diff -r 10897d6106a8 -r cc263e909c61 gfx/webrender_bindings/WebRenderAPI.cpp
+--- a/gfx/webrender_bindings/WebRenderAPI.cpp	Wed Mar 18 17:08:49 2020 +0000
++++ b/gfx/webrender_bindings/WebRenderAPI.cpp	Wed Mar 18 17:09:51 2020 +0000
+@@ -1011,6 +1011,8 @@
+ 
+ wr::WrClipChainId DisplayListBuilder::DefineClipChain(
+     const nsTArray<wr::WrClipId>& aClips, bool aParentWithCurrentChain) {
++  CancelGroup();
++
+   const uint64_t* parent = nullptr;
+   if (aParentWithCurrentChain &&
+       mCurrentSpaceAndClipChain.clip_chain != wr::ROOT_CLIP_CHAIN) {
+@@ -1027,6 +1029,8 @@
+     const Maybe<wr::WrSpaceAndClip>& aParent, const wr::LayoutRect& aClipRect,
+     const nsTArray<wr::ComplexClipRegion>* aComplex,
+     const wr::ImageMask* aMask) {
++  CancelGroup();
++
+   WrClipId clipId;
+   if (aParent) {
+     clipId = wr_dp_define_clip_with_parent_clip(
+@@ -1473,7 +1477,7 @@
+   mCurrentCacheSlot = mDisplayItemCache->AssignSlot(aItem);
+ 
+   if (mCurrentCacheSlot) {
+-    wr_dp_start_item_group(mWrState, mCurrentCacheSlot.ref());
++    wr_dp_start_item_group(mWrState);
+   }
+ }
+ 

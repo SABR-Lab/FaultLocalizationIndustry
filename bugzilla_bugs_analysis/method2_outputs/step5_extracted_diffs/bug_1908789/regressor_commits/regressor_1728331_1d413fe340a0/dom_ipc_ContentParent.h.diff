@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentParent.h
+# Commit: 1d413fe340a0
+# Full Hash: 1d413fe340a08f23808be58c40d8f32431fe536a
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2024-06-21 04:13:05
+# Regressor Bug: 1728331
+# File Overlap Count: 1
+# Description:
+#   Bug 1728331 - Part 1: Remove e10s process recycling, r=smaug
+#   
+#   This logic did nothing in Fission, however it did have an effect for
+#   e10s-Android, which will no longer have process recycling. I expect the impact
+#   of this to be minimal given Android's tendency to kill processes already.
+# ==============================================================================
+
+diff -r 15608efcbeb6 -r 1d413fe340a0 dom/ipc/ContentParent.h
+--- a/dom/ipc/ContentParent.h	Thu Jun 20 19:24:50 2024 +0000
++++ b/dom/ipc/ContentParent.h	Thu Jun 20 19:24:50 2024 +0000
+@@ -688,16 +688,6 @@
+       sBrowserContentParents;
+   static mozilla::StaticAutoPtr<LinkedList<ContentParent>> sContentParents;
+ 
+-  /**
+-   * In order to avoid rapidly creating and destroying content processes when
+-   * running under e10s, we may keep alive a single unused "web" content
+-   * process if it previously had a very short lifetime.
+-   *
+-   * This process will be re-used during process selection, avoiding spawning a
+-   * new process, if the "web" remote type is being requested.
+-   */
+-  static StaticRefPtr<ContentParent> sRecycledE10SProcess;
+-
+   void AddShutdownBlockers();
+   void RemoveShutdownBlockers();
+ 
+@@ -762,24 +752,6 @@
+   void ForwardKnownInfo();
+ 
+   /**
+-   * We might want to reuse barely used content processes if certain criteria
+-   * are met.
+-   *
+-   * With Fission this is a no-op.
+-   */
+-  bool TryToRecycleE10SOnly();
+-
+-  /**
+-   * If this process is currently being recycled, unmark it as the recycled
+-   * content process.
+-   * If `aForeground` is true, will also restore the process' foreground
+-   * priority if it was previously the recycled content process.
+-   *
+-   * With Fission this is a no-op.
+-   */
+-  void StopRecyclingE10SOnly(bool aForeground);
+-
+-  /**
+    * Removing it from the static array so it won't be returned for new tabs in
+    * GetNewOrUsedBrowserProcess.
+    */

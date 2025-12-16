@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/manager/ssl/nsNSSComponent.h
+# Commit: 49da6b99bde3
+# Full Hash: 49da6b99bde3c91e9ee1fe5e6d730a944c2e3890
+# Author: Dana Keeler <dkeeler@mozilla.com>
+# Date: 2020-06-10 04:36:07
+# Regressor Bug: 1630434
+# File Overlap Count: 1
+# Description:
+#   Bug 1630434 - de-duplicate preloaded intermediates that may have been cached in cert9.db r=kjacobs,bbeurdouche
+#   
+#   In general, PSM caches intermediates from verified certificate chains in the
+#   NSS certdb. Before bug 1619021, this would include preloaded intermediates,
+#   which is unnecessary because cert_storage has a copy of those certificates, and
+# ==============================================================================
+
+diff -r 882f75c5d3f9 -r 49da6b99bde3 security/manager/ssl/nsNSSComponent.h
+--- a/security/manager/ssl/nsNSSComponent.h	Tue Jun 09 18:35:24 2020 +0000
++++ b/security/manager/ssl/nsNSSComponent.h	Tue Jun 09 18:02:52 2020 +0000
+@@ -29,7 +29,8 @@
+ 
+ class nsIDOMWindow;
+ class nsIPrompt;
+-class SmartCardThreadList;
++class nsISerialEventTarget;
++class nsITimer;
+ 
+ namespace mozilla {
+ namespace psm {
+@@ -107,6 +108,8 @@
+ 
+   bool ShouldEnableEnterpriseRootsForFamilySafety(uint32_t familySafetyMode);
+ 
++  nsresult MaybeEnableIntermediatePreloadingHealer();
++
+   // mLoadableCertsLoadedMonitor protects mLoadableCertsLoaded.
+   mozilla::Monitor mLoadableCertsLoadedMonitor;
+   bool mLoadableCertsLoaded;
+@@ -136,6 +139,13 @@
+   // to complete (because it will never complete) so we use this boolean to keep
+   // track of if we should wait.
+   bool mLoadLoadableCertsTaskDispatched;
++  // If the intermediate preloading healer is enabled, the following timer
++  // periodically dispatches events to the background task queue. Each of these
++  // events scans the NSS certdb for preloaded intermediates that are in
++  // cert_storage and thus can be removed. By default, the interval is 5
++  // minutes.
++  nsCOMPtr<nsISerialEventTarget> mIntermediatePreloadingHealerTaskQueue;
++  nsCOMPtr<nsITimer> mIntermediatePreloadingHealerTimer;
+ };
+ 
+ inline nsresult BlockUntilLoadableCertsLoaded() {

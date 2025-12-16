@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentParent.cpp
+# Commit: 4cf9a1ce9e92
+# Full Hash: 4cf9a1ce9e92dbcc022c1d8d7d6ac8ed185dc082
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2019-05-23 15:55:11
+# Regressor Bug: 1525720
+# File Overlap Count: 1
+# Description:
+#   Bug 1525720, part 11 - Use RemoteBrowser interface instead of IPDL actors in nsFrameLoader. r=nika
+#   
+#   This commit replaces the direct use of the IPDL actors in nsFrameLoader with
+#   the RemoteBrowser interface. Some special use cases are adapted to still use
+#   the IPDL actors. In the future, we should burn these use cases down.
+# ==============================================================================
+
+diff -r 9d7151b26a9e -r 4cf9a1ce9e92 dom/ipc/ContentParent.cpp
+--- a/dom/ipc/ContentParent.cpp	Wed May 15 10:34:03 2019 -0500
++++ b/dom/ipc/ContentParent.cpp	Mon May 06 21:29:48 2019 -0500
+@@ -1083,12 +1083,10 @@
+ }
+ 
+ /*static*/
+-BrowserParent* ContentParent::CreateBrowser(const TabContext& aContext,
+-                                            Element* aFrameElement,
+-                                            BrowsingContext* aBrowsingContext,
+-                                            ContentParent* aOpenerContentParent,
+-                                            BrowserParent* aSameTabGroupAs,
+-                                            uint64_t aNextRemoteTabId) {
++already_AddRefed<RemoteBrowser> ContentParent::CreateBrowser(
++    const TabContext& aContext, Element* aFrameElement,
++    BrowsingContext* aBrowsingContext, ContentParent* aOpenerContentParent,
++    BrowserParent* aSameTabGroupAs, uint64_t aNextRemoteTabId) {
+   AUTO_PROFILER_LABEL("ContentParent::CreateBrowser", OTHER);
+ 
+   if (!sCanLaunchSubprocesses) {
+@@ -1105,10 +1103,11 @@
+     if (BrowserParent* parent =
+             sNextBrowserParents.GetAndRemove(aNextRemoteTabId)
+                 .valueOr(nullptr)) {
++      RefPtr<BrowserHost> browserHost = new BrowserHost(parent);
+       MOZ_ASSERT(!parent->GetOwnerElement(),
+                  "Shouldn't have an owner elemnt before");
+       parent->SetOwnerElement(aFrameElement);
+-      return parent;
++      return browserHost.forget();
+     }
+   }
+ 
+@@ -1216,8 +1215,9 @@
+       Unused << browserParent->SendAwaitLargeAlloc();
+     }
+ 
++    RefPtr<BrowserHost> browserHost = new BrowserHost(browserParent);
+     browserParent->SetOwnerElement(aFrameElement);
+-    return browserParent;
++    return browserHost.forget();
+   }
+   return nullptr;
+ }

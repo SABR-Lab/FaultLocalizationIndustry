@@ -1,0 +1,75 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fetch/FetchParent.h
+# Commit: 4fd92351d64b
+# Full Hash: 4fd92351d64b1cbeb82beaf6228b21c01dc9bc03
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2023-01-19 04:46:07
+# Regressor Bug: 1351231
+# File Overlap Count: 2
+# Description:
+#   Bug 1351231 - FetchService integration for PFetch. r=dom-worker-reviewers,jesup
+#   
+#   Depends on D142436
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D142437
+# ==============================================================================
+
+diff -r 7a4e3f5f674a -r 4fd92351d64b dom/fetch/FetchParent.h
+--- a/dom/fetch/FetchParent.h	Wed Jan 18 00:50:19 2023 +0000
++++ b/dom/fetch/FetchParent.h	Wed Jan 18 00:50:20 2023 +0000
+@@ -7,19 +7,23 @@
+ 
+ #include "mozilla/Maybe.h"
+ #include "mozilla/MozPromise.h"
++#include "mozilla/Mutex.h"
+ #include "mozilla/RefPtr.h"
+-#include "mozilla/dom/FetchService.h"
+ #include "mozilla/dom/PFetchParent.h"
+ #include "mozilla/dom/SafeRefPtr.h"
+ #include "mozilla/ipc/PBackgroundSharedTypes.h"
++#include "mozilla/net/NeckoChannelParams.h"
+ #include "nsCOMPtr.h"
+ #include "nsIContentSecurityPolicy.h"
++#include "nsID.h"
+ #include "nsISerialEventTarget.h"
+ #include "nsString.h"
++#include "nsTHashMap.h"
+ 
+ namespace mozilla::dom {
+ 
+ class ClientInfo;
++class FetchServicePromises;
+ class InternalRequest;
+ class InternalResponse;
+ class ServiceWorkerDescriptor;
+@@ -38,7 +42,14 @@
+ 
+   static RefPtr<FetchParent> GetActorByID(const nsID& aID);
+ 
+-  void OnFlushConsoleReport(nsTArray<net::ConsoleReportCollected>&& aReports);
++  void OnResponseAvailableInternal(SafeRefPtr<InternalResponse>&& aResponse);
++
++  void OnResponseEnd(const ResponseEndArgs& aArgs);
++
++  void OnDataAvailable();
++
++  void OnFlushConsoleReport(
++      const nsTArray<net::ConsoleReportCollected>& aReports);
+ 
+   class FetchParentCSPEventListener final : public nsICSPEventListener {
+    public:
+@@ -76,9 +87,11 @@
+   nsCString mWorkerScript;
+   Maybe<ClientInfo> mClientInfo;
+   Maybe<ServiceWorkerDescriptor> mController;
+-  RefPtr<FetchParentCSPEventListener> mCSPEventListener;
++  Maybe<CookieJarSettingsArgs> mCookieJarSettings;
++  nsCOMPtr<nsICSPEventListener> mCSPEventListener;
+   bool mNeedOnDataAvailable{false};
+   bool mHasCSPEventListener{false};
++  bool mExtendForCSPEventListener{false};
+ 
+   Atomic<bool> mIsDone{false};
+   Atomic<bool> mActorDestroyed{false};

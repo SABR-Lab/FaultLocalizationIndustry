@@ -1,0 +1,87 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/cache/FileUtils.cpp
+# Commit: 74d480f1bfa8
+# Full Hash: 74d480f1bfa8f5d63e71818e9ee4dcfe8095a973
+# Author: Tom Tung <ttung@mozilla.com>
+# Date: 2019-10-02 16:35:54
+# Regressor Bug: 1581067
+# File Overlap Count: 1
+# Description:
+#   Bug 1581067 - P5 - Only remove the temporary body files & body directories when it's in the initializing stage; r=asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D47770
+# ==============================================================================
+
+diff -r 0a3fd8b7865a -r 74d480f1bfa8 dom/cache/FileUtils.cpp
+--- a/dom/cache/FileUtils.cpp	Tue Oct 01 13:08:15 2019 +0000
++++ b/dom/cache/FileUtils.cpp	Wed Oct 02 10:38:55 2019 +0000
+@@ -389,7 +389,9 @@
+       fileDeleted = false;
+       return NS_OK;
+     };
+-    rv = BodyTraverseFiles(aQuotaInfo, bodyDir, removeFileForId);
++    rv = BodyTraverseFiles(aQuotaInfo, bodyDir, removeFileForId,
++                           /* aCanRemoveFiles */ false,
++                           /* aTrackQuota */ true);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+@@ -559,7 +561,9 @@
+           fileDeleted = false;
+           return NS_OK;
+         };
+-    rv = BodyTraverseFiles(aQuotaInfo, subdir, removeOrphanedFiles);
++    rv = BodyTraverseFiles(aQuotaInfo, subdir, removeOrphanedFiles,
++                           /* aCanRemoveFiles */ true,
++                           /* aTrackQuota */ true);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+     }
+@@ -574,7 +578,7 @@
+ template <typename Func>
+ nsresult BodyTraverseFiles(const QuotaInfo& aQuotaInfo, nsIFile* aBodyDir,
+                            const Func& aHandleFileFunc,
+-                           const bool aTrackQuota) {
++                           const bool aCanRemoveFiles, const bool aTrackQuota) {
+   MOZ_DIAGNOSTIC_ASSERT(aBodyDir);
+ 
+   nsresult rv;
+@@ -625,17 +629,16 @@
+     // Delete all tmp files regardless of known bodies. These are all
+     // considered orphans.
+     if (StringEndsWith(leafName, NS_LITERAL_CSTRING(".tmp"))) {
+-      DebugOnly<nsresult> result = RemoveNsIFile(aQuotaInfo, file, aTrackQuota);
+-      MOZ_ASSERT(NS_SUCCEEDED(result));
+-      continue;
+-    }
+-
+-    nsCString suffix(NS_LITERAL_CSTRING(".final"));
+-
+-    // Otherwise, it must be a .final file.  If its not, then try to remove it
+-    // and move on
+-    if (NS_WARN_IF(!StringEndsWith(leafName, suffix) ||
+-                   leafName.Length() != NSID_LENGTH - 1 + suffix.Length())) {
++      if (aCanRemoveFiles) {
++        DebugOnly<nsresult> result =
++            RemoveNsIFile(aQuotaInfo, file, aTrackQuota);
++        MOZ_ASSERT(NS_SUCCEEDED(result));
++        continue;
++      }
++    } else if (NS_WARN_IF(
++                   !StringEndsWith(leafName, NS_LITERAL_CSTRING(".final")))) {
++      // Otherwise, it must be a .final file.  If its not, then try to remove it
++      // and move on
+       DebugOnly<nsresult> result =
+           RemoveNsIFile(aQuotaInfo, file, /* aTrackQuota */ false);
+       MOZ_ASSERT(NS_SUCCEEDED(result));
+@@ -657,7 +660,7 @@
+     return rv;
+   }
+ 
+-  if (isEmpty) {
++  if (isEmpty && aCanRemoveFiles) {
+     DebugOnly<nsresult> result =
+         RemoveNsIFileRecursively(aQuotaInfo, aBodyDir, /* aTrackQuota */ false);
+     MOZ_ASSERT(NS_SUCCEEDED(result));

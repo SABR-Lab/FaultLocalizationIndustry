@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/ProxyObject.cpp
+# Commit: 11fc8f557a2a
+# Full Hash: 11fc8f557a2a7cf3c89e7c1396316aabd9725778
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2021-03-06 09:33:16
+# Regressor Bug: 1689413
+# File Overlap Count: 1
+# Description:
+#   Bug 1689413 part 6 - Move Realm* from ObjectGroup to BaseShape. r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D106976
+# ==============================================================================
+
+diff -r 9bfa6023a553 -r 11fc8f557a2a js/src/vm/ProxyObject.cpp
+--- a/js/src/vm/ProxyObject.cpp	Sat Mar 06 01:05:20 2021 +0000
++++ b/js/src/vm/ProxyObject.cpp	Sat Mar 06 01:05:21 2021 +0000
+@@ -101,7 +101,8 @@
+       return nullptr;
+     }
+ 
+-    shape = EmptyShape::getInitialShape(cx, clasp, proto, /* nfixed = */ 0);
++    shape =
++        EmptyShape::getInitialShape(cx, clasp, realm, proto, /* nfixed = */ 0);
+     if (!shape) {
+       return nullptr;
+     }
+@@ -109,8 +110,7 @@
+     realm->newProxyCache.add(group, shape);
+   }
+ 
+-  MOZ_ASSERT(group->realm() == realm);
+-  MOZ_ASSERT(shape->zone() == cx->zone());
++  MOZ_ASSERT(shape->realm() == realm);
+   MOZ_ASSERT(!IsAboutToBeFinalizedUnbarriered(group.address()));
+   MOZ_ASSERT(!IsAboutToBeFinalizedUnbarriered(shape.address()));
+ 

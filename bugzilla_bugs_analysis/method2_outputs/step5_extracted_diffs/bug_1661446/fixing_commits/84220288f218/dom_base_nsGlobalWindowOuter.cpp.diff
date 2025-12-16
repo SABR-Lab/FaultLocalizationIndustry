@@ -1,0 +1,32 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsGlobalWindowOuter.cpp
+# Commit: 84220288f218
+# Full Hash: 84220288f218a1927c6e85ae6e96aee8fb0fb888
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2020-08-29 09:12:26
+# Description:
+#   Bug 1661446 - Don't assert that we still have a document in nsGlobalWindowOuter::Print. r=smaug
+#   
+#   Even though the outer comes from the inner, and the inner always checks
+#   HasActiveDocument(), that seems to be a bit of a lie, insofar
+#   HasActiveDocument() only checks IsCurrentActiveWindow(), and that can
+# ==============================================================================
+
+diff -r ce0324b3d0da -r 84220288f218 dom/base/nsGlobalWindowOuter.cpp
+--- a/dom/base/nsGlobalWindowOuter.cpp	Fri Aug 28 15:53:30 2020 +0000
++++ b/dom/base/nsGlobalWindowOuter.cpp	Fri Aug 28 15:57:59 2020 +0000
+@@ -5282,11 +5282,7 @@
+   }
+ 
+   RefPtr<Document> docToPrint = mDoc;
+-  MOZ_DIAGNOSTIC_ASSERT(docToPrint,
+-                        "This gets forwarded from the inner when "
+-                        "we have an active window, so there should "
+-                        "be a document");
+-  if (!docToPrint) {
++  if (NS_WARN_IF(!docToPrint)) {
+     aError.ThrowNotSupportedError("Document is gone");
+     return nullptr;
+   }

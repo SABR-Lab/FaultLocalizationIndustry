@@ -1,0 +1,94 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fetch/Fetch.cpp
+# Commit: 7802e5f1bd13
+# Full Hash: 7802e5f1bd1395f19f2d78636787c41f64192bd7
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2024-04-19 15:22:44
+# Regressor Bug: 1769913
+# File Overlap Count: 3
+# Description:
+#   Bug 1769913 - P3 Remove WorkerRunnable::mWorkerPrivate. r=dom-worker-reviewers,asuth
+#   
+#   WorkerRunnable no longer keeps a raw pointer(mWorkerPrivate) for the associated WorkerPrivate in this patch.
+#   Removing the WorkerRunnable::mWorkerPrivate needs to fix the following problems.
+#   
+# ==============================================================================
+
+diff -r ffc69aa8f2c3 -r 7802e5f1bd13 dom/fetch/Fetch.cpp
+--- a/dom/fetch/Fetch.cpp	Fri Apr 19 09:41:57 2024 +0000
++++ b/dom/fetch/Fetch.cpp	Fri Apr 19 09:41:58 2024 +0000
+@@ -792,7 +792,7 @@
+   WorkerFetchResponseRunnable(WorkerPrivate* aWorkerPrivate,
+                               WorkerFetchResolver* aResolver,
+                               SafeRefPtr<InternalResponse> aResponse)
+-      : MainThreadWorkerRunnable(aWorkerPrivate, "WorkerFetchResponseRunnable"),
++      : MainThreadWorkerRunnable("WorkerFetchResponseRunnable"),
+         mResolver(aResolver),
+         mInternalResponse(std::move(aResponse)) {
+     MOZ_ASSERT(mResolver);
+@@ -848,7 +848,7 @@
+  public:
+   WorkerDataAvailableRunnable(WorkerPrivate* aWorkerPrivate,
+                               WorkerFetchResolver* aResolver)
+-      : MainThreadWorkerRunnable(aWorkerPrivate, "WorkerDataAvailableRunnable"),
++      : MainThreadWorkerRunnable("WorkerDataAvailableRunnable"),
+         mResolver(aResolver) {}
+ 
+   bool WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override {
+@@ -889,8 +889,7 @@
+   WorkerFetchResponseEndRunnable(WorkerPrivate* aWorkerPrivate,
+                                  WorkerFetchResolver* aResolver,
+                                  FetchDriverObserver::EndReason aReason)
+-      : MainThreadWorkerRunnable(aWorkerPrivate,
+-                                 "WorkerFetchResponseEndRunnable"),
++      : MainThreadWorkerRunnable("WorkerFetchResponseEndRunnable"),
+         WorkerFetchResponseEndBase(aResolver),
+         mReason(aReason) {}
+ 
+@@ -917,7 +916,8 @@
+  public:
+   WorkerFetchResponseEndControlRunnable(WorkerPrivate* aWorkerPrivate,
+                                         WorkerFetchResolver* aResolver)
+-      : MainThreadWorkerControlRunnable(aWorkerPrivate),
++      : MainThreadWorkerControlRunnable(
++            "WorkerFetchResponseEndControlRunnable"),
+         WorkerFetchResponseEndBase(aResolver) {}
+ 
+   bool WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override {
+@@ -940,7 +940,7 @@
+   RefPtr<WorkerFetchResponseRunnable> r = new WorkerFetchResponseRunnable(
+       mPromiseProxy->GetWorkerPrivate(), this, std::move(aResponse));
+ 
+-  if (!r->Dispatch()) {
++  if (!r->Dispatch(mPromiseProxy->GetWorkerPrivate())) {
+     NS_WARNING("Could not dispatch fetch response");
+   }
+ }
+@@ -960,7 +960,7 @@
+ 
+   RefPtr<WorkerDataAvailableRunnable> r =
+       new WorkerDataAvailableRunnable(mPromiseProxy->GetWorkerPrivate(), this);
+-  Unused << r->Dispatch();
++  Unused << r->Dispatch(mPromiseProxy->GetWorkerPrivate());
+ }
+ 
+ void WorkerFetchResolver::OnResponseEnd(FetchDriverObserver::EndReason aReason,
+@@ -978,14 +978,14 @@
+   RefPtr<WorkerFetchResponseEndRunnable> r = new WorkerFetchResponseEndRunnable(
+       mPromiseProxy->GetWorkerPrivate(), this, aReason);
+ 
+-  if (!r->Dispatch()) {
++  if (!r->Dispatch(mPromiseProxy->GetWorkerPrivate())) {
+     RefPtr<WorkerFetchResponseEndControlRunnable> cr =
+         new WorkerFetchResponseEndControlRunnable(
+             mPromiseProxy->GetWorkerPrivate(), this);
+     // This can fail if the worker thread is canceled or killed causing
+     // the PromiseWorkerProxy to give up its WorkerRef immediately,
+     // allowing the worker thread to become Dead.
+-    if (!cr->Dispatch()) {
++    if (!cr->Dispatch(mPromiseProxy->GetWorkerPrivate())) {
+       NS_WARNING("Failed to dispatch WorkerFetchResponseEndControlRunnable");
+     }
+   }

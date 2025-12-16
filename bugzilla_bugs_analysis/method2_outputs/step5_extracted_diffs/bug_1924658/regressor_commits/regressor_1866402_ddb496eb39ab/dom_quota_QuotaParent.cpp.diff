@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/QuotaParent.cpp
+# Commit: ddb496eb39ab
+# Full Hash: ddb496eb39ab8e4a48b7e6924a3a908f30620864
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-10-09 21:46:09
+# Regressor Bug: 1866402
+# File Overlap Count: 1
+# Description:
+#   Bug 1866402 - Add a dedicated method for resetting storages of a specific client; r=dom-storage-reviewers,jari
+#   
+#   Client storages can be currently reset by using the optional argument of
+#   nsIQuotaManagerService::ResetStoragesForPrincipal. However, supporting
+#   resetting storages for both a principal and a client is not ideal for several
+# ==============================================================================
+
+diff -r 67a39d84be12 -r ddb496eb39ab dom/quota/QuotaParent.cpp
+--- a/dom/quota/QuotaParent.cpp	Wed Oct 09 11:59:34 2024 +0000
++++ b/dom/quota/QuotaParent.cpp	Wed Oct 09 11:59:34 2024 +0000
+@@ -789,6 +789,40 @@
+   return IPC_OK();
+ }
+ 
++mozilla::ipc::IPCResult Quota::RecvShutdownStoragesForClient(
++    const Maybe<PersistenceType>& aPersistenceType,
++    const PrincipalInfo& aPrincipalInfo, const Type& aClientType,
++    ShutdownStoragesForClientResolver&& aResolver) {
++  AssertIsOnBackgroundThread();
++
++  QM_TRY(MOZ_TO_RESULT(!QuotaManager::IsShuttingDown()),
++         ResolveBoolResponseAndReturn(aResolver));
++
++  if (!TrustParams()) {
++    if (aPersistenceType) {
++      QM_TRY(MOZ_TO_RESULT(IsValidPersistenceType(*aPersistenceType)),
++             QM_CUF_AND_IPC_FAIL(this));
++    }
++
++    QM_TRY(MOZ_TO_RESULT(QuotaManager::IsPrincipalInfoValid(aPrincipalInfo)),
++           QM_CUF_AND_IPC_FAIL(this));
++
++    QM_TRY(MOZ_TO_RESULT(Client::IsValidType(aClientType)),
++           QM_CUF_AND_IPC_FAIL(this));
++  }
++
++  QM_TRY_UNWRAP(const NotNull<RefPtr<QuotaManager>> quotaManager,
++                QuotaManager::GetOrCreate(),
++                ResolveBoolResponseAndReturn(aResolver));
++
++  quotaManager
++      ->ShutdownStoragesForClient(aPersistenceType, aPrincipalInfo, aClientType)
++      ->Then(GetCurrentSerialEventTarget(), __func__,
++             BoolPromiseResolveOrRejectCallback(this, std::move(aResolver)));
++
++  return IPC_OK();
++}
++
+ mozilla::ipc::IPCResult Quota::RecvShutdownStorage(
+     ShutdownStorageResolver&& aResolver) {
+   AssertIsOnBackgroundThread();

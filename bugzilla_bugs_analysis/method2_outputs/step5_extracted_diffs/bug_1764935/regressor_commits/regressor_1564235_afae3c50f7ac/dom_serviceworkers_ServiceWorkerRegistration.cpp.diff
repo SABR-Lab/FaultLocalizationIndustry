@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/serviceworkers/ServiceWorkerRegistration.cpp
+# Commit: afae3c50f7ac
+# Full Hash: afae3c50f7acff60d9400adbdc3a8aa2f9d7bdfe
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2021-06-10 15:47:45
+# Regressor Bug: 1564235
+# File Overlap Count: 3
+# Description:
+#   Bug 1564235 - P2 Create NavigationPreloadManager.webidl and implement webidl binding. r=dom-worker-reviewers,webidl,asuth
+#   
+#   This patch creates NavigationPreloadManager.webidl and implements the webidl binding.
+#   
+#   Depends on D116913
+# ==============================================================================
+
+diff -r 2148ef30186a -r afae3c50f7ac dom/serviceworkers/ServiceWorkerRegistration.cpp
+--- a/dom/serviceworkers/ServiceWorkerRegistration.cpp	Thu Jun 10 06:01:26 2021 +0000
++++ b/dom/serviceworkers/ServiceWorkerRegistration.cpp	Thu Jun 10 06:01:26 2021 +0000
+@@ -7,6 +7,7 @@
+ #include "ServiceWorkerRegistration.h"
+ 
+ #include "mozilla/dom/DOMMozPromiseRequestHolder.h"
++#include "mozilla/dom/NavigationPreloadManager.h"
+ #include "mozilla/dom/Notification.h"
+ #include "mozilla/dom/Promise.h"
+ #include "mozilla/dom/PushManager.h"
+@@ -24,7 +25,8 @@
+ 
+ NS_IMPL_CYCLE_COLLECTION_INHERITED(ServiceWorkerRegistration,
+                                    DOMEventTargetHelper, mInstallingWorker,
+-                                   mWaitingWorker, mActiveWorker, mPushManager);
++                                   mWaitingWorker, mActiveWorker,
++                                   mNavigationPreloadManager, mPushManager);
+ 
+ NS_IMPL_ADDREF_INHERITED(ServiceWorkerRegistration, DOMEventTargetHelper)
+ NS_IMPL_RELEASE_INHERITED(ServiceWorkerRegistration, DOMEventTargetHelper)
+@@ -142,6 +144,16 @@
+   return ref.forget();
+ }
+ 
++already_AddRefed<NavigationPreloadManager>
++ServiceWorkerRegistration::NavigationPreload() {
++  if (!mNavigationPreloadManager) {
++    mNavigationPreloadManager =
++        MakeRefPtr<NavigationPreloadManager>(GetParentObject());
++  }
++  RefPtr<NavigationPreloadManager> ref = mNavigationPreloadManager;
++  return ref.forget();
++}
++
+ void ServiceWorkerRegistration::UpdateState(
+     const ServiceWorkerRegistrationDescriptor& aDescriptor) {
+   MOZ_DIAGNOSTIC_ASSERT(MatchesDescriptor(aDescriptor));

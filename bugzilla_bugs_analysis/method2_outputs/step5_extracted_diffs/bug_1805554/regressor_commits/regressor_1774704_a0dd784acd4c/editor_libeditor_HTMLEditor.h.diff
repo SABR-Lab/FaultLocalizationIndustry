@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/HTMLEditor.h
+# Commit: a0dd784acd4c
+# Full Hash: a0dd784acd4c5a932d89ed8adc63fe62d8207618
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-08-04 09:46:07
+# Regressor Bug: 1774704
+# File Overlap Count: 1
+# Description:
+#   Bug 1774704 - part 7-7: Make `HTMLEditor::AlignNodesAndDescendants` stop touching `Selection` directly and setting `mNewBlockElement` r=m_kato
+#   
+#   For doing that, this patch also making `HTMLEditor::AlignContentsAtSelection`
+#   which the only caller of `HTMLEditor::AlignNodesAndDescendants` handle
+#   `Selection` with `AutoRangeArray` because it uses `AutoSelectionRestorer` and
+# ==============================================================================
+
+diff -r e54a1ebb8e12 -r a0dd784acd4c editor/libeditor/HTMLEditor.h
+--- a/editor/libeditor/HTMLEditor.h	Wed Aug 03 16:06:00 2022 +0000
++++ b/editor/libeditor/HTMLEditor.h	Thu Aug 04 05:07:32 2022 +0000
+@@ -2531,25 +2531,26 @@
+    *
+    * @param aAlignType          New align attribute value where the contents
+    *                            should be aligned to.
+-   */
+-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult AlignNodesAndDescendants(
++   * @param aEditingHost        The editing host.
++   * @return                    Last created <div> element which should contain
++   *                            caret and candidate position which may be
++   *                            outside the <div> element.
++   */
++  [[nodiscard]] MOZ_CAN_RUN_SCRIPT CreateElementResult AlignNodesAndDescendants(
+       nsTArray<OwningNonNull<nsIContent>>& aArrayOfContents,
+-      const nsAString& aAlignType);
+-
+-  /**
+-   * AlignContentsAtSelection() aligns contents around Selection to aAlignType.
+-   * This creates AutoSelectionRestorer.  Therefore, even if this returns
+-   * NS_OK, we might have been destroyed.  So, every caller needs to check if
+-   * Destroyed() returns false before modifying the DOM tree or changing
+-   * Selection.
+-   * NOTE: Call AlignAsSubAction() instead.
++      const nsAString& aAlignType, const Element& aEditingHost);
++
++  /**
++   * AlignContentsAtRanges() aligns contents around aRanges to aAlignType.
+    *
++   * @param aRanges             The ranges where should be aligned.
+    * @param aAlignType          New align attribute value where the contents
+    *                            should be aligned to.
+    * @param aEditingHost        The editing host.
+    */
+-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult AlignContentsAtSelection(
+-      const nsAString& aAlignType, const Element& aEditingHost);
++  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
++  AlignContentsAtRanges(AutoRangeArray& aRanges, const nsAString& aAlignType,
++                        const Element& aEditingHost);
+ 
+   /**
+    * AlignAsSubAction() handles "align" command with `Selection`.

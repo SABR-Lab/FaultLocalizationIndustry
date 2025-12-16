@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/frontend/Stencil.h
+# Commit: 73cc5fa0e0bd
+# Full Hash: 73cc5fa0e0bdd7a1d6b0f8450b1541c4bc53c333
+# Author: Tooru Fujisawa <arai_a@mac.com>
+# Date: 2020-11-14 09:46:25
+# Regressor Bug: 1675241
+# File Overlap Count: 1
+# Description:
+#   Bug 1675241 - Part 9: Use TaggedParserAtomIndex in RegExpStencil.atom_. r=tcampbell
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D96916
+# ==============================================================================
+
+diff -r f505b8fb8f8b -r 73cc5fa0e0bd js/src/frontend/Stencil.h
+--- a/js/src/frontend/Stencil.h	Sat Nov 14 00:03:07 2020 +0000
++++ b/js/src/frontend/Stencil.h	Sat Nov 14 00:03:20 2020 +0000
+@@ -89,13 +89,13 @@
+ class RegExpStencil {
+   friend class StencilXDR;
+ 
+-  const ParserAtom* atom_;
++  TaggedParserAtomIndex atom_;
+   JS::RegExpFlags flags_;
+ 
+  public:
+   RegExpStencil() = default;
+ 
+-  RegExpStencil(const ParserAtom* atom, JS::RegExpFlags flags)
++  RegExpStencil(TaggedParserAtomIndex atom, JS::RegExpFlags flags)
+       : atom_(atom), flags_(flags) {}
+ 
+   RegExpObject* createRegExp(JSContext* cx,
+@@ -103,12 +103,14 @@
+ 
+   // This is used by `Reflect.parse` when we need the RegExpObject but are not
+   // doing a complete instantiation of the CompilationStencil.
+-  RegExpObject* createRegExpAndEnsureAtom(
+-      JSContext* cx, CompilationAtomCache& atomCache) const;
++  RegExpObject* createRegExpAndEnsureAtom(JSContext* cx,
++                                          CompilationAtomCache& atomCache,
++                                          CompilationStencil& stencil) const;
+ 
+ #if defined(DEBUG) || defined(JS_JITSPEW)
+   void dump();
+-  void dump(JSONPrinter& json);
++  void dump(JSONPrinter& json, CompilationStencil* compilationStencil);
++  void dumpFields(JSONPrinter& json, CompilationStencil* compilationStencil);
+ #endif
+ };
+ 

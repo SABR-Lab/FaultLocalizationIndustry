@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/JSScript.h
+# Commit: ae6126131b6d
+# Full Hash: ae6126131b6dfa18981f25c6986200c14e63e5f2
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2024-04-11 04:26:26
+# Regressor Bug: 1881995
+# File Overlap Count: 1
+# Description:
+#   Bug 1881995 - Implement ForwardedAtoms and create them during atomization r=iain,sfink
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D202690
+# ==============================================================================
+
+diff -r 4e5967329fdd -r ae6126131b6d js/src/vm/JSScript.h
+--- a/js/src/vm/JSScript.h	Wed Apr 10 15:47:15 2024 +0000
++++ b/js/src/vm/JSScript.h	Wed Apr 10 16:32:23 2024 +0000
+@@ -2040,6 +2040,23 @@
+     return getString(GET_GCTHING_INDEX(pc));
+   }
+ 
++  bool atomizeString(JSContext* cx, jsbytecode* pc) {
++    MOZ_ASSERT(containsPC<js::GCThingIndex>(pc));
++    MOZ_ASSERT(js::JOF_OPTYPE((JSOp)*pc) == JOF_STRING);
++    js::GCThingIndex index = GET_GCTHING_INDEX(pc);
++    JSString* str = getString(index);
++    if (str->isAtom()) {
++      return true;
++    }
++    JSAtom* atom = js::AtomizeString(cx, str);
++    if (!atom) {
++      return false;
++    }
++    js::gc::CellPtrPreWriteBarrier(data_->gcthings()[index]);
++    data_->gcthings()[index] = JS::GCCellPtr(atom);
++    return true;
++  }
++
+   JSAtom* getAtom(js::GCThingIndex index) const {
+     return &gcthings()[index].as<JSString>().asAtom();
+   }

@@ -1,0 +1,42 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/html/HTMLMediaElement.cpp
+# Commit: 0fbabca36fb1
+# Full Hash: 0fbabca36fb1bc4fd8e3dcb9108b0856e77cbf44
+# Author: Alastor Wu <alwu@mozilla.com>
+# Date: 2020-02-29 04:04:56
+# Description:
+#   Bug 1618717 - stop and clear the listener during CC unlink process. r=bryce
+#   
+#   At the time CC unlink happens, we would no longer need to listen to the media control key events. Therefore, we should remember to stop and clear the listener to avoid its any method ran after CC.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D64787
+# ==============================================================================
+
+diff -r 33cffdf747c8 -r 0fbabca36fb1 dom/html/HTMLMediaElement.cpp
+--- a/dom/html/HTMLMediaElement.cpp	Fri Feb 28 23:12:20 2020 +0000
++++ b/dom/html/HTMLMediaElement.cpp	Fri Feb 28 23:39:29 2020 +0000
+@@ -489,7 +489,10 @@
+     return true;
+   }
+ 
+-  HTMLMediaElement* Owner() const { return mElement.get(); }
++  HTMLMediaElement* Owner() const {
++    MOZ_ASSERT(mElement);
++    return mElement.get();
++  }
+ 
+   void NotifyMediaStateChanged(ControlledMediaState aState) {
+     MOZ_ASSERT(NS_IsMainThread());
+@@ -2028,6 +2031,10 @@
+   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPendingPlayPromises)
+   NS_IMPL_CYCLE_COLLECTION_UNLINK(mSeekDOMPromise)
+   NS_IMPL_CYCLE_COLLECTION_UNLINK(mSetMediaKeysDOMPromise)
++  if (tmp->mMediaControlEventListener) {
++    tmp->StopListeningMediaControlEventIfNeeded();
++    tmp->mMediaControlEventListener = nullptr;
++  }
+   NS_IMPL_CYCLE_COLLECTION_UNLINK_WEAK_PTR
+ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
+ 

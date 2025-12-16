@@ -1,0 +1,116 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/dav1d/src/meson.build
+# Commit: a5108ffbd311
+# Full Hash: a5108ffbd31101e7cb72dabc271d92027f953c3c
+# Author: Alex Chronopoulos <achronop@gmail.com>
+# Date: 2019-04-20 09:35:22
+# Regressor Bug: 1540830
+# File Overlap Count: 3
+# Description:
+#   Bug 1540830 - Update dav1d from upstream to 1f7a7e8. r=TD-Linux
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D28200
+# ==============================================================================
+
+diff -r 98adabf295d0 -r a5108ffbd311 third_party/dav1d/src/meson.build
+--- a/third_party/dav1d/src/meson.build	Fri Apr 19 20:49:36 2019 +0000
++++ b/third_party/dav1d/src/meson.build	Fri Apr 19 20:36:10 2019 +0000
+@@ -86,12 +86,14 @@
+         )
+         libdav1d_tmpl_sources += files(
+             'arm/cdef_init_tmpl.c',
++            'arm/loopfilter_init_tmpl.c',
+             'arm/looprestoration_init_tmpl.c',
+             'arm/mc_init_tmpl.c',
+         )
+         if host_machine.cpu_family() == 'aarch64'
+             libdav1d_sources += files(
+                 'arm/64/cdef.S',
++                'arm/64/loopfilter.S',
+                 'arm/64/looprestoration.S',
+                 'arm/64/mc.S',
+             )
+@@ -118,20 +120,31 @@
+ 
+         # NASM source files
+         libdav1d_sources_asm = files(
+-            'x86/cdef.asm',
+-            'x86/cdef_ssse3.asm',
+             'x86/cpuid.asm',
+-            'x86/ipred.asm',
+-            'x86/itx.asm',
+-            'x86/loopfilter.asm',
+-            'x86/looprestoration.asm',
+-            'x86/looprestoration_ssse3.asm',
+-            'x86/mc.asm',
+-            'x86/mc_ssse3.asm',
+-            'x86/itx_ssse3.asm',
+-            'x86/ipred_ssse3.asm',
++            'x86/msac.asm',
+         )
+ 
++        if dav1d_bitdepths.contains('8')
++            libdav1d_sources_asm += files(
++                'x86/cdef.asm',
++                'x86/cdef_sse.asm',
++                'x86/ipred.asm',
++                'x86/ipred_ssse3.asm',
++                'x86/itx.asm',
++                'x86/itx_ssse3.asm',
++                'x86/loopfilter.asm',
++                'x86/looprestoration.asm',
++                'x86/looprestoration_ssse3.asm',
++                'x86/mc.asm',
++                'x86/mc_ssse3.asm',
++            )
++        endif
++
++        if dav1d_bitdepths.contains('16')
++            libdav1d_sources_asm += files(
++            )
++        endif
++
+         # Compile the ASM sources with NASM
+         libdav1d_nasm_objs = nasm_gen.process(libdav1d_sources_asm)
+     endif
+@@ -139,8 +152,10 @@
+ 
+ 
+ 
++api_export_flags = []
++
+ #
+-# Windows .rc file
++# Windows .rc file and API export flags
+ #
+ 
+ if host_machine.system() == 'windows' and get_option('default_library') != 'static'
+@@ -162,6 +177,8 @@
+     )
+ 
+     libdav1d_rc_obj = winmod.compile_resources(rc_file)
++
++    api_export_flags = ['-DDAV1D_BUILDING_DLL']
+ else
+     libdav1d_rc_obj = []
+ endif
+@@ -180,7 +197,7 @@
+ 
+     include_directories : dav1d_inc_dirs,
+     dependencies: [stdatomic_dependency],
+-    c_args : [stackalign_flag, stackrealign_flag],
++    c_args : [stackalign_flag, stackrealign_flag, api_export_flags],
+     install : false,
+     build_by_default : false,
+ ).extract_all_objects()
+@@ -222,7 +239,7 @@
+         thread_dependency,
+         thread_compat_dep,
+         ],
+-    c_args : [stackalign_flag],
++    c_args : [stackalign_flag, api_export_flags],
+     version : dav1d_soname_version,
+     soversion : dav1d_soversion,
+     install : true,

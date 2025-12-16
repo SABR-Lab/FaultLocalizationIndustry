@@ -1,0 +1,65 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/resource_cache.rs
+# Commit: 15da94c6a7b1
+# Full Hash: 15da94c6a7b19f971d3dffaa4cab8edb8e41cb62
+# Author: Glenn Watson <git@intuitionlibrary.com>
+# Date: 2020-12-15 09:29:54
+# Regressor Bug: 1682365
+# File Overlap Count: 1
+# Description:
+#   Bug 1682365 - Pt 2 - Remove texture array usage from render task graph. r=nical
+#   
+#   With this change, all color/alpha intermediate surfaces are individual
+#   textures, rather than texture arrays.
+#   
+# ==============================================================================
+
+diff -r 72ddac486037 -r 15da94c6a7b1 gfx/wr/webrender/src/resource_cache.rs
+--- a/gfx/wr/webrender/src/resource_cache.rs	Tue Dec 15 01:46:51 2020 +0200
++++ b/gfx/wr/webrender/src/resource_cache.rs	Mon Dec 14 21:48:41 2020 +0000
+@@ -425,7 +425,6 @@
+ /// Internal information about allocated render targets in the pool
+ struct RenderTarget {
+     size: DeviceIntSize,
+-    num_layers: usize,
+     format: ImageFormat,
+     texture_id: CacheTextureId,
+     /// If true, this is currently leant out, and not available to other passes
+@@ -436,7 +435,7 @@
+ impl RenderTarget {
+     fn size_in_bytes(&self) -> usize {
+         let bpp = self.format.bytes_per_pixel() as usize;
+-        self.num_layers * (self.size.width * self.size.height) as usize * bpp
++        (self.size.width * self.size.height) as usize * bpp
+     }
+ 
+     /// Returns true if this texture was used within `threshold` frames of
+@@ -1578,12 +1577,10 @@
+     pub fn get_or_create_render_target_from_pool(
+         &mut self,
+         size: DeviceIntSize,
+-        num_layers: usize,
+         format: ImageFormat,
+     ) -> CacheTextureId {
+         for target in &mut self.render_target_pool {
+             if target.size == size &&
+-               target.num_layers == num_layers &&
+                target.format == format &&
+                !target.is_active {
+                 // Found a target that's not currently in use which matches. Update
+@@ -1598,13 +1595,11 @@
+ 
+         let texture_id = self.texture_cache.alloc_render_target(
+             size,
+-            num_layers,
+             format,
+         );
+ 
+         self.render_target_pool.push(RenderTarget {
+             size,
+-            num_layers,
+             format,
+             texture_id,
+             is_active: true,

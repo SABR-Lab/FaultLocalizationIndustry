@@ -1,0 +1,68 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLVertexArray.h
+# Commit: ccfa767dba64
+# Full Hash: ccfa767dba644dc193e0246eb8e8ff3377e8b8a5
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Client-side bindings mirror for precise CC, and merge similar codepaths. r=handyman
+#   
+#   * Context loss using RAII
+#   * Move Program reflection Client-side
+#   
+# ==============================================================================
+
+diff -r 71c122ac0ca7 -r ccfa767dba64 dom/canvas/WebGLVertexArray.h
+--- a/dom/canvas/WebGLVertexArray.h	Wed Jan 08 22:19:14 2020 +0000
++++ b/dom/canvas/WebGLVertexArray.h	Wed Jan 08 22:19:16 2020 +0000
+@@ -8,9 +8,6 @@
+ 
+ #include <vector>
+ 
+-#include "mozilla/LinkedList.h"
+-#include "nsWrapperCache.h"
+-
+ #include "CacheInvalidator.h"
+ #include "WebGLObjectModel.h"
+ #include "WebGLStrongTypes.h"
+@@ -23,30 +20,23 @@
+ struct LinkedProgramInfo;
+ }
+ 
+-class WebGLVertexArray : public WebGLRefCountedObject<WebGLVertexArray>,
+-                         public LinkedListElement<WebGLVertexArray>,
++class WebGLVertexArray : public WebGLContextBoundObject,
+                          public CacheInvalidator {
++  MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(WebGLVertexArray, override)
++
+  public:
+   static WebGLVertexArray* Create(WebGLContext* webgl);
+ 
+-  void Delete();
+-
+-  NS_INLINE_DECL_REFCOUNTING(WebGLVertexArray)
+-
+  protected:
+-  WebGLVertexArray(WebGLContext* webgl, GLuint name);
+-  virtual ~WebGLVertexArray();
+-
+-  virtual void BindVertexArray() = 0;
+-  virtual void DeleteImpl() = 0;
++  explicit WebGLVertexArray(WebGLContext* webgl);
+ 
+  public:
+-  const GLuint mGLName;
++  virtual void BindVertexArray() = 0;
+   bool mHasBeenBound = false;
+ 
+  protected:
+   std::vector<WebGLVertexAttribData> mAttribs;
+-  WebGLRefPtr<WebGLBuffer> mElementArrayBuffer;
++  RefPtr<WebGLBuffer> mElementArrayBuffer;
+ 
+   friend class ScopedDrawHelper;
+   friend class WebGLContext;

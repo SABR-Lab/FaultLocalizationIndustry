@@ -1,0 +1,30 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/CanvasDrawEventRecorder.cpp
+# Commit: 159cab18c3a7
+# Full Hash: 159cab18c3a7770b7c2384a124013ef41cde0a9e
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2023-12-19 05:06:09
+# Description:
+#   Bug 1870681 - Check for invalid buffers when clearing a canvas recorder's cached buffer pool. r=gfx-reviewers,lsalzman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D196763
+# ==============================================================================
+
+diff -r 83615059eb4d -r 159cab18c3a7 gfx/layers/CanvasDrawEventRecorder.cpp
+--- a/gfx/layers/CanvasDrawEventRecorder.cpp	Mon Dec 18 18:10:47 2023 +0000
++++ b/gfx/layers/CanvasDrawEventRecorder.cpp	Mon Dec 18 18:13:19 2023 +0000
+@@ -233,7 +233,11 @@
+ void CanvasDrawEventRecorder::DropFreeBuffers() {
+   while (mRecycledBuffers.size() > 1 &&
+          mRecycledBuffers.front().eventCount < mHeader->processedCount) {
+-    WriteInternalEvent(DROP_BUFFER);
++    // If we encountered an error, we may have invalidated mCurrentBuffer in
++    // GetContiguousBuffer. No need to write the DROP_BUFFER event.
++    if (mCurrentBuffer.IsValid()) {
++      WriteInternalEvent(DROP_BUFFER);
++    }
+     mCurrentBuffer = CanvasBuffer(std::move(mRecycledBuffers.front().shmem));
+     mRecycledBuffers.pop();
+   }

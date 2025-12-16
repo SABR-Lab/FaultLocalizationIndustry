@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/gl/EGLUtils.cpp
+# Commit: edfb73b96d5a
+# Full Hash: edfb73b96d5ad946bbdd9da2e98d07b1f4565e1f
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2019-06-15 21:44:24
+# Regressor Bug: 1559524
+# File Overlap Count: 2
+# Description:
+#   Bug 1559524 - Reduce calls to GLLibraryEGL::Get(). r=lsalzman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D35103
+# ==============================================================================
+
+diff -r 0378898329b2 -r edfb73b96d5a gfx/gl/EGLUtils.cpp
+--- a/gfx/gl/EGLUtils.cpp	Sat Jun 15 05:14:53 2019 +0000
++++ b/gfx/gl/EGLUtils.cpp	Sat Jun 15 05:21:12 2019 +0000
+@@ -11,7 +11,8 @@
+ namespace gl {
+ 
+ bool DoesEGLContextSupportSharingWithEGLImage(GLContext* gl) {
+-  auto* egl = gl::GLLibraryEGL::Get();
++  const auto& gle = GLContextEGL::Cast(gl);
++  const auto& egl = gle->mEgl;
+ 
+   return egl->HasKHRImageBase() && egl->HasKHRImageTexture2D() &&
+          gl->IsExtensionSupported(GLContext::OES_EGL_image);
+@@ -20,12 +21,11 @@
+ EGLImage CreateEGLImage(GLContext* gl, GLuint tex) {
+   MOZ_ASSERT(DoesEGLContextSupportSharingWithEGLImage(gl));
+ 
+-  auto* egl = gl::GLLibraryEGL::Get();
+-
++  const auto& gle = GLContextEGL::Cast(gl);
++  const auto& egl = gle->mEgl;
+   EGLClientBuffer clientBuffer = (EGLClientBuffer)((uint64_t)tex);
+-  EGLContext eglContext = GLContextEGL::Cast(gl)->mContext;
+   EGLImage image =
+-      egl->fCreateImage(egl->Display(), eglContext, LOCAL_EGL_GL_TEXTURE_2D,
++      egl->fCreateImage(egl->Display(), gle->mContext, LOCAL_EGL_GL_TEXTURE_2D,
+                         clientBuffer, nullptr);
+   return image;
+ }
+@@ -37,12 +37,12 @@
+ EGLImageWrapper* EGLImageWrapper::Create(GLContext* gl, GLuint tex) {
+   MOZ_ASSERT(DoesEGLContextSupportSharingWithEGLImage(gl));
+ 
+-  auto* egl = gl::GLLibraryEGL::Get();
++  const auto& gle = GLContextEGL::Cast(gl);
++  const auto& egl = gle->mEgl;
+   const auto& display = egl->Display();
+-  EGLContext eglContext = GLContextEGL::Cast(gl)->mContext;
+   EGLClientBuffer clientBuffer = (EGLClientBuffer)((uint64_t)tex);
+   EGLImage image = egl->fCreateImage(
+-      display, eglContext, LOCAL_EGL_GL_TEXTURE_2D, clientBuffer, nullptr);
++      display, gle->mContext, LOCAL_EGL_GL_TEXTURE_2D, clientBuffer, nullptr);
+   if (!image) {
+ #ifdef DEBUG
+     printf_stderr("Could not create EGL images: ERROR (0x%04x)\n",

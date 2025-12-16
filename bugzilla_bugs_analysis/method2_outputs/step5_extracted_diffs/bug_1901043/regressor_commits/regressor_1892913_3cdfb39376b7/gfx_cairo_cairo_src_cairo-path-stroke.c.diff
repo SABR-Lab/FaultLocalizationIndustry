@@ -1,0 +1,87 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/cairo/cairo/src/cairo-path-stroke.c
+# Commit: 3cdfb39376b7
+# Full Hash: 3cdfb39376b736597fe658a322389117686b7e82
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2024-05-07 09:13:07
+# Regressor Bug: 1892913
+# File Overlap Count: 3
+# Description:
+#   Bug 1892913 - patch 1 - Update cairo source to 1.18.0 r=gfx-reviewers,lsalzman
+#   
+#   Wholesale replacement of files in gfx/cairo/cairo with contents of the 1.18.0 release tarball,
+#   omitting subdirectories that are not part of the core library build.
+#   
+# ==============================================================================
+
+diff -r 9daa351f875b -r 3cdfb39376b7 gfx/cairo/cairo/src/cairo-path-stroke.c
+--- a/gfx/cairo/cairo/src/cairo-path-stroke.c	Mon May 06 19:22:35 2024 +0000
++++ b/gfx/cairo/cairo/src/cairo-path-stroke.c	Mon May 06 19:25:12 2024 +0000
+@@ -214,17 +214,6 @@
+     return 0;
+ }
+ 
+-static inline int
+-_range_step (int i, int step, int max)
+-{
+-    i += step;
+-    if (i < 0)
+-	i = max - 1;
+-    if (i >= max)
+-	i = 0;
+-    return i;
+-}
+-
+ /*
+  * Construct a fan around the midpoint using the vertices from pen between
+  * inpt and outpt.
+@@ -996,6 +985,14 @@
+ }
+ 
+ static cairo_status_t
++_cairo_stroker_add_point_line_to (void *closure,
++				  const cairo_point_t *point,
++				  const cairo_slope_t *tangent)
++{
++    return _cairo_stroker_line_to (closure, point);
++};
++
++static cairo_status_t
+ _cairo_stroker_spline_to (void *closure,
+ 			  const cairo_point_t *point,
+ 			  const cairo_slope_t *tangent)
+@@ -1226,6 +1223,14 @@
+ }
+ 
+ static cairo_status_t
++_cairo_stroker_add_point_line_to_dashed (void *closure,
++					 const cairo_point_t *point,
++					 const cairo_slope_t *tangent)
++{
++    return _cairo_stroker_line_to_dashed (closure, point);
++};
++
++static cairo_status_t
+ _cairo_stroker_curve_to (void *closure,
+ 			 const cairo_point_t *b,
+ 			 const cairo_point_t *c,
+@@ -1241,13 +1246,13 @@
+     cairo_status_t status = CAIRO_STATUS_SUCCESS;
+ 
+     line_to = stroker->dash.dashed ?
+-	(cairo_spline_add_point_func_t) _cairo_stroker_line_to_dashed :
+-	(cairo_spline_add_point_func_t) _cairo_stroker_line_to;
++	_cairo_stroker_add_point_line_to_dashed :
++	_cairo_stroker_add_point_line_to;
+ 
+     /* spline_to is only capable of rendering non-degenerate splines. */
+     spline_to = stroker->dash.dashed ?
+-	(cairo_spline_add_point_func_t) _cairo_stroker_line_to_dashed :
+-	(cairo_spline_add_point_func_t) _cairo_stroker_spline_to;
++	_cairo_stroker_add_point_line_to_dashed :
++	_cairo_stroker_spline_to;
+ 
+     if (! _cairo_spline_init (&spline,
+ 			      spline_to,

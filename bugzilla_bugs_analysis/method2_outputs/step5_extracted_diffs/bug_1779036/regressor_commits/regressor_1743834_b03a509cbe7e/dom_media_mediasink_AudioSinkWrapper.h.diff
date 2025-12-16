@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasink/AudioSinkWrapper.h
+# Commit: b03a509cbe7e
+# Full Hash: b03a509cbe7e83b0bf696a50ca01f93ff3dd4f35
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2022-04-20 21:53:00
+# Regressor Bug: 1743834
+# File Overlap Count: 1
+# Description:
+#   Bug 1743834 - Make GetClock() non-const on MediaSink, and allow the AudioSink to modify the AudioQueue. r=alwu,media-playback-reviewers
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D133642
+# ==============================================================================
+
+diff -r 031d76045d18 -r b03a509cbe7e dom/media/mediasink/AudioSinkWrapper.h
+--- a/dom/media/mediasink/AudioSinkWrapper.h	Wed Apr 20 11:42:55 2022 +0000
++++ b/dom/media/mediasink/AudioSinkWrapper.h	Wed Apr 20 12:07:08 2022 +0000
+@@ -49,9 +49,8 @@
+  public:
+   template <typename Function>
+   AudioSinkWrapper(AbstractThread* aOwnerThread,
+-                   const MediaQueue<AudioData>& aAudioQueue,
+-                   const Function& aFunc, double aVolume, double aPlaybackRate,
+-                   bool aPreservesPitch)
++                   MediaQueue<AudioData>& aAudioQueue, const Function& aFunc,
++                   double aVolume, double aPlaybackRate, bool aPreservesPitch)
+       : mOwnerThread(aOwnerThread),
+         mCreator(new CreatorImpl<Function>(aFunc)),
+         mIsStarted(false),
+@@ -64,7 +63,7 @@
+ 
+   RefPtr<EndedPromise> OnEnded(TrackType aType) override;
+   media::TimeUnit GetEndTime(TrackType aType) const override;
+-  media::TimeUnit GetPosition(TimeStamp* aTimeStamp = nullptr) const override;
++  media::TimeUnit GetPosition(TimeStamp* aTimeStamp = nullptr) override;
+   bool HasUnplayedFrames(TrackType aType) const override;
+   media::TimeUnit UnplayedDuration(TrackType aType) const override;
+ 
+@@ -113,7 +112,7 @@
+ 
+   bool mAudioEnded;
+   MozPromiseRequestHolder<EndedPromise> mAudioSinkEndedPromise;
+-  const MediaQueue<AudioData>& mAudioQueue;
++  MediaQueue<AudioData>& mAudioQueue;
+ };
+ 
+ }  // namespace mozilla

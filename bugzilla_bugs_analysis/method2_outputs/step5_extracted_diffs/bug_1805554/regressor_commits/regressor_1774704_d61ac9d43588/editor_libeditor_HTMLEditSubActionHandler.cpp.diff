@@ -1,0 +1,130 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/HTMLEditSubActionHandler.cpp
+# Commit: d61ac9d43588
+# Full Hash: d61ac9d4358882e3b27761a6344eb9ad0e13466c
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-08-04 04:34:13
+# Regressor Bug: 1774704
+# File Overlap Count: 1
+# Description:
+#   Bug 1774704 - part 4-1: Move `HTMLEditor::GetParentListElementAtSelection` into `AutoRangeArray` r=m_kato
+#   
+#   It oddly retrieve an ancestor list element which contains one range in the
+#   selection ranges.  So, working it with `AutoRangeArray` which is initialized
+#   with `Selection` makes `HTMLEditor` smaller...
+# ==============================================================================
+
+diff -r 0b2613e3fdfe -r d61ac9d43588 editor/libeditor/HTMLEditSubActionHandler.cpp
+--- a/editor/libeditor/HTMLEditSubActionHandler.cpp	Thu Aug 04 04:45:47 2022 +0300
++++ b/editor/libeditor/HTMLEditSubActionHandler.cpp	Thu Aug 04 01:50:28 2022 +0000
+@@ -3131,26 +3131,27 @@
+   AutoSelectionRestorer restoreSelectionLater(*this);
+ 
+   AutoTArray<OwningNonNull<nsIContent>, 64> arrayOfContents;
+-  Element* parentListElement =
+-      aSelectAllOfCurrentList == SelectAllOfCurrentList::Yes
+-          ? GetParentListElementAtSelection()
+-          : nullptr;
+-  if (parentListElement) {
+-    arrayOfContents.AppendElement(
+-        OwningNonNull<nsIContent>(*parentListElement));
+-  } else {
+-    // TODO: We don't need AutoTransactionsConserveSelection here in the normal
+-    //       cases, but removing this may cause the behavior with the legacy
+-    //       mutation event listeners.  We should try to delete this in a bug.
+-    AutoTransactionsConserveSelection dontChangeMySelection(*this);
+-
+-    {
+-      AutoRangeArray extendedSelectionRanges(SelectionRef());
+-      extendedSelectionRanges
+-          .ExtendRangesToWrapLinesToHandleBlockLevelEditAction(
+-              EditSubAction::eCreateOrChangeList, aEditingHost);
++
++  {
++    AutoRangeArray selectionRanges(SelectionRef());
++    Element* parentListElement =
++        aSelectAllOfCurrentList == SelectAllOfCurrentList::Yes
++            ? selectionRanges.GetClosestAncestorAnyListElementOfRange()
++            : nullptr;
++    if (parentListElement) {
++      arrayOfContents.AppendElement(
++          OwningNonNull<nsIContent>(*parentListElement));
++    } else {
++      // TODO: We don't need AutoTransactionsConserveSelection here in the
++      //       normal cases, but removing this may cause the behavior with the
++      //       legacy mutation event listeners.  We should try to delete this in
++      //       a bug.
++      AutoTransactionsConserveSelection dontChangeMySelection(*this);
++
++      selectionRanges.ExtendRangesToWrapLinesToHandleBlockLevelEditAction(
++          EditSubAction::eCreateOrChangeList, aEditingHost);
+       Result<EditorDOMPoint, nsresult> splitResult =
+-          extendedSelectionRanges
++          selectionRanges
+               .SplitTextNodesAtEndBoundariesAndParentInlineElementsAtBoundaries(
+                   *this);
+       if (MOZ_UNLIKELY(splitResult.isErr())) {
+@@ -3160,7 +3161,7 @@
+             " failed");
+         return EditActionResult(splitResult.unwrapErr());
+       }
+-      nsresult rv = extendedSelectionRanges.CollectEditTargetNodes(
++      nsresult rv = selectionRanges.CollectEditTargetNodes(
+           *this, arrayOfContents, EditSubAction::eCreateOrChangeList,
+           AutoRangeArray::CollectNonEditableNodes::No);
+       if (NS_FAILED(rv)) {
+@@ -3169,16 +3170,16 @@
+             "eCreateOrChangeList, CollectNonEditableNodes::No) failed");
+         return EditActionResult(rv);
+       }
+-    }
+-
+-    const Result<EditorDOMPoint, nsresult> splitAtBRElementsResult =
+-        MaybeSplitElementsAtEveryBRElement(arrayOfContents,
+-                                           EditSubAction::eCreateOrChangeList);
+-    if (MOZ_UNLIKELY(splitAtBRElementsResult.isErr())) {
+-      NS_WARNING(
+-          "HTMLEditor::MaybeSplitElementsAtEveryBRElement(EditSubAction::"
+-          "eCreateOrChangeList) failed");
+-      return EditActionResult(splitAtBRElementsResult.inspectErr());
++
++      const Result<EditorDOMPoint, nsresult> splitAtBRElementsResult =
++          MaybeSplitElementsAtEveryBRElement(
++              arrayOfContents, EditSubAction::eCreateOrChangeList);
++      if (MOZ_UNLIKELY(splitAtBRElementsResult.isErr())) {
++        NS_WARNING(
++            "HTMLEditor::MaybeSplitElementsAtEveryBRElement(EditSubAction::"
++            "eCreateOrChangeList) failed");
++        return EditActionResult(splitAtBRElementsResult.inspectErr());
++      }
+     }
+   }
+ 
+@@ -6828,25 +6829,6 @@
+   }
+ }
+ 
+-Element* HTMLEditor::GetParentListElementAtSelection() const {
+-  MOZ_ASSERT(IsEditActionDataAvailable());
+-  MOZ_ASSERT(!IsSelectionRangeContainerNotContent());
+-
+-  const uint32_t rangeCount = SelectionRef().RangeCount();
+-  for (const uint32_t i : IntegerRange(rangeCount)) {
+-    MOZ_ASSERT(SelectionRef().RangeCount() == rangeCount);
+-    nsRange* range = SelectionRef().GetRangeAt(i);
+-    MOZ_ASSERT(range);
+-    for (nsINode* parent = range->GetClosestCommonInclusiveAncestor(); parent;
+-         parent = parent->GetParentNode()) {
+-      if (HTMLEditUtils::IsAnyListElement(parent)) {
+-        return parent->AsElement();
+-      }
+-    }
+-  }
+-  return nullptr;
+-}
+-
+ Result<EditorDOMPoint, nsresult>
+ HTMLEditor::SplitParentInlineElementsAtRangeEdges(RangeItem& aRangeItem) {
+   MOZ_ASSERT(IsEditActionDataAvailable());

@@ -1,0 +1,78 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/script/ModuleLoadRequest.h
+# Commit: f29451ea18dc
+# Full Hash: f29451ea18dcf20e024c15c82bb814f9c2d9389e
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-02-18 09:08:22
+# Regressor Bug: 1742437
+# File Overlap Count: 1
+# Description:
+#   Bug 1742437 - Create DOM specific Module Loader; r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D137298
+# ==============================================================================
+
+diff -r c0bd1d29be62 -r f29451ea18dc dom/script/ModuleLoadRequest.h
+--- a/dom/script/ModuleLoadRequest.h	Thu Feb 17 15:57:50 2022 +0000
++++ b/dom/script/ModuleLoadRequest.h	Thu Feb 17 15:57:50 2022 +0000
+@@ -18,8 +18,7 @@
+ namespace dom {
+ 
+ class ModuleScript;
+-class ModuleLoader;
+-class ScriptLoader;
++class ModuleLoaderBase;
+ 
+ // A reference counted set of URLs we have visited in the process of loading a
+ // module graph.
+@@ -40,33 +39,18 @@
+   ModuleLoadRequest(const ModuleLoadRequest& aOther) = delete;
+   ModuleLoadRequest(ModuleLoadRequest&& aOther) = delete;
+ 
+-  ModuleLoadRequest(nsIURI* aURI, ScriptFetchOptions* aFetchOptions,
+-                    const SRIMetadata& aIntegrity, nsIURI* aReferrer,
+-                    DOMScriptLoadContext* aContext, bool aIsTopLevel,
+-                    bool aIsDynamicImport, ModuleLoader* aLoader,
+-                    VisitedURLSet* aVisitedSet, ModuleLoadRequest* aRootModule);
+-
+  public:
+   NS_DECL_ISUPPORTS_INHERITED
+   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(ModuleLoadRequest,
+                                                          ScriptLoadRequest)
+ 
+-  // Create a top-level module load request.
+-  static already_AddRefed<ModuleLoadRequest> CreateTopLevel(
+-      nsIURI* aURI, ScriptFetchOptions* aFetchOptions,
+-      const SRIMetadata& aIntegrity, nsIURI* aReferrer, ScriptLoader* aLoader,
+-      DOMScriptLoadContext* aContext);
++  ModuleLoadRequest(nsIURI* aURI, ScriptFetchOptions* aFetchOptions,
++                    const SRIMetadata& aIntegrity, nsIURI* aReferrer,
++                    DOMScriptLoadContext* aContext, bool aIsTopLevel,
++                    bool aIsDynamicImport, ModuleLoaderBase* aLoader,
++                    VisitedURLSet* aVisitedSet, ModuleLoadRequest* aRootModule);
+ 
+-  // Create a module load request for a static module import.
+-  static already_AddRefed<ModuleLoadRequest> CreateStaticImport(
+-      nsIURI* aURI, ModuleLoadRequest* aParent);
+-
+-  // Create a module load request for dynamic module import.
+-  static already_AddRefed<ModuleLoadRequest> CreateDynamicImport(
+-      nsIURI* aURI, ScriptFetchOptions* aFetchOptions, nsIURI* aBaseURL,
+-      DOMScriptLoadContext* aContext, ScriptLoader* aLoader,
+-      JS::Handle<JS::Value> aReferencingPrivate,
+-      JS::Handle<JSString*> aSpecifier, JS::Handle<JSObject*> aPromise);
++  static VisitedURLSet* NewVisitedSetForTopLevelImport(nsIURI* aURI);
+ 
+   bool IsTopLevel() const override { return mIsTopLevel; }
+ 
+@@ -102,7 +86,7 @@
+ 
+   // Pointer to the script loader, used to trigger actions when the module load
+   // finishes.
+-  RefPtr<ModuleLoader> mLoader;
++  RefPtr<ModuleLoaderBase> mLoader;
+ 
+   // Pointer to the top level module of this module tree, nullptr if this is
+   // a top level module

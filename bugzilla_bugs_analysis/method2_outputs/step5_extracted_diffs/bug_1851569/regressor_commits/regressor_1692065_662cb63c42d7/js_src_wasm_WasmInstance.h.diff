@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmInstance.h
+# Commit: 662cb63c42d7
+# Full Hash: 662cb63c42d7874a79256a6edf1a03d83e43a014
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2023-08-05 09:19:01
+# Regressor Bug: 1692065
+# File Overlap Count: 2
+# Description:
+#   Bug 1692065 - wasm: Create a unique wasm::AnyRef type. r=yury,jonco
+#   
+#   Right now wasm references area represented as a JSObject*. This is assumed in
+#   many places in SpiderMonkey, most prominently in our GC integration
+#   around tracing, the store buffer, and write barriers. This will cause issues
+# ==============================================================================
+
+diff -r 8b506ab41451 -r 662cb63c42d7 js/src/wasm/WasmInstance.h
+--- a/js/src/wasm/WasmInstance.h	Fri Aug 04 13:54:57 2023 +0000
++++ b/js/src/wasm/WasmInstance.h	Fri Aug 04 14:06:49 2023 +0000
+@@ -107,9 +107,9 @@
+   //   - Set by wasm::HandleThrow, unset by Instance::consumePendingException.
+   //   - If the unwind target is a `try-delegate`, it is unset by the delegated
+   //     try-catch block or function body block.
+-  GCPtr<JSObject*> pendingException_;
++  GCPtr<AnyRef> pendingException_;
+   // The tag object of the pending exception.
+-  GCPtr<JSObject*> pendingExceptionTag_;
++  GCPtr<AnyRef> pendingExceptionTag_;
+ 
+   // Usually equal to cx->stackLimitForJitCode(JS::StackForUntrustedScript),
+   // but can be racily set to trigger immediate trap as an opportunity to
+@@ -479,13 +479,13 @@
+   static int32_t wake_m64(Instance* instance, uint64_t byteOffset,
+                           int32_t count, uint32_t memoryIndex);
+   static void* refFunc(Instance* instance, uint32_t funcIndex);
+-  static void postBarrier(Instance* instance, gc::Cell** location);
+-  static void postBarrierPrecise(Instance* instance, JSObject** location,
+-                                 JSObject* prev);
+-  static void postBarrierPreciseWithOffset(Instance* instance, JSObject** base,
+-                                           uint32_t offset, JSObject* prev);
+-  static void* exceptionNew(Instance* instance, JSObject* tag);
+-  static int32_t throwException(Instance* instance, JSObject* exn);
++  static void postBarrier(Instance* instance, void** location);
++  static void postBarrierPrecise(Instance* instance, void** location,
++                                 void* prev);
++  static void postBarrierPreciseWithOffset(Instance* instance, void** base,
++                                           uint32_t offset, void* prev);
++  static void* exceptionNew(Instance* instance, void* exceptionArg);
++  static int32_t throwException(Instance* instance, void* exceptionArg);
+   template <bool ZeroFields>
+   static void* structNewIL(Instance* instance,
+                            TypeDefInstanceData* typeDefData);

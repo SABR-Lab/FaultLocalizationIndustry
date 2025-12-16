@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/Sweeping.cpp
+# Commit: 9a3821fa6bb8
+# Full Hash: 9a3821fa6bb88b90860159e942365038485fb060
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2022-10-28 04:43:55
+# Regressor Bug: 1797755
+# File Overlap Count: 1
+# Description:
+#   Bug 1797755 - Part 1: Move testing mark queue to GCRuntime r=sfink
+#   
+#   Parallel marking will use one GCMarker per thread. The testing mark queue is
+#   really a per-runtime data structure, so this patch moves it to the GCRuntime.
+#   
+# ==============================================================================
+
+diff -r 449aea6fc974 -r 9a3821fa6bb8 js/src/gc/Sweeping.cpp
+--- a/js/src/gc/Sweeping.cpp	Thu Oct 27 18:15:55 2022 +0000
++++ b/js/src/gc/Sweeping.cpp	Thu Oct 27 18:23:02 2022 +0000
+@@ -499,6 +499,12 @@
+       mozilla::MakeScopeExit([&] { marker.leaveWeakMarkingMode(); });
+ 
+   if (marker.enterWeakMarkingMode()) {
++    // If there was an 'enter-weak-marking-mode' token in the queue, then it
++    // and everything after it will still be in the queue so we can process
++    // them now.
++    while (processTestMarkQueue() == QueueYielded) {
++    };
++
+     // Do not rely on the information about not-yet-marked weak keys that have
+     // been collected by barriers. Clear out the gcEphemeronEdges entries and
+     // rebuild the full table. Note that this a cross-zone operation; delegate
+@@ -664,7 +670,7 @@
+   return WeakMapBase::findSweepGroupEdgesForZone(this);
+ }
+ 
+-static bool AddEdgesForMarkQueue(GCMarker& marker) {
++bool GCRuntime::addEdgesForMarkQueue() {
+ #ifdef DEBUG
+   // For testing only.
+   //
+@@ -675,8 +681,8 @@
+   // follow the sweep group ordering. These objects will wait until their sweep
+   // group comes up, or will be skipped if their sweep group is already past.
+   JS::Zone* prevZone = nullptr;
+-  for (size_t i = 0; i < marker.markQueue.length(); i++) {
+-    Value val = marker.markQueue[i].get();
++  for (size_t i = 0; i < testMarkQueue.length(); i++) {
++    Value val = testMarkQueue[i].get();
+     if (!val.isObject()) {
+       continue;
+     }
+@@ -703,7 +709,7 @@
+     }
+   }
+ 
+-  if (!AddEdgesForMarkQueue(marker)) {
++  if (!addEdgesForMarkQueue()) {
+     return false;
+   }
+ 

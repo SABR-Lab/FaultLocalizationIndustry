@@ -1,0 +1,94 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/nsDocShell.cpp
+# Commit: 79f33c375935
+# Full Hash: 79f33c375935f47f95bf8c0907d58d15691bd358
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2021-01-05 04:31:31
+# Regressor Bug: 1684490
+# File Overlap Count: 1
+# Description:
+#   Bug 1684490 - Check an in-process window context for user interaction. r=smaug,edgar
+#   
+#   In the case we click a link from inside the frame, we don't want to
+#   check for activation from the parent window but ourselves.
+#   
+# ==============================================================================
+
+diff -r 0bf6c172cbec -r 79f33c375935 docshell/base/nsDocShell.cpp
+--- a/docshell/base/nsDocShell.cpp	Mon Jan 04 23:51:15 2021 +0200
++++ b/docshell/base/nsDocShell.cpp	Mon Jan 04 20:54:07 2021 +0000
+@@ -9916,9 +9916,32 @@
+                           nsIProtocolHandler::URI_DOES_NOT_RETURN_DATA,
+                           &doesNotReturnData);
+       if (doesNotReturnData) {
+-        WindowContext* parentContext =
+-            mBrowsingContext->GetParentWindowContext();
+-        MOZ_ASSERT(parentContext);
++        // The context to check user-interaction with for the purposes of
++        // popup-blocking.
++        //
++        // We generally want to check the context that initiated the navigation.
++        WindowContext* sourceWindowContext = [&] {
++          const MaybeDiscardedBrowsingContext& sourceBC =
++              aLoadState->SourceBrowsingContext();
++          if (!sourceBC.IsNullOrDiscarded()) {
++            if (WindowContext* wc = sourceBC.get()->GetCurrentWindowContext()) {
++              return wc;
++            }
++          }
++          return mBrowsingContext->GetParentWindowContext();
++        }();
++
++        MOZ_ASSERT(sourceWindowContext);
++        // FIXME: We can't check user-interaction against an OOP window. This is
++        // the next best thing we can really do. The load state keeps whether
++        // the navigation had a user interaction in process
++        // (aLoadState->HasValidUserGestureActivation()), but we can't really
++        // consume it, which we want to prevent popup-spamming from the same
++        // click event.
++        WindowContext* context =
++            sourceWindowContext->IsInProcess()
++                ? sourceWindowContext
++                : mBrowsingContext->GetCurrentWindowContext();
+         const bool popupBlocked = [&] {
+           const bool active = mBrowsingContext->IsActive();
+ 
+@@ -9927,15 +9950,15 @@
+           //
+           // We consume the flag now even if there's no user activation.
+           const bool hasFreePass = [&] {
+-            if (!active || !parentContext->SameOriginWithTop()) {
++            if (!active || !context->SameOriginWithTop()) {
+               return false;
+             }
+             nsGlobalWindowInner* win =
+-                parentContext->TopWindowContext()->GetInnerWindow();
++                context->TopWindowContext()->GetInnerWindow();
+             return win && win->TryOpenExternalProtocolIframe();
+           }();
+ 
+-          if (parentContext->ConsumeTransientUserGestureActivation()) {
++          if (context->ConsumeTransientUserGestureActivation()) {
+             // If the user has interacted with the page, consume it.
+             return false;
+           }
+@@ -9948,7 +9971,7 @@
+             return false;
+           }
+ 
+-          if (parentContext->CanShowPopup()) {
++          if (sourceWindowContext->CanShowPopup()) {
+             return false;
+           }
+ 
+@@ -9968,7 +9991,7 @@
+           if (NS_SUCCEEDED(rv)) {
+             nsContentUtils::ReportToConsoleByWindowID(
+                 message, nsIScriptError::warningFlag, "DOM"_ns,
+-                parentContext->InnerWindowId());
++                context->InnerWindowId());
+           }
+           return NS_OK;
+         }

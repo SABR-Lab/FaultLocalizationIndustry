@@ -1,0 +1,84 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ProcessPriorityManager.cpp
+# Commit: 07c8392cb04d
+# Full Hash: 07c8392cb04d095caa8e65ee1a10ccc5f7352eb6
+# Author: Andrew McCreight <continuation@gmail.com>
+# Date: 2021-05-07 21:46:25
+# Regressor Bug: 1618547
+# File Overlap Count: 1
+# Description:
+#   Bug 1618547 - Support Fission in the process priority manager. r=kmag,gsvelto
+#   
+#   With Fission, there can be multiple BrowserParents in a single tab, so
+#   this patch moves the tracking of active tabs onto the top BrowsingContext
+#   in a tab. If the priority of a top BC is changed, then the activity
+# ==============================================================================
+
+diff -r 285861b32934 -r 07c8392cb04d dom/ipc/ProcessPriorityManager.cpp
+--- a/dom/ipc/ProcessPriorityManager.cpp	Fri May 07 17:42:21 2021 +0000
++++ b/dom/ipc/ProcessPriorityManager.cpp	Fri May 07 17:51:34 2021 +0000
+@@ -6,6 +6,7 @@
+ 
+ #include "ProcessPriorityManager.h"
+ #include "mozilla/ClearOnShutdown.h"
++#include "mozilla/dom/CanonicalBrowsingContext.h"
+ #include "mozilla/dom/ContentParent.h"
+ #include "mozilla/dom/Element.h"
+ #include "mozilla/dom/BrowserHost.h"
+@@ -142,6 +143,7 @@
+       ParticularProcessPriorityManager* aParticularManager,
+       hal::ProcessPriority aOldPriority);
+ 
++  void ActivityChanged(CanonicalBrowsingContext* aBC, bool aIsActive);
+   void ActivityChanged(BrowserParent* aBrowserParent, bool aIsActive);
+ 
+   void ResetPriority(ContentParent* aContentParent);
+@@ -444,6 +446,31 @@
+   }
+ }
+ 
++void ProcessPriorityManagerImpl::ActivityChanged(
++    dom::CanonicalBrowsingContext* aBC, bool aIsActive) {
++  MOZ_ASSERT(aBC->IsTop());
++
++  bool alreadyActive = aBC->IsPriorityActive();
++  if (alreadyActive == aIsActive) {
++    return;
++  }
++
++  Telemetry::ScalarAdd(
++      Telemetry::ScalarID::DOM_CONTENTPROCESS_OS_PRIORITY_CHANGE_CONSIDERED, 1);
++
++  aBC->SetPriorityActive(aIsActive);
++
++  aBC->PreOrderWalk([&](BrowsingContext* aContext) {
++    CanonicalBrowsingContext* canonical = aContext->Canonical();
++    if (ContentParent* cp = canonical->GetContentParent()) {
++      if (RefPtr<ParticularProcessPriorityManager> pppm =
++              GetParticularProcessPriorityManager(cp)) {
++        pppm->ActivityChanged(canonical->GetBrowserParent(), aIsActive);
++      }
++    }
++  });
++}
++
+ void ProcessPriorityManagerImpl::ActivityChanged(BrowserParent* aBrowserParent,
+                                                  bool aIsActive) {
+   RefPtr<ParticularProcessPriorityManager> pppm =
+@@ -858,6 +885,14 @@
+ }
+ 
+ /* static */
++void ProcessPriorityManager::ActivityChanged(CanonicalBrowsingContext* aBC,
++                                             bool aIsActive) {
++  if (auto* singleton = ProcessPriorityManagerImpl::GetSingleton()) {
++    singleton->ActivityChanged(aBC, aIsActive);
++  }
++}
++
++/* static */
+ void ProcessPriorityManager::ActivityChanged(BrowserParent* aBrowserParent,
+                                              bool aIsActive) {
+   MOZ_ASSERT(aBrowserParent);

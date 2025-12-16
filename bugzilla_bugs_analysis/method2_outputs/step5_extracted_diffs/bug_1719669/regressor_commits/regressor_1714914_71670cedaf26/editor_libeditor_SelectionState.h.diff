@@ -1,0 +1,100 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/SelectionState.h
+# Commit: 71670cedaf26
+# Full Hash: 71670cedaf26214f3bcb8562a445cf1ef24f4db6
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2021-06-30 09:36:48
+# Regressor Bug: 1714914
+# File Overlap Count: 1
+# Description:
+#   Bug 1714914 - Make editor classes treat offset in parent node as uint32_t r=m_kato
+#   
+#   It should be treated as `uint32_t` since DOM API does so.  However, there are
+#   some exceptions:
+#   
+# ==============================================================================
+
+diff -r f5dcc2d793d6 -r 71670cedaf26 editor/libeditor/SelectionState.h
+--- a/editor/libeditor/SelectionState.h	Tue Jun 29 22:00:09 2021 +0000
++++ b/editor/libeditor/SelectionState.h	Wed Jun 30 07:07:28 2021 +0000
+@@ -74,8 +74,8 @@
+ 
+   nsCOMPtr<nsINode> mStartContainer;
+   nsCOMPtr<nsINode> mEndContainer;
+-  int32_t mStartOffset;  // TODO: Change this to uint32_t
+-  int32_t mEndOffset;    // TODO: Change this to uint32_t
++  uint32_t mStartOffset;
++  uint32_t mEndOffset;
+ };
+ 
+ /**
+@@ -142,14 +142,14 @@
+   void SelAdjDeleteNode(nsINode& aNode);
+   nsresult SelAdjSplitNode(nsIContent& aRightNode, nsIContent& aNewLeftNode);
+   nsresult SelAdjJoinNodes(nsINode& aLeftNode, nsINode& aRightNode,
+-                           nsINode& aParent, int32_t aOffset,
+-                           int32_t aOldLeftNodeLength);
+-  void SelAdjInsertText(const dom::Text& aTextNode, int32_t aOffset,
+-                        int32_t aInsertedLength);
+-  void SelAdjDeleteText(const dom::Text& aTextNode, int32_t aOffset,
+-                        int32_t aDeletedLength);
+-  void SelAdjReplaceText(const dom::Text& aTextNode, int32_t aOffset,
+-                         int32_t aReplacedLength, int32_t aInsertedLength);
++                           nsINode& aParent, uint32_t aOffset,
++                           uint32_t aOldLeftNodeLength);
++  void SelAdjInsertText(const dom::Text& aTextNode, uint32_t aOffset,
++                        uint32_t aInsertedLength);
++  void SelAdjDeleteText(const dom::Text& aTextNode, uint32_t aOffset,
++                        uint32_t aDeletedLength);
++  void SelAdjReplaceText(const dom::Text& aTextNode, uint32_t aOffset,
++                         uint32_t aReplacedLength, uint32_t aInsertedLength);
+   // the following gravity routines need will/did sandwiches, because the other
+   // gravity routines will be called inside of these sandwiches, but should be
+   // ignored.
+@@ -179,8 +179,8 @@
+     mLocked = false;
+   }
+   void WillMoveNode() { mLocked = true; }
+-  void DidMoveNode(const nsINode& aOldParent, int32_t aOldOffset,
+-                   const nsINode& aNewParent, int32_t aNewOffset);
++  void DidMoveNode(const nsINode& aOldParent, uint32_t aOldOffset,
++                   const nsINode& aNewParent, uint32_t aNewOffset);
+ 
+  private:
+   // TODO: A lot of loop in these methods check whether each item `nullptr` or
+@@ -198,7 +198,7 @@
+  public:
+   AutoTrackDOMPoint() = delete;
+   AutoTrackDOMPoint(RangeUpdater& aRangeUpdater, nsCOMPtr<nsINode>* aNode,
+-                    int32_t* aOffset)
++                    uint32_t* aOffset)
+       : mRangeUpdater(aRangeUpdater),
+         mNode(aNode),
+         mOffset(aOffset),
+@@ -230,13 +230,12 @@
+       // Setting `mPoint` with invalid DOM point causes hitting `NS_ASSERTION()`
+       // and the number of times may be too many.  (E.g., 1533913.html hits
+       // over 700 times!)  We should just put warning instead.
+-      if (NS_WARN_IF(!mRangeItem->mStartContainer) ||
+-          NS_WARN_IF(mRangeItem->mStartOffset < 0)) {
++      if (NS_WARN_IF(!mRangeItem->mStartContainer)) {
+         mPoint->Clear();
+         return;
+       }
+       if (NS_WARN_IF(mRangeItem->mStartContainer->Length() <
+-                     static_cast<uint32_t>(mRangeItem->mStartOffset))) {
++                     mRangeItem->mStartOffset)) {
+         mPoint->SetToEndOf(mRangeItem->mStartContainer);
+         return;
+       }
+@@ -251,7 +250,7 @@
+   RangeUpdater& mRangeUpdater;
+   // Allow tracking nsINode until nsNode is gone
+   nsCOMPtr<nsINode>* mNode;
+-  int32_t* mOffset;
++  uint32_t* mOffset;
+   EditorDOMPoint* mPoint;
+   OwningNonNull<RangeItem> mRangeItem;
+ };

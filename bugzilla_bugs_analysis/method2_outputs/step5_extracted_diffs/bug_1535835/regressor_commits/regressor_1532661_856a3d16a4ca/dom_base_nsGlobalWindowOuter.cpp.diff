@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsGlobalWindowOuter.cpp
+# Commit: 856a3d16a4ca
+# Full Hash: 856a3d16a4ca856711ad9e6368cccd5aa1e22118
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2019-03-15 03:42:43
+# Regressor Bug: 1532661
+# File Overlap Count: 2
+# Description:
+#   Bug 1532661 - Part 5: Make the BrowsingContext opener edge a weak reference, r=farre
+#   
+#   Depends on D22193
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D23047
+# ==============================================================================
+
+diff -r 9ce1a2365aff -r 856a3d16a4ca dom/base/nsGlobalWindowOuter.cpp
+--- a/dom/base/nsGlobalWindowOuter.cpp	Thu Mar 14 18:51:09 2019 +0000
++++ b/dom/base/nsGlobalWindowOuter.cpp	Thu Mar 14 18:51:11 2019 +0000
+@@ -2482,10 +2482,11 @@
+                                           bool aOriginalOpener) {
+   nsWeakPtr opener = do_GetWeakReference(aOpener);
+   if (opener == mOpener) {
+-    MOZ_DIAGNOSTIC_ASSERT(
+-        !aOpener || !aOpener->GetDocShell() ||
+-        (GetBrowsingContext() &&
+-         GetBrowsingContext()->GetOpener() == aOpener->GetBrowsingContext()));
++    MOZ_DIAGNOSTIC_ASSERT(!aOpener || !aOpener->GetDocShell() ||
++                          (GetBrowsingContext() &&
++                           aOpener->GetBrowsingContext() &&
++                           aOpener->GetBrowsingContext()->Id() ==
++                               GetBrowsingContext()->GetOpenerId()));
+     return;
+   }
+ 
+@@ -2508,7 +2509,8 @@
+         // the window opener to a closed window. This needs to be
+         // cleaned up, see Bug 1511353.
+         nsGlobalWindowOuter::Cast(aOpener)->IsClosedOrClosing() ||
+-        aOpener->GetBrowsingContext() == GetBrowsingContext()->GetOpener());
++        aOpener->GetBrowsingContext()->Id() ==
++            GetBrowsingContext()->GetOpenerId());
+     // TODO(farre): Here we really wish to only consider the case
+     // where 'aOriginalOpener'. See bug 1509016.
+     GetBrowsingContext()->SetOpener(aOpener ? aOpener->GetBrowsingContext()

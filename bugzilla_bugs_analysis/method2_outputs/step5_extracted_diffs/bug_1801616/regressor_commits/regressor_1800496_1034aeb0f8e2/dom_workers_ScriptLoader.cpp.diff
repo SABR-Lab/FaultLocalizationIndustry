@@ -1,0 +1,77 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/ScriptLoader.cpp
+# Commit: 1034aeb0f8e2
+# Full Hash: 1034aeb0f8e2d86ea04d8e6a8c717f13c9d772eb
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-11-18 15:46:32
+# Regressor Bug: 1800496
+# File Overlap Count: 2
+# Description:
+#   Bug 1800496 - Revert mCacheCreator to being defined as part of ScriptLoaderRunnable; r=asuth
+#   
+#   Previously, in the cancellation refactor, we removed knowledge of the list of scripts being loaded on the main thread. As a result of this, we could no longer clear the cache creator on the main thread after iterating over all requests. We can now do that once again, and it simplifies the code.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D162220
+# ==============================================================================
+
+diff -r dfe78c41e4eb -r 1034aeb0f8e2 dom/workers/ScriptLoader.cpp
+--- a/dom/workers/ScriptLoader.cpp	Fri Nov 18 10:02:28 2022 +0000
++++ b/dom/workers/ScriptLoader.cpp	Fri Nov 18 10:02:28 2022 +0000
+@@ -1035,15 +1035,14 @@
+     return NS_OK;
+   }
+ 
+-  RefPtr<CacheCreator> cacheCreator = new CacheCreator(mWorkerRef->Private());
++  MOZ_ASSERT(!mCacheCreator);
++  mCacheCreator = new CacheCreator(mWorkerRef->Private());
+ 
+   for (ThreadSafeRequestHandle* handle : mLoadingRequests) {
+     handle->mRunnable = this;
+     WorkerLoadContext* loadContext = handle->GetContext();
+-    loadContext->SetCacheCreator(cacheCreator);
+-    loadContext->GetCacheCreator()->AddLoader(
+-        MakeNotNull<RefPtr<CacheLoadHandler>>(
+-            mWorkerRef, handle, loadContext->IsTopLevel(), mScriptLoader));
++    mCacheCreator->AddLoader(MakeNotNull<RefPtr<CacheLoadHandler>>(
++        mWorkerRef, handle, loadContext->IsTopLevel(), mScriptLoader));
+   }
+ 
+   // The worker may have a null principal on first load, but in that case its
+@@ -1055,7 +1054,7 @@
+     principal = parentWorker->GetPrincipal();
+   }
+ 
+-  nsresult rv = cacheCreator->Load(principal);
++  nsresult rv = mCacheCreator->Load(principal);
+   if (NS_WARN_IF(NS_FAILED(rv))) {
+     CancelMainThread(rv);
+     return rv;
+@@ -1098,7 +1097,6 @@
+   // cache and the loading is completed.
+   WorkerLoadContext* loadContext = aRequestHandle->GetContext();
+   if (!loadContext->IsAwaitingPromise()) {
+-    loadContext->ClearCacheCreator();
+     if (aRequestHandle->GetContext()->IsTopLevel()) {
+       mWorkerRef->Private()->WorkerScriptLoaded();
+     }
+@@ -1153,7 +1151,6 @@
+           NS_WARNING("Failed to cancel channel!");
+         }
+       }
+-      loadContext->ClearCacheCreator();
+       if (callLoadingFinished && !loadContext->mLoadingFinished) {
+         LoadingFinished(handle, aCancelResult);
+       }
+@@ -1205,6 +1202,10 @@
+   // If there are no unexecutable load infos, we can unuse things before the
+   // execution of the scripts and the stopping of the sync loop.
+   if (maybeRangeToExecute) {
++    if (maybeRangeToExecute->second == end) {
++      mCacheCreator = nullptr;
++    }
++
+     RefPtr<ScriptExecutorRunnable> runnable = new ScriptExecutorRunnable(
+         mScriptLoader, mWorkerRef->Private(), mScriptLoader->mSyncLoopTarget,
+         Span<RefPtr<ThreadSafeRequestHandle>>{maybeRangeToExecute->first,

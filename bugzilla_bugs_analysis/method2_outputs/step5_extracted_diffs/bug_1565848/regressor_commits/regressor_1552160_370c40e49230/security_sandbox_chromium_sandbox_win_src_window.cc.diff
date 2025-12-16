@@ -1,0 +1,89 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/sandbox/win/src/window.cc
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 3
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/sandbox/win/src/window.cc
+--- a/security/sandbox/chromium/sandbox/win/src/window.cc	Wed Jun 12 21:55:59 2019 +1200
++++ b/security/sandbox/chromium/sandbox/win/src/window.cc	Wed Jun 12 11:10:48 2019 +0100
+@@ -18,13 +18,13 @@
+ // lpSecurityDescriptor member of the SECURITY_ATTRIBUTES parameter returned
+ // must be freed using LocalFree by the caller.
+ bool GetSecurityAttributes(HANDLE handle, SECURITY_ATTRIBUTES* attributes) {
+-  attributes->bInheritHandle = FALSE;
++  attributes->bInheritHandle = false;
+   attributes->nLength = sizeof(SECURITY_ATTRIBUTES);
+ 
+-  PACL dacl = NULL;
+-  DWORD result = ::GetSecurityInfo(handle, SE_WINDOW_OBJECT,
+-                                   DACL_SECURITY_INFORMATION, NULL, NULL, &dacl,
+-                                   NULL, &attributes->lpSecurityDescriptor);
++  PACL dacl = nullptr;
++  DWORD result = ::GetSecurityInfo(
++      handle, SE_WINDOW_OBJECT, DACL_SECURITY_INFORMATION, nullptr, nullptr,
++      &dacl, nullptr, &attributes->lpSecurityDescriptor);
+   if (ERROR_SUCCESS == result)
+     return true;
+ 
+@@ -50,7 +50,7 @@
+   // generate it.
+   *winsta = ::CreateWindowStationW(
+       nullptr, 0, GENERIC_READ | WINSTA_CREATEDESKTOP, &attributes);
+-  if (*winsta == nullptr && ::GetLastError() == ERROR_ACCESS_DENIED) {
++  if (!*winsta && ::GetLastError() == ERROR_ACCESS_DENIED) {
+     *winsta = ::CreateWindowStationW(
+         nullptr, 0, WINSTA_READATTRIBUTES | WINSTA_CREATEDESKTOP, &attributes);
+   }
+@@ -99,10 +99,7 @@
+   }
+ 
+   // Create the destkop.
+-  *desktop = ::CreateDesktop(desktop_name.c_str(),
+-                             NULL,
+-                             NULL,
+-                             0,
++  *desktop = ::CreateDesktop(desktop_name.c_str(), nullptr, nullptr, 0,
+                              DESKTOP_CREATEWINDOW | DESKTOP_READOBJECTS |
+                                  READ_CONTROL | WRITE_DAC | WRITE_OWNER,
+                              &attributes);
+@@ -118,14 +115,10 @@
+   if (*desktop) {
+     // Replace the DACL on the new Desktop with a reduced privilege version.
+     // We can soft fail on this for now, as it's just an extra mitigation.
+-    static const ACCESS_MASK kDesktopDenyMask = WRITE_DAC | WRITE_OWNER |
+-                                                DELETE |
+-                                                DESKTOP_CREATEMENU |
+-                                                DESKTOP_CREATEWINDOW |
+-                                                DESKTOP_HOOKCONTROL |
+-                                                DESKTOP_JOURNALPLAYBACK |
+-                                                DESKTOP_JOURNALRECORD |
+-                                                DESKTOP_SWITCHDESKTOP;
++    static const ACCESS_MASK kDesktopDenyMask =
++        WRITE_DAC | WRITE_OWNER | DELETE | DESKTOP_CREATEMENU |
++        DESKTOP_CREATEWINDOW | DESKTOP_HOOKCONTROL | DESKTOP_JOURNALPLAYBACK |
++        DESKTOP_JOURNALRECORD | DESKTOP_SWITCHDESKTOP;
+     AddKnownSidToObject(*desktop, SE_WINDOW_OBJECT, Sid(WinRestrictedCodeSid),
+                         DENY_ACCESS, kDesktopDenyMask);
+     return SBOX_ALL_OK;
+@@ -137,7 +130,7 @@
+ base::string16 GetWindowObjectName(HANDLE handle) {
+   // Get the size of the name.
+   DWORD size = 0;
+-  ::GetUserObjectInformation(handle, UOI_NAME, NULL, 0, &size);
++  ::GetUserObjectInformation(handle, UOI_NAME, nullptr, 0, &size);
+ 
+   if (!size) {
+     NOTREACHED();

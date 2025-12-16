@@ -1,0 +1,36 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/nsHttpTransaction.cpp
+# Commit: 4150724f355f
+# Full Hash: 4150724f355f28c6f463ae9871fa14b9e0ecbef1
+# Author: Dragana Damjanovic <dd.mozilla@gmail.com>
+# Date: 2021-09-22 15:53:06
+# Regressor Bug: 1382886
+# File Overlap Count: 1
+# Description:
+#   Bug 1382886 - Remove a busy-wait if the early-data is negotiated and http/1.1 is used but the transaction cannot send early-data. r=necko-reviewers,kershaw
+#   
+#   In this case necko should poll for read (not for write) and reset the poll flags when the handshake is done.
+#   The other option is to inspect the resumption ticket before adding it to the nss socket and find out which alpn will be used and disable the early-data if the version is http/1.1 and the transaction cannot send early-data. This currently only works on Nightly. When we roll out the necko’s token cache we can consider making this change.
+#   
+# ==============================================================================
+
+diff -r 18651e373837 -r 4150724f355f netwerk/protocol/http/nsHttpTransaction.cpp
+--- a/netwerk/protocol/http/nsHttpTransaction.cpp	Wed Sep 22 09:19:31 2021 +0000
++++ b/netwerk/protocol/http/nsHttpTransaction.cpp	Wed Sep 22 09:19:32 2021 +0000
+@@ -909,6 +909,14 @@
+ 
+   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
+ 
++  if (!mConnected && !m0RTTInProgress) {
++    mConnected = true;
++    nsCOMPtr<nsISupports> info;
++    mConnection->GetSecurityInfo(getter_AddRefs(info));
++    MutexAutoLock lock(mLock);
++    mSecurityInfo = info;
++  }
++
+   if (mTransactionDone) {
+     return NS_SUCCEEDED(mStatus) ? NS_BASE_STREAM_CLOSED : mStatus;
+   }

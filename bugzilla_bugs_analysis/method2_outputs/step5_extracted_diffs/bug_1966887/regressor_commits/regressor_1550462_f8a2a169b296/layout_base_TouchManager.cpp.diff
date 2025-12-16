@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/base/TouchManager.cpp
+# Commit: f8a2a169b296
+# Full Hash: f8a2a169b2969d29e04733ae27a56459e5359973
+# Author: Alexandru Marc <amarc@mozila.com>
+# Date: 2025-05-16 09:19:19
+# Regressor Bug: 1550462
+# File Overlap Count: 1
+# Description:
+#   Revert "Bug 1550462 - part 3: Enable `pointerrawupdate` event r=smaug" for causing mochitest failures @ test_pointerrawupdate_event_count.html
+#   
+#   This reverts commit eb27445e0352d6b4df540adb40e21f72fc052e80.
+#   
+#   Revert "Bug 1550462 - part 2: Make `PresShell::HandleEvent` dispatch preceding `pointerrawupdate` event r=smaug,dom-core,edgar"
+# ==============================================================================
+
+diff -r 8d25773fc82f -r f8a2a169b296 layout/base/TouchManager.cpp
+--- a/layout/base/TouchManager.cpp	Fri May 16 06:20:47 2025 +0000
++++ b/layout/base/TouchManager.cpp	Fri May 16 09:30:09 2025 +0300
+@@ -303,9 +303,6 @@
+       }
+       break;
+     }
+-    case eTouchRawUpdate:
+-      MOZ_ASSERT_UNREACHABLE("eTouchRawUpdate shouldn't be handled as a touch");
+-      break;
+     case eTouchMove: {
+       // Check for touches that changed. Mark them add to queue
+       WidgetTouchEvent* touchEvent = aEvent->AsTouchEvent();
+@@ -451,9 +448,6 @@
+ void TouchManager::PostHandleEvent(const WidgetEvent* aEvent,
+                                    const nsEventStatus* aStatus) {
+   switch (aEvent->mMessage) {
+-    case eTouchRawUpdate:
+-      MOZ_ASSERT_UNREACHABLE("eTouchRawUpdate shouldn't be handled as a touch");
+-      break;
+     case eTouchMove: {
+       if (sSingleTouchStartTimeStamp.IsNull()) {
+         break;
+@@ -565,8 +559,7 @@
+       // We don't want to fire duplicated pointerdown.
+       return false;
+     }
+-    case eTouchMove:
+-    case eTouchRawUpdate: {
++    case eTouchMove: {
+       return !aTouch->Equals(info.mTouch);
+     }
+     default:

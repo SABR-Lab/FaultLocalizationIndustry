@@ -1,0 +1,30 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: layout/style/Loader.cpp
+# Commit: 99277fb83bb8
+# Full Hash: 99277fb83bb8dca9e2d787cbc9baabe6e05b991a
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2025-04-03 21:53:54
+# Description:
+#   Bug 1958293 - Null-check referrer URI in CSS Loader warning. r=jwatt
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D244348
+# ==============================================================================
+
+diff -r cb4c7b118b0d -r 99277fb83bb8 layout/style/Loader.cpp
+--- a/layout/style/Loader.cpp	Thu Apr 03 14:45:01 2025 +0000
++++ b/layout/style/Loader.cpp	Thu Apr 03 14:51:44 2025 +0000
+@@ -758,9 +758,10 @@
+     NS_ConvertUTF8toUTF16 sheetUri(mSheet->GetSheetURI()->GetSpecOrDefault());
+     NS_ConvertUTF8toUTF16 contentType16(contentType);
+ 
+-    nsCOMPtr<nsIURI> referrer = ReferrerInfo()->GetOriginalReferrer();
+     nsAutoCString referrerSpec;
+-    referrer->GetSpec(referrerSpec);
++    if (nsCOMPtr<nsIURI> referrer = ReferrerInfo()->GetOriginalReferrer()) {
++      referrer->GetSpec(referrerSpec);
++    }
+     mLoader->mReporter->AddConsoleReport(
+         flag, "CSS Loader"_ns, nsContentUtils::eCSS_PROPERTIES, referrerSpec, 0,
+         0, errorMessage, {sheetUri, contentType16});

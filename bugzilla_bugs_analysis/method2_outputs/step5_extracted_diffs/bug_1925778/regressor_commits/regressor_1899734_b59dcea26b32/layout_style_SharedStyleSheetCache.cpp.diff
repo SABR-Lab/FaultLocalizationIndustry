@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/style/SharedStyleSheetCache.cpp
+# Commit: b59dcea26b32
+# Full Hash: b59dcea26b327513f9843bd339ecfe4bb073e267
+# Author: Tooru Fujisawa <arai_a@mac.com>
+# Date: 2024-10-02 09:50:09
+# Regressor Bug: 1899734
+# File Overlap Count: 1
+# Description:
+#   Bug 1899734 - Part 7: Carry SubResourceNetworkMetadataHolder with SheetLoadData for complete and incomplete load, and propagate through dependencies. r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D223353
+# ==============================================================================
+
+diff -r a15f046e5cdf -r b59dcea26b32 layout/style/SharedStyleSheetCache.cpp
+--- a/layout/style/SharedStyleSheetCache.cpp	Tue Oct 01 12:17:22 2024 +0000
++++ b/layout/style/SharedStyleSheetCache.cpp	Tue Oct 01 12:17:23 2024 +0000
+@@ -110,10 +110,15 @@
+ 
+   // Go through and deal with the whole linked list.
+   auto* data = &aData;
++  auto* networkMetadata = aData.GetNetworkMetadata();
+   do {
+     MOZ_RELEASE_ASSERT(!data->mSheetCompleteCalled);
+     data->mSheetCompleteCalled = true;
+ 
++    if (!data->mNetworkMetadata) {
++      data->mNetworkMetadata = networkMetadata;
++    }
++
+     if (!data->mSheetAlreadyComplete) {
+       // If mSheetAlreadyComplete, then the sheet could well be modified between
+       // when we posted the async call to SheetComplete and now, since the sheet

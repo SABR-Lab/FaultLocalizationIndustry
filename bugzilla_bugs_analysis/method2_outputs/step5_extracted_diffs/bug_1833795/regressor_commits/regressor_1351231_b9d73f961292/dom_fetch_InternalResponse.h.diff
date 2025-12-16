@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fetch/InternalResponse.h
+# Commit: b9d73f961292
+# Full Hash: b9d73f9612929dda88ca7e68d8d2e04de2aa2a86
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2023-01-20 21:21:03
+# Regressor Bug: 1351231
+# File Overlap Count: 2
+# Description:
+#   Bug 1351231 - FetchService integration for PFetch. r=dom-worker-reviewers,jesup
+#   
+#   Depends on D142436
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D142437
+# ==============================================================================
+
+diff -r 989cbb08b87e -r b9d73f961292 dom/fetch/InternalResponse.h
+--- a/dom/fetch/InternalResponse.h	Fri Jan 20 09:09:17 2023 +0000
++++ b/dom/fetch/InternalResponse.h	Fri Jan 20 09:09:17 2023 +0000
+@@ -311,6 +311,9 @@
+ 
+   bool HasBeenCloned() const { return mCloned; }
+ 
++  void SetSerializeAsLazy(bool aAllow) { mSerializeAsLazy = aAllow; }
++  bool CanSerializeAsLazy() const { return mSerializeAsLazy; }
++
+   void InitChannelInfo(nsIChannel* aChannel) {
+     mChannelInfo.InitFromChannel(aChannel);
+   }
+@@ -342,6 +345,13 @@
+ 
+   InternalResponseMetadata GetMetadata();
+ 
++  RequestCredentials GetCredentialsMode() const {
++    if (mWrappedResponse) {
++      return mWrappedResponse->GetCredentialsMode();
++    }
++    return mCredentialsMode;
++  }
++
+   ~InternalResponse();
+ 
+  private:
+@@ -380,6 +390,7 @@
+   nsCOMPtr<nsIInputStream> mAlternativeBody;
+   nsMainThreadPtrHandle<nsICacheInfoChannel> mCacheInfoChannel;
+   bool mCloned;
++  bool mSerializeAsLazy{true};
+ 
+  public:
+   static constexpr int64_t UNKNOWN_BODY_SIZE = -1;

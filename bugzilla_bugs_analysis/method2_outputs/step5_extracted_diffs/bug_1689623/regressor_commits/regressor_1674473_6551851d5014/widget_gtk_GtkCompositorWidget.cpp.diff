@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/GtkCompositorWidget.cpp
+# Commit: 6551851d5014
+# Full Hash: 6551851d5014e7d0b66fee8b89a6c7bfb7029e21
+# Author: stransky <stransky@redhat.com>
+# Date: 2021-01-22 17:29:50
+# Regressor Bug: 1674473
+# File Overlap Count: 1
+# Description:
+#   Bug 1674473 [Linux] SW-WR Clear background when painting transparent titlebar corners, r=lsalzman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D102190
+# ==============================================================================
+
+diff -r 7ac989d08efb -r 6551851d5014 widget/gtk/GtkCompositorWidget.cpp
+--- a/widget/gtk/GtkCompositorWidget.cpp	Wed Jan 20 21:11:48 2021 +0000
++++ b/widget/gtk/GtkCompositorWidget.cpp	Wed Jan 20 20:59:03 2021 +0000
+@@ -140,6 +140,15 @@
+     }
+     aTarget->Flush();
+   }
++
++  // Clear background of titlebar area to render titlebar
++  // transparent corners correctly.
++  gfx::Rect rect;
++  if (mWidget->GetTitlebarRect(rect)) {
++    aTarget->FillRect(rect, ColorPattern(DeviceColor(0, 0, 0, 0)),
++                      DrawOptions(1.0f, CompositionOp::OP_SOURCE));
++    aTarget->Flush();
++  }
+ }
+ 
+ }  // namespace widget

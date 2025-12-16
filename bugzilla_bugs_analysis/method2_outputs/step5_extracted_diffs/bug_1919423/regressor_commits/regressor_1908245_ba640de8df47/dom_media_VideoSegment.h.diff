@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/VideoSegment.h
+# Commit: ba640de8df47
+# Full Hash: ba640de8df47d54906c708eb78f2d000d6f6d7f6
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2024-09-13 21:45:07
+# Regressor Bug: 1908245
+# File Overlap Count: 1
+# Description:
+#   Bug 1908245 - Add support for missing requestVideoFrameCallback parameters. r=media-playback-reviewers,webidl,padenot,saschanaz
+#   
+#   This patch adds support for exposing the capture time, receive time,
+#   processing duration and RTP timestamp parameters on the callback for
+#   rVFC for WebRTC related elements.
+# ==============================================================================
+
+diff -r 2f4f9cce6f7d -r ba640de8df47 dom/media/VideoSegment.h
+--- a/dom/media/VideoSegment.h	Fri Sep 13 18:15:18 2024 +0000
++++ b/dom/media/VideoSegment.h	Fri Sep 13 18:19:57 2024 +0000
+@@ -10,6 +10,7 @@
+ #include "nsCOMPtr.h"
+ #include "gfxPoint.h"
+ #include "ImageContainer.h"
++#include "TimeUnits.h"
+ 
+ namespace mozilla {
+ 
+@@ -93,6 +94,11 @@
+   TrackTime mDuration;
+   VideoFrame mFrame;
+   TimeStamp mTimeStamp;
++  media::TimeUnit mProcessingDuration;
++  media::TimeUnit mMediaTime;
++  layers::ContainerCaptureTime mWebrtcCaptureTime = AsVariant(Nothing());
++  layers::ContainerReceiveTime mWebrtcReceiveTime;
++  layers::ContainerRtpTimestamp mRtpTimestamp;
+ };
+ 
+ class VideoSegment : public MediaSegmentBase<VideoSegment, VideoChunk> {
+@@ -108,11 +114,29 @@
+ 
+   ~VideoSegment();
+ 
+-  void AppendFrame(already_AddRefed<Image>&& aImage,
+-                   const IntSize& aIntrinsicSize,
+-                   const PrincipalHandle& aPrincipalHandle,
+-                   bool aForceBlack = false,
+-                   TimeStamp aTimeStamp = TimeStamp::Now());
++  void AppendFrame(const VideoChunk& aChunk,
++                   const Maybe<bool>& aForceBlack = Nothing(),
++                   const Maybe<TimeStamp>& aTimeStamp = Nothing());
++  void AppendFrame(
++      already_AddRefed<Image>&& aImage, const IntSize& aIntrinsicSize,
++      const PrincipalHandle& aPrincipalHandle, bool aForceBlack = false,
++      TimeStamp aTimeStamp = TimeStamp::Now(),
++      media::TimeUnit aProcessingDuration = media::TimeUnit::Invalid(),
++      media::TimeUnit aMediaTime = media::TimeUnit::Invalid());
++  void AppendWebrtcRemoteFrame(already_AddRefed<Image>&& aImage,
++                               const IntSize& aIntrinsicSize,
++                               const PrincipalHandle& aPrincipalHandle,
++                               bool aForceBlack, TimeStamp aTimeStamp,
++                               media::TimeUnit aProcessingDuration,
++                               uint32_t aRtpTimestamp,
++                               int64_t aWebrtcCaptureTimeNtp,
++                               int64_t aWebrtcReceiveTimeUs);
++  void AppendWebrtcLocalFrame(already_AddRefed<Image>&& aImage,
++                              const IntSize& aIntrinsicSize,
++                              const PrincipalHandle& aPrincipalHandle,
++                              bool aForceBlack, TimeStamp aTimeStamp,
++                              media::TimeUnit aProcessingDuration,
++                              TimeStamp aWebrtcCaptureTime);
+   void ExtendLastFrameBy(TrackTime aDuration) {
+     if (aDuration <= 0) {
+       return;

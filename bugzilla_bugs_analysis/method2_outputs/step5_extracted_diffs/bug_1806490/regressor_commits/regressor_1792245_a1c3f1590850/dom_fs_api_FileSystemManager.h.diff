@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fs/api/FileSystemManager.h
+# Commit: a1c3f1590850
+# Full Hash: a1c3f15908502273c13d28e50bc0448157f2d6f9
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2022-10-20 21:51:26
+# Regressor Bug: 1792245
+# File Overlap Count: 2
+# Description:
+#   Bug 1792245 - Improve FileSystemManager shutdown; r=dom-storage-reviewers,jesup
+#   
+#   Changes:
+#   - new MozPromise requests are not created after shutdown
+#   - existing MozPromise requests are disconnected during shutdown
+# ==============================================================================
+
+diff -r 214c4d6bf7f9 -r a1c3f1590850 dom/fs/api/FileSystemManager.h
+--- a/dom/fs/api/FileSystemManager.h	Thu Oct 20 04:21:30 2022 +0000
++++ b/dom/fs/api/FileSystemManager.h	Thu Oct 20 04:21:30 2022 +0000
+@@ -9,7 +9,10 @@
+ 
+ #include <functional>
+ 
++#include "mozilla/MozPromise.h"
+ #include "mozilla/UniquePtr.h"
++#include "mozilla/dom/FlippedOnce.h"
++#include "mozilla/dom/quota/ForwardDecls.h"
+ #include "nsCOMPtr.h"
+ #include "nsCycleCollectionParticipant.h"
+ #include "nsISupports.h"
+@@ -49,6 +52,8 @@
+   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
+   NS_DECL_CYCLE_COLLECTION_CLASS(FileSystemManager)
+ 
++  bool IsShutdown() const { return mShutdown; }
++
+   void Shutdown();
+ 
+   void BeginRequest(
+@@ -66,6 +71,11 @@
+ 
+   const RefPtr<FileSystemBackgroundRequestHandler> mBackgroundRequestHandler;
+   const UniquePtr<fs::FileSystemRequestHandler> mRequestHandler;
++
++  MozPromiseRequestHolder<BoolPromise>
++      mCreateFileSystemManagerChildPromiseRequestHolder;
++
++  FlippedOnce<false> mShutdown;
+ };
+ 
+ }  // namespace dom

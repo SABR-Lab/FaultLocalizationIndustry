@@ -1,0 +1,37 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/webgpu/ComputePipeline.h
+# Commit: dfd34fb1aade
+# Full Hash: dfd34fb1aade1295579715b1c21f1e51bbfe370e
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-05-18 21:36:28
+# Regressor Bug: 1709462
+# File Overlap Count: 2
+# Description:
+#   Bug 1709462 - Fix freeing of WebGPU bind group layouts r=jimb
+#   
+#   When the pipeline layout is implicit at pipeline creation,
+#   we collect the IDs of BGLs, to be able to produce GPUBindGroupLayout
+#   object upon user request. However, the produced object didn't know if
+# ==============================================================================
+
+diff -r 5c6f0950714d -r dfd34fb1aade dom/webgpu/ComputePipeline.h
+--- a/dom/webgpu/ComputePipeline.h	Tue May 18 16:24:49 2021 +0000
++++ b/dom/webgpu/ComputePipeline.h	Tue May 18 16:26:27 2021 +0000
+@@ -18,6 +18,7 @@
+ class Device;
+ 
+ class ComputePipeline final : public ObjectBase, public ChildOf<Device> {
++  const RawId mImplicitPipelineLayoutId;
+   const nsTArray<RawId> mImplicitBindGroupLayoutIds;
+ 
+  public:
+@@ -27,6 +28,7 @@
+   const RawId mId;
+ 
+   ComputePipeline(Device* const aParent, RawId aId,
++                  RawId aImplicitPipelineLayoutId,
+                   nsTArray<RawId>&& aImplicitBindGroupLayoutIds);
+   already_AddRefed<BindGroupLayout> GetBindGroupLayout(uint32_t index) const;
+ 

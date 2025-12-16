@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmValidate.cpp
+# Commit: 00d2290648a7
+# Full Hash: 00d2290648a75aeefbb4738298ddfcda2d0797b0
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2020-08-18 09:24:52
+# Regressor Bug: 1561521
+# File Overlap Count: 2
+# Description:
+#   Bug 1561521 - Add non-nullable references. r=lth
+#   
+#   This commit adds decoding, validation, and JS-API type-checking for
+#   non-nullable references.
+#   
+# ==============================================================================
+
+diff -r cd847eba7f9c -r 00d2290648a7 js/src/wasm/WasmValidate.cpp
+--- a/js/src/wasm/WasmValidate.cpp	Tue Aug 18 00:06:00 2020 +0000
++++ b/js/src/wasm/WasmValidate.cpp	Tue Aug 18 00:40:20 2020 +0000
+@@ -1893,6 +1893,9 @@
+   if (!refTypesEnabled && !tableElemType.isFunc()) {
+     return d.fail("expected 'funcref' element type");
+   }
++  if (!tableElemType.isNullable()) {
++    return d.fail("non-nullable references not supported in tables");
++  }
+ 
+   Limits limits;
+   if (!DecodeLimits(d, &limits)) {
+@@ -1961,6 +1964,10 @@
+     return d.fail("expected global type");
+   }
+ 
++  if (type->isReference() && !type->isNullable()) {
++    return d.fail("non-nullable references not supported in globals");
++  }
++
+   uint8_t flags;
+   if (!d.readFixedU8(&flags)) {
+     return d.fail("expected global flags");

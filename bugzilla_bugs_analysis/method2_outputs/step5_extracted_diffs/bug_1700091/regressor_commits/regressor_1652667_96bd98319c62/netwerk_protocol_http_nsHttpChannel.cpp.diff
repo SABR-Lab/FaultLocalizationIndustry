@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/nsHttpChannel.cpp
+# Commit: 96bd98319c62
+# Full Hash: 96bd98319c6242a9b05dc4723b928e88537424e1
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2020-08-26 03:24:37
+# Regressor Bug: 1652667
+# File Overlap Count: 1
+# Description:
+#   Bug 1652667 - P1: Add telemetry for when an HTTPSSVC record is received r=dragana
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D87844
+# ==============================================================================
+
+diff -r b61a789151df -r 96bd98319c62 netwerk/protocol/http/nsHttpChannel.cpp
+--- a/netwerk/protocol/http/nsHttpChannel.cpp	Tue Aug 25 17:29:21 2020 +0000
++++ b/netwerk/protocol/http/nsHttpChannel.cpp	Tue Aug 25 17:29:32 2020 +0000
+@@ -389,6 +389,7 @@
+       mDataSentToChildProcess(0),
+       mUseHTTPSSVC(0),
+       mWaitHTTPSSVCRecord(0),
++      mHTTPSSVCTelemetryReported(0),
+       mPushedStreamId(0),
+       mLocalBlocklist(false),
+       mOnTailUnblock(nullptr),
+@@ -7651,6 +7652,14 @@
+       // is guaranteed to own a reference to the connection.
+       mSecurityInfo = mTransaction->SecurityInfo();
+     }
++
++    if (!mHTTPSSVCTelemetryReported) {
++      Maybe<uint32_t> stage = mTransaction->HTTPSSVCReceivedStage();
++      if (stage) {
++        Telemetry::Accumulate(Telemetry::DNS_HTTPSSVC_RECORD_RECEIVING_STAGE,
++                              *stage);
++      }
++    }
+   }
+ 
+   // don't enter this block if we're reading from the cache...
+@@ -9222,6 +9231,18 @@
+       CloseCacheEntry(false);
+       Unused << AsyncAbort(rv);
+     }
++  } else {
++    // This channel is not canceled and the transaction is not created.
++    if (NS_SUCCEEDED(mStatus) && !mTransaction &&
++        (mFirstResponseSource != RESPONSE_FROM_CACHE)) {
++      bool hasIPAddress = false;
++      Unused << httpSSVCRecord->GetHasIPAddresses(&hasIPAddress);
++      Telemetry::Accumulate(Telemetry::DNS_HTTPSSVC_RECORD_RECEIVING_STAGE,
++                            hasIPAddress
++                                ? HTTPSSVC_WITH_IPHINT_RECEIVED_STAGE_0
++                                : HTTPSSVC_WITHOUT_IPHINT_RECEIVED_STAGE_0);
++      mHTTPSSVCTelemetryReported = true;
++    }
+   }
+ 
+   return NS_OK;

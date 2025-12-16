@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/security/test/csp/test_report_uri_missing_in_report_only_header.html
+# Commit: e21ad27bfd0a
+# Full Hash: e21ad27bfd0a2fef90919101eaef5aa5af1cc6c2
+# Author: Christoph Kerschbaumer <ckerschb@christophkerschbaumer.com>
+# Date: 2019-10-22 21:43:14
+# Regressor Bug: 1584993
+# File Overlap Count: 1
+# Description:
+#   Bug 1584993: Make CSP frame-ancestors work with fission enabled. r=jkt,farre,valentin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D49147
+# ==============================================================================
+
+diff -r d9d678e7422e -r e21ad27bfd0a dom/security/test/csp/test_report_uri_missing_in_report_only_header.html
+--- a/dom/security/test/csp/test_report_uri_missing_in_report_only_header.html	Tue Oct 22 09:37:38 2019 +0000
++++ b/dom/security/test/csp/test_report_uri_missing_in_report_only_header.html	Tue Oct 22 10:57:43 2019 +0000
+@@ -21,13 +21,23 @@
+                           .getService(SpecialPowers.Ci.nsIStringBundleService);
+ var localizer = stringBundleService.createBundle("chrome://global/locale/security/csp.properties");
+ var warningMsg = localizer.formatStringFromName("reportURInotInReportOnlyHeader", [window.location.origin]);
++
+ function cleanup() {
+   SpecialPowers.postConsoleSentinel();
+   SimpleTest.finish();
+ }
+ 
++// Since Bug 1584993 we parse the CSP in the parent too, hence the
++// same error message appears twice in the console. 
++var recordConsoleMsgOnce = false;
++
+ SpecialPowers.registerConsoleListener(function ConsoleMsgListener(aMsg) {
+   if (aMsg.message.indexOf(warningMsg) > -1) {
++    if (recordConsoleMsgOnce) {
++      return;
++    }
++    recordConsoleMsgOnce = true;
++
+     ok(true, "report-uri not specified in Report-Only should throw a CSP warning.");
+     SimpleTest.executeSoon(cleanup);
+     return;

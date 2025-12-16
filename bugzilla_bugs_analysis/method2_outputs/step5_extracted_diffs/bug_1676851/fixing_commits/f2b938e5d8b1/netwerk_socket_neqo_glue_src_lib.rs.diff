@@ -1,0 +1,32 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: netwerk/socket/neqo_glue/src/lib.rs
+# Commit: f2b938e5d8b1
+# Full Hash: f2b938e5d8b108dcfb2d5cb972c6884c3ba1e790
+# Author: Dragana Damjanovic <dd.mozilla@gmail.com>
+# Date: 2020-11-14 09:46:25
+# Description:
+#   Bug 1676851 - Make sure to return NS_BASE_STREAM_WOULD_BLOCK if number of read/written bytes to neqo stream is 0. r=necko-reviewers,valentin
+#   
+#   If NS_OK is return, nsBufferedInputStream::ReadSegments may loop.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D96996
+# ==============================================================================
+
+diff -r 7a8e1e203b11 -r f2b938e5d8b1 netwerk/socket/neqo_glue/src/lib.rs
+--- a/netwerk/socket/neqo_glue/src/lib.rs	Fri Nov 13 22:59:30 2020 +0100
++++ b/netwerk/socket/neqo_glue/src/lib.rs	Fri Nov 13 21:26:14 2020 +0000
+@@ -659,7 +659,11 @@
+         Ok((amount, fin_recvd)) => {
+             *read = u32::try_from(amount).unwrap();
+             *fin = fin_recvd;
+-            NS_OK
++            if (amount == 0) && !fin_recvd {
++                NS_BASE_STREAM_WOULD_BLOCK
++            } else {
++                NS_OK
++            }
+         }
+         Err(Http3Error::InvalidStreamId)
+         | Err(Http3Error::TransportError(TransportError::NoMoreData)) => NS_ERROR_INVALID_ARG,

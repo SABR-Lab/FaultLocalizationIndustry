@@ -1,0 +1,123 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/InterceptedHttpChannel.cpp
+# Commit: 74f99033251c
+# Full Hash: 74f99033251cd6c36eb6b0b5a4713eb6b5c793fa
+# Author: Jonathan Kingston <jkt@mozilla.com>
+# Date: 2019-02-13 09:48:26
+# Regressor Bug: 1520868
+# File Overlap Count: 1
+# Description:
+#   Bug 1520868 - Replacing AsyncOpen2 with AsyncOpen always r=valentin
+#   
+#   Replacing js and text occurences of asyncOpen2
+#   Replacing open2 with open
+#   
+# ==============================================================================
+
+diff -r 3378fd5f4f22 -r 74f99033251c netwerk/protocol/http/InterceptedHttpChannel.cpp
+--- a/netwerk/protocol/http/InterceptedHttpChannel.cpp	Tue Feb 12 17:58:19 2019 +0100
++++ b/netwerk/protocol/http/InterceptedHttpChannel.cpp	Tue Feb 12 16:08:25 2019 +0000
+@@ -317,7 +317,7 @@
+       nsInputStreamPump::Create(getter_AddRefs(mPump), mBodyReader, 0, 0, true);
+   NS_ENSURE_SUCCESS(rv, rv);
+ 
+-  rv = mPump->AsyncRead(this, mListenerContext);
++  rv = mPump->AsyncRead(this, nullptr);
+   NS_ENSURE_SUCCESS(rv, rv);
+ 
+   uint32_t suspendCount = mSuspendCount;
+@@ -346,12 +346,7 @@
+   mRedirectChannel->SetOriginalURI(mOriginalURI);
+ 
+   // open new channel
+-  if (mLoadInfo && mLoadInfo->GetEnforceSecurity()) {
+-    MOZ_ASSERT(!mListenerContext, "mListenerContext should be null!");
+-    rv = mRedirectChannel->AsyncOpen2(mListener);
+-  } else {
+-    rv = mRedirectChannel->AsyncOpen(mListener, mListenerContext);
+-  }
++  rv = mRedirectChannel->AsyncOpen(mListener);
+   NS_ENSURE_SUCCESS(rv, rv);
+ 
+   mStatus = NS_BINDING_REDIRECTED;
+@@ -410,11 +405,10 @@
+     CopyUTF8toUTF16(host, mStatusHost);
+   }
+ 
+-  mProgressSink->OnStatus(this, mListenerContext, NS_NET_STATUS_READING,
++  mProgressSink->OnStatus(this, nullptr, NS_NET_STATUS_READING,
+                           mStatusHost.get());
+ 
+-  mProgressSink->OnProgress(this, mListenerContext, progress,
+-                            mSynthesizedStreamLength);
++  mProgressSink->OnProgress(this, nullptr, progress, mSynthesizedStreamLength);
+ 
+   mProgressReported = progress;
+ }
+@@ -525,8 +519,14 @@
+ }
+ 
+ NS_IMETHODIMP
+-InterceptedHttpChannel::AsyncOpen(nsIStreamListener* aListener,
+-                                  nsISupports* aContext) {
++InterceptedHttpChannel::AsyncOpen(nsIStreamListener* aListener) {
++  nsCOMPtr<nsIStreamListener> listener(aListener);
++  nsresult rv =
++      nsContentSecurityManager::doContentSecurityCheck(this, listener);
++  if (NS_WARN_IF(NS_FAILED(rv))) {
++    Cancel(rv);
++    return rv;
++  }
+   if (mCanceled) {
+     return mStatus;
+   }
+@@ -541,18 +541,6 @@
+ }
+ 
+ NS_IMETHODIMP
+-InterceptedHttpChannel::AsyncOpen2(nsIStreamListener* aListener) {
+-  nsCOMPtr<nsIStreamListener> listener(aListener);
+-  nsresult rv =
+-      nsContentSecurityManager::doContentSecurityCheck(this, listener);
+-  if (NS_WARN_IF(NS_FAILED(rv))) {
+-    Cancel(rv);
+-    return rv;
+-  }
+-  return AsyncOpen(listener, nullptr);
+-}
+-
+-NS_IMETHODIMP
+ InterceptedHttpChannel::LogBlockedCORSRequest(const nsAString& aMessage,
+                                               const nsACString& aCategory) {
+   // Synthetic responses should not trigger CORS blocking.
+@@ -1033,7 +1021,7 @@
+   }
+ 
+   if (mListener) {
+-    mListener->OnStartRequest(this, mListenerContext);
++    mListener->OnStartRequest(this, nullptr);
+   }
+   return NS_OK;
+ }
+@@ -1061,7 +1049,7 @@
+   MaybeReportTimingData();
+ 
+   if (mListener) {
+-    mListener->OnStopRequest(this, mListenerContext, mStatus);
++    mListener->OnStopRequest(this, nullptr, mStatus);
+   }
+ 
+   gHttpHandler->OnStopRequest(this);
+@@ -1092,8 +1080,8 @@
+     }
+   }
+ 
+-  return mListener->OnDataAvailable(this, mListenerContext, aInputStream,
+-                                    aOffset, aCount);
++  return mListener->OnDataAvailable(this, nullptr, aInputStream, aOffset,
++                                    aCount);
+ }
+ 
+ NS_IMETHODIMP

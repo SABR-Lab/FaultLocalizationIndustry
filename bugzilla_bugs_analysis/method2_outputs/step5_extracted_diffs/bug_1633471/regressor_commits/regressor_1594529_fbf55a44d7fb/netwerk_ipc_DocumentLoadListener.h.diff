@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/ipc/DocumentLoadListener.h
+# Commit: fbf55a44d7fb
+# Full Hash: fbf55a44d7fb72908eeb5d041b70ce2c503a2532
+# Author: Anny Gakhokidze <agakhokidze@mozilla.com>
+# Date: 2020-04-15 04:09:17
+# Regressor Bug: 1594529
+# File Overlap Count: 1
+# Description:
+#   Bug 1594529 - Create LoadInfo for subdocuments directly in parent process with DocumentChannel. r=mattwoodrow,nika
+#   
+#   Currently, with Fission enabled we are not able to create a proper LoadInfo
+#   object when doing a subdocument load because we do not have access to a loading
+#   context if the load is happening inside of an OOP frame. To solve this problem,
+# ==============================================================================
+
+diff -r 4ba9a230586a -r fbf55a44d7fb netwerk/ipc/DocumentLoadListener.h
+--- a/netwerk/ipc/DocumentLoadListener.h	Mon Apr 13 22:41:37 2020 +0000
++++ b/netwerk/ipc/DocumentLoadListener.h	Mon Apr 13 23:00:43 2020 +0000
+@@ -96,11 +96,11 @@
+                                 ADocumentChannelBridge* aBridge);
+ 
+   // Creates the channel, and then calls AsyncOpen on it.
+-  bool Open(nsDocShellLoadState* aLoadState, LoadInfo* aLoadInfo,
+-            nsLoadFlags aLoadFlags, uint32_t aCacheKey,
+-            const uint64_t& aChannelId, const TimeStamp& aAsyncOpenTime,
+-            nsDOMNavigationTiming* aTiming, Maybe<dom::ClientInfo>&& aInfo,
+-            uint64_t aOuterWindowId, bool aHasGesture, nsresult* aRv);
++  bool Open(nsDocShellLoadState* aLoadState, nsLoadFlags aLoadFlags,
++            uint32_t aCacheKey, const uint64_t& aChannelId,
++            const TimeStamp& aAsyncOpenTime, nsDOMNavigationTiming* aTiming,
++            Maybe<dom::ClientInfo>&& aInfo, uint64_t aOuterWindowId,
++            bool aHasGesture, nsresult* aRv);
+ 
+   NS_DECL_ISUPPORTS
+   NS_DECL_NSIREQUESTOBSERVER
+@@ -214,8 +214,6 @@
+                         nsTArray<ParentEndpoint>&& aStreamFilterEndpoints);
+ 
+   // Construct a LoadInfo object to use for the internal channel.
+-  // TODO: This currently only supports creating top window TYPE_DOCUMENT
+-  // LoadInfos
+   already_AddRefed<LoadInfo> CreateLoadInfo(
+       dom::CanonicalBrowsingContext* aBrowsingContext,
+       nsDocShellLoadState* aLoadState, uint64_t aOuterWindowId);

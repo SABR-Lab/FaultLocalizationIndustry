@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/generic/RootAccessible.cpp
+# Commit: 1e75ce1fef67
+# Full Hash: 1e75ce1fef67f3139ac4f05993cad693c82c111c
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2020-02-17 09:50:03
+# Regressor Bug: 1611060
+# File Overlap Count: 1
+# Description:
+#   Bug 1611060 - Dispatch a11y scroll events for all DOM scrolls. r=Jamie
+#   
+#   Currently, only documents dispatch scroll events when in reality any
+#   element can have scrollable overflows.
+#   
+# ==============================================================================
+
+diff -r 20b59309d020 -r 1e75ce1fef67 accessible/generic/RootAccessible.cpp
+--- a/accessible/generic/RootAccessible.cpp	Mon Feb 17 05:37:24 2020 +0200
++++ b/accessible/generic/RootAccessible.cpp	Mon Feb 17 04:09:34 2020 +0000
+@@ -144,7 +144,7 @@
+     // HTMLInputElement.cpp & radio.js)
+     "RadioStateChange", "popupshown", "popuphiding", "DOMMenuInactive",
+     "DOMMenuItemActive", "DOMMenuItemInactive", "DOMMenuBarActive",
+-    "DOMMenuBarInactive"};
++    "DOMMenuBarInactive", "scroll"};
+ 
+ nsresult RootAccessible::AddEventListeners() {
+   // EventTarget interface allows to register event listeners to
+@@ -222,13 +222,23 @@
+       GetAccService()->GetDocAccessible(origTargetNode->OwnerDoc());
+ 
+   if (document) {
+-    // Root accessible exists longer than any of its descendant documents so
+-    // that we are guaranteed notification is processed before root accessible
+-    // is destroyed.
+-    // For shadow DOM, GetOriginalTarget on the Event returns null if we
+-    // process the event async, so we must pass the target node as well.
+-    document->HandleNotification<RootAccessible, Event, nsINode>(
+-        this, &RootAccessible::ProcessDOMEvent, aDOMEvent, origTargetNode);
++    nsAutoString eventType;
++    aDOMEvent->GetType(eventType);
++    if (eventType.EqualsLiteral("scroll")) {
++      // We don't put this in the notification queue for 2 reasons:
++      // 1. We will flood the queue with repetitive events.
++      // 2. Since this doesn't necessarily touch layout, we are not
++      //    guaranteed to have a WillRefresh tick any time soon.
++      document->HandleScroll(origTargetNode);
++    } else {
++      // Root accessible exists longer than any of its descendant documents so
++      // that we are guaranteed notification is processed before root accessible
++      // is destroyed.
++      // For shadow DOM, GetOriginalTarget on the Event returns null if we
++      // process the event async, so we must pass the target node as well.
++      document->HandleNotification<RootAccessible, Event, nsINode>(
++          this, &RootAccessible::ProcessDOMEvent, aDOMEvent, origTargetNode);
++    }
+   }
+ 
+   return NS_OK;

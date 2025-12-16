@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/test/jsmodules/test_dynamicImportErrorMessage.html
+# Commit: b83b3c1baa19
+# Full Hash: b83b3c1baa19d3c914da2fa081b467da6fa6ba1f
+# Author: Yoshi Cheng-Hao Huang <allstars.chh@gmail.com>
+# Date: 2025-10-03 20:53 +0000
+# Regressor Bug: 1968890
+# File Overlap Count: 3
+# Overlapping Files: dom/base/test/jsmodules/chrome.toml, dom/base/test/jsmodules/import_404.mjs, dom/base/test/jsmodules/test_dynamicImportErrorMessage.html
+# Description:
+#   Bug 1968890 - Part 9: Add test for dynamic import. r=jonco
+# ==============================================================================
+
+diff -r a80062ebc58c -r b83b3c1baa19 dom/base/test/jsmodules/test_dynamicImportErrorMessage.html
+--- a/dom/base/test/jsmodules/test_dynamicImportErrorMessage.html	Fri Oct 03 20:53:29 2025 +0000
++++ b/dom/base/test/jsmodules/test_dynamicImportErrorMessage.html	Fri Oct 03 20:53:30 2025 +0000
+@@ -5,12 +5,27 @@
+ <script>
+   SimpleTest.waitForExplicitFinish();
+ 
++  let count = 0;
++  function maybeFinish() {
++    count++;
++    if (count == 2) {
++      SimpleTest.finish();
++    }
++  }
++
+   // eslint-disable-next-line no-unused-vars
+   async function testLoaded() {
++
+     await import("./404.js").catch((error) => {
+       ok(error instanceof TypeError, "Should be a TypeError.");
+       ok(error.message.match(/404.js/), "Should have the filename.");
+-      SimpleTest.finish();
++      maybeFinish();
++    });
++
++    await import("./import_404.mjs").catch((error) => {
++      ok(error instanceof TypeError, "Should be a TypeError.");
++      ok(error.message.match(/404.js/), "Should have the filename from sub-modules");
++      maybeFinish();
+     });
+   }
+ </script>

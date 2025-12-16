@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/style/StyleAnimationValue.cpp
+# Commit: 729abedf9bda
+# Full Hash: 729abedf9bda03da3f75ad660fafc2fa92a67bf5
+# Author: Zach Hoffman <zach@zrhoffman.net>
+# Date: 2023-12-18 17:17:57
+# Regressor Bug: 1846516
+# File Overlap Count: 1
+# Description:
+#   Bug 1846516 - [css-properties-values-api] Use AnimatedPropertyID to communicate between Gecko and Servo. r=emilio,layout-reviewers,firefox-style-system-reviewers
+#   
+#   Co-authored-by: Frederic Wang <fred.wang@free.fr>
+#   Co-authored-by: Emilio Cobos Álvarez <emilio@crisal.io>
+#   
+# ==============================================================================
+
+diff -r 63603267402e -r 729abedf9bda layout/style/StyleAnimationValue.cpp
+--- a/layout/style/StyleAnimationValue.cpp	Mon Dec 18 09:24:08 2023 +0000
++++ b/layout/style/StyleAnimationValue.cpp	Mon Dec 18 09:24:08 2023 +0000
+@@ -124,7 +124,9 @@
+ MatrixScales AnimationValue::GetScaleValue(const nsIFrame* aFrame) const {
+   using namespace nsStyleTransformMatrix;
+ 
+-  switch (Servo_AnimationValue_GetPropertyId(mServo)) {
++  AnimatedPropertyID property(eCSSProperty_UNKNOWN);
++  Servo_AnimationValue_GetPropertyId(mServo, &property);
++  switch (property.mID) {
+     case eCSSProperty_scale: {
+       const StyleScale& scale = GetScaleProperty();
+       return scale.IsNone()
+@@ -159,7 +161,7 @@
+     const AnimatedPropertyID& aProperty,
+     const StylePerDocumentStyleData* aRawData, nsACString& aString) const {
+   MOZ_ASSERT(mServo);
+-  Servo_AnimationValue_Serialize(mServo, aProperty.mID, aRawData, &aString);
++  Servo_AnimationValue_Serialize(mServo, &aProperty, aRawData, &aString);
+ }
+ 
+ bool AnimationValue::IsInterpolableWith(const AnimatedPropertyID& aProperty,
+@@ -211,8 +213,9 @@
+       nsComputedDOMStyle::GetComputedStyle(aElement);
+   MOZ_ASSERT(computedStyle);
+ 
++  AnimatedPropertyID property(aProperty);
+   RefPtr<StyleLockedDeclarationBlock> declarations =
+-      ServoCSSParser::ParseProperty(aProperty, aValue,
++      ServoCSSParser::ParseProperty(property, aValue,
+                                     ServoCSSParser::GetParsingEnvironment(doc),
+                                     StyleParsingMode::DEFAULT);
+ 

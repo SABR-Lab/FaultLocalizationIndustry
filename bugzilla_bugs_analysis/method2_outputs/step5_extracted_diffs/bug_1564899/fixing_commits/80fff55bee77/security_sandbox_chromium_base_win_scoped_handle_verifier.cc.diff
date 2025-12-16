@@ -1,0 +1,33 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/base/win/scoped_handle_verifier.cc
+# Commit: 80fff55bee77
+# Full Hash: 80fff55bee77ccef9b884556668e69efded13bae
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-07-16 04:07:00
+# Description:
+#   Bug 1564899: Make CloseHandleWrapper CHECK a DCHECK on non-Nightly builds. r=handyman
+#   
+#   This is because we are hitting it frequently during PolicyBase::OnJobEmpty and
+#   currently we can't work out how this can happen.
+#   
+# ==============================================================================
+
+diff -r 262f4fd60398 -r 80fff55bee77 security/sandbox/chromium/base/win/scoped_handle_verifier.cc
+--- a/security/sandbox/chromium/base/win/scoped_handle_verifier.cc	Mon Jul 15 21:13:28 2019 +0000
++++ b/security/sandbox/chromium/base/win/scoped_handle_verifier.cc	Mon Jul 15 17:19:17 2019 +0000
+@@ -70,7 +70,13 @@
+ 
+ bool CloseHandleWrapper(HANDLE handle) {
+   if (!::CloseHandle(handle))
++    // Making this DCHECK on non-Nighly as we are hitting this frequently,
++    // looks like we are closing handles twice somehow. See bug 1564899.
++#if defined(NIGHTLY_BUILD)
+     CHECK(false);  // CloseHandle failed.
++#else
++    DCHECK(false);  // CloseHandle failed.
++#endif
+   return true;
+ }
+ 

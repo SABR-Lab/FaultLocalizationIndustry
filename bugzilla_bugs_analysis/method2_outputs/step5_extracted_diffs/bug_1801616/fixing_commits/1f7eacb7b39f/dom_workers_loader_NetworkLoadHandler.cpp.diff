@@ -1,0 +1,27 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/loader/NetworkLoadHandler.cpp
+# Commit: 1f7eacb7b39f
+# Full Hash: 1f7eacb7b39f76128f7c969020f2d6ba0242225f
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-11-22 09:46:06
+# Description:
+#   Bug 1801616 - Cancellation should abort network and cache loads if it has already completed;  r=asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D162557
+# ==============================================================================
+
+diff -r aaffb4cfb02e -r 1f7eacb7b39f dom/workers/loader/NetworkLoadHandler.cpp
+--- a/dom/workers/loader/NetworkLoadHandler.cpp	Mon Nov 21 15:03:04 2022 -0500
++++ b/dom/workers/loader/NetworkLoadHandler.cpp	Mon Nov 21 18:23:20 2022 +0000
+@@ -55,6 +55,9 @@
+                                      const uint8_t* aString) {
+   // If we have cancelled, or we have no mRequest, it means that the loader has
+   // shut down and we can exit early. If the cancel result is still NS_OK
++  if (mRequestHandle->IsEmpty()) {
++    return NS_OK;
++  }
+   nsresult rv = DataReceivedFromNetwork(aLoader, aStatus, aStringLen, aString);
+   return mRequestHandle->OnStreamComplete(rv);
+ }

@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/ScriptLoader.h
+# Commit: 3605681ebb5c
+# Full Hash: 3605681ebb5cb61f1dca13c546e03367857135ae
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-11-18 15:46:32
+# Regressor Bug: 1800496
+# File Overlap Count: 2
+# Description:
+#   Bug 1800496 - Initial cancellation revert; r=asuth
+#   
+#   This returns most of the behavior from https://searchfox.org/mozilla-central/rev/e0a7a014f3384ac1abc229d9961f244e3e70a52c/dom/workers/ScriptLoader.cpp#735-776
+#   
+#   What is missing at this point is batch dispatching, as we once again cancel one-at-a-time rather than as a group.
+# ==============================================================================
+
+diff -r 6118d850a96d -r 3605681ebb5c dom/workers/ScriptLoader.h
+--- a/dom/workers/ScriptLoader.h	Fri Nov 18 10:02:26 2022 +0000
++++ b/dom/workers/ScriptLoader.h	Fri Nov 18 10:02:27 2022 +0000
+@@ -42,7 +42,6 @@
+ 
+ namespace loader {
+ class ScriptExecutorRunnable;
+-class AbruptCancellationRunnable;
+ class CachePromiseHandler;
+ class CacheLoadHandler;
+ class CacheCreator;
+@@ -120,7 +119,6 @@
+ class WorkerScriptLoader : public JS::loader::ScriptLoaderInterface,
+                            public nsINamed {
+   friend class ScriptExecutorRunnable;
+-  friend class AbruptCancellationRunnable;
+   friend class CachePromiseHandler;
+   friend class CacheLoadHandler;
+   friend class CacheCreator;
+@@ -226,8 +224,6 @@
+ 
+   void ShutdownScriptLoader(bool aResult, bool aMutedError);
+ 
+-  void AbruptShutdown();
+-
+  private:
+   ~WorkerScriptLoader() = default;
+ 
+@@ -239,8 +235,6 @@
+ 
+   void TryShutdown();
+ 
+-  void DispatchAbruptShutdown();
+-
+   nsTArray<ThreadSafeRequestHandle*> GetLoadingList();
+ 
+   nsIGlobalObject* GetGlobal();

@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/ActorsChild.h
+# Commit: 6efa98635cf4
+# Full Hash: 6efa98635cf43505a16b8996280cf6e6014498cf
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2020-05-06 16:28:18
+# Regressor Bug: 1623278
+# File Overlap Count: 1
+# Description:
+#   Bug 1623278 - Make transaction actors refcounted. r=dom-workers-and-storage-reviewers,nika,janv
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D71933
+# ==============================================================================
+
+diff -r 1d3ade580cab -r 6efa98635cf4 dom/indexedDB/ActorsChild.h
+--- a/dom/indexedDB/ActorsChild.h	Wed May 06 12:08:51 2020 +0000
++++ b/dom/indexedDB/ActorsChild.h	Wed May 06 12:20:32 2020 +0000
+@@ -339,13 +339,7 @@
+   bool DeallocPBackgroundIDBDatabaseRequestChild(
+       PBackgroundIDBDatabaseRequestChild* aActor);
+ 
+-  PBackgroundIDBTransactionChild* AllocPBackgroundIDBTransactionChild(
+-      const nsTArray<nsString>& aObjectStoreNames, const Mode& aMode);
+-
+-  bool DeallocPBackgroundIDBTransactionChild(
+-      PBackgroundIDBTransactionChild* aActor);
+-
+-  PBackgroundIDBVersionChangeTransactionChild*
++  already_AddRefed<PBackgroundIDBVersionChangeTransactionChild>
+   AllocPBackgroundIDBVersionChangeTransactionChild(uint64_t aCurrentVersion,
+                                                    uint64_t aRequestedVersion,
+                                                    int64_t aNextObjectStoreId,
+@@ -356,9 +350,6 @@
+       const uint64_t& aCurrentVersion, const uint64_t& aRequestedVersion,
+       const int64_t& aNextObjectStoreId, const int64_t& aNextIndexId) override;
+ 
+-  bool DeallocPBackgroundIDBVersionChangeTransactionChild(
+-      PBackgroundIDBVersionChangeTransactionChild* aActor);
+-
+   PBackgroundMutableFileChild* AllocPBackgroundMutableFileChild(
+       const nsString& aName, const nsString& aType);
+ 
+@@ -446,6 +437,8 @@
+   friend IDBDatabase;
+ 
+  public:
++  NS_INLINE_DECL_REFCOUNTING(BackgroundTransactionChild, override)
++
+ #ifdef DEBUG
+   void AssertIsOnOwningThread() const override;
+ #endif
+@@ -486,6 +479,8 @@
+   IDBOpenDBRequest* mOpenDBRequest;
+ 
+  public:
++  NS_INLINE_DECL_REFCOUNTING(BackgroundVersionChangeTransactionChild, override)
++
+ #ifdef DEBUG
+   void AssertIsOnOwningThread() const override;
+ #endif

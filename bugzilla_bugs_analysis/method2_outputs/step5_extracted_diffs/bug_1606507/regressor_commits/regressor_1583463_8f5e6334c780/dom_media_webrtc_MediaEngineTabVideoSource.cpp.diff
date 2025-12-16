@@ -1,0 +1,111 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/MediaEngineTabVideoSource.cpp
+# Commit: 8f5e6334c780
+# Full Hash: 8f5e6334c780b6fd8820f387c3892b10a636a25a
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2019-10-07 16:27:18
+# Regressor Bug: 1583463
+# File Overlap Count: 1
+# Description:
+#   Bug 1583463 - Merge the tab source's InitRunnable and StartRunnable to avoid checking mWindow on the media thread. r=jib
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D47682
+# ==============================================================================
+
+diff -r 2e24c5cac308 -r 8f5e6334c780 dom/media/webrtc/MediaEngineTabVideoSource.cpp
+--- a/dom/media/webrtc/MediaEngineTabVideoSource.cpp	Thu Oct 03 19:49:47 2019 +0000
++++ b/dom/media/webrtc/MediaEngineTabVideoSource.cpp	Thu Oct 03 19:50:09 2019 +0000
+@@ -37,38 +37,6 @@
+ 
+ nsresult MediaEngineTabVideoSource::StartRunnable::Run() {
+   MOZ_ASSERT(NS_IsMainThread());
+-  mVideoSource->mTrackMain = mTrack;
+-  mVideoSource->mPrincipalHandleMain = mPrincipal;
+-  mVideoSource->Draw();
+-  mVideoSource->mTimer->InitWithNamedFuncCallback(
+-      [](nsITimer* aTimer, void* aClosure) mutable {
+-        auto source = static_cast<MediaEngineTabVideoSource*>(aClosure);
+-        source->Draw();
+-      },
+-      mVideoSource, mVideoSource->mTimePerFrame, nsITimer::TYPE_REPEATING_SLACK,
+-      "MediaEngineTabVideoSource DrawTimer");
+-  if (mVideoSource->mTabSource) {
+-    mVideoSource->mTabSource->NotifyStreamStart(mVideoSource->mWindow);
+-  }
+-  return NS_OK;
+-}
+-
+-nsresult MediaEngineTabVideoSource::StopRunnable::Run() {
+-  MOZ_ASSERT(NS_IsMainThread());
+-  if (mVideoSource->mTimer) {
+-    mVideoSource->mTimer->Cancel();
+-    mVideoSource->mTimer = nullptr;
+-  }
+-  if (mVideoSource->mTabSource) {
+-    mVideoSource->mTabSource->NotifyStreamStop(mVideoSource->mWindow);
+-  }
+-  mVideoSource->mPrincipalHandle = PRINCIPAL_HANDLE_NONE;
+-  mVideoSource->mTrack = nullptr;
+-  return NS_OK;
+-}
+-
+-nsresult MediaEngineTabVideoSource::InitRunnable::Run() {
+-  MOZ_ASSERT(NS_IsMainThread());
+   if (mVideoSource->mWindowId != -1) {
+     nsGlobalWindowOuter* globalWindow =
+         nsGlobalWindowOuter::GetOuterWindowWithId(mVideoSource->mWindowId);
+@@ -98,9 +66,33 @@
+     MOZ_ASSERT(mVideoSource->mWindow);
+   }
+   mVideoSource->mTimer = NS_NewTimer();
+-  nsCOMPtr<nsIRunnable> start(
+-      new StartRunnable(mVideoSource, mTrack, mPrincipal));
+-  start->Run();
++  mVideoSource->mTrackMain = mTrack;
++  mVideoSource->mPrincipalHandleMain = mPrincipal;
++  mVideoSource->Draw();
++  mVideoSource->mTimer->InitWithNamedFuncCallback(
++      [](nsITimer* aTimer, void* aClosure) mutable {
++        auto source = static_cast<MediaEngineTabVideoSource*>(aClosure);
++        source->Draw();
++      },
++      mVideoSource, mVideoSource->mTimePerFrame, nsITimer::TYPE_REPEATING_SLACK,
++      "MediaEngineTabVideoSource DrawTimer");
++  if (mVideoSource->mTabSource) {
++    mVideoSource->mTabSource->NotifyStreamStart(mVideoSource->mWindow);
++  }
++  return NS_OK;
++}
++
++nsresult MediaEngineTabVideoSource::StopRunnable::Run() {
++  MOZ_ASSERT(NS_IsMainThread());
++  if (mVideoSource->mTimer) {
++    mVideoSource->mTimer->Cancel();
++    mVideoSource->mTimer = nullptr;
++  }
++  if (mVideoSource->mTabSource) {
++    mVideoSource->mTabSource->NotifyStreamStop(mVideoSource->mWindow);
++  }
++  mVideoSource->mPrincipalHandle = PRINCIPAL_HANDLE_NONE;
++  mVideoSource->mTrackMain = nullptr;
+   return NS_OK;
+ }
+ 
+@@ -246,13 +238,8 @@
+   AssertIsOnOwningThread();
+   MOZ_ASSERT(mState == kAllocated);
+ 
+-  nsCOMPtr<nsIRunnable> runnable;
+-  if (!mWindow) {
+-    runnable = new InitRunnable(this, mTrack, mPrincipalHandle);
+-  } else {
+-    runnable = new StartRunnable(this, mTrack, mPrincipalHandle);
+-  }
+-  NS_DispatchToMainThread(runnable);
++  NS_DispatchToMainThread(
++      new StartRunnable(this, mTrack, mPrincipalHandle));
+   mState = kStarted;
+ 
+   return NS_OK;

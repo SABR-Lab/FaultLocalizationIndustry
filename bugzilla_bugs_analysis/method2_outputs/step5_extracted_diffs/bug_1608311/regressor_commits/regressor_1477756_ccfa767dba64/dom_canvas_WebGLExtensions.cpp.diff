@@ -1,0 +1,103 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLExtensions.cpp
+# Commit: ccfa767dba64
+# Full Hash: ccfa767dba644dc193e0246eb8e8ff3377e8b8a5
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Client-side bindings mirror for precise CC, and merge similar codepaths. r=handyman
+#   
+#   * Context loss using RAII
+#   * Move Program reflection Client-side
+#   
+# ==============================================================================
+
+diff -r 71c122ac0ca7 -r ccfa767dba64 dom/canvas/WebGLExtensions.cpp
+--- a/dom/canvas/WebGLExtensions.cpp	Wed Jan 08 22:19:14 2020 +0000
++++ b/dom/canvas/WebGLExtensions.cpp	Wed Jan 08 22:19:16 2020 +0000
+@@ -12,15 +12,15 @@
+ 
+ namespace mozilla {
+ 
+-WebGLExtensionBase::WebGLExtensionBase(WebGLContext* webgl)
+-    : WebGLContextBoundObject(webgl) {}
+-
+-WebGLExtensionBase::~WebGLExtensionBase() {}
++WebGLExtensionBlendMinMax::WebGLExtensionBlendMinMax(WebGLContext* webgl)
++    : WebGLExtensionBase(webgl) {
++  MOZ_ASSERT(IsSupported(webgl), "Don't construct extension if unsupported.");
++}
+ 
+-void WebGLExtensionBase::MarkLost() {
+-  mIsLost = true;
++bool WebGLExtensionBlendMinMax::IsSupported(const WebGLContext* webgl) {
++  if (webgl->IsWebGL2()) return false;
+ 
+-  OnMarkLost();
++  return webgl->GL()->IsSupported(gl::GLFeature::blend_minmax);
+ }
+ 
+ // -
+@@ -36,11 +36,6 @@
+   return StaticPrefs::webgl_enable_draft_extensions();
+ }
+ 
+-void WebGLExtensionExplicitPresent::Present() const {
+-  if (mIsLost || !mContext) return;
+-  mContext->PresentScreenBuffer();
+-}
+-
+ // -
+ 
+ WebGLExtensionFloatBlend::WebGLExtensionFloatBlend(WebGLContext* const webgl)
+@@ -48,8 +43,6 @@
+   MOZ_ASSERT(IsSupported(webgl), "Don't construct extension if unsupported.");
+ }
+ 
+-WebGLExtensionFloatBlend::~WebGLExtensionFloatBlend() = default;
+-
+ bool WebGLExtensionFloatBlend::IsSupported(const WebGLContext* const webgl) {
+   if (!WebGLExtensionColorBufferFloat::IsSupported(webgl) &&
+       !WebGLExtensionEXTColorBufferFloat::IsSupported(webgl))
+@@ -69,8 +62,6 @@
+   MOZ_ASSERT(IsSupported(webgl), "Don't construct extension if unsupported.");
+ }
+ 
+-WebGLExtensionFBORenderMipmap::~WebGLExtensionFBORenderMipmap() = default;
+-
+ bool WebGLExtensionFBORenderMipmap::IsSupported(
+     const WebGLContext* const webgl) {
+   if (webgl->IsWebGL2()) return false;
+@@ -88,8 +79,6 @@
+   MOZ_ASSERT(IsSupported(webgl), "Don't construct extension if unsupported.");
+ }
+ 
+-WebGLExtensionMultiview::~WebGLExtensionMultiview() = default;
+-
+ bool WebGLExtensionMultiview::IsSupported(const WebGLContext* const webgl) {
+   if (!webgl->IsWebGL2()) return false;
+ 
+@@ -97,19 +86,4 @@
+   return gl->IsSupported(gl::GLFeature::multiview);
+ }
+ 
+-void WebGLExtensionMultiview::FramebufferTextureMultiviewOVR(
+-    const GLenum target, const GLenum attachment, WebGLTexture* const texture,
+-    const GLint level, const GLint baseViewIndex,
+-    const GLsizei numViews) const {
+-  const WebGLContext::FuncScope funcScope(*mContext,
+-                                          "framebufferTextureMultiviewOVR");
+-  if (mIsLost) {
+-    mContext->ErrorInvalidOperation("Extension is lost.");
+-    return;
+-  }
+-
+-  mContext->FramebufferTextureMultiview(target, attachment, texture, level,
+-                                        baseViewIndex, numViews);
+-}
+-
+ }  // namespace mozilla

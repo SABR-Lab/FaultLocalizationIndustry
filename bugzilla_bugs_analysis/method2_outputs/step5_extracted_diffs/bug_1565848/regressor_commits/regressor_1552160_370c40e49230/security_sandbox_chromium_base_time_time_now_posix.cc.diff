@@ -1,0 +1,113 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/base/time/time_now_posix.cc
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 3
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/base/time/time_now_posix.cc
+--- a/security/sandbox/chromium/base/time/time_now_posix.cc	Wed Jun 12 21:55:59 2019 +1200
++++ b/security/sandbox/chromium/base/time/time_now_posix.cc	Wed Jun 12 11:10:48 2019 +0100
+@@ -14,6 +14,7 @@
+ 
+ #include "base/logging.h"
+ #include "base/numerics/safe_math.h"
++#include "base/time/time_override.h"
+ #include "build/build_config.h"
+ 
+ // Ensure the Fuchsia and Mac builds do not include this module. Instead,
+@@ -32,12 +33,11 @@
+     result *= base::Time::kMicrosecondsPerSecond;
+     result += (ts.tv_nsec / base::Time::kNanosecondsPerMicrosecond);
+     return result;
+-  } else {
+-    base::CheckedNumeric<int64_t> result(ts.tv_sec);
+-    result *= base::Time::kMicrosecondsPerSecond;
+-    result += (ts.tv_nsec / base::Time::kNanosecondsPerMicrosecond);
+-    return result.ValueOrDie();
+   }
++  base::CheckedNumeric<int64_t> result(ts.tv_sec);
++  result *= base::Time::kMicrosecondsPerSecond;
++  result += (ts.tv_nsec / base::Time::kNanosecondsPerMicrosecond);
++  return result.ValueOrDie();
+ }
+ 
+ // Helper function to get results from clock_gettime() and convert to a
+@@ -62,30 +62,32 @@
+ 
+ // Time -----------------------------------------------------------------------
+ 
+-// static
+-Time Time::Now() {
++namespace subtle {
++Time TimeNowIgnoringOverride() {
+   struct timeval tv;
+   struct timezone tz = {0, 0};  // UTC
+   CHECK(gettimeofday(&tv, &tz) == 0);
+   // Combine seconds and microseconds in a 64-bit field containing microseconds
+   // since the epoch.  That's enough for nearly 600 centuries.  Adjust from
+   // Unix (1970) to Windows (1601) epoch.
+-  return Time((tv.tv_sec * kMicrosecondsPerSecond + tv.tv_usec) +
+-              kTimeTToMicrosecondsOffset);
++  return Time() + TimeDelta::FromMicroseconds(
++                      (tv.tv_sec * Time::kMicrosecondsPerSecond + tv.tv_usec) +
++                      Time::kTimeTToMicrosecondsOffset);
+ }
+ 
+-// static
+-Time Time::NowFromSystemTime() {
+-  // Just use Now() because Now() returns the system time.
+-  return Now();
++Time TimeNowFromSystemTimeIgnoringOverride() {
++  // Just use TimeNowIgnoringOverride() because it returns the system time.
++  return TimeNowIgnoringOverride();
+ }
++}  // namespace subtle
+ 
+ // TimeTicks ------------------------------------------------------------------
+ 
+-// static
+-TimeTicks TimeTicks::Now() {
+-  return TimeTicks(ClockNow(CLOCK_MONOTONIC));
++namespace subtle {
++TimeTicks TimeTicksNowIgnoringOverride() {
++  return TimeTicks() + TimeDelta::FromMicroseconds(ClockNow(CLOCK_MONOTONIC));
+ }
++}  // namespace subtle
+ 
+ // static
+ TimeTicks::Clock TimeTicks::GetClock() {
+@@ -102,15 +104,19 @@
+   return true;
+ }
+ 
+-// static
+-ThreadTicks ThreadTicks::Now() {
++// ThreadTicks ----------------------------------------------------------------
++
++namespace subtle {
++ThreadTicks ThreadTicksNowIgnoringOverride() {
+ #if (defined(_POSIX_THREAD_CPUTIME) && (_POSIX_THREAD_CPUTIME >= 0)) || \
+     defined(OS_ANDROID)
+-  return ThreadTicks(ClockNow(CLOCK_THREAD_CPUTIME_ID));
++  return ThreadTicks() +
++         TimeDelta::FromMicroseconds(ClockNow(CLOCK_THREAD_CPUTIME_ID));
+ #else
+   NOTREACHED();
+   return ThreadTicks();
+ #endif
+ }
++}  // namespace subtle
+ 
+ }  // namespace base

@@ -1,0 +1,81 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/MediaConduitInterface.h
+# Commit: 9b2bc72201da
+# Full Hash: 9b2bc72201dacf69588720bff85bd839310ab54d
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 3
+# Description:
+#   Bug 1654112 - Remove obsolete ChannelProxy and VoiceEngine API integrations. r=ng
+#   
+#   This switches those integrations to the new Call API, with AudioSendStream and
+#   AudioReceiveStream as main API surface.
+#   
+# ==============================================================================
+
+diff -r 8d60ee1f7cd7 -r 9b2bc72201da dom/media/webrtc/libwebrtcglue/MediaConduitInterface.h
+--- a/dom/media/webrtc/libwebrtcglue/MediaConduitInterface.h	Fri Jan 29 17:03:42 2021 +0100
++++ b/dom/media/webrtc/libwebrtcglue/MediaConduitInterface.h	Fri Jan 29 15:37:11 2021 +0100
+@@ -38,6 +38,10 @@
+ struct RTCRtpSourceEntry;
+ }
+ 
++namespace dom {
++struct RTCRtpSourceEntry;
++}
++
+ enum class MediaSessionConduitLocalDirection : int { kSend, kRecv };
+ 
+ class VideoSessionConduit;
+@@ -286,20 +290,7 @@
+ 
+   webrtc::Call* Call() const { return mCall.get(); }
+ 
+-  virtual ~WebRtcCallWrapper() {
+-    /*
+-        if (mCall->voice_engine()) {
+-          webrtc::VoiceEngine* voice_engine = mCall->voice_engine();
+-          mCall.reset(nullptr);  // Force it to release the voice engine
+-       reference
+-          // Delete() must be after all refs are released
+-          webrtc::VoiceEngine::Delete(voice_engine);
+-        } else {
+-          // Must ensure it's destroyed *before* the EventLog!
+-          mCall.reset(nullptr);
+-        }
+-    */
+-  }
++  virtual ~WebRtcCallWrapper() = default;
+ 
+   bool UnsetRemoteSSRC(uint32_t ssrc) {
+     for (auto conduit : mConduits) {
+@@ -331,25 +322,7 @@
+ 
+  private:
+   explicit WebRtcCallWrapper(const dom::RTCStatsTimestampMaker& aTimestampMaker)
+-      : mTimestampMaker(aTimestampMaker) {
+-    /*
+-        auto voice_engine = webrtc::VoiceEngine::Create();
+-        mDecoderFactory = webrtc::CreateBuiltinAudioDecoderFactory();
+-
+-        webrtc::AudioState::Config audio_state_config;
+-        audio_state_config.voice_engine = voice_engine;
+-        audio_state_config.audio_mixer = webrtc::AudioMixerImpl::Create();
+-        audio_state_config.audio_processing = webrtc::AudioProcessing::Create();
+-        mFakeAudioDeviceModule.reset(new webrtc::FakeAudioDeviceModule());
+-        auto voe_base = webrtc::VoEBase::GetInterface(voice_engine);
+-        voe_base->Init(mFakeAudioDeviceModule.get(),
+-                       audio_state_config.audio_processing.get(),
+-       mDecoderFactory); voe_base->Release(); auto audio_state =
+-       webrtc::AudioState::Create(audio_state_config); webrtc::Call::Config
+-       config(&mEventLog); config.audio_state = audio_state;
+-        mCall.reset(webrtc::Call::Create(config));
+-    */
+-  }
++      : mTimestampMaker(aTimestampMaker) {}
+ 
+   explicit WebRtcCallWrapper(UniquePtr<webrtc::Call>&& aCall) {
+     MOZ_ASSERT(aCall);

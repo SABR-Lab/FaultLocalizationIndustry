@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsGlobalWindowOuter.cpp
+# Commit: d513683e1fdb
+# Full Hash: d513683e1fdbfdb79f5112e9745f2fc0fb4e92fe
+# Author: Kris Maglione <maglione.k@gmail.com>
+# Date: 2019-08-15 09:46:49
+# Regressor Bug: 1562292
+# File Overlap Count: 1
+# Description:
+#   Bug 1562292: Part 1a - Consider requesting context in BrowsingContext lookup methods. r=farre
+#   
+#   Access to a particular named browsing context depends on the caller who is
+#   attempting the access. For a call to `parent.open(..., name)`, for instance,
+#   it's the privileges of the sub-frame making the open() call that matter, even
+# ==============================================================================
+
+diff -r 99d4d3837b3b -r d513683e1fdb dom/base/nsGlobalWindowOuter.cpp
+--- a/dom/base/nsGlobalWindowOuter.cpp	Wed Aug 14 19:37:05 2019 +0300
++++ b/dom/base/nsGlobalWindowOuter.cpp	Tue Jul 30 17:30:55 2019 -0700
+@@ -4039,7 +4039,7 @@
+     const nsAString& aName) {
+   NS_ENSURE_TRUE(mBrowsingContext, nullptr);
+ 
+-  return do_AddRef(mBrowsingContext->FindChildWithName(aName));
++  return do_AddRef(mBrowsingContext->FindChildWithName(aName, *mBrowsingContext));
+ }
+ 
+ bool nsGlobalWindowOuter::DispatchCustomEvent(const nsAString& aEventName) {

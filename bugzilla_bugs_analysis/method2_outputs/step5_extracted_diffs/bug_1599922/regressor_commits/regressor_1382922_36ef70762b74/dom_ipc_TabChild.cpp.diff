@@ -1,0 +1,102 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/TabChild.cpp
+# Commit: 36ef70762b74
+# Full Hash: 36ef70762b74b3c6b8bd0f26c57ab4b54467f64b
+# Author: Bill McCloskey <billm@mozilla.com>
+# Date: 2017-08-17 23:17:14
+# Regressor Bug: 1382922
+# File Overlap Count: 3
+# Description:
+#   Bug 1382922 - Refactor event queue to allow multiple implementations (r=erahm)
+#   
+#   This patch refactors the nsThread event queue to clean it up and to make it easier to restructure. The fundamental concepts are as follows:
+#   
+#   Each nsThread will have a pointer to a refcounted SynchronizedEventQueue. A SynchronizedEQ takes care of doing the locking and condition variable work when posting and popping events. For the actual storage of events, it delegates to an AbstractEventQueue data structure. It keeps a UniquePtr to the AbstractEventQueue that it uses for storage.
+# ==============================================================================
+
+diff -r ca6618d0bc17 -r 36ef70762b74 dom/ipc/TabChild.cpp
+--- a/dom/ipc/TabChild.cpp	Tue Aug 01 12:55:21 2017 -0400
++++ b/dom/ipc/TabChild.cpp	Tue Jun 20 19:42:13 2017 -0700
+@@ -298,9 +298,18 @@
+ 
+ class TabChild::DelayedDeleteRunnable final
+   : public Runnable
++  , public nsIRunnablePriority
+ {
+     RefPtr<TabChild> mTabChild;
+ 
++    // In order to ensure that this runnable runs after everything that could
++    // possibly touch this tab, we send it through the event queue twice. The
++    // first time it runs at normal priority and the second time it runs at
++    // input priority. This ensures that it runs after all events that were in
++    // either queue at the time it was first dispatched. mReadyToDelete starts
++    // out false (when it runs at normal priority) and is then set to true.
++    bool mReadyToDelete = false;
++
+ public:
+     explicit DelayedDeleteRunnable(TabChild* aTabChild)
+       : Runnable("TabChild::DelayedDeleteRunnable")
+@@ -310,6 +319,8 @@
+         MOZ_ASSERT(aTabChild);
+     }
+ 
++    NS_DECL_ISUPPORTS_INHERITED
++
+ private:
+     ~DelayedDeleteRunnable()
+     {
+@@ -317,27 +328,30 @@
+         MOZ_ASSERT(!mTabChild);
+     }
+ 
++    NS_IMETHOD GetPriority(uint32_t* aPriority) override
++    {
++      *aPriority = mReadyToDelete
++                 ? nsIRunnablePriority::PRIORITY_INPUT
++                 : nsIRunnablePriority::PRIORITY_NORMAL;
++      return NS_OK;
++    }
++
+     NS_IMETHOD
+     Run() override
+     {
+         MOZ_ASSERT(NS_IsMainThread());
+         MOZ_ASSERT(mTabChild);
+-        // When enabling input event prioritization, we reserve limited time
+-        // to process input events. We may handle the rest in the next frame
+-        // when running out of time of the current frame. In that case, input
+-        // events may be dispatched after ActorDestroy. Delay
+-        // DelayedDeleteRunnable to avoid it to happen.
+-        nsThread* thread = nsThreadManager::get().GetCurrentThread();
+-        MOZ_ASSERT(thread);
+-        bool eventPrioritizationEnabled = false;
+-        thread->IsEventPrioritizationEnabled(&eventPrioritizationEnabled);
+-        if (eventPrioritizationEnabled && thread->HasPendingInputEvents()) {
++
++        if (!mReadyToDelete) {
++          // This time run this runnable at input priority.
++          mReadyToDelete = true;
+           MOZ_ALWAYS_SUCCEEDS(NS_DispatchToCurrentThread(this));
+           return NS_OK;
+         }
++
+         // Check in case ActorDestroy was called after RecvDestroy message.
+         if (mTabChild->IPCOpen()) {
+-            Unused << PBrowserChild::Send__delete__(mTabChild);
++          Unused << PBrowserChild::Send__delete__(mTabChild);
+         }
+ 
+         mTabChild = nullptr;
+@@ -345,6 +359,10 @@
+     }
+ };
+ 
++NS_IMPL_ISUPPORTS_INHERITED(TabChild::DelayedDeleteRunnable,
++                            Runnable,
++                            nsIRunnablePriority)
++
+ namespace {
+ std::map<TabId, RefPtr<TabChild>>&
+ NestedTabChildMap()

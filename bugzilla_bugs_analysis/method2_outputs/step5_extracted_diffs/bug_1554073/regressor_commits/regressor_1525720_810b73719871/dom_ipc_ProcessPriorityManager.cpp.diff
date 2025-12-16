@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ProcessPriorityManager.cpp
+# Commit: 810b73719871
+# Full Hash: 810b7371987139844429d0206f9da6a7701a1efc
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2019-05-23 04:41:59
+# Regressor Bug: 1525720
+# File Overlap Count: 1
+# Description:
+#   Bug 1525720, part 13 - Stop inheriting nsIRemoteTab interface in BrowserParent. r=nika
+#   
+#   This commit removes nsIRemoteTab as a parent class from BrowserParent,
+#   so that BrowserHost is the only concrete implementation of nsIRemoteTab.
+#   
+# ==============================================================================
+
+diff -r ee10a8254481 -r 810b73719871 dom/ipc/ProcessPriorityManager.cpp
+--- a/dom/ipc/ProcessPriorityManager.cpp	Wed May 08 11:45:23 2019 -0500
++++ b/dom/ipc/ProcessPriorityManager.cpp	Wed May 08 14:34:47 2019 -0500
+@@ -8,6 +8,7 @@
+ #include "mozilla/ClearOnShutdown.h"
+ #include "mozilla/dom/ContentParent.h"
+ #include "mozilla/dom/Element.h"
++#include "mozilla/dom/BrowserHost.h"
+ #include "mozilla/dom/BrowserParent.h"
+ #include "mozilla/Hal.h"
+ #include "mozilla/IntegerPrintfMacros.h"
+@@ -683,16 +684,18 @@
+ 
+ void ParticularProcessPriorityManager::OnBrowserParentDestroyed(
+     nsISupports* aSubject) {
+-  nsCOMPtr<nsIRemoteTab> tp = do_QueryInterface(aSubject);
+-  NS_ENSURE_TRUE_VOID(tp);
++  nsCOMPtr<nsIRemoteTab> remoteTab = do_QueryInterface(aSubject);
++  NS_ENSURE_TRUE_VOID(remoteTab);
++  BrowserHost* browserHost = BrowserHost::GetFrom(remoteTab.get());
++  BrowserParent* browserParent = browserHost->GetActor();
+ 
+   MOZ_ASSERT(XRE_IsParentProcess());
+-  if (BrowserParent::GetFrom(tp)->Manager() != mContentParent) {
++  if (browserParent->Manager() != mContentParent) {
+     return;
+   }
+ 
+   uint64_t tabId;
+-  if (NS_WARN_IF(NS_FAILED(tp->GetTabId(&tabId)))) {
++  if (NS_WARN_IF(NS_FAILED(browserParent->GetTabId(&tabId)))) {
+     return;
+   }
+ 

@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/extensions/parent/ext-cookies.js
+# Commit: d01a1a055fec
+# Full Hash: d01a1a055fece12b906b938954f984bd69278ef7
+# Author: Andrea Marchesini <amarchesini@mozilla.com>
+# Date: 2025-04-30 20:49:53
+# Regressor Bug: 1960824
+# File Overlap Count: 1
+# Description:
+#   Bug 1960824 - Introduce nsICookie::SAMESITE_UNSET, r=edgul,webdriver-reviewers,extension-reviewers,cookie-reviewers,valentin,Sasha,robwu
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D246638
+# ==============================================================================
+
+diff -r 307ff391dd02 -r d01a1a055fec toolkit/components/extensions/parent/ext-cookies.js
+--- a/toolkit/components/extensions/parent/ext-cookies.js	Wed Apr 30 08:53:12 2025 +0000
++++ b/toolkit/components/extensions/parent/ext-cookies.js	Wed Apr 30 08:59:18 2025 +0000
+@@ -6,11 +6,14 @@
+ 
+ var { ExtensionError } = ExtensionUtils;
+ 
+-const SAME_SITE_STATUSES = [
+-  "no_restriction", // Index 0 = Ci.nsICookie.SAMESITE_NONE
+-  "lax", // Index 1 = Ci.nsICookie.SAMESITE_LAX
+-  "strict", // Index 2 = Ci.nsICookie.SAMESITE_STRICT
+-];
++const SAME_SITE_STATUSES = new Map([
++  [Ci.nsICookie.SAMESITE_NONE, "no_restriction"],
++  [Ci.nsICookie.SAMESITE_LAX, "lax"],
++  [Ci.nsICookie.SAMESITE_STRICT, "strict"],
++
++  // FIXME: this should be "unspecified". Bug 1550032.
++  [Ci.nsICookie.SAMESITE_UNSET, "no_restriction"],
++]);
+ 
+ const isIPv4 = host => {
+   let match = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(host);
+@@ -135,7 +138,7 @@
+     path: cookie.path,
+     secure: cookie.isSecure,
+     httpOnly: cookie.isHttpOnly,
+-    sameSite: SAME_SITE_STATUSES[cookie.sameSite],
++    sameSite: SAME_SITE_STATUSES.get(cookie.sameSite),
+     session: cookie.isSession,
+     firstPartyDomain: cookie.originAttributes.firstPartyDomain || "",
+     partitionKey: getExtPartitionKey(cookie),
+@@ -694,7 +697,14 @@
+             });
+           }
+ 
+-          let sameSite = SAME_SITE_STATUSES.indexOf(details.sameSite);
++          let sameSite = Ci.nsICookie.SAMESITE_UNSET;
++          for (const [k, v] of SAME_SITE_STATUSES) {
++            // details.sameSite is always set and one of the values,
++            // enforced by "sameSite" in schemas/cookies.json
++            if (details.sameSite === v) {
++              sameSite = k;
++            }
++          }
+ 
+           let schemeType = Ci.nsICookie.SCHEME_UNSET;
+           if (uri.scheme === "https") {

@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/MediaEngineTabVideoSource.cpp
+# Commit: 0bb60b58c5f4
+# Full Hash: 0bb60b58c5f48de1327f8a3752f3422f7d3268ae
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2019-10-07 16:27:18
+# Regressor Bug: 1583463
+# File Overlap Count: 1
+# Description:
+#   Bug 1583463 - Move all usage of the tab source's mWindowId usage from media to main thread. r=jib
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D47683
+# ==============================================================================
+
+diff -r 8f5e6334c780 -r 0bb60b58c5f4 dom/media/webrtc/MediaEngineTabVideoSource.cpp
+--- a/dom/media/webrtc/MediaEngineTabVideoSource.cpp	Thu Oct 03 19:50:09 2019 +0000
++++ b/dom/media/webrtc/MediaEngineTabVideoSource.cpp	Thu Oct 03 19:50:20 2019 +0000
+@@ -131,9 +131,14 @@
+   // windowId is not a proper constraint, so just read it.
+   // It has no well-defined behavior in advanced, so ignore it there.
+ 
+-  mWindowId = aConstraints.mBrowserWindow.WasPassed()
+-                  ? aConstraints.mBrowserWindow.Value()
+-                  : -1;
++  int64_t windowId = aConstraints.mBrowserWindow.WasPassed()
++                         ? aConstraints.mBrowserWindow.Value()
++                         : -1;
++  NS_DispatchToMainThread(NS_NewRunnableFunction(
++      "MediaEngineTabVideoSource::Allocate window id main thread setter",
++      [self = RefPtr<MediaEngineTabVideoSource>(this), this, windowId] {
++        mWindowId = windowId;
++      }));
+   mState = kAllocated;
+ 
+   return Reconfigure(aConstraints, aPrefs, aOutBadConstraint);
+@@ -175,7 +180,7 @@
+       "MediaEngineTabVideoSource::Reconfigure main thread setter",
+       [self = RefPtr<MediaEngineTabVideoSource>(this), this, scrollWithPage,
+        bufWidthMax, bufHeightMax, frameRate, timePerFrame, viewportOffsetX,
+-       viewportOffsetY, viewportWidth, viewportHeight, windowId = mWindowId]() {
++       viewportOffsetY, viewportWidth, viewportHeight]() {
+         mScrollWithPage = scrollWithPage;
+         mBufWidthMax = bufWidthMax;
+         mBufHeightMax = bufHeightMax;
+@@ -201,8 +206,8 @@
+           mSettings->mViewportHeight.Construct(*viewportHeight);
+           mViewportHeight = *viewportHeight;
+         }
+-        if (windowId != -1) {
+-          mSettings->mBrowserWindow.Construct(windowId);
++        if (mWindowId != -1) {
++          mSettings->mBrowserWindow.Construct(mWindowId);
+         }
+       }));
+   return NS_OK;

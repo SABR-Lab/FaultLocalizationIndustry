@@ -1,0 +1,31 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/BaselineCodeGen.cpp
+# Commit: 1c35c1a7b373
+# Full Hash: 1c35c1a7b3731ecbc70be235430a6f06376494d1
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2022-06-09 22:00:48
+# Regressor Bug: 1770366
+# File Overlap Count: 2
+# Description:
+#   Bug 1770366 part 5 - Add frame pointer to IonJS/Warp frames. r=iain
+#   
+#   Change OSR to use the standard frame epilogue on the Baseline side and frame prologue
+#   on the CodeGenerator side.
+#   
+# ==============================================================================
+
+diff -r e8f787c59185 -r 1c35c1a7b373 js/src/jit/BaselineCodeGen.cpp
+--- a/js/src/jit/BaselineCodeGen.cpp	Thu Jun 09 13:49:16 2022 +0000
++++ b/js/src/jit/BaselineCodeGen.cpp	Thu Jun 09 13:49:17 2022 +0000
+@@ -1446,7 +1446,8 @@
+ 
+     // Restore the stack pointer so that the return address is on top of
+     // the stack.
+-    masm.addToStackPtr(Imm32(frame.frameSize()));
++    masm.moveToStackPtr(FramePointer);
++    masm.pop(FramePointer);
+ 
+ #ifdef DEBUG
+     // Get a scratch register that's not osrDataReg or OsrFrameReg.

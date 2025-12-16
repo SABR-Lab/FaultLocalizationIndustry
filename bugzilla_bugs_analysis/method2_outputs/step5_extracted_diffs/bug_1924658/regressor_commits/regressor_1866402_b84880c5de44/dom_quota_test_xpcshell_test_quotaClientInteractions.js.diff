@@ -1,0 +1,98 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/test/xpcshell/test_quotaClientInteractions.js
+# Commit: b84880c5de44
+# Full Hash: b84880c5de443e6274953d210444c57319ce4b5f
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-10-13 09:18:36
+# Regressor Bug: 1866402
+# File Overlap Count: 1
+# Description:
+#   Bug 1866402 - Make it possible to initialize temporary origins without ensuring origin directories; r=dom-storage-reviewers,jari
+#   
+#   LSNG already uses some QuotaManager APIs to achieve that origin directories are
+#   not created if they don't exist during datastore preparation, but the feature
+#   is not easy to use and it's also not generalized enough for use in other quota
+# ==============================================================================
+
+diff -r c5f28ed5382b -r b84880c5de44 dom/quota/test/xpcshell/test_quotaClientInteractions.js
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/dom/quota/test/xpcshell/test_quotaClientInteractions.js	Sat Oct 12 20:58:36 2024 +0000
+@@ -0,0 +1,76 @@
++/**
++ * Any copyright is dedicated to the Public Domain.
++ * http://creativecommons.org/publicdomain/zero/1.0/
++ */
++
++const { IndexedDBUtils } = ChromeUtils.importESModule(
++  "resource://testing-common/dom/indexedDB/test/modules/IndexedDBUtils.sys.mjs"
++);
++const { LocalStorageUtils } = ChromeUtils.importESModule(
++  "resource://testing-common/dom/localstorage/test/modules/LocalStorageUtils.sys.mjs"
++);
++const { PrincipalUtils } = ChromeUtils.importESModule(
++  "resource://testing-common/dom/quota/test/modules/PrincipalUtils.sys.mjs"
++);
++const { QuotaUtils } = ChromeUtils.importESModule(
++  "resource://testing-common/dom/quota/test/modules/QuotaUtils.sys.mjs"
++);
++
++async function testNonExistentOriginDirectory() {
++  const principal = PrincipalUtils.createPrincipal("https://example.com");
++  const name = "test_quotaClientInteractions.js";
++  const objectStoreName = "foo";
++
++  info("Opening LocalStorage database");
++
++  {
++    const storage = LocalStorageUtils.createStorage(principal);
++    storage.open();
++  }
++
++  info("Opening IndexedDB database");
++
++  {
++    const request = indexedDB.openForPrincipal(principal, name);
++    request.onupgradeneeded = function (event) {
++      const database = event.target.result;
++      database.createObjectStore(objectStoreName);
++    };
++    const database = await IndexedDBUtils.requestFinished(request);
++    database.close();
++  }
++
++  info("Resetting storage");
++
++  {
++    const request = Services.qms.reset();
++    await QuotaUtils.requestFinished(request);
++  }
++
++  info("Opening LocalStorage database");
++
++  {
++    const storage = LocalStorageUtils.createStorage(principal);
++    storage.open();
++  }
++
++  info("Deleting IndexedDB database");
++
++  {
++    const request = indexedDB.deleteForPrincipal(principal, name);
++    await IndexedDBUtils.requestFinished(request);
++  }
++}
++
++/* exported testSteps */
++async function testSteps() {
++  add_task(
++    {
++      pref_set: [
++        ["dom.storage.testing", true],
++        ["dom.storage.client_validation", false],
++      ],
++    },
++    testNonExistentOriginDirectory
++  );
++}

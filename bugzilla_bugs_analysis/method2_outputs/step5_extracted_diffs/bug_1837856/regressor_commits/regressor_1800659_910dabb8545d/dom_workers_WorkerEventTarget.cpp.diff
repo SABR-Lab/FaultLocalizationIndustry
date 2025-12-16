@@ -1,0 +1,100 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/WorkerEventTarget.cpp
+# Commit: 910dabb8545d
+# Full Hash: 910dabb8545dfdea0c2b9385e347857042606bd7
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2023-06-07 03:30:33
+# Regressor Bug: 1800659
+# File Overlap Count: 1
+# Description:
+#   Bug 1800659 - P1 Adding log for Worker. r=asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D176915
+# ==============================================================================
+
+diff -r 9458874d5cf9 -r 910dabb8545d dom/workers/WorkerEventTarget.cpp
+--- a/dom/workers/WorkerEventTarget.cpp	Tue Jun 06 06:28:14 2023 +0000
++++ b/dom/workers/WorkerEventTarget.cpp	Tue Jun 06 06:36:50 2023 +0000
+@@ -8,10 +8,22 @@
+ #include "WorkerPrivate.h"
+ #include "WorkerRunnable.h"
+ 
++#include "mozilla/Logging.h"
+ #include "mozilla/dom/ReferrerInfo.h"
+ 
+ namespace mozilla::dom {
+ 
++static mozilla::LazyLogModule sWorkerEventTargetLog("WorkerEventTarget");
++
++#ifdef LOG
++#  undef LOG
++#endif
++#ifdef LOGV
++#  undef LOGV
++#endif
++#define LOG(args) MOZ_LOG(sWorkerEventTargetLog, LogLevel::Debug, args);
++#define LOGV(args) MOZ_LOG(sWorkerEventTargetLog, LogLevel::Verbose, args);
++
+ namespace {
+ 
+ class WrappedControlRunnable final : public WorkerControlRunnable {
+@@ -68,10 +80,14 @@
+     : mMutex("WorkerEventTarget"),
+       mWorkerPrivate(aWorkerPrivate),
+       mBehavior(aBehavior) {
++  LOG(("WorkerEventTarget::WorkerEventTarget [%p] aBehavior: %u", this,
++       (uint8_t)aBehavior));
+   MOZ_DIAGNOSTIC_ASSERT(mWorkerPrivate);
+ }
+ 
+ void WorkerEventTarget::ForgetWorkerPrivate(WorkerPrivate* aWorkerPrivate) {
++  LOG(("WorkerEventTarget::ForgetWorkerPrivate [%p] aWorkerPrivate: %p", this,
++       aWorkerPrivate));
+   MutexAutoLock lock(mMutex);
+   MOZ_DIAGNOSTIC_ASSERT(!mWorkerPrivate || mWorkerPrivate == aWorkerPrivate);
+   mWorkerPrivate = nullptr;
+@@ -79,6 +95,8 @@
+ 
+ NS_IMETHODIMP
+ WorkerEventTarget::DispatchFromScript(nsIRunnable* aRunnable, uint32_t aFlags) {
++  LOGV(("WorkerEventTarget::DispatchFromScript [%p] aRunnable: %p", this,
++        aRunnable));
+   nsCOMPtr<nsIRunnable> runnable(aRunnable);
+   return Dispatch(runnable.forget(), aFlags);
+ }
+@@ -87,6 +105,8 @@
+ WorkerEventTarget::Dispatch(already_AddRefed<nsIRunnable> aRunnable,
+                             uint32_t aFlags) {
+   nsCOMPtr<nsIRunnable> runnable(aRunnable);
++  LOGV(
++      ("WorkerEventTarget::Dispatch [%p] aRunnable: %p", this, runnable.get()));
+ 
+   MutexAutoLock lock(mMutex);
+ 
+@@ -100,13 +120,23 @@
+     if (r->Dispatch()) {
+       return NS_OK;
+     }
+-
+     runnable = std::move(r);
++    LOGV((
++        "WorkerEventTarget::Dispatch [%p] Dispatch as normal runnable(%p) fail",
++        this, runnable.get()));
+   }
+ 
+   RefPtr<WorkerControlRunnable> r =
+       new WrappedControlRunnable(mWorkerPrivate, std::move(runnable));
++  LOGV(
++      ("WorkerEventTarget::Dispatch [%p] Wrapped runnable as control "
++       "runnable(%p)",
++       this, r.get()));
+   if (!r->Dispatch()) {
++    LOGV(
++        ("WorkerEventTarget::Dispatch [%p] Dispatch as control runnable(%p) "
++         "fail",
++         this, r.get()));
+     return NS_ERROR_FAILURE;
+   }
+ 

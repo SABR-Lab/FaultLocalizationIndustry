@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/ipc/DocumentChannel.h
+# Commit: 86a5e0827050
+# Full Hash: 86a5e0827050e262bb713d6910a8c1d6e6ec3738
+# Author: Dan Glastonbury <dan.glastonbury@gmail.com>
+# Date: 2020-07-13 09:51:22
+# Regressor Bug: 1646899
+# File Overlap Count: 1
+# Description:
+#   Bug 1646899 - P4: Handle object & embed via DocumentChannel. r=mattwoodrow,jya
+#   
+#   Pass internal content policy type to DLL and switch behavior depending on type
+#   being loaded. This implementation immediately redirects channel back to the
+#   content process for further handling.
+# ==============================================================================
+
+diff -r d2fd0f955e24 -r 86a5e0827050 netwerk/ipc/DocumentChannel.h
+--- a/netwerk/ipc/DocumentChannel.h	Mon Jul 13 00:48:54 2020 +0000
++++ b/netwerk/ipc/DocumentChannel.h	Mon Jul 13 00:48:57 2020 +0000
+@@ -15,6 +15,8 @@
+ #include "nsIChildChannel.h"
+ #include "nsITraceableChannel.h"
+ 
++class nsDocShell;
++
+ #define DOCUMENT_CHANNEL_IID                         \
+   {                                                  \
+     0x6977bc44, 0xb1db, 0x41b7, {                    \
+@@ -25,6 +27,8 @@
+ namespace mozilla {
+ namespace net {
+ 
++uint64_t InnerWindowIDForExtantDoc(nsDocShell* docShell);
++
+ /**
+  * DocumentChannel is a protocol agnostic placeholder nsIChannel implementation
+  * that we use so that nsDocShell knows about a connecting load. It transfers
+@@ -59,10 +63,13 @@
+    * a ParentProcessDocumentChannel if called from the parent process.
+    * This operation is infallible.
+    */
+-  static already_AddRefed<DocumentChannel> CreateDocumentChannel(
++  static already_AddRefed<DocumentChannel> CreateForDocument(
+       nsDocShellLoadState* aLoadState, class LoadInfo* aLoadInfo,
+       nsLoadFlags aLoadFlags, nsIInterfaceRequestor* aNotificationCallbacks,
+       uint32_t aCacheKey, bool aUriModified, bool aIsXFOError);
++  static already_AddRefed<DocumentChannel> CreateForObject(
++      nsDocShellLoadState* aLoadState, class LoadInfo* aLoadInfo,
++      nsLoadFlags aLoadFlags, nsIInterfaceRequestor* aNotificationCallbacks);
+ 
+   static bool CanUseDocumentChannel(nsIURI* aURI, uint32_t aLoadFlags);
+ 

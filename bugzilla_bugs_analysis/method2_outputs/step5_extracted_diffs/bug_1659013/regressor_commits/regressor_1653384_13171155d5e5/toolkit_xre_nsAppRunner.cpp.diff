@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/xre/nsAppRunner.cpp
+# Commit: 13171155d5e5
+# Full Hash: 13171155d5e5586e0452449161ef63958434e1b1
+# Author: Dave Townsend <dtownsend@oxymoronical.com>
+# Date: 2020-08-06 21:54:39
+# Regressor Bug: 1653384
+# File Overlap Count: 1
+# Description:
+#   Bug 1653384: Require MOZ_FORCE_DISABLE_E10S to be set to the current application version. r=froydnj
+#   
+#   Depends on D86240
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D86241
+# ==============================================================================
+
+diff -r 7b7c69e7525e -r 13171155d5e5 toolkit/xre/nsAppRunner.cpp
+--- a/toolkit/xre/nsAppRunner.cpp	Thu Aug 06 18:19:19 2020 +0000
++++ b/toolkit/xre/nsAppRunner.cpp	Thu Aug 06 18:16:33 2020 +0000
+@@ -5161,9 +5161,13 @@
+   }
+ 
+   // Uber override pref for emergency blocking
+-  if (gBrowserTabsRemoteAutostart && EnvHasValue("MOZ_FORCE_DISABLE_E10S")) {
+-    gBrowserTabsRemoteAutostart = false;
+-    status = kE10sForceDisabled;
++  if (gBrowserTabsRemoteAutostart) {
++    const char* forceDisable = PR_GetEnv("MOZ_FORCE_DISABLE_E10S");
++    // The environment variable must match the application version to apply.
++    if (forceDisable && !strcmp(forceDisable, gAppData->version)) {
++      gBrowserTabsRemoteAutostart = false;
++      status = kE10sForceDisabled;
++    }
+   }
+ 
+   gBrowserTabsRemoteStatus = status;

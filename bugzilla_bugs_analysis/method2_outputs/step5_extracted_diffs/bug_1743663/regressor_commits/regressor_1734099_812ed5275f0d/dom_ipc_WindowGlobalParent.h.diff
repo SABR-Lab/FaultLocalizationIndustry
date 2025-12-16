@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/WindowGlobalParent.h
+# Commit: 812ed5275f0d
+# Full Hash: 812ed5275f0db9f92944955f891df2ab68c9f8e7
+# Author: Toshihito Kikuchi <tkikuchi@mozilla.com>
+# Date: 2021-11-19 04:11:43
+# Regressor Bug: 1734099
+# File Overlap Count: 5
+# Description:
+#   Bug 1734099 - Never unload tabs with active RTCPeerConnection instances.  r=peterv,jesup
+#   
+#   This patch makes sure the Tab Unloading feature does not unload tabs that have
+#   active peer connections not to disrupt browsing experience based on WebRTC peer
+#   connections.
+# ==============================================================================
+
+diff -r a733d049dbda -r 812ed5275f0d dom/ipc/WindowGlobalParent.h
+--- a/dom/ipc/WindowGlobalParent.h	Fri Nov 19 01:03:56 2021 +0200
++++ b/dom/ipc/WindowGlobalParent.h	Thu Nov 18 22:59:12 2021 +0000
+@@ -224,6 +224,8 @@
+ 
+   uint32_t GetBFCacheStatus() { return mBFCacheStatus; }
+ 
++  bool HasActivePeerConnections();
++
+  protected:
+   already_AddRefed<JSActor> InitJSActor(JS::HandleObject aMaybeActor,
+                                         const nsACString& aName,
+@@ -295,6 +297,11 @@
+   mozilla::ipc::IPCResult RecvUpdateBFCacheStatus(const uint32_t& aOnFlags,
+                                                   const uint32_t& aOffFlags);
+ 
++  // This IPC method is to notify the parent process that the caller process
++  // creates the first active peer connection (aIsAdded = true) or closes the
++  // last active peer connection (aIsAdded = false).
++  mozilla::ipc::IPCResult RecvUpdateActivePeerConnectionStatus(bool aIsAdded);
++
+  public:
+   mozilla::ipc::IPCResult RecvSetSingleChannelId(
+       const Maybe<uint64_t>& aSingleChannelId);
+@@ -387,6 +394,11 @@
+ 
+   uint32_t mBFCacheStatus = 0;
+ 
++  // If this WindowGlobalParent is a top window, this field indicates how many
++  // child processes have active peer connections for this window and its
++  // descendants.
++  uint32_t mNumOfProcessesWithActivePeerConnections = 0;
++
+   // mSingleChannelId records whether the loadgroup contains a single request
+   // with an id. If there is one channel in the loadgroup and it has an id then
+   // mSingleChannelId is set to Some(id) (ids are non-zero). If there is one

@@ -1,0 +1,121 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/events/PointerEventHandler.cpp
+# Commit: 0c3a2df68be4
+# Full Hash: 0c3a2df68be4e59a46e89640b95e3f8ba7082a60
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2024-03-12 09:25:52
+# Regressor Bug: 1695574
+# File Overlap Count: 1
+# Description:
+#   Bug 1695574 - Make `PresShell::EventHandler::HandleEventUsingCoordinates` keep handling touch events after preceding pointer event target is removed r=smaug,edgar,dom-core
+#   
+#   As far as investigating the behavior of the other browsers, touch events are
+#   dispatched the same target as the preceding `pointerdown` even after the target
+#   is removed from the DOM tree.  However, the following pointer events are
+# ==============================================================================
+
+diff -r bdee0bed3f5c -r 0c3a2df68be4 dom/events/PointerEventHandler.cpp
+--- a/dom/events/PointerEventHandler.cpp	Tue Mar 12 00:54:41 2024 +0000
++++ b/dom/events/PointerEventHandler.cpp	Tue Mar 12 01:03:44 2024 +0000
+@@ -610,15 +610,16 @@
+ 
+ /* static */
+ void PointerEventHandler::DispatchPointerFromMouseOrTouch(
+-    PresShell* aShell, nsIFrame* aFrame, nsIContent* aContent,
+-    WidgetGUIEvent* aEvent, bool aDontRetargetEvents, nsEventStatus* aStatus,
+-    nsIContent** aTargetContent) {
+-  MOZ_ASSERT(aFrame || aContent);
+-  MOZ_ASSERT(aEvent);
++    PresShell* aShell, nsIFrame* aEventTargetFrame,
++    nsIContent* aEventTargetContent, WidgetGUIEvent* aMouseOrTouchEvent,
++    bool aDontRetargetEvents, nsEventStatus* aStatus,
++    nsIContent** aMouseOrTouchEventTarget /* = nullptr */) {
++  MOZ_ASSERT(aEventTargetFrame || aEventTargetContent);
++  MOZ_ASSERT(aMouseOrTouchEvent);
+ 
+   EventMessage pointerMessage = eVoidEvent;
+-  if (aEvent->mClass == eMouseEventClass) {
+-    WidgetMouseEvent* mouseEvent = aEvent->AsMouseEvent();
++  if (aMouseOrTouchEvent->mClass == eMouseEventClass) {
++    WidgetMouseEvent* mouseEvent = aMouseOrTouchEvent->AsMouseEvent();
+     // Don't dispatch pointer events caused by a mouse when simulating touch
+     // devices in RDM.
+     Document* doc = aShell->GetDocument();
+@@ -636,7 +637,7 @@
+     // 2. We don't synthesize pointer events for those events that are not
+     //    dispatched to DOM.
+     if (!mouseEvent->convertToPointer ||
+-        !aEvent->IsAllowedToDispatchDOMEvent()) {
++        !aMouseOrTouchEvent->IsAllowedToDispatchDOMEvent()) {
+       return;
+     }
+ 
+@@ -648,20 +649,20 @@
+     InitPointerEventFromMouse(&event, mouseEvent, pointerMessage);
+     event.convertToPointer = mouseEvent->convertToPointer = false;
+     RefPtr<PresShell> shell(aShell);
+-    if (!aFrame) {
+-      shell = PresShell::GetShellForEventTarget(nullptr, aContent);
++    if (!aEventTargetFrame) {
++      shell = PresShell::GetShellForEventTarget(nullptr, aEventTargetContent);
+       if (!shell) {
+         return;
+       }
+     }
+-    PreHandlePointerEventsPreventDefault(&event, aEvent);
++    PreHandlePointerEventsPreventDefault(&event, aMouseOrTouchEvent);
+     // Dispatch pointer event to the same target which is found by the
+     // corresponding mouse event.
+-    shell->HandleEventWithTarget(&event, aFrame, aContent, aStatus, true,
+-                                 aTargetContent);
+-    PostHandlePointerEventsPreventDefault(&event, aEvent);
+-  } else if (aEvent->mClass == eTouchEventClass) {
+-    WidgetTouchEvent* touchEvent = aEvent->AsTouchEvent();
++    shell->HandleEventWithTarget(&event, aEventTargetFrame, aEventTargetContent,
++                                 aStatus, true, aMouseOrTouchEventTarget);
++    PostHandlePointerEventsPreventDefault(&event, aMouseOrTouchEvent);
++  } else if (aMouseOrTouchEvent->mClass == eTouchEventClass) {
++    WidgetTouchEvent* touchEvent = aMouseOrTouchEvent->AsTouchEvent();
+     // loop over all touches and dispatch pointer events on each touch
+     // copy the event
+     pointerMessage = PointerEventHandler::ToPointerEventMessage(touchEvent);
+@@ -681,7 +682,7 @@
+       InitPointerEventFromTouch(event, *touchEvent, *touch, i == 0);
+       event.convertToPointer = touch->convertToPointer = false;
+       event.mCoalescedWidgetEvents = touch->mCoalescedWidgetEvents;
+-      if (aEvent->mMessage == eTouchStart) {
++      if (aMouseOrTouchEvent->mMessage == eTouchStart) {
+         // We already did hit test for touchstart in PresShell. We should
+         // dispatch pointerdown to the same target as touchstart.
+         nsCOMPtr<nsIContent> content =
+@@ -696,18 +697,22 @@
+           continue;
+         }
+ 
+-        PreHandlePointerEventsPreventDefault(&event, aEvent);
++        PreHandlePointerEventsPreventDefault(&event, aMouseOrTouchEvent);
+         shell->HandleEventWithTarget(&event, frame, content, aStatus, true,
+-                                     nullptr);
+-        PostHandlePointerEventsPreventDefault(&event, aEvent);
++                                     aMouseOrTouchEventTarget);
++        PostHandlePointerEventsPreventDefault(&event, aMouseOrTouchEvent);
+       } else {
+         // We didn't hit test for other touch events. Spec doesn't mention that
+         // all pointer events should be dispatched to the same target as their
+         // corresponding touch events. Call PresShell::HandleEvent so that we do
+         // hit test for pointer events.
+-        PreHandlePointerEventsPreventDefault(&event, aEvent);
+-        shell->HandleEvent(aFrame, &event, aDontRetargetEvents, aStatus);
+-        PostHandlePointerEventsPreventDefault(&event, aEvent);
++        // FIXME: If aDontRetargetEvents is true and the event is fired on
++        // different document, we cannot track the pointer event target when
++        // it's removed from the tree.
++        PreHandlePointerEventsPreventDefault(&event, aMouseOrTouchEvent);
++        shell->HandleEvent(aEventTargetFrame, &event, aDontRetargetEvents,
++                           aStatus);
++        PostHandlePointerEventsPreventDefault(&event, aMouseOrTouchEvent);
+       }
+     }
+   }

@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/ipc/RemoteDecoderManagerParent.cpp
+# Commit: 9e0809ed54cd
+# Full Hash: 9e0809ed54cd2da0e3ebbb0bb143f85bb6ad6b14
+# Author: Dan Glastonbury <dan.glastonbury@gmail.com>
+# Date: 2020-10-21 09:51:28
+# Regressor Bug: 1595994
+# File Overlap Count: 1
+# Description:
+#   Bug 1595994 - P4: Use PDMFactory to create decoders in RDD & GPU process. r=kamidphish
+#   
+#   Depends on D54876
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D54875
+# ==============================================================================
+
+diff -r e3f920da2232 -r 9e0809ed54cd dom/media/ipc/RemoteDecoderManagerParent.cpp
+--- a/dom/media/ipc/RemoteDecoderManagerParent.cpp	Tue Oct 20 23:24:27 2020 +0000
++++ b/dom/media/ipc/RemoteDecoderManagerParent.cpp	Tue Oct 20 23:24:40 2020 +0000
+@@ -10,6 +10,7 @@
+ #endif
+ 
+ #include "ImageContainer.h"
++#include "PDMFactory.h"
+ #include "RemoteAudioDecoder.h"
+ #include "RemoteVideoDecoder.h"
+ #include "VideoUtils.h"  // for MediaThreadType
+@@ -106,6 +107,14 @@
+   return sRemoteDecoderManagerParentThread->IsOnCurrentThread();
+ }
+ 
++PDMFactory& RemoteDecoderManagerParent::EnsurePDMFactory() {
++  MOZ_ASSERT(OnManagerThread());
++  if (!mPDMFactory) {
++    mPDMFactory = MakeRefPtr<PDMFactory>();
++  }
++  return *mPDMFactory;
++}
++
+ bool RemoteDecoderManagerParent::CreateForContent(
+     Endpoint<PRemoteDecoderManagerParent>&& aEndpoint) {
+   MOZ_ASSERT(XRE_GetProcessType() == GeckoProcessType_RDD ||

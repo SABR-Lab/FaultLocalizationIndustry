@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/tests/gtest/TextureHelper.h
+# Commit: 7a990fa02246
+# Full Hash: 7a990fa022462c702adacfac907a0fc178940b9d
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2020-10-21 09:51:28
+# Regressor Bug: 1595994
+# File Overlap Count: 1
+# Description:
+#   Bug 1595994 - P1D. Properly serialize display size when sending image over IPC. r=mattwoodrow
+#   
+#   The code always assumed that the size of the image with the Y plane dimensions, which, while often the case, isn't correct.
+#   We remove the assertions that the display offset was always (0,0) and properly carry the actual data over IPC.
+#   
+# ==============================================================================
+
+diff -r 4c7f671c7b69 -r 7a990fa02246 gfx/tests/gtest/TextureHelper.h
+--- a/gfx/tests/gtest/TextureHelper.h	Tue Oct 20 23:29:30 2020 +0000
++++ b/gfx/tests/gtest/TextureHelper.h	Tue Oct 20 23:30:04 2020 +0000
+@@ -9,12 +9,12 @@
+ #include "Types.h"
+ #include "gfxImageSurface.h"
+ #include "gfxPlatform.h"
++#include "mozilla/RefPtr.h"
+ #include "mozilla/gfx/Point.h"
+ #include "mozilla/layers/BufferTexture.h"
+ #include "mozilla/layers/LayersTypes.h"
+ #include "mozilla/layers/TextureClient.h"
+ #include "mozilla/layers/TextureHost.h"
+-#include "mozilla/RefPtr.h"
+ #ifdef XP_WIN
+ #  include "IMFYCbCrImage.h"
+ #  include "mozilla/gfx/DeviceManagerDx.h"
+@@ -66,10 +66,10 @@
+   // Create YCbCrTexture for basic backend.
+   if (aLayersBackend == LayersBackend::LAYERS_BASIC) {
+     return TextureClient::CreateForYCbCr(
+-        nullptr, clientData.mYSize, clientData.mYStride, clientData.mCbCrSize,
+-        clientData.mCbCrStride, StereoMode::MONO, gfx::ColorDepth::COLOR_8,
+-        gfx::YUVColorSpace::BT601, gfx::ColorRange::LIMITED,
+-        TextureFlags::DEALLOCATE_CLIENT);
++        nullptr, clientData.GetPictureRect(), clientData.mYSize,
++        clientData.mYStride, clientData.mCbCrSize, clientData.mCbCrStride,
++        StereoMode::MONO, gfx::ColorDepth::COLOR_8, gfx::YUVColorSpace::BT601,
++        gfx::ColorRange::LIMITED, TextureFlags::DEALLOCATE_CLIENT);
+   }
+ 
+ #ifdef XP_WIN

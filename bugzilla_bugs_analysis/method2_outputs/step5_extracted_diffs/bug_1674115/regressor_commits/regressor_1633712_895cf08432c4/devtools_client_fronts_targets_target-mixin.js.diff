@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: devtools/client/fronts/targets/target-mixin.js
+# Commit: 895cf08432c4
+# Full Hash: 895cf08432c40fe371ff83e846cb161430c6be4b
+# Author: Nicolas Chevobbe <nchevobbe@mozilla.com>
+# Date: 2020-10-27 04:41:26
+# Regressor Bug: 1633712
+# File Overlap Count: 1
+# Description:
+#   Bug 1633712 - [devtools] Create WorkerTargets as soon as possible. r=ochameau,devtools-backward-compat-reviewers.
+#   
+#   This patch adds support for dedicated worker targets in the Watcher actor.
+#   Shared and Service workers are not handled yet.
+#   
+# ==============================================================================
+
+diff -r 2ce79a9ed2d5 -r 895cf08432c4 devtools/client/fronts/targets/target-mixin.js
+--- a/devtools/client/fronts/targets/target-mixin.js	Mon Oct 26 12:52:26 2020 +0000
++++ b/devtools/client/fronts/targets/target-mixin.js	Mon Oct 26 12:53:43 2020 +0000
+@@ -411,7 +411,10 @@
+     }
+ 
+     get isWorkerTarget() {
+-      return this.typeName === "workerDescriptor";
++      // XXX Remove the check on `workerDescriptor` as part of Bug 1667404.
++      return (
++        this.typeName === "workerTarget" || this.typeName === "workerDescriptor"
++      );
+     }
+ 
+     get isLegacyAddon() {
+@@ -535,7 +538,13 @@
+       if (this.isDestroyedOrBeingDestroyed()) {
+         return;
+       }
+-      await this.attach();
++
++      // WorkerTargetFront don't have an attach function as the related console and thread
++      // actors are created right away (from devtools/server/startup/worker.js)
++      if (this.attach) {
++        await this.attach();
++      }
++
+       const isBrowserToolbox = targetList.targetFront.isParentProcess;
+       const isNonTopLevelFrameTarget =
+         !this.isTopLevel && this.targetType === targetList.TYPES.FRAME;

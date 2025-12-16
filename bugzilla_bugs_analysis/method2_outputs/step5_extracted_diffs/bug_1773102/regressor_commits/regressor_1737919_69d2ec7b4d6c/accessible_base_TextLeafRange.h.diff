@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/base/TextLeafRange.h
+# Commit: 69d2ec7b4d6c
+# Full Hash: 69d2ec7b4d6ca35da23f14602cdf78d939da40cb
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2022-05-27 15:58:57
+# Regressor Bug: 1737919
+# File Overlap Count: 1
+# Description:
+#   Bug 1737919 part 4: Update cached spelling errors when a spelling error is added without the text changing. r=morgan,smaug
+#   
+#   We already have an nsISelectionListener, but that only tells us that a change happened somewhere in the selection, not which range changed.
+#   We don't want to push a cache update for all ranges when only one changed.
+#   Therefore, this patch adds an accessibility notification in mozInlineSpellChecker::AddRange.
+# ==============================================================================
+
+diff -r 388a15605114 -r 69d2ec7b4d6c accessible/base/TextLeafRange.h
+--- a/accessible/base/TextLeafRange.h	Fri May 27 10:56:41 2022 +0000
++++ b/accessible/base/TextLeafRange.h	Fri May 27 10:56:41 2022 +0000
+@@ -13,7 +13,14 @@
+ #include "nsDirection.h"
+ #include "nsIAccessibleText.h"
+ 
+-namespace mozilla::a11y {
++class nsRange;
++
++namespace mozilla {
++namespace dom {
++class Document;
++}
++
++namespace a11y {
+ class Accessible;
+ class LocalAccessible;
+ 
+@@ -137,6 +144,12 @@
+   static nsTArray<int32_t> GetSpellingErrorOffsets(LocalAccessible* aAcc);
+ 
+   /**
++   * Queue a cache update for a spelling error in a given DOM range.
++   */
++  static void UpdateCachedSpellingError(dom::Document* aDocument,
++                                        const nsRange& aRange);
++
++  /**
+    * Find the start of a run of text attributes in a specific direction.
+    * A text attributes run is a span of text where the attributes are the same.
+    * If no boundary is found, the start/end of the container is returned
+@@ -212,6 +225,7 @@
+   TextLeafPoint mEnd;
+ };
+ 
+-}  // namespace mozilla::a11y
++}  // namespace a11y
++}  // namespace mozilla
+ 
+ #endif

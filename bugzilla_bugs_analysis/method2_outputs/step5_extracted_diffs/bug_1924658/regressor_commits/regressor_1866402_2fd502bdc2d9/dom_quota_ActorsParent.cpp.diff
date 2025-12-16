@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/ActorsParent.cpp
+# Commit: 2fd502bdc2d9
+# Full Hash: 2fd502bdc2d921b888fc6597b6b3d3514226e8a2
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-10-12 20:37:56
+# Regressor Bug: 1866402
+# File Overlap Count: 1
+# Description:
+#   Bug 1866402 - Update the cached value in PersistOp::DoDirectoryWork only after successful creation of the metadata file; r=dom-storage-reviewers,jari
+#   
+#   Currently, the cached value is updated before creation of the metadata file
+#   which can lead to a mismatch between the metadata file and the cached value if
+#   creation of the metadata file fails. It will be safer to update the cached
+# ==============================================================================
+
+diff -r 8b98c798b362 -r 2fd502bdc2d9 dom/quota/ActorsParent.cpp
+--- a/dom/quota/ActorsParent.cpp	Sat Oct 12 10:00:14 2024 +0000
++++ b/dom/quota/ActorsParent.cpp	Sat Oct 12 10:00:14 2024 +0000
+@@ -2475,7 +2475,7 @@
+ }
+ 
+ int64_t QuotaManager::NoteOriginDirectoryCreated(
+-    const OriginMetadata& aOriginMetadata, bool aPersisted) {
++    const OriginMetadata& aOriginMetadata) {
+   AssertIsOnIOThread();
+   MOZ_ASSERT(IsBestEffortPersistenceType(aOriginMetadata.mPersistenceType));
+ 
+@@ -2491,15 +2491,15 @@
+       groupInfo->LockedGetOriginInfo(aOriginMetadata.mOrigin);
+   if (originInfo) {
+     timestamp = originInfo->LockedAccessTime();
+-    originInfo->mPersisted = aPersisted;
+     originInfo->mDirectoryExists = true;
+   } else {
+     timestamp = PR_Now();
+     groupInfo->LockedAddOriginInfo(MakeNotNull<RefPtr<OriginInfo>>(
+         groupInfo, aOriginMetadata.mOrigin, aOriginMetadata.mStorageOrigin,
+         aOriginMetadata.mIsPrivate, ClientUsageArray(),
+-        /* aUsageBytes */ 0,
+-        /* aAccessTime */ timestamp, aPersisted, /* aDirectoryExists */ true));
++        /* aUsageBytes */ 0, /* aAccessTime */ timestamp,
++        /* aPersisted */ false,
++        /* aDirectoryExists */ true));
+   }
+ 
+   return timestamp;
+@@ -5672,8 +5672,7 @@
+     QM_TRY_INSPECT(const bool& created, EnsureOriginDirectory(*directory));
+ 
+     if (created) {
+-      const int64_t timestamp =
+-          NoteOriginDirectoryCreated(aOriginMetadata, /* aPersisted */ false);
++      const int64_t timestamp = NoteOriginDirectoryCreated(aOriginMetadata);
+ 
+       // Only creating .metadata-v2 to reduce IO.
+       QM_TRY(MOZ_TO_RESULT(CreateDirectoryMetadata2(*directory, timestamp,

@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/html/HTMLInputElement.h
+# Commit: 7c1ae2ab6596
+# Full Hash: 7c1ae2ab65966ae06c7e539015fbc1f2d852dd4a
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-05-16 04:24:30
+# Regressor Bug: 1833181
+# File Overlap Count: 2
+# Description:
+#   Bug 1833181 - Avoid attr lookups to check whether input value is empty. r=smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D178078
+# ==============================================================================
+
+diff -r 08a8f6b67ccf -r 7c1ae2ab6596 dom/html/HTMLInputElement.h
+--- a/dom/html/HTMLInputElement.h	Mon May 15 17:13:37 2023 +0000
++++ b/dom/html/HTMLInputElement.h	Mon May 15 17:16:41 2023 +0000
+@@ -242,7 +242,8 @@
+   void EnablePreview() override;
+   bool IsPreviewEnabled() override;
+   void InitializeKeyboardEventListeners() override;
+-  void OnValueChanged(ValueChangeKind) override;
++  void OnValueChanged(ValueChangeKind, bool aNewValueEmpty,
++                      const nsAString* aKnownNewValue) override;
+   void GetValueFromSetRangeText(nsAString& aValue) override;
+   MOZ_CAN_RUN_SCRIPT nsresult
+   SetValueFromSetRangeText(const nsAString& aValue) override;
+@@ -851,7 +852,9 @@
+    *
+    * @return whether the current value is the empty string.
+    */
+-  bool IsValueEmpty() const;
++  bool IsValueEmpty() const {
++    return State().HasState(ElementState::VALUE_EMPTY);
++  }
+ 
+   // Parse a simple (hex) color.
+   static mozilla::Maybe<nscolor> ParseSimpleColor(const nsAString& aColor);
+@@ -1092,7 +1095,12 @@
+   MOZ_CAN_RUN_SCRIPT
+   nsresult SetDefaultValueAsValue();
+ 
+-  void SetDirectionFromValue(bool aNotify);
++  /**
++   * Sets the direction from the input value. if aKnownValue is provided, it
++   * saves a GetValue call.
++   */
++  void SetDirectionFromValue(bool aNotify,
++                             const nsAString* aKnownValue = nullptr);
+ 
+   /**
+    * Return if an element should have a specific validity UI

@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/ArrayBufferViewObject.h
+# Commit: 40c6d6eed7f8
+# Full Hash: 40c6d6eed7f8ffd79078b778b6ceb8e78b28c2f0
+# Author: Steve Fink <sfink@mozilla.com>
+# Date: 2023-09-12 04:12:49
+# Regressor Bug: 1690111
+# File Overlap Count: 2
+# Description:
+#   Bug 1690111 - Implement JS::EnsureNonInlineArrayBufferOrView. r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D176596
+# ==============================================================================
+
+diff -r 692f2a759573 -r 40c6d6eed7f8 js/src/vm/ArrayBufferViewObject.h
+--- a/js/src/vm/ArrayBufferViewObject.h	Mon Sep 11 12:52:19 2023 +0000
++++ b/js/src/vm/ArrayBufferViewObject.h	Mon Sep 11 12:52:19 2023 +0000
+@@ -73,10 +73,11 @@
+                           size_t byteOffset, size_t length,
+                           uint32_t bytesPerElement);
+ 
+-  static ArrayBufferObjectMaybeShared* bufferObject(
++  static ArrayBufferObjectMaybeShared* ensureBufferObject(
+       JSContext* cx, Handle<ArrayBufferViewObject*> obj);
+ 
+   void notifyBufferDetached();
++  void notifyBufferMoved(uint8_t* srcBufStart, uint8_t* dstBufStart);
+ 
+   void initDataPointer(SharedMem<uint8_t*> viewData) {
+     // Install a pointer to the buffer location that corresponds
+@@ -184,6 +185,9 @@
+     return true;
+   }
+ 
++  static bool ensureNonInline(JSContext* cx,
++                              JS::Handle<ArrayBufferViewObject*> view);
++
+   size_t byteOffset() const {
+     return size_t(getFixedSlot(BYTEOFFSET_SLOT).toPrivate());
+   }

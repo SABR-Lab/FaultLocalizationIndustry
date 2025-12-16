@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/webrtc/signaling/gtest/MockCall.cpp
+# Commit: 877a0fcc6da9
+# Full Hash: 877a0fcc6da9fde4a783cfe30d0aa0b260427ac3
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 9
+# Description:
+#   Bug 1654112 - Merge conduit controllers into conduits, refactor away setters, and make unittests async. r=bwc,ng
+#   
+#   The main point of this patch is to harden how conduits handle configuration
+#   changes. With conduit controller classes acting in a layer on top of conduits
+#   (and their old sync style APIs), for instance
+# ==============================================================================
+
+diff -r 970ed33359b5 -r 877a0fcc6da9 media/webrtc/signaling/gtest/MockCall.cpp
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/media/webrtc/signaling/gtest/MockCall.cpp	Mon Aug 16 15:57:10 2021 +0200
+@@ -0,0 +1,27 @@
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
++ * You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++#include "MockCall.h"
++
++namespace test {
++
++const webrtc::AudioSendStream::Config& MockAudioSendStream::GetConfig() const {
++  return *mCallWrapper->GetMockCall()->mAudioSendConfig;
++}
++
++void MockAudioSendStream::Reconfigure(const Config& config) {
++  mCallWrapper->GetMockCall()->mAudioSendConfig = mozilla::Some(config);
++}
++
++void MockAudioReceiveStream::Reconfigure(const Config& config) {
++  mCallWrapper->GetMockCall()->mAudioReceiveConfig = mozilla::Some(config);
++}
++
++void MockVideoSendStream::ReconfigureVideoEncoder(
++    webrtc::VideoEncoderConfig config) {
++  mCallWrapper->GetMockCall()->mVideoSendEncoderConfig =
++      mozilla::Some(config.Copy());
++}
++
++}  // namespace test

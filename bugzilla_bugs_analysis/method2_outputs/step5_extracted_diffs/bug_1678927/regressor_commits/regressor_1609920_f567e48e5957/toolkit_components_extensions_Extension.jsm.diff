@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/extensions/Extension.jsm
+# Commit: f567e48e5957
+# Full Hash: f567e48e5957604f7c561642bfc1ffa12ba1d299
+# Author: Luca Greco <lgreco@mozilla.com>
+# Date: 2020-07-03 15:35:32
+# Regressor Bug: 1609920
+# File Overlap Count: 2
+# Description:
+#   Bug 1609920 - part 1: Allow the WebExtension Framework to register a moz-extension service worker. r=dom-workers-and-storage-reviewers,asuth,mixedpuppy
+#   
+#   - Adds the new about:config pref "extensions.backgroundServiceWorker.enabled" (currently defaults to false).
+#   - Adds the background.service_worker property to the manifest JSON schema definition
+#   - Locks background.service_worker manifest property behind the new preference
+# ==============================================================================
+
+diff -r 2b880e8d9143 -r f567e48e5957 toolkit/components/extensions/Extension.jsm
+--- a/toolkit/components/extensions/Extension.jsm	Fri Jul 03 11:27:56 2020 +0000
++++ b/toolkit/components/extensions/Extension.jsm	Fri Jul 03 10:14:24 2020 +0000
+@@ -2089,7 +2089,11 @@
+   }
+ 
+   get backgroundScripts() {
+-    return this.manifest.background && this.manifest.background.scripts;
++    return this.manifest.background?.scripts;
++  }
++
++  get backgroundWorkerScript() {
++    return this.manifest.background?.service_worker;
+   }
+ 
+   get optionalPermissions() {
+@@ -2130,6 +2134,7 @@
+   serializeExtended() {
+     return {
+       backgroundScripts: this.backgroundScripts,
++      backgroundWorkerScript: this.backgroundWorkerScript,
+       childModules: this.modules && this.modules.child,
+       dependencies: this.dependencies,
+       schemaURLs: this.schemaURLs,

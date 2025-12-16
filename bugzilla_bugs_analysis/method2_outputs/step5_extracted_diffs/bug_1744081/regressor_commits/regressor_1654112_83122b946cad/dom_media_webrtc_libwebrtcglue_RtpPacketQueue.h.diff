@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/RtpPacketQueue.h
+# Commit: 83122b946cad
+# Full Hash: 83122b946cada91c9df705e66e4cbca68eb49852
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 5
+# Description:
+#   Bug 1654112 - Make MediaSessionConduit::DeliverPacket async. r=bwc
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D107064
+# ==============================================================================
+
+diff -r 0e22eb5eaa5c -r 83122b946cad dom/media/webrtc/libwebrtcglue/RtpPacketQueue.h
+--- a/dom/media/webrtc/libwebrtcglue/RtpPacketQueue.h	Thu Mar 25 16:55:12 2021 -0500
++++ b/dom/media/webrtc/libwebrtcglue/RtpPacketQueue.h	Thu Feb 25 17:40:18 2021 +0100
+@@ -22,17 +22,14 @@
+   void DequeueAll(MediaSessionConduit* conduit) {
+     // SSRC is set; insert queued packets
+     for (auto& packet : mQueuedPackets) {
+-      if (conduit->DeliverPacket(packet->mData, packet->mLen) !=
+-          kMediaConduitNoError) {
+-        // Keep delivering and then clear the queue
+-      }
++      conduit->DeliverPacket(std::move(packet),
++                             MediaSessionConduit::PacketType::RTP);
+     }
+     mQueuedPackets.Clear();
+     mQueueActive = false;
+   }
+ 
+-  void Enqueue(const void* data, int len) {
+-    UniquePtr<QueuedPacket> packet(new QueuedPacket(data, len));
++  void Enqueue(rtc::CopyOnWriteBuffer packet) {
+     mQueuedPackets.AppendElement(std::move(packet));
+     mQueueActive = true;
+   }
+@@ -41,18 +38,7 @@
+ 
+  private:
+   bool mQueueActive = false;
+-  struct QueuedPacket {
+-    const int mLen;
+-    uint8_t* mData;
+-
+-    QueuedPacket(const void* aData, size_t aLen) : mLen(aLen) {
+-      mData = new uint8_t[mLen];
+-      memcpy(mData, aData, mLen);
+-    }
+-
+-    ~QueuedPacket() { delete (mData); }
+-  };
+-  nsTArray<UniquePtr<QueuedPacket>> mQueuedPackets;
++  nsTArray<rtc::CopyOnWriteBuffer> mQueuedPackets;
+ };
+ 
+ }  // namespace mozilla

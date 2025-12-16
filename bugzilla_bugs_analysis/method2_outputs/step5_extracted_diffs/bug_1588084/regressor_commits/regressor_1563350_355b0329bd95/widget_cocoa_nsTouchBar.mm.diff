@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/cocoa/nsTouchBar.mm
+# Commit: 355b0329bd95
+# Full Hash: 355b0329bd95d2a9573c04ece889c734da00f080
+# Author: harry <htwyford@mozilla.com>
+# Date: 2019-10-08 21:45:57
+# Regressor Bug: 1563350
+# File Overlap Count: 2
+# Description:
+#   Bug 1563350 - Add popover to the Touch Bar that displays when the Urlbar has focus. r=mikedeboer,spohl,fluent-reviewers,Pike,flod
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D38563
+# ==============================================================================
+
+diff -r 653caa0c494a -r 355b0329bd95 widget/cocoa/nsTouchBar.mm
+--- a/widget/cocoa/nsTouchBar.mm	Tue Oct 08 00:52:07 2019 +0000
++++ b/widget/cocoa/nsTouchBar.mm	Tue Oct 08 00:52:07 2019 +0000
+@@ -19,6 +19,12 @@
+ static NSTouchBarItemIdentifier ShareScrubberIdentifier =
+     [TouchBarInput nativeIdentifierWithType:@"scrubber" withKey:@"share"];
+ 
++// The search popover needs to show/hide depending on if the Urlbar is focused
++// when it is created. We keep track of its identifier to accomodate this
++// special handling.
++static NSTouchBarItemIdentifier SearchPopoverIdentifier =
++    [TouchBarInput nativeIdentifierWithType:@"popover" withKey:@"search-popover"];
++
+ // Used to tie action strings to buttons.
+ static char sIdentifierAssociationKey;
+ 
+@@ -97,7 +103,7 @@
+         [TouchBarInput nativeIdentifierWithType:@"button" withKey:@"reload"],
+         [TouchBarInput nativeIdentifierWithType:@"mainButton" withKey:@"open-location"],
+         [TouchBarInput nativeIdentifierWithType:@"button" withKey:@"new-tab"],
+-        ShareScrubberIdentifier
++        ShareScrubberIdentifier, SearchPopoverIdentifier
+       ];
+       self.defaultItemIdentifiers = [defaultItemIdentifiers copy];
+     } else {
+@@ -480,7 +486,10 @@
+       continue;
+     }
+ 
+-    if ([[input type] hasSuffix:@"popover"]) {
++    // Childless popovers contain the default Touch Bar as its popoverTouchBar.
++    // We check for [input children] since the default Touch Bar contains a
++    // popover (search-popover), so this would infinitely loop if there was no check.
++    if ([[input type] hasSuffix:@"popover"] && [input children]) {
+       NSTouchBarItem* item = [self itemForIdentifier:identifier];
+       [(nsTouchBar*)[(NSPopoverTouchBarItem*)item popoverTouchBar] releaseJSObjects];
+     }

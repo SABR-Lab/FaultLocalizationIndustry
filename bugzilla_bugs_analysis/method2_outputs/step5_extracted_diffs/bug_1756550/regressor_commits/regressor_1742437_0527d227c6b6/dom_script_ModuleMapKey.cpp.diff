@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/script/ModuleMapKey.cpp
+# Commit: 0527d227c6b6
+# Full Hash: 0527d227c6b6f3d6648704a01bfd1c090b971ea7
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-02-18 21:52:29
+# Regressor Bug: 1742437
+# File Overlap Count: 2
+# Description:
+#   Bug 1742437 - Move module loader files into a central folder; r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D137532
+# ==============================================================================
+
+diff -r 967e68ed5f56 -r 0527d227c6b6 dom/script/ModuleMapKey.cpp
+--- a/dom/script/ModuleMapKey.cpp	Fri Feb 18 12:45:52 2022 +0000
++++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
+@@ -1,38 +0,0 @@
+-/* This Source Code Form is subject to the terms of the Mozilla Public
+- * License, v. 2.0. If a copy of the MPL was not distributed with this
+- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+-
+-#include "ModuleMapKey.h"
+-
+-using namespace mozilla::dom;
+-
+-ModuleMapKey::ModuleMapKey(const nsIURI* aURI, nsIGlobalObject* aWebExtGlobal)
+-    : nsURIHashKey(aURI), mWebExtGlobal(aWebExtGlobal) {}
+-
+-ModuleMapKey::ModuleMapKey(const ModuleMapKey* aKey)
+-    : nsURIHashKey(aKey->mKey) {
+-  *this = *aKey;
+-}
+-
+-ModuleMapKey::ModuleMapKey(ModuleMapKey&& aToMove) noexcept
+-    : nsURIHashKey(std::move(aToMove)) {
+-  mWebExtGlobal = std::move(aToMove.mWebExtGlobal);
+-}
+-
+-bool ModuleMapKey::KeyEquals(KeyTypePointer aOther) const {
+-  if (mWebExtGlobal != aOther->mWebExtGlobal) {
+-    return false;
+-  }
+-
+-  return nsURIHashKey::KeyEquals(
+-      static_cast<const nsURIHashKey*>(aOther)->GetKey());
+-}
+-
+-// static
+-PLDHashNumber ModuleMapKey::HashKey(KeyTypePointer aKey) {
+-  PLDHashNumber hash = nsURIHashKey::HashKey(aKey->mKey);
+-  // XXX This seems wrong.
+-  hash =
+-      AddToHash(hash, reinterpret_cast<uintptr_t>(aKey->mWebExtGlobal.get()));
+-  return hash;
+-}

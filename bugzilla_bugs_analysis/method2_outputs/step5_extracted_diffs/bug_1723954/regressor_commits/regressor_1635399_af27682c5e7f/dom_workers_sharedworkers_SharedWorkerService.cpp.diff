@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/sharedworkers/SharedWorkerService.cpp
+# Commit: af27682c5e7f
+# Full Hash: af27682c5e7f86ff17d6ed152c8010e763870bdc
+# Author: ssengupta <ssengupta@mozilla.com>
+# Date: 2020-05-13 03:44:05
+# Regressor Bug: 1635399
+# File Overlap Count: 1
+# Description:
+#   Bug 1635399 - Function PrincipalInfoToPrincipal now returns Result<nsCOMPtr<nsIPrincipal>, nsresult> r=ckerschb
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D73868
+# ==============================================================================
+
+diff -r 86b22b1a9f7e -r af27682c5e7f dom/workers/sharedworkers/SharedWorkerService.cpp
+--- a/dom/workers/sharedworkers/SharedWorkerService.cpp	Tue May 12 23:55:42 2020 +0300
++++ b/dom/workers/sharedworkers/SharedWorkerService.cpp	Tue May 12 19:02:05 2020 +0000
+@@ -9,6 +9,7 @@
+ #include "mozilla/ipc/BackgroundParent.h"
+ #include "mozilla/SchedulerGroup.h"
+ #include "mozilla/StaticMutex.h"
++#include "nsIPrincipal.h"
+ #include "nsProxyRelease.h"
+ 
+ namespace mozilla {
+@@ -171,23 +172,27 @@
+   MOZ_ASSERT(aBackgroundEventTarget);
+   MOZ_ASSERT(aActor);
+ 
+-  nsresult rv = NS_OK;
+-  nsCOMPtr<nsIPrincipal> storagePrincipal =
+-      PrincipalInfoToPrincipal(aData.storagePrincipalInfo(), &rv);
+-  if (NS_WARN_IF(!storagePrincipal)) {
+-    ErrorPropagationOnMainThread(aBackgroundEventTarget, aActor, rv);
++  auto storagePrincipalOrErr =
++      PrincipalInfoToPrincipal(aData.storagePrincipalInfo());
++  if (NS_WARN_IF(storagePrincipalOrErr.isErr())) {
++    ErrorPropagationOnMainThread(aBackgroundEventTarget, aActor,
++                                 storagePrincipalOrErr.unwrapErr());
+     return;
+   }
+ 
+-  nsCOMPtr<nsIPrincipal> loadingPrincipal =
+-      PrincipalInfoToPrincipal(aData.loadingPrincipalInfo(), &rv);
+-  if (NS_WARN_IF(!loadingPrincipal)) {
+-    ErrorPropagationOnMainThread(aBackgroundEventTarget, aActor, rv);
++  auto loadingPrincipalOrErr =
++      PrincipalInfoToPrincipal(aData.loadingPrincipalInfo());
++  if (NS_WARN_IF(loadingPrincipalOrErr.isErr())) {
++    ErrorPropagationOnMainThread(aBackgroundEventTarget, aActor,
++                                 loadingPrincipalOrErr.unwrapErr());
+     return;
+   }
+ 
+   RefPtr<SharedWorkerManagerHolder> managerHolder;
+ 
++  nsCOMPtr<nsIPrincipal> loadingPrincipal = loadingPrincipalOrErr.unwrap();
++  nsCOMPtr<nsIPrincipal> storagePrincipal = storagePrincipalOrErr.unwrap();
++
+   // Let's see if there is already a SharedWorker to share.
+   nsCOMPtr<nsIURI> resolvedScriptURL =
+       DeserializeURI(aData.resolvedScriptURL());

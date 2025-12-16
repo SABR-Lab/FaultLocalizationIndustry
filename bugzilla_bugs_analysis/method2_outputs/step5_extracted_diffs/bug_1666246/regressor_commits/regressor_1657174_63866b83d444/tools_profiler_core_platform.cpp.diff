@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: tools/profiler/core/platform.cpp
+# Commit: 63866b83d444
+# Full Hash: 63866b83d444080d6a75272e80aa640729902b9c
+# Author: Gerald Squelart <gsquelart@mozilla.com>
+# Date: 2020-08-06 15:44:30
+# Regressor Bug: 1657174
+# File Overlap Count: 1
+# Description:
+#   Bug 1657174 - Added more targeted assertions around multiple thread de-registrations - r=mstange
+#   
+#   `MOZ_RELEASE_ASSERT(registeredThread == TLSRegisteredThread::RegisteredThread(lock));` is failing on Android, probably as a follow-up to bug 1651086, which allowed multiple registrations (to fix a problem with yet-unknown root cause).
+#   This assertion is too broad to help find the issue because at this point:
+#   - If `FindCurrentThreadRegisteredThread()` is not null, `TLSRegisteredThread::RegisteredThread()` should also not be null, and it should equal `FindCurrentThreadRegisteredThread()`, from the first succesful `profiler_register_thread()`.
+# ==============================================================================
+
+diff -r b7a9f56fe856 -r 63866b83d444 tools/profiler/core/platform.cpp
+--- a/tools/profiler/core/platform.cpp	Thu Aug 06 01:28:45 2020 +0000
++++ b/tools/profiler/core/platform.cpp	Thu Aug 06 00:55:20 2020 +0000
+@@ -5099,9 +5099,10 @@
+   // doing that for a JS thread that is in the process of disappearing.
+ 
+   RegisteredThread* registeredThread = FindCurrentThreadRegisteredThread(lock);
+-  MOZ_RELEASE_ASSERT(registeredThread ==
+-                     TLSRegisteredThread::RegisteredThread(lock));
+   if (registeredThread) {
++    MOZ_RELEASE_ASSERT(TLSRegisteredThread::RegisteredThread(lock));
++    MOZ_RELEASE_ASSERT(registeredThread ==
++                       TLSRegisteredThread::RegisteredThread(lock));
+     RefPtr<ThreadInfo> info = registeredThread->Info();
+ 
+     DEBUG_LOG("profiler_unregister_thread: %s", info->Name());
+@@ -5115,10 +5116,12 @@
+     // thread is unregistering itself and won't need the ProfilingStack anymore.
+     TLSRegisteredThread::ResetRegisteredThread(lock);
+     TLSRegisteredThread::ResetAutoProfilerLabelProfilingStack(lock);
++    MOZ_RELEASE_ASSERT(!TLSRegisteredThread::RegisteredThread(lock));
+ 
+     // Remove the thread from the list of registered threads. This deletes the
+     // registeredThread object.
+     CorePS::RemoveRegisteredThread(lock, registeredThread);
++    MOZ_RELEASE_ASSERT(!FindCurrentThreadRegisteredThread(lock));
+   } else {
+     LOG("profiler_unregister_thread() - thread %d already unregistered",
+         profiler_current_thread_id());

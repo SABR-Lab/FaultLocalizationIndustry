@@ -1,0 +1,54 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: accessible/base/TextLeafRange.cpp
+# Commit: 027e84c2375c
+# Full Hash: 027e84c2375c43002ca1d44f85c6cc7cb5591cd5
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2022-06-12 09:56:51
+# Description:
+#   Bug 1773102 - Accomodate xul label[value] in offset conversions and spelling errors. r=Jamie
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D148677
+# ==============================================================================
+
+diff -r 971b45dcd291 -r 027e84c2375c accessible/base/TextLeafRange.cpp
+--- a/accessible/base/TextLeafRange.cpp	Sun Jun 12 00:33:37 2022 +0300
++++ b/accessible/base/TextLeafRange.cpp	Sun Jun 12 06:59:18 2022 +0000
+@@ -55,7 +55,12 @@
+ static int32_t RenderedToContentOffset(LocalAccessible* aAcc,
+                                        uint32_t aRenderedOffset) {
+   nsTextFrame* frame = do_QueryFrame(aAcc->GetFrame());
+-  MOZ_ASSERT(frame);
++  if (!frame) {
++    MOZ_ASSERT(!aAcc->HasOwnContent(),
++               "No text frame because this is a XUL label[value] text leaf.");
++    return static_cast<int32_t>(aRenderedOffset);
++  }
++
+   if (frame->StyleText()->WhiteSpaceIsSignificant() &&
+       frame->StyleText()->NewlineIsSignificant(frame)) {
+     // Spaces and new lines aren't altered, so the content and rendered offsets
+@@ -73,7 +78,12 @@
+ static uint32_t ContentToRenderedOffset(LocalAccessible* aAcc,
+                                         int32_t aContentOffset) {
+   nsTextFrame* frame = do_QueryFrame(aAcc->GetFrame());
+-  MOZ_ASSERT(frame);
++  if (!frame) {
++    MOZ_ASSERT(!aAcc->HasOwnContent(),
++               "No text frame because this is a XUL label[value] text leaf.");
++    return aContentOffset;
++  }
++
+   if (frame->StyleText()->WhiteSpaceIsSignificant() &&
+       frame->StyleText()->NewlineIsSignificant(frame)) {
+     // Spaces and new lines aren't altered, so the content and rendered offsets
+@@ -405,7 +415,7 @@
+                                                 int32_t aRenderedStart,
+                                                 int32_t aRenderedEnd,
+                                                 bool aAllowAdjacent = false) {
+-  if (!aAcc->IsTextLeaf()) {
++  if (!aAcc->IsTextLeaf() || !aAcc->HasOwnContent()) {
+     return {};
+   }
+   nsIFrame* frame = aAcc->GetFrame();

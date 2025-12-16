@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/streams/ReadableStream.h
+# Commit: 2ce86a76d99d
+# Full Hash: 2ce86a76d99dc03cb8f88799680824bb4fcb0fa0
+# Author: Tom Schuster <evilpies@gmail.com>
+# Date: 2022-12-01 16:18:29
+# Regressor Bug: 1734244
+# File Overlap Count: 1
+# Description:
+#   Bug 1734244 - Implement async iteration of ReadableStream. r=mgaudet,peterv
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D153312
+# ==============================================================================
+
+diff -r c353f81b2823 -r 2ce86a76d99d dom/streams/ReadableStream.h
+--- a/dom/streams/ReadableStream.h	Thu Dec 01 08:51:47 2022 +0000
++++ b/dom/streams/ReadableStream.h	Thu Dec 01 09:04:34 2022 +0000
+@@ -12,6 +12,7 @@
+ #include "mozilla/Attributes.h"
+ #include "mozilla/ErrorResult.h"
+ #include "mozilla/dom/BindingDeclarations.h"
++#include "mozilla/dom/IterableIterator.h"
+ #include "mozilla/dom/QueuingStrategyBinding.h"
+ #include "mozilla/dom/ReadableStreamController.h"
+ #include "mozilla/dom/ReadableStreamDefaultController.h"
+@@ -26,6 +27,7 @@
+ class ReadableStreamDefaultReader;
+ class ReadableStreamGenericReader;
+ struct ReadableStreamGetReaderOptions;
++struct ReadableStreamIteratorOptions;
+ struct ReadIntoRequest;
+ class WritableStream;
+ struct ReadableWritablePair;
+@@ -143,6 +145,25 @@
+                               nsTArray<RefPtr<ReadableStream>>& aResult,
+                               ErrorResult& aRv);
+ 
++  struct IteratorData {
++    void Traverse(nsCycleCollectionTraversalCallback& cb);
++    void Unlink();
++
++    RefPtr<ReadableStreamDefaultReader> mReader;
++    bool mPreventCancel;
++  };
++
++  using Iterator = AsyncIterableIterator<ReadableStream>;
++
++  void InitAsyncIteratorData(IteratorData& aData, Iterator::IteratorType aType,
++                             const ReadableStreamIteratorOptions& aOptions,
++                             ErrorResult& aRv);
++  MOZ_CAN_RUN_SCRIPT already_AddRefed<Promise> GetNextIterationResult(
++      Iterator* aIterator, ErrorResult& aRv);
++  MOZ_CAN_RUN_SCRIPT already_AddRefed<Promise> IteratorReturn(
++      JSContext* aCx, Iterator* aIterator, JS::Handle<JS::Value> aValue,
++      ErrorResult& aRv);
++
+   // Internal Slots:
+  private:
+   RefPtr<ReadableStreamController> mController;

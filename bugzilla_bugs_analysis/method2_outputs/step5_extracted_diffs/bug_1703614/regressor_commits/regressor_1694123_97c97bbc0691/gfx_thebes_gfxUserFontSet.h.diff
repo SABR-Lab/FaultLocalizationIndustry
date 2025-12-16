@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxUserFontSet.h
+# Commit: 97c97bbc0691
+# Full Hash: 97c97bbc0691396e57374c7fd46214d379a02152
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2021-04-02 03:33:31
+# Regressor Bug: 1694123
+# File Overlap Count: 1
+# Description:
+#   Bug 1694123 - Ensure user fonts with src:local() are refreshed after a font-list update, even if the local font lookup previously failed. r=jwatt
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D106511
+# ==============================================================================
+
+diff -r 8badf00b02be -r 97c97bbc0691 gfx/thebes/gfxUserFontSet.h
+--- a/gfx/thebes/gfxUserFontSet.h	Thu Apr 01 17:25:12 2021 +0000
++++ b/gfx/thebes/gfxUserFontSet.h	Thu Apr 01 17:25:19 2021 +0000
+@@ -618,6 +618,11 @@
+     mUserFontLoadState = STATUS_NOT_LOADED;
+     mFontDataLoadingState = NOT_LOADING;
+     mLoader = nullptr;
++    // We must not reset mSrcIndex here because there may be an
++    // off-main-thread font load currently in progress that will
++    // depend on it being correct when it calls CacheFont.
++    // It will get reset to 0 on the next call to LoadNextSrc()
++    // because we have reset mFontDataLoadingState here.
+   }
+ 
+   // whether to wait before using fallback font or not
+@@ -768,6 +773,7 @@
+   };
+   FontDataLoadingState mFontDataLoadingState;
+ 
++  bool mSeenLocalSource;
+   bool mUnsupportedFormat;
+   mozilla::StyleFontDisplay mFontDisplay;  // timing of userfont fallback
+ 

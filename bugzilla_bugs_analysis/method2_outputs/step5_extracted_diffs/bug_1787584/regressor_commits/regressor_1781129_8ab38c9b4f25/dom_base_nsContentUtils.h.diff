@@ -1,0 +1,87 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsContentUtils.h
+# Commit: 8ab38c9b4f25
+# Full Hash: 8ab38c9b4f25ed4437804b708cb3be993c522400
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2022-08-26 21:48:35
+# Regressor Bug: 1781129
+# File Overlap Count: 1
+# Description:
+#   Bug 1781129 - Part 1: Use BigBuffer for IPCDataTransfer, r=edgar
+#   
+#   The IPCDataTransfer type is used to transfer Clipboard/Drag & Drop payloads
+#   over IPC to allow them to be written to or read from the relevant system
+#   interfaces. Previously, the system which was used was somewhat complex, and
+# ==============================================================================
+
+diff -r a9c593b5a54a -r 8ab38c9b4f25 dom/base/nsContentUtils.h
+--- a/dom/base/nsContentUtils.h	Fri Aug 26 15:50:18 2022 +0000
++++ b/dom/base/nsContentUtils.h	Fri Aug 26 16:08:05 2022 +0000
+@@ -182,6 +182,7 @@
+ class EventTarget;
+ class HTMLInputElement;
+ class IPCDataTransfer;
++class IPCDataTransferImageContainer;
+ class IPCDataTransferItem;
+ struct LifecycleCallbackArgs;
+ class MessageBroadcaster;
+@@ -194,6 +195,7 @@
+ }  // namespace dom
+ 
+ namespace ipc {
++class BigBuffer;
+ class IProtocol;
+ class IShmemAllocator;
+ class Shmem;
+@@ -2874,13 +2876,11 @@
+   static bool IsFileImage(nsIFile* aFile, nsACString& aType);
+ 
+   /**
+-   * Given an IPCDataTransferItem that has a flavor for which IsFlavorImage
+-   * returns true and whose IPCDataTransferData is of type nsCString (raw image
+-   * data), construct an imgIContainer for the image encoded by the transfer
+-   * item.
++   * Given an IPCDataTransferImageContainer construct an imgIContainer for the
++   * image encoded by the transfer item.
+    */
+-  static nsresult DataTransferItemToImage(
+-      const mozilla::dom::IPCDataTransferItem& aItem,
++  static nsresult DeserializeDataTransferImageContainer(
++      const mozilla::dom::IPCDataTransferImageContainer& aData,
+       imgIContainer** aContainer);
+ 
+   /**
+@@ -2891,15 +2891,13 @@
+ 
+   static nsresult IPCTransferableToTransferable(
+       const mozilla::dom::IPCDataTransfer& aDataTransfer, bool aAddDataFlavor,
+-      nsITransferable* aTransferable,
+-      mozilla::ipc::IShmemAllocator* aAllocator);
++      nsITransferable* aTransferable);
+ 
+   static nsresult IPCTransferableToTransferable(
+       const mozilla::dom::IPCDataTransfer& aDataTransfer,
+       const bool& aIsPrivateData, nsIPrincipal* aRequestingPrincipal,
+       const nsContentPolicyType& aContentPolicyType, bool aAddDataFlavor,
+-      nsITransferable* aTransferable,
+-      mozilla::ipc::IShmemAllocator* aAllocator);
++      nsITransferable* aTransferable);
+ 
+   static nsresult IPCTransferableItemToVariant(
+       const mozilla::dom::IPCDataTransferItem& aDataTransferItem,
+@@ -2916,10 +2914,10 @@
+       mozilla::dom::ContentChild* aChild, mozilla::dom::ContentParent* aParent);
+ 
+   /*
+-   * Get the pixel data from the given source surface and return it as a buffer.
+-   * The length and stride will be assigned from the surface.
++   * Get the pixel data from the given source surface and return it as a
++   * BigBuffer. The length and stride will be assigned from the surface.
+    */
+-  static mozilla::UniquePtr<char[]> GetSurfaceData(
++  static mozilla::Maybe<mozilla::ipc::BigBuffer> GetSurfaceData(
+       mozilla::gfx::DataSourceSurface&, size_t* aLength, int32_t* aStride);
+ 
+   /*

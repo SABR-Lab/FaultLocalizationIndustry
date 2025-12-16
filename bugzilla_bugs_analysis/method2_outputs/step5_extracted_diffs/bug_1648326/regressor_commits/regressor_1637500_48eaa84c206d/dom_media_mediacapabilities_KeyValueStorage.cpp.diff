@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediacapabilities/KeyValueStorage.cpp
+# Commit: 48eaa84c206d
+# Full Hash: 48eaa84c206dbdda637c57b55ddbd07e975ba103
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2020-06-23 16:15:06
+# Regressor Bug: 1637500
+# File Overlap Count: 2
+# Description:
+#   Bug 1637500 - P2. Rename methods as they are not always dealing with "threads". r=froydnj
+#   
+#   Before P1, GetCurrentThreadSerialEventTarget would have always returned the same data as NS_GetCurrentThread, making the comment incorrect Now it will properly return the running TaskQueue if any.
+#   
+#   This change of name more clearly exposes what they are doing, as we aren't always dealing with threads directly; but a nsISerialEventTarget
+# ==============================================================================
+
+diff -r 00687d06a8a6 -r 48eaa84c206d dom/media/mediacapabilities/KeyValueStorage.cpp
+--- a/dom/media/mediacapabilities/KeyValueStorage.cpp	Tue Jun 23 05:02:39 2020 +0000
++++ b/dom/media/mediacapabilities/KeyValueStorage.cpp	Tue Jun 23 05:05:36 2020 +0000
+@@ -134,7 +134,7 @@
+     RefPtr<KeyValueStorage> self = this;
+     const nsCString key(aKey);
+     return Init()->Then(
+-        GetCurrentThreadSerialEventTarget(), __func__,
++        GetCurrentSerialEventTarget(), __func__,
+         [self, key, aValue](bool) { return self->Put(key, aValue); },
+         [](nsresult rv) {
+           return GenericPromise::CreateAndReject(rv, __func__);
+@@ -196,7 +196,7 @@
+     RefPtr<KeyValueStorage> self = this;
+     const nsCString key(aKey);
+     return Init()->Then(
+-        GetCurrentThreadSerialEventTarget(), __func__,
++        GetCurrentSerialEventTarget(), __func__,
+         [self, key](bool) { return self->Get(key); },
+         [](nsresult rv) {
+           return KeyValueStorage::GetPromise::CreateAndReject(rv, __func__);
+@@ -223,7 +223,7 @@
+     mDatabaseName = aName;
+     RefPtr<KeyValueStorage> self = this;
+     return Init()->Then(
+-        GetCurrentThreadSerialEventTarget(), __func__,
++        GetCurrentSerialEventTarget(), __func__,
+         [self](bool) { return self->Clear(); },
+         [](nsresult rv) {
+           return GenericPromise::CreateAndReject(rv, __func__);

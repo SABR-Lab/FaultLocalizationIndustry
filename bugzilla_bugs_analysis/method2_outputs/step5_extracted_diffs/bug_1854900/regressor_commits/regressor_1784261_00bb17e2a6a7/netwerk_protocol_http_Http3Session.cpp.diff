@@ -1,0 +1,81 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/Http3Session.cpp
+# Commit: 00bb17e2a6a7
+# Full Hash: 00bb17e2a6a73f9c66e861adae426818ff4d8caa
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2023-09-21 21:20:56
+# Regressor Bug: 1784261
+# File Overlap Count: 1
+# Description:
+#   Bug 1784261 - Add telemetry to understand the reason of connection closure, r=necko-reviewers,valentin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D188132
+# ==============================================================================
+
+diff -r e98350675c5a -r 00bb17e2a6a7 netwerk/protocol/http/Http3Session.cpp
+--- a/netwerk/protocol/http/Http3Session.cpp	Thu Sep 21 08:42:26 2023 +0000
++++ b/netwerk/protocol/http/Http3Session.cpp	Thu Sep 21 08:59:03 2023 +0000
+@@ -142,6 +142,8 @@
+   mSocketControl->GetPeerId(peerId);
+   nsTArray<uint8_t> token;
+   SessionCacheInfo info;
++  udpConn->ChangeConnectionState(ConnectionState::TLS_HANDSHAKING);
++
+   if (StaticPrefs::network_http_http3_enable_0rtt() &&
+       NS_SUCCEEDED(SSLTokensCache::Get(peerId, token, info))) {
+     LOG(("Found a resumption token in the cache."));
+@@ -151,6 +153,7 @@
+       LOG(("Can send ZeroRtt data"));
+       RefPtr<Http3Session> self(this);
+       mState = ZERORTT;
++      udpConn->ChangeConnectionState(ConnectionState::ZERORTT);
+       mZeroRttStarted = TimeStamp::Now();
+       // Let the nsHttpConnectionMgr know that the connection can accept
+       // transactions.
+@@ -469,6 +472,8 @@
+                static_cast<uint32_t>(rv)));
+           return rv;
+         }
++
++        mUdpConn->NotifyDataRead();
+         break;
+       }
+       case Http3Event::Tag::DataReadable: {
+@@ -595,6 +600,7 @@
+       } break;
+       case Http3Event::Tag::GoawayReceived:
+         LOG(("Http3Session::ProcessEvents - GoawayReceived"));
++        mUdpConn->SetCloseReason(ConnectionCloseReason::GO_AWAY);
+         mGoawayReceived = true;
+         break;
+       case Http3Event::Tag::ConnectionClosing:
+@@ -642,6 +648,7 @@
+         LOG(("Http3Session::ProcessEvents - ConnectionClosed"));
+         if (NS_SUCCEEDED(mError)) {
+           mError = NS_ERROR_NET_TIMEOUT;
++          mUdpConn->SetCloseReason(ConnectionCloseReason::IDLE_TIMEOUT);
+           CloseConnectionTelemetry(event.connection_closed.error, false);
+         }
+         mIsClosedByNeqo = true;
+@@ -1534,6 +1541,11 @@
+     rv = NS_OK;
+   }
+ 
++  // Let the connection know we sent some app data successfully.
++  if (stream && NS_SUCCEEDED(rv)) {
++    mUdpConn->NotifyDataWrite();
++  }
++
+   return rv;
+ }
+ 
+@@ -2151,6 +2163,7 @@
+     NS_DispatchToCurrentThread(
+         NewRunnableMethod("net::HttpConnectionUDP::OnQuicTimeoutExpired",
+                           mUdpConn, &HttpConnectionUDP::OnQuicTimeoutExpired));
++    mUdpConn->ChangeConnectionState(ConnectionState::TRANSFERING);
+   }
+ }
+ 

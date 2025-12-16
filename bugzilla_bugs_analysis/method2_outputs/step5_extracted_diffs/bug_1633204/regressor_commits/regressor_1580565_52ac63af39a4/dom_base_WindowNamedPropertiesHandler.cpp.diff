@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/WindowNamedPropertiesHandler.cpp
+# Commit: 52ac63af39a4
+# Full Hash: 52ac63af39a4de5a2e8ea8d44071a3006f6a1b8d
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-04-25 09:49:23
+# Regressor Bug: 1580565
+# File Overlap Count: 3
+# Description:
+#   Bug 1580565 - Part 4: Use WindowContext to manage BrowsingContext cached status, r=farre
+#   
+#   The existing infrastructure which stored cached BrowsingContexts on the
+#   BrowsingContextGroup was added before WindowContexts were added, and can cause
+#   racing issues with partially discarded trees during process switches.
+# ==============================================================================
+
+diff -r 775fcd064844 -r 52ac63af39a4 dom/base/WindowNamedPropertiesHandler.cpp
+--- a/dom/base/WindowNamedPropertiesHandler.cpp	Fri Apr 24 18:33:01 2020 +0000
++++ b/dom/base/WindowNamedPropertiesHandler.cpp	Fri Apr 24 18:33:04 2020 +0000
+@@ -169,7 +169,7 @@
+   nsGlobalWindowOuter* outer = win->GetOuterWindowInternal();
+   if (outer) {
+     if (BrowsingContext* bc = outer->GetBrowsingContext()) {
+-      for (const auto& child : bc->GetChildren()) {
++      for (const auto& child : bc->Children()) {
+         const nsString& name = child->Name();
+         if (!name.IsEmpty() && !names.Contains(name)) {
+           // Make sure we really would expose it from getOwnPropDescriptor.

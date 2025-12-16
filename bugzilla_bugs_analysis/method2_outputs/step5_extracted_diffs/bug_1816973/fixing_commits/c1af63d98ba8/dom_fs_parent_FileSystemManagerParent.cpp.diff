@@ -1,0 +1,28 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/fs/parent/FileSystemManagerParent.cpp
+# Commit: c1af63d98ba8
+# Full Hash: c1af63d98ba8bdb9224214a8af4ce64815c7e3ff
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2023-02-28 08:53:39
+# Description:
+#   Bug 1816973 - Return early if the actor was already destroyed; r=dom-storage-reviewers,asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D170094
+# ==============================================================================
+
+diff -r fbf003c7f0d7 -r c1af63d98ba8 dom/fs/parent/FileSystemManagerParent.cpp
+--- a/dom/fs/parent/FileSystemManagerParent.cpp	Mon Feb 27 16:19:09 2023 +0000
++++ b/dom/fs/parent/FileSystemManagerParent.cpp	Mon Feb 27 16:20:45 2023 +0000
+@@ -129,6 +129,10 @@
+            resolver = std::move(aResolver)](
+               FileSystemAccessHandle::CreatePromise::ResolveOrRejectValue&&
+                   aValue) {
++            if (!self->CanSend()) {
++              return;
++            }
++
+             if (aValue.IsReject()) {
+               resolver(aValue.RejectValue());
+               return;

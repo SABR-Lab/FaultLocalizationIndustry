@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/audioipc-server/src/lib.rs
+# Commit: 634412ce2943
+# Full Hash: 634412ce29430557eec6d0c0313f1908e61ad13d
+# Author: Matthew Gregan <kinetik@flim.org>
+# Date: 2021-08-11 03:46:10
+# Regressor Bug: 1724141
+# File Overlap Count: 6
+# Description:
+#   Bug 1724141 - Update audioipc to 8bb1a227.  r=chunmin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D121826
+# ==============================================================================
+
+diff -r 722284bed619 -r 634412ce2943 third_party/rust/audioipc-server/src/lib.rs
+--- a/third_party/rust/audioipc-server/src/lib.rs	Tue Aug 10 20:38:51 2021 +0000
++++ b/third_party/rust/audioipc-server/src/lib.rs	Tue Aug 10 20:52:03 2021 +0000
+@@ -11,7 +11,7 @@
+ 
+ use audio_thread_priority::promote_current_thread_to_real_time;
+ use audioipc::core;
+-use audioipc::platformhandle_passing::framed_with_platformhandles;
++use audioipc::framing::framed;
+ use audioipc::rpc;
+ use audioipc::{MessageStream, PlatformHandle, PlatformHandleType};
+ use futures::sync::oneshot;
+@@ -124,11 +124,14 @@
+ }
+ 
+ #[no_mangle]
+-pub extern "C" fn audioipc_server_new_client(p: *mut c_void) -> PlatformHandleType {
++pub extern "C" fn audioipc_server_new_client(
++    p: *mut c_void,
++    shm_area_size: usize,
++) -> PlatformHandleType {
+     let (wait_tx, wait_rx) = oneshot::channel();
+     let wrapper: &ServerWrapper = unsafe { &*(p as *mut _) };
+ 
+-    let core_handle = wrapper.callback_thread.handle();
++    let callback_thread_handle = wrapper.callback_thread.handle();
+ 
+     // We create a connected pair of anonymous IPC endpoints. One side
+     // is registered with the reactor core, the other side is returned
+@@ -140,13 +143,13 @@
+             wrapper
+                 .core_thread
+                 .handle()
+-                .spawn(futures::future::lazy(|| {
++                .spawn(futures::future::lazy(move || {
+                     trace!("Incoming connection");
+                     let handle = reactor::Handle::default();
+                     ipc_server.into_tokio_ipc(&handle)
+                     .map(|sock| {
+-                        let transport = framed_with_platformhandles(sock, Default::default());
+-                        rpc::bind_server(transport, server::CubebServer::new(core_handle));
++                        let transport = framed(sock, Default::default());
++                        rpc::bind_server(transport, server::CubebServer::new(callback_thread_handle, shm_area_size));
+                     }).map_err(|_| ())
+                     // Notify waiting thread that server has been registered.
+                     .and_then(|_| wait_tx.send(()))

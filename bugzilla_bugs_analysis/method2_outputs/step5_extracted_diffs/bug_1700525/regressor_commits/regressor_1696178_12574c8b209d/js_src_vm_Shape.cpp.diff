@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/Shape.cpp
+# Commit: 12574c8b209d
+# Full Hash: 12574c8b209d51965201890abdcbd40b553e1190
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2021-03-23 21:43:59
+# Regressor Bug: 1696178
+# File Overlap Count: 1
+# Description:
+#   Bug 1696178 part 4 - Add NativeObject::setLastPropertyForNewDataProperty. r=jonco
+#   
+#   NativeObject::addEnumerableDataProperty is very hot and this is a measurable speedup
+#   because it's not as branchy as setLastProperty.
+#   
+# ==============================================================================
+
+diff -r aa7ea7bda43e -r 12574c8b209d js/src/vm/Shape.cpp
+--- a/js/src/vm/Shape.cpp	Tue Mar 23 12:43:56 2021 +0000
++++ b/js/src/vm/Shape.cpp	Tue Mar 23 12:43:56 2021 +0000
+@@ -772,7 +772,7 @@
+       break;
+     }
+ 
+-    if (!obj->setLastProperty(cx, child)) {
++    if (!obj->setLastPropertyForNewDataProperty(cx, child)) {
+       return nullptr;
+     }
+     return child;
+@@ -846,7 +846,7 @@
+     if (!shape) {
+       return nullptr;
+     }
+-    if (!obj->setLastProperty(cx, shape)) {
++    if (!obj->setLastPropertyForNewDataProperty(cx, shape)) {
+       return nullptr;
+     }
+   }

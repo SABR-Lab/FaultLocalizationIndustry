@@ -1,0 +1,41 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: accessible/ipc/win/DocAccessibleChild.h
+# Commit: af3395df3738
+# Full Hash: af3395df37383b7ab7f708de0d139238cf85689b
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2022-06-14 03:47:07
+# Description:
+#   Bug 1773104: Hold a reference to the BrowsingContext when deferring the sending of a PDocAccessible constructor. r=eeejay
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D148747
+# ==============================================================================
+
+diff -r 3a5c73f416b2 -r af3395df3738 accessible/ipc/win/DocAccessibleChild.h
+--- a/accessible/ipc/win/DocAccessibleChild.h	Mon Jun 13 21:56:23 2022 +0000
++++ b/accessible/ipc/win/DocAccessibleChild.h	Mon Jun 13 21:57:15 2022 +0000
+@@ -14,10 +14,6 @@
+ #include "mozilla/mscom/Ptr.h"
+ 
+ namespace mozilla {
+-namespace dom {
+-class BrowsingContext;
+-}
+-
+ namespace a11y {
+ 
+ /*
+@@ -334,7 +330,11 @@
+ 
+     DocAccessibleChild* mIPCDoc;
+     uint64_t mUniqueID;
+-    dom::BrowsingContext* mBrowsingContext;
++    // By the time we replay this, the document and its BrowsingContext might
++    // be dead, so we use MaybeDiscardedBrowsingContext here. Ideally, we just
++    // wouldn't replay this, but this is tricky because IPDL should manage the
++    // lifetime of DocAccessibleChild, which means we must send the constructor.
++    dom::MaybeDiscardedBrowsingContext mBrowsingContext;
+     uint32_t mMsaaID;
+   };
+ 

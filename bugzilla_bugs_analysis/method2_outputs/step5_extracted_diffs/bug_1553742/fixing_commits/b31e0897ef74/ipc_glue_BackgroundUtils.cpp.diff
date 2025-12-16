@@ -1,0 +1,30 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: ipc/glue/BackgroundUtils.cpp
+# Commit: b31e0897ef74
+# Full Hash: b31e0897ef74a390bc63e38c98e6960946e91d65
+# Author: Christoph Kerschbaumer <ckerschb@christophkerschbaumer.com>
+# Date: 2019-05-29 21:50:20
+# Description:
+#   Bug 1553742: Null Check CSP before calling CSPToCSPInfo to avoid half initialized state of cspinfo. r=baku,mccr8
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D32990
+# ==============================================================================
+
+diff -r c6c250b477a0 -r b31e0897ef74 ipc/glue/BackgroundUtils.cpp
+--- a/ipc/glue/BackgroundUtils.cpp	Wed May 29 16:01:37 2019 +0000
++++ b/ipc/glue/BackgroundUtils.cpp	Wed May 29 15:42:13 2019 +0000
+@@ -208,10 +208,11 @@
+ 
+ nsresult CSPToCSPInfo(nsIContentSecurityPolicy* aCSP, CSPInfo* aCSPInfo) {
+   MOZ_ASSERT(NS_IsMainThread());
++  MOZ_ASSERT(aCSP);
+   MOZ_ASSERT(aCSPInfo);
+ 
+   if (!aCSP || !aCSPInfo) {
+-    return NS_OK;
++    return NS_ERROR_FAILURE;
+   }
+ 
+   uint32_t count = 0;

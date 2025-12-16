@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/WorkerRunnable.cpp
+# Commit: 9e3ed11f4e8a
+# Full Hash: 9e3ed11f4e8a3e4af5fd56d084f142c50eb30bb8
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2024-05-02 16:06:59
+# Regressor Bug: 1769913
+# File Overlap Count: 4
+# Description:
+#   Bug 1892644 - Handling WorkerThreadRunnable::Run() after Worker is "Dead". r=asuth
+#   
+#   In bug 1769913, we remove the WorkerThreadRunnable's raw pointer to the corresponding WorkerPrivate and expect the corresponding WorkerPrivate to be obtained by GetCurrentThreadWorkerPrivate() when WorkerThreadRunnable::Run executing.
+#   
+#   In general, the assumption is correct. However, it could be violated in the following two situations.
+# ==============================================================================
+
+diff -r 810c65d8b2d3 -r 9e3ed11f4e8a dom/workers/WorkerRunnable.cpp
+--- a/dom/workers/WorkerRunnable.cpp	Thu May 02 06:34:16 2024 +0000
++++ b/dom/workers/WorkerRunnable.cpp	Thu May 02 06:37:51 2024 +0000
+@@ -366,8 +366,12 @@
+ NS_IMETHODIMP
+ WorkerThreadRunnable::Run() {
+   LOG(("WorkerThreadRunnable::Run [%p]", this));
+-  MOZ_ASSERT(GetCurrentThreadWorkerPrivate());
+   WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
++  if (!workerPrivate && mWorkerPrivateForPreStartCleaning) {
++    workerPrivate = mWorkerPrivateForPreStartCleaning;
++    mWorkerPrivateForPreStartCleaning = nullptr;
++  }
++  MOZ_ASSERT_DEBUG_OR_FUZZING(workerPrivate);
+ #ifdef DEBUG
+   workerPrivate->AssertIsOnWorkerThread();
+ #endif

@@ -1,0 +1,65 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/StoreBuffer.cpp
+# Commit: 662cb63c42d7
+# Full Hash: 662cb63c42d7874a79256a6edf1a03d83e43a014
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2023-08-05 09:19:01
+# Regressor Bug: 1692065
+# File Overlap Count: 2
+# Description:
+#   Bug 1692065 - wasm: Create a unique wasm::AnyRef type. r=yury,jonco
+#   
+#   Right now wasm references area represented as a JSObject*. This is assumed in
+#   many places in SpiderMonkey, most prominently in our GC integration
+#   around tracing, the store buffer, and write barriers. This will cause issues
+# ==============================================================================
+
+diff -r 8b506ab41451 -r 662cb63c42d7 js/src/gc/StoreBuffer.cpp
+--- a/js/src/gc/StoreBuffer.cpp	Fri Aug 04 13:54:57 2023 +0000
++++ b/js/src/gc/StoreBuffer.cpp	Fri Aug 04 14:06:49 2023 +0000
+@@ -84,6 +84,7 @@
+       bufBigIntCell(this, JS::GCReason::FULL_CELL_PTR_BIGINT_BUFFER),
+       bufObjCell(this, JS::GCReason::FULL_CELL_PTR_OBJ_BUFFER),
+       bufferSlot(this, JS::GCReason::FULL_SLOT_BUFFER),
++      bufferWasmAnyRef(this, JS::GCReason::FULL_WASM_ANYREF_BUFFER),
+       bufferWholeCell(this),
+       bufferGeneric(this),
+       runtime_(rt),
+@@ -104,8 +105,8 @@
+ bool StoreBuffer::isEmpty() const {
+   return bufferVal.isEmpty() && bufStrCell.isEmpty() &&
+          bufBigIntCell.isEmpty() && bufObjCell.isEmpty() &&
+-         bufferSlot.isEmpty() && bufferWholeCell.isEmpty() &&
+-         bufferGeneric.isEmpty();
++         bufferSlot.isEmpty() && bufferWasmAnyRef.isEmpty() &&
++         bufferWholeCell.isEmpty() && bufferGeneric.isEmpty();
+ }
+ 
+ bool StoreBuffer::enable() {
+@@ -148,6 +149,7 @@
+   bufBigIntCell.clear();
+   bufObjCell.clear();
+   bufferSlot.clear();
++  bufferWasmAnyRef.clear();
+   bufferWholeCell.clear();
+   bufferGeneric.clear();
+ }
+@@ -167,6 +169,8 @@
+                              bufBigIntCell.sizeOfExcludingThis(mallocSizeOf) +
+                              bufObjCell.sizeOfExcludingThis(mallocSizeOf);
+   sizes->storeBufferSlots += bufferSlot.sizeOfExcludingThis(mallocSizeOf);
++  sizes->storeBufferWasmAnyRefs +=
++      bufferWasmAnyRef.sizeOfExcludingThis(mallocSizeOf);
+   sizes->storeBufferWholeCells +=
+       bufferWholeCell.sizeOfExcludingThis(mallocSizeOf);
+   sizes->storeBufferGenerics += bufferGeneric.sizeOfExcludingThis(mallocSizeOf);
+@@ -240,6 +244,7 @@
+ 
+ template struct StoreBuffer::MonoTypeBuffer<StoreBuffer::ValueEdge>;
+ template struct StoreBuffer::MonoTypeBuffer<StoreBuffer::SlotsEdge>;
++template struct StoreBuffer::MonoTypeBuffer<StoreBuffer::WasmAnyRefEdge>;
+ 
+ void js::gc::PostWriteBarrierCell(Cell* cell, Cell* prev, Cell* next) {
+   if (!next || !cell->isTenured()) {

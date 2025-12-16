@@ -1,0 +1,37 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: accessible/ipc/other/DocAccessibleChild.cpp
+# Commit: d94de995a62b
+# Full Hash: d94de995a62b8d4f65c1a8f759320cf6f6bf30bf
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2021-02-11 05:02:45
+# Description:
+#   Bug 1691345 - Check that focused child doc is a descendant of caller's doc. r=Jamie
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D104546
+# ==============================================================================
+
+diff -r 2cd494905b89 -r d94de995a62b accessible/ipc/other/DocAccessibleChild.cpp
+--- a/accessible/ipc/other/DocAccessibleChild.cpp	Wed Feb 10 16:58:53 2021 +0000
++++ b/accessible/ipc/other/DocAccessibleChild.cpp	Wed Feb 10 17:01:22 2021 +0000
+@@ -1535,8 +1535,17 @@
+ 
+   Accessible* result = acc->FocusedChild();
+   if (result) {
+-    // Accessible::FocusedChild can return an Accessible from a descendant
+-    // document.
++    // Accessible::FocusedChild can return an Accessible from any document,
++    // not just a descendant of the caller's document.
++    // Check that it is really a descendant.
++    DocAccessible* doc = result->Document();
++    while (doc != mDoc) {
++      doc = doc->ParentDocument();
++      if (!doc) {
++        // result's document is not a descendant.
++        return IPC_OK();
++      }
++    }
+     DocAccessibleChild* resultDoc = result->Document()->IPCDoc();
+     // We've sent the constructor for this document to the parent process.
+     // However, because the constructor is async, the parent process might

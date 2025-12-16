@@ -1,0 +1,39 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: accessible/html/HTMLListAccessible.cpp
+# Commit: 5f30bde41790
+# Full Hash: 5f30bde4179009fd405f8bd8c924b1f877874d42
+# Author: Mats Palmgren <mats@mozilla.com>
+# Date: 2019-08-15 19:33:18
+# Description:
+#   Bug 1574123 - Use nsLayoutUtils::GetMarkerFrame() more to avoid manual null-checks.  r=emilio
+#   
+#   (This basically addresses the review comments that I missed in
+#   bug 1105868 part 4. My bad.)
+#   
+# ==============================================================================
+
+diff -r 04f03c56a77f -r 5f30bde41790 accessible/html/HTMLListAccessible.cpp
+--- a/accessible/html/HTMLListAccessible.cpp	Thu Aug 15 12:51:58 2019 +0000
++++ b/accessible/html/HTMLListAccessible.cpp	Thu Aug 15 14:23:37 2019 +0000
+@@ -38,8 +38,7 @@
+     : HyperTextAccessibleWrap(aContent, aDoc), mBullet(nullptr) {
+   mType = eHTMLLiType;
+ 
+-  nsIContent* marker = nsLayoutUtils::GetMarkerPseudo(aContent);
+-  if (marker && marker->GetPrimaryFrame()) {
++  if (nsLayoutUtils::GetMarkerFrame(aContent)) {
+     mBullet = new HTMLListBulletAccessible(mContent, mDoc);
+     Document()->BindToDocument(mBullet, nullptr);
+     AppendChild(mBullet);
+@@ -119,8 +118,7 @@
+ // HTMLListBulletAccessible: Accessible
+ 
+ nsIFrame* HTMLListBulletAccessible::GetFrame() const {
+-  nsIContent* marker = nsLayoutUtils::GetMarkerPseudo(mContent);
+-  return marker ? marker->GetPrimaryFrame() : nullptr;
++  return nsLayoutUtils::GetMarkerFrame(mContent);
+ }
+ 
+ ENameValueFlag HTMLListBulletAccessible::Name(nsString& aName) const {

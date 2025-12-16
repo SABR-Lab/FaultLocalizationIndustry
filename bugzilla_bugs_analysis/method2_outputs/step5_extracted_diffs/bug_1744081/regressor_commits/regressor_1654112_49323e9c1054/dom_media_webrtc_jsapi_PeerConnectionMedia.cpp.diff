@@ -1,0 +1,36 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/jsapi/PeerConnectionMedia.cpp
+# Commit: 49323e9c1054
+# Full Hash: 49323e9c105493ba926196802015767390304286
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 2
+# Description:
+#   Bug 1654112 - Use a ShutdownBlockingTicket in WebRtcCallWrapper. r=jib,bwc
+#   
+#   Peer connections are cleaned up on shutdown through an xpcom-shutdown observer.
+#   It doesn't block shutdown throughout async operations.
+#   
+# ==============================================================================
+
+diff -r 31963b9b2342 -r 49323e9c1054 dom/media/webrtc/jsapi/PeerConnectionMedia.cpp
+--- a/dom/media/webrtc/jsapi/PeerConnectionMedia.cpp	Tue Feb 16 17:44:00 2021 +0100
++++ b/dom/media/webrtc/jsapi/PeerConnectionMedia.cpp	Tue Feb 16 18:03:06 2021 +0100
+@@ -659,8 +659,12 @@
+     webrtc::WebRtcKeyValueConfig* aTrials,
+     RefPtr<TransceiverImpl>* aTransceiverImpl) {
+   if (!mCall) {
+-    mCall = WebRtcCallWrapper::Create(mParent->GetTimestampMaker(),
+-                                      aSharedWebrtcState, aTrials);
++    mCall = WebRtcCallWrapper::Create(
++        mParent->GetTimestampMaker(),
++        MakeUnique<media::ShutdownBlockingTicket>(
++            u"WebRtcCallWrapper shutdown blocker"_ns,
++            NS_LITERAL_STRING_FROM_CSTRING(__FILE__), __LINE__),
++        aSharedWebrtcState, aTrials);
+   }
+ 
+   RefPtr<TransceiverImpl> transceiver = new TransceiverImpl(

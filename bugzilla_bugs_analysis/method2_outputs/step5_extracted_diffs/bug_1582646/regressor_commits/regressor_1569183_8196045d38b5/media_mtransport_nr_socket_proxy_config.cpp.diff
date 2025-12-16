@@ -1,0 +1,68 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/mtransport/nr_socket_proxy_config.cpp
+# Commit: 8196045d38b5
+# Full Hash: 8196045d38b50e04313725215c36ba1618c50486
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2019-09-18 21:49:27
+# Regressor Bug: 1569183
+# File Overlap Count: 2
+# Description:
+#   Bug 1569183: Create an ipdl struct called WebrtcProxyConfig, to cut down on the arg count on lots of functions. r=mjf,mayhemer
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D45562
+# ==============================================================================
+
+diff -r 6e1eba5c88ad -r 8196045d38b5 media/mtransport/nr_socket_proxy_config.cpp
+--- a/media/mtransport/nr_socket_proxy_config.cpp	Wed Sep 18 14:27:42 2019 +0000
++++ b/media/mtransport/nr_socket_proxy_config.cpp	Tue Sep 17 18:19:04 2019 +0000
+@@ -8,39 +8,29 @@
+ 
+ #include "mozilla/dom/ipc/IdType.h"
+ #include "mozilla/net/NeckoChannelParams.h"
++#include "mozilla/net/WebrtcProxyConfig.h"
+ 
+ namespace mozilla {
+ 
+ class NrSocketProxyConfig::Private {
+  public:
+-  uint64_t mTabId;
+-  nsCString mAlpn;
+-  net::LoadInfoArgs mLoadInfoArgs;
+-  ProxyPolicy mProxyPolicy;
++  net::WebrtcProxyConfig mProxyConfig;
+ };
+ 
+-NrSocketProxyConfig::NrSocketProxyConfig(uint64_t aTabId,
+-                                         const nsCString& aAlpn,
+-                                         const net::LoadInfoArgs& aArgs,
+-                                         ProxyPolicy aProxyPolicy)
+-    : mPrivate(new Private({aTabId, aAlpn, aArgs, aProxyPolicy})) {}
++NrSocketProxyConfig::NrSocketProxyConfig(
++    const net::WebrtcProxyConfig& aProxyConfig)
++    : mPrivate(new Private({aProxyConfig})) {}
+ 
+ NrSocketProxyConfig::NrSocketProxyConfig(NrSocketProxyConfig&& aOrig)
+     : mPrivate(std::move(aOrig.mPrivate)) {}
+ 
+ NrSocketProxyConfig::~NrSocketProxyConfig() {}
+ 
+-uint64_t NrSocketProxyConfig::GetTabId() const { return mPrivate->mTabId; }
+-
+-const nsCString& NrSocketProxyConfig::GetAlpn() const {
+-  return mPrivate->mAlpn;
++const net::WebrtcProxyConfig& NrSocketProxyConfig::GetConfig() const {
++  return mPrivate->mProxyConfig;
+ }
+ 
+-const net::LoadInfoArgs& NrSocketProxyConfig::GetLoadInfoArgs() const {
+-  return mPrivate->mLoadInfoArgs;
+-}
+-
+-NrSocketProxyConfig::ProxyPolicy NrSocketProxyConfig::GetProxyPolicy() const {
+-  return mPrivate->mProxyPolicy;
++bool NrSocketProxyConfig::GetForceProxy() const {
++  return mPrivate->mProxyConfig.forceProxy();
+ }
+ }  // namespace mozilla

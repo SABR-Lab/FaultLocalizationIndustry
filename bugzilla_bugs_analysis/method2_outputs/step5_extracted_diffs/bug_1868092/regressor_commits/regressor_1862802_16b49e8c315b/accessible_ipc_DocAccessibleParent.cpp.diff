@@ -1,0 +1,67 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/ipc/DocAccessibleParent.cpp
+# Commit: 16b49e8c315b
+# Full Hash: 16b49e8c315bb512c0bc406670d3b4be653185b4
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2023-11-30 04:12:04
+# Regressor Bug: 1862802
+# File Overlap Count: 1
+# Description:
+#   Bug 1862802 part 5: Remove virtual cursor change event. r=eeejay
+#   
+#   Depends on D192645
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D192646
+# ==============================================================================
+
+diff -r 5a6669e44c53 -r 16b49e8c315b accessible/ipc/DocAccessibleParent.cpp
+--- a/accessible/ipc/DocAccessibleParent.cpp	Wed Nov 29 03:53:20 2023 +0000
++++ b/accessible/ipc/DocAccessibleParent.cpp	Wed Nov 29 03:53:20 2023 +0000
+@@ -546,45 +546,6 @@
+   return IPC_OK();
+ }
+ 
+-mozilla::ipc::IPCResult DocAccessibleParent::RecvVirtualCursorChangeEvent(
+-    const uint64_t& aID, const uint64_t& aOldPositionID,
+-    const uint64_t& aNewPositionID, const int16_t& aReason,
+-    const bool& aFromUser) {
+-  ACQUIRE_ANDROID_LOCK
+-  if (mShutdown) {
+-    return IPC_OK();
+-  }
+-
+-  RemoteAccessible* target = GetAccessible(aID);
+-  RemoteAccessible* oldPosition = GetAccessible(aOldPositionID);
+-  RemoteAccessible* newPosition = GetAccessible(aNewPositionID);
+-
+-  if (!target) {
+-    NS_ERROR("no proxy for event!");
+-    return IPC_OK();
+-  }
+-
+-#if defined(ANDROID)
+-  PlatformVirtualCursorChangeEvent(target, oldPosition, newPosition, aReason,
+-                                   aFromUser);
+-#endif
+-
+-  if (!nsCoreUtils::AccEventObserversExist()) {
+-    return IPC_OK();
+-  }
+-
+-  xpcAccessibleDocument* doc = GetAccService()->GetXPCDocument(this);
+-  RefPtr<xpcAccVirtualCursorChangeEvent> event =
+-      new xpcAccVirtualCursorChangeEvent(
+-          nsIAccessibleEvent::EVENT_VIRTUALCURSOR_CHANGED,
+-          GetXPCAccessible(target), doc, nullptr, aFromUser,
+-          GetXPCAccessible(oldPosition), GetXPCAccessible(newPosition),
+-          aReason);
+-  nsCoreUtils::DispatchAccEvent(std::move(event));
+-
+-  return IPC_OK();
+-}
+-
+ mozilla::ipc::IPCResult DocAccessibleParent::RecvScrollingEvent(
+     const uint64_t& aID, const uint64_t& aType, const uint32_t& aScrollX,
+     const uint32_t& aScrollY, const uint32_t& aMaxScrollX,

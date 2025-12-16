@@ -1,0 +1,31 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/EditorBase.cpp
+# Commit: de32238c780f
+# Full Hash: de32238c780f734d57628ec3957dd7065ea75db3
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2021-09-15 09:24:53
+# Description:
+#   Bug 1727840 - Make `DeleteNodeTransaction` allow to create its instance for non-editable text node which was created or modified by an editor r=m_kato
+#   
+#   Although we don't have a testcase, `HTMLEditor` may need to delete a text node
+#   if it's created for composition.  If it's not allowed, users may see staying
+#   composition string in disabled editor.
+# ==============================================================================
+
+diff -r 007ff7f371c9 -r de32238c780f editor/libeditor/EditorBase.cpp
+--- a/editor/libeditor/EditorBase.cpp	Wed Sep 15 00:04:16 2021 +0000
++++ b/editor/libeditor/EditorBase.cpp	Wed Sep 15 00:20:19 2021 +0000
+@@ -3043,6 +3043,11 @@
+     if (begin.IsSet() && end.IsSet()) {
+       TopLevelEditSubActionDataRef().DidInsertText(*this, begin, end);
+     }
++    if (isIMETransaction) {
++      // Let's mark the text node as "modified frequently" if it interact with
++      // IME since non-ASCII character may be inserted into it in most cases.
++      aPointToInsert.ContainerAsText()->MarkAsMaybeModifiedFrequently();
++    }
+   }
+ 
+   // let listeners know what happened

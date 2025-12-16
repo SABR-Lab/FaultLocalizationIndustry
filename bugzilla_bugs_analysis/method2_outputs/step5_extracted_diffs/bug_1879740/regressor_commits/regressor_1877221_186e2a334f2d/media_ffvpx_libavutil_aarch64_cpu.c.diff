@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/ffvpx/libavutil/aarch64/cpu.c
+# Commit: 186e2a334f2d
+# Full Hash: 186e2a334f2deb37b29f44b28bc8c83babeeb9a4
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2024-02-09 09:37:17
+# Regressor Bug: 1877221
+# File Overlap Count: 1
+# Description:
+#   Bug 1877221 - Pull in new ffmpeg code, reapply patch. r=media-playback-reviewers,chunmin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D199909
+# ==============================================================================
+
+diff -r c5920de78d16 -r 186e2a334f2d media/ffvpx/libavutil/aarch64/cpu.c
+--- a/media/ffvpx/libavutil/aarch64/cpu.c	Thu Feb 08 10:39:53 2024 +0000
++++ b/media/ffvpx/libavutil/aarch64/cpu.c	Thu Feb 08 10:39:54 2024 +0000
+@@ -20,9 +20,8 @@
+ #include "libavutil/cpu_internal.h"
+ #include "config.h"
+ 
+-#if (defined(__linux__) || defined(__ANDROID__)) && HAVE_GETAUXVAL && HAVE_ASM_HWCAP_H
++#if (defined(__linux__) || defined(__ANDROID__)) && HAVE_GETAUXVAL
+ #include <stdint.h>
+-#include <asm/hwcap.h>
+ #include <sys/auxv.h>
+ 
+ #define get_cpu_feature_reg(reg, val) \
+@@ -31,11 +30,9 @@
+ static int detect_flags(void)
+ {
+     int flags = 0;
+-    unsigned long hwcap;
+ 
+-    hwcap = getauxval(AT_HWCAP);
+-
+-#if defined(HWCAP_CPUID)
++#if defined(HWCAP_CPUID) && HAVE_INLINE_ASM
++    unsigned long hwcap = getauxval(AT_HWCAP);
+     // We can check for DOTPROD and I8MM using HWCAP_ASIMDDP and
+     // HWCAP2_I8MM too, avoiding to read the CPUID registers (which triggers
+     // a trap, handled by the kernel). However the HWCAP_* defines for these
+@@ -54,8 +51,6 @@
+         if (((tmp >> 52) & 0xf) == 0x1)
+             flags |= AV_CPU_FLAG_I8MM;
+     }
+-#else
+-    (void)hwcap;
+ #endif
+ 
+     return flags;

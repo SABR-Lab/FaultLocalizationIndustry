@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/MediaEngineWebRTCAudio.h
+# Commit: a1def130c105
+# Full Hash: a1def130c1053111631562df9dbf3545356bc448
+# Author: Chun-Min Chang <chun.m.chang@gmail.com>
+# Date: 2022-01-28 04:41:16
+# Regressor Bug: 1742655
+# File Overlap Count: 2
+# Description:
+#   Bug 1742655 - Remove NotifyOutputData from NativeInputTrack r=pehrsons
+#   
+#   Depends on D134532
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D134627
+# ==============================================================================
+
+diff -r b0a8837110db -r a1def130c105 dom/media/webrtc/MediaEngineWebRTCAudio.h
+--- a/dom/media/webrtc/MediaEngineWebRTCAudio.h	Thu Jan 27 22:29:34 2022 +0000
++++ b/dom/media/webrtc/MediaEngineWebRTCAudio.h	Thu Jan 27 22:29:34 2022 +0000
+@@ -113,9 +113,8 @@
+   void Process(MediaTrackGraphImpl* aGraph, GraphTime aFrom, GraphTime aTo,
+                AudioSegment* aInput, AudioSegment* aOutput);
+ 
+-  void NotifyOutputData(MediaTrackGraphImpl* aGraph, AudioDataValue* aBuffer,
+-                        size_t aFrames, TrackRate aRate,
+-                        uint32_t aChannels) override;
++  void ProcessOutputData(MediaTrackGraphImpl* aGraph, AudioDataValue* aBuffer,
++                         size_t aFrames, TrackRate aRate, uint32_t aChannels);
+   bool IsVoiceInput(MediaTrackGraphImpl* aGraph) const override {
+     // If we're passing data directly without AEC or any other process, this
+     // means that all voice-processing has been disabled intentionaly. In this
+@@ -268,6 +267,10 @@
+   // needs to be empty.
+   void GetInputSourceData(AudioSegment& aOutput, const MediaInputPort* aPort,
+                           GraphTime aFrom, GraphTime aTo) const;
++  // Pass the graph's mixed audio output to mInputProcessing for processing as
++  // the reverse stream.
++  void NotifyOutputData(MediaTrackGraphImpl* aGraph, AudioDataValue* aBuffer,
++                        size_t aFrames, TrackRate aRate, uint32_t aChannels);
+ 
+   // Any thread
+   AudioInputTrack* AsAudioInputTrack() override { return this; }

@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/cairo/cairo/src/cairo-path-in-fill.c
+# Commit: 3cdfb39376b7
+# Full Hash: 3cdfb39376b736597fe658a322389117686b7e82
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2024-05-07 09:13:07
+# Regressor Bug: 1892913
+# File Overlap Count: 3
+# Description:
+#   Bug 1892913 - patch 1 - Update cairo source to 1.18.0 r=gfx-reviewers,lsalzman
+#   
+#   Wholesale replacement of files in gfx/cairo/cairo with contents of the 1.18.0 release tarball,
+#   omitting subdirectories that are not part of the core library build.
+#   
+# ==============================================================================
+
+diff -r 9daa351f875b -r 3cdfb39376b7 gfx/cairo/cairo/src/cairo-path-in-fill.c
+--- a/gfx/cairo/cairo/src/cairo-path-in-fill.c	Mon May 06 19:22:35 2024 +0000
++++ b/gfx/cairo/cairo/src/cairo-path-in-fill.c	Mon May 06 19:25:12 2024 +0000
+@@ -184,6 +184,14 @@
+ }
+ 
+ static cairo_status_t
++_cairo_in_fill_add_point (void *closure,
++                          const cairo_point_t *point,
++                          const cairo_slope_t *tangent)
++{
++    return _cairo_in_fill_line_to (closure, point);
++};
++
++static cairo_status_t
+ _cairo_in_fill_curve_to (void *closure,
+ 			 const cairo_point_t *b,
+ 			 const cairo_point_t *c,
+@@ -217,7 +225,7 @@
+ 
+     /* XXX Investigate direct inspection of the inflections? */
+     if (! _cairo_spline_init (&spline,
+-			      (cairo_spline_add_point_func_t)_cairo_in_fill_line_to,
++			      _cairo_in_fill_add_point,
+ 			      in_fill,
+ 			      &in_fill->current_point, b, c, d))
+     {

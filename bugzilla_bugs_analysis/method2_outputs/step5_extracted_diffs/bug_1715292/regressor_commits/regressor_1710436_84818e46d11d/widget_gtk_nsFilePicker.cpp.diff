@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/nsFilePicker.cpp
+# Commit: 84818e46d11d
+# Full Hash: 84818e46d11dcbf435aed65951413dbd4b29ddf2
+# Author: stransky <stransky@redhat.com>
+# Date: 2021-05-27 09:27:58
+# Regressor Bug: 1710436
+# File Overlap Count: 1
+# Description:
+#   Bug 1710436 [Wayland] Rework Wayland popup hierarchy, r=jhorak
+#   
+#   - Keep strong popup hierarchy for every toplevel nsWindow.
+#   - Divide popups to tracked and non-tracked. Tracked popups are tracked in popup hierarchy for every toplevel window. Non-tracked popups are handled as X11 ones.
+#   - Map non-tracked popups as wl_surfaces and use gtk_window_move() on them.
+# ==============================================================================
+
+diff -r c786a99f4a5b -r 84818e46d11d widget/gtk/nsFilePicker.cpp
+--- a/widget/gtk/nsFilePicker.cpp	Thu May 27 05:52:15 2021 +0000
++++ b/widget/gtk/nsFilePicker.cpp	Thu May 27 06:18:28 2021 +0000
+@@ -28,6 +28,17 @@
+ 
+ #include "nsFilePicker.h"
+ 
++#undef LOG
++#ifdef MOZ_LOGGING
++#  include "mozilla/Logging.h"
++#  include "nsTArray.h"
++#  include "Units.h"
++extern mozilla::LazyLogModule gWidgetLog;
++#  define LOG(args) MOZ_LOG(gWidgetLog, mozilla::LogLevel::Debug, args)
++#else
++#  define LOG(args)
++#endif /* MOZ_LOGGING */
++
+ using namespace mozilla;
+ 
+ #define MAX_PREVIEW_SIZE 180

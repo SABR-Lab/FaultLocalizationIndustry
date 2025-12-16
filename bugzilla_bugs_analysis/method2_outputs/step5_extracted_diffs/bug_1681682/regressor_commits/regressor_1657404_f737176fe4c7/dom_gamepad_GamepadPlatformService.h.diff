@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/gamepad/GamepadPlatformService.h
+# Commit: f737176fe4c7
+# Full Hash: f737176fe4c7c6bb742315b5fcc44acc7e75af3d
+# Author: Chris Martin <cmartin@mozilla.com>
+# Date: 2020-12-17 21:49:27
+# Regressor Bug: 1657404
+# File Overlap Count: 1
+# Description:
+#   Bug 1657404 - Back out changeset 6792f28b99bd keeping 349854c5ad56 r=handyman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D100031
+# ==============================================================================
+
+diff -r 6ba9c08d4be6 -r f737176fe4c7 dom/gamepad/GamepadPlatformService.h
+--- a/dom/gamepad/GamepadPlatformService.h	Thu Dec 17 18:24:50 2020 +0000
++++ b/dom/gamepad/GamepadPlatformService.h	Thu Dec 17 18:21:06 2020 +0000
+@@ -111,38 +111,38 @@
+   void NewMultiTouchEvent(GamepadHandle aHandle, uint32_t aTouchArrayIndex,
+                           const GamepadTouchState& aState);
+ 
++  // When shutting down the platform communications for gamepad, also reset the
++  // indexes.
++  void ResetGamepadIndexes();
++
+   // Add IPDL parent instance
+-  static void AddChannelParent(
+-      const RefPtr<GamepadEventChannelParent>& aParent);
++  void AddChannelParent(GamepadEventChannelParent* aParent);
+ 
+   // Remove IPDL parent instance
+-  static void RemoveChannelParent(GamepadEventChannelParent* aParent);
++  void RemoveChannelParent(GamepadEventChannelParent* aParent);
++
++  void MaybeShutdown();
+ 
+  private:
+-  explicit GamepadPlatformService(RefPtr<GamepadEventChannelParent> aParent);
++  GamepadPlatformService();
+   ~GamepadPlatformService();
++  template <class T>
++  void NotifyGamepadChange(GamepadHandle aHandle, const T& aInfo);
+ 
+-  void AddChannelParentInternal(
+-      const RefPtr<GamepadEventChannelParent>& aParent);
+-  bool RemoveChannelParentInternal(GamepadEventChannelParent* aParent);
+-
+-  template <class T>
+-  void NotifyGamepadChange(GamepadHandle aHandle, const T& aInfo,
+-                           const MutexAutoLock& aProofOfLock);
++  void Cleanup();
+ 
+   // mNextGamepadHandleValue can only be accessed by monitor thread
+   uint32_t mNextGamepadHandleValue;
+ 
+-  // This mutex protects mChannelParents and mGamepadAdded from race condition
++  // mChannelParents stores all the GamepadEventChannelParent instances
++  // which may be accessed by both background thread and monitor thread
++  // simultaneously, so we have a mutex to prevent race condition
++  nsTArray<RefPtr<GamepadEventChannelParent>> mChannelParents;
++
++  // This mutex protects mChannelParents from race condition
+   // between background and monitor thread
+   Mutex mMutex;
+ 
+-  // mChannelParents stores all the
+-  // GamepadEventChannelParent instances which may be
+-  // accessed by both background thread and monitor
+-  // thread simultaneously, so we have a mutex to
+-  // prevent race condition
+-  nsTArray<RefPtr<GamepadEventChannelParent>> mChannelParents;
+   std::map<GamepadHandle, GamepadAdded> mGamepadAdded;
+ };
+ 

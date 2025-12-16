@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasession/MediaSessionController.h
+# Commit: a73415e9c006
+# Full Hash: a73415e9c0067edd1117aa97a2d1675cc1d09ff7
+# Author: alwu <alwu@mozilla.com>
+# Date: 2020-03-17 09:36:40
+# Regressor Bug: 1582508
+# File Overlap Count: 1
+# Description:
+#   Bug 1582508 - part3 : create new structure 'MediaSessionInfo' to store the declared playback state for media session. r=chunmin
+#   
+#   As we would need to preserve media session's playback state as well, we create a new struture to store each media session's propagated properties.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D66340
+# ==============================================================================
+
+diff -r cdda4f7b6bf8 -r a73415e9c006 dom/media/mediasession/MediaSessionController.h
+--- a/dom/media/mediasession/MediaSessionController.h	Sat Mar 14 01:18:31 2020 +0000
++++ b/dom/media/mediasession/MediaSessionController.h	Tue Mar 17 00:03:44 2020 +0000
+@@ -14,6 +14,29 @@
+ namespace mozilla {
+ namespace dom {
+ 
++class MediaSessionInfo {
++ public:
++  MediaSessionInfo() = default;
++
++  explicit MediaSessionInfo(MediaMetadataBase& aMetadata) {
++    mMetadata.emplace(aMetadata);
++  }
++
++  MediaSessionInfo(MediaMetadataBase& aMetadata,
++                   MediaSessionPlaybackState& aState) {
++    mMetadata.emplace(aMetadata);
++    mDeclaredPlaybackState = aState;
++  }
++
++  static MediaSessionInfo EmptyInfo() { return MediaSessionInfo(); }
++
++  // These attributes are all propagated from the media session in the content
++  // process.
++  Maybe<MediaMetadataBase> mMetadata;
++  MediaSessionPlaybackState mDeclaredPlaybackState =
++      MediaSessionPlaybackState::None;
++};
++
+ /**
+  * MediaSessionController is used to track all alive media sessions within a tab
+  * and store their metadata which could be used to show on the virtual media
+@@ -73,7 +96,7 @@
+ 
+   void UpdateActiveMediaSessionContextId();
+ 
+-  nsDataHashtable<nsUint64HashKey, Maybe<MediaMetadataBase>> mMetadataMap;
++  nsDataHashtable<nsUint64HashKey, MediaSessionInfo> mMediaSessionInfoMap;
+   MediaEventProducer<MediaMetadataBase> mMetadataChangedEvent;
+ };
+ 

@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/ipc/win/DocAccessibleChild.cpp
+# Commit: 9be8d2ceb3f7
+# Full Hash: 9be8d2ceb3f7ca308cc3e9458ff2c5b859a9cd90
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2020-06-10 14:02:18
+# Regressor Bug: 1644323
+# File Overlap Count: 1
+# Description:
+#   Bug 1644323: For in-process iframes in content processes, use the emulated window set on the top level DocAccessibleChild (if any). r=MarcoZ
+#   
+#   When window emulation is enabled, the emulated window is set on the top level DocAccessibleChild.
+#   However, it isn't set on child documents (in-process iframes).
+#   Therefore, when querying the window handle, we need to check for an emulated window handle on the top level document and return that if present.
+# ==============================================================================
+
+diff -r 0ca9f1ff7aac -r 9be8d2ceb3f7 accessible/ipc/win/DocAccessibleChild.cpp
+--- a/accessible/ipc/win/DocAccessibleChild.cpp	Wed Jun 10 10:07:23 2020 +0300
++++ b/accessible/ipc/win/DocAccessibleChild.cpp	Wed Jun 10 07:11:31 2020 +0000
+@@ -84,9 +84,18 @@
+     return mEmulatedWindowHandle;
+   }
+ 
+-  auto tab = static_cast<dom::BrowserChild*>(Manager());
+-  MOZ_ASSERT(tab);
+-  return reinterpret_cast<HWND>(tab->GetNativeWindowHandle());
++  auto browser = static_cast<dom::BrowserChild*>(Manager());
++  MOZ_ASSERT(browser);
++  // Iframe documents use the same window handle as their top level document.
++  auto topDoc = static_cast<DocAccessibleChild*>(
++      browser->GetTopLevelDocAccessibleChild());
++  // Note that topDoc can be null if we're still initializing the top level
++  // document.
++  if (topDoc && topDoc != this && topDoc->mEmulatedWindowHandle) {
++    return topDoc->mEmulatedWindowHandle;
++  }
++
++  return reinterpret_cast<HWND>(browser->GetNativeWindowHandle());
+ }
+ 
+ void DocAccessibleChild::PushDeferredEvent(UniquePtr<DeferredEvent> aEvent) {

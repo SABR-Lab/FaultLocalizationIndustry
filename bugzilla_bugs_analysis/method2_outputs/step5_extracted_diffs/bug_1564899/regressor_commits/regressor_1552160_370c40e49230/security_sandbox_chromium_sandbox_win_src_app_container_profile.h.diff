@@ -1,0 +1,96 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/sandbox/win/src/app_container_profile.h
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 2
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/sandbox/win/src/app_container_profile.h
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/security/sandbox/chromium/sandbox/win/src/app_container_profile.h	Wed Jun 12 11:10:48 2019 +0100
+@@ -0,0 +1,74 @@
++// Copyright 2017 The Chromium Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef SANDBOX_SRC_APP_CONTAINER_PROFILE_H_
++#define SANDBOX_SRC_APP_CONTAINER_PROFILE_H_
++
++#include <windows.h>
++
++#include <accctrl.h>
++
++#include "base/files/file_path.h"
++#include "base/win/scoped_handle.h"
++#include "sandbox/win/src/sid.h"
++
++namespace sandbox {
++
++class AppContainerProfile {
++ public:
++  // Increments the reference count of this object. The reference count must
++  // be incremented if this interface is given to another component.
++  virtual void AddRef() = 0;
++
++  // Decrements the reference count of this object. When the reference count
++  // is zero the object is automatically destroyed.
++  // Indicates that the caller is done with this interface. After calling
++  // release no other method should be called.
++  virtual void Release() = 0;
++
++  // Get a handle to a registry key for this package.
++  virtual bool GetRegistryLocation(REGSAM desired_access,
++                                   base::win::ScopedHandle* key) = 0;
++
++  // Get a folder path to a location for this package.
++  virtual bool GetFolderPath(base::FilePath* file_path) = 0;
++
++  // Get a pipe name usable by this AC.
++  virtual bool GetPipePath(const wchar_t* pipe_name,
++                           base::FilePath* pipe_path) = 0;
++
++  // Do an access check based on this profile for a named object. If method
++  // returns true then access_status reflects whether access was granted and
++  // granted_access gives the final access rights. The object_type can be one of
++  // SE_FILE_OBJECT, SE_REGISTRY_KEY, SE_REGISTRY_WOW64_32KEY. See
++  // ::GetNamedSecurityInfo for more information about how the enumeration is
++  // used and what format object_name needs to be.
++  virtual bool AccessCheck(const wchar_t* object_name,
++                           SE_OBJECT_TYPE object_type,
++                           DWORD desired_access,
++                           DWORD* granted_access,
++                           BOOL* access_status) = 0;
++
++  // Adds a capability by name to this profile.
++  virtual bool AddCapability(const wchar_t* capability_name) = 0;
++  // Adds a capability from a known list.
++  virtual bool AddCapability(WellKnownCapabilities capability) = 0;
++  // Adds a capability from a SID
++  virtual bool AddCapabilitySddl(const wchar_t* sddl_sid) = 0;
++
++  // Adds an impersonation capability by name to this profile.
++  virtual bool AddImpersonationCapability(const wchar_t* capability_name) = 0;
++  // Adds an impersonation capability from a known list.
++  virtual bool AddImpersonationCapability(WellKnownCapabilities capability) = 0;
++  // Adds an impersonation capability from a SID
++  virtual bool AddImpersonationCapabilitySddl(const wchar_t* sddl_sid) = 0;
++
++  // Enable Low Privilege AC.
++  virtual void SetEnableLowPrivilegeAppContainer(bool enable) = 0;
++  virtual bool GetEnableLowPrivilegeAppContainer() = 0;
++};
++
++}  // namespace sandbox
++
++#endif  // SANDBOX_SRC_APP_CONTAINER_PROFILE_H_

@@ -1,0 +1,29 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit-test/tests/debug/Source-element-05.js
+# Commit: 7ea3821e4b4b
+# Full Hash: 7ea3821e4b4bbbd3e590353c703be946c3d223a7
+# Author: Jason Orendorff <jason.orendorff@gmail.com>
+# Date: 2020-09-30 09:29:18
+# Description:
+#   Bug 1667036 - Fix a couple of bugs in a shell-only debugger callback. r=tcampbell.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D91343
+# ==============================================================================
+
+diff -r ca15ce025dde -r 7ea3821e4b4b js/src/jit-test/tests/debug/Source-element-05.js
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/js/src/jit-test/tests/debug/Source-element-05.js	Tue Sep 29 19:51:52 2020 +0000
+@@ -0,0 +1,11 @@
++// source.element is undefined when bad values are passed to evaluate().
++
++var g = newGlobal({newCompartment: true});
++var dbg = new Debugger;
++var gw = dbg.addDebuggee(g);
++
++for (let nonObject of [32, "[object Object]", null, undefined]) {
++  g.evaluate("function f(x) { return 2*x; }", {element: nonObject});
++  var fw = gw.getOwnPropertyDescriptor('f').value;
++  assertEq(fw.script.source.element, undefined);
++}

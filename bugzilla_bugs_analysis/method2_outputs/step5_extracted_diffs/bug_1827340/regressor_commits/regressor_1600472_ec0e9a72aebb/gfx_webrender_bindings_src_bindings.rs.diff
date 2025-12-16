@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/webrender_bindings/src/bindings.rs
+# Commit: ec0e9a72aebb
+# Full Hash: ec0e9a72aebb72422b06c1cadee2b3f7dc3538ce
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2020-01-10 05:03:08
+# Regressor Bug: 1600472
+# File Overlap Count: 2
+# Description:
+#   Bug 1600472 - Disable allowing sacrificing subpixel anti-aliasing for small screens. r=jrmuizel
+#   
+#   This patch only allows sacrificing subpixel anti-aliasing when the
+#   screen size is larger than WUXGA, and when the force disable pref is not
+#   set. In the future, we may also add disable this for high end GPUs.
+# ==============================================================================
+
+diff -r 912fed7c5710 -r ec0e9a72aebb gfx/webrender_bindings/src/bindings.rs
+--- a/gfx/webrender_bindings/src/bindings.rs	Thu Jan 09 14:14:08 2020 +0000
++++ b/gfx/webrender_bindings/src/bindings.rs	Thu Jan 09 15:23:38 2020 +0000
+@@ -104,7 +104,6 @@
+ /// cbindgen:field-names=[mNamespace, mHandle]
+ type WrColorRange = ColorRange;
+ 
+-
+ #[repr(C)]
+ pub struct WrSpaceAndClip {
+     space: WrSpatialId,
+@@ -1825,6 +1824,16 @@
+ }
+ 
+ #[no_mangle]
++pub extern "C" fn wr_transaction_set_quality_settings(
++    txn: &mut Transaction,
++    allow_sacrificing_subpixel_aa: bool
++) {
++    txn.set_quality_settings(QualitySettings {
++        allow_sacrificing_subpixel_aa
++    });
++}
++
++#[no_mangle]
+ pub extern "C" fn wr_resource_updates_add_image(
+     txn: &mut Transaction,
+     image_key: WrImageKey,

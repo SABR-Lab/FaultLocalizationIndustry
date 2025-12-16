@@ -1,0 +1,70 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/webrtc/signaling/src/peerconnection/PeerConnectionImpl.cpp
+# Commit: f18e61be455d
+# Full Hash: f18e61be455d493f10a2cc651cd254859894e02e
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2019-02-26 03:52:35
+# Regressor Bug: 1521879
+# File Overlap Count: 1
+# Description:
+#   Bug 1521879 - Part 1: IPC-based MediaTransport implementation r=mjf
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D17273
+# ==============================================================================
+
+diff -r 8136a17fbec9 -r f18e61be455d media/webrtc/signaling/src/peerconnection/PeerConnectionImpl.cpp
+--- a/media/webrtc/signaling/src/peerconnection/PeerConnectionImpl.cpp	Mon Feb 25 21:48:20 2019 +0000
++++ b/media/webrtc/signaling/src/peerconnection/PeerConnectionImpl.cpp	Mon Feb 25 21:50:42 2019 +0000
+@@ -308,7 +308,7 @@
+       mSTSThread(nullptr),
+       mForceIceTcp(false),
+       mMedia(nullptr),
+-      mTransportHandler(MediaTransportHandler::Create()),
++      mTransportHandler(nullptr),
+       mUuidGen(MakeUnique<PCUuidGenerator>()),
+       mIceRestartCount(0),
+       mIceRollbackCount(0),
+@@ -328,7 +328,6 @@
+     mWindow = do_QueryInterface(aGlobal->GetAsSupports());
+     if (IsPrivateBrowsing(mWindow)) {
+       mPrivateWindow = true;
+-      mTransportHandler->EnterPrivateMode();
+     }
+     mWindow->AddPeerConnection();
+     mActiveOnWindow = true;
+@@ -359,7 +358,7 @@
+     mActiveOnWindow = false;
+   }
+ 
+-  if (mPrivateWindow) {
++  if (mPrivateWindow && mTransportHandler) {
+     mTransportHandler->ExitPrivateMode();
+   }
+   if (PeerConnectionCtx::isActive()) {
+@@ -403,6 +402,13 @@
+   mSTSThread = do_GetService(NS_SOCKETTRANSPORTSERVICE_CONTRACTID, &res);
+   MOZ_ASSERT(mSTSThread);
+ 
++  // We do callback handling on STS instead of main to avoid media jank.
++  // Someday, we may have a dedicated thread for this.
++  mTransportHandler = MediaTransportHandler::Create(mSTSThread);
++  if (mPrivateWindow) {
++    mTransportHandler->EnterPrivateMode();
++  }
++
+   // Initialize NSS if we are in content process. For chrome process, NSS should
+   // already been initialized.
+   if (XRE_IsParentProcess()) {
+@@ -464,8 +470,8 @@
+     iceServers = aConfiguration.mIceServers.Value();
+   }
+ 
+-  res = mTransportHandler->Init("PC:" + GetName(), iceServers,
+-                                aConfiguration.mIceTransportPolicy);
++  res = mTransportHandler->CreateIceCtx("PC:" + GetName(), iceServers,
++                                        aConfiguration.mIceTransportPolicy);
+   if (NS_FAILED(res)) {
+     CSFLogError(LOGTAG, "%s: Failed to init mtransport", __FUNCTION__);
+     return NS_ERROR_FAILURE;

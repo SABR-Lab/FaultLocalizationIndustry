@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/test/gtest/QuotaManagerDependencyFixture.h
+# Commit: dca9f407ea90
+# Full Hash: dca9f407ea90a83ae23be6c48aab8ce3f0f6e23e
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-06-14 20:49:45
+# Regressor Bug: 1883353
+# File Overlap Count: 1
+# Description:
+#   Bug 1883353 - Require to always drop directory locks explicitly; r=dom-storage-reviewers,jari
+#   
+#   Until now, directory locks were dropped when the last strong reference was
+#   removed or after calling Drop explicitly. The dependency on ref-counting makes
+#   it less obvious when directory locks are dropped for real and it's also
+# ==============================================================================
+
+diff -r a82c4a895b9d -r dca9f407ea90 dom/quota/test/gtest/QuotaManagerDependencyFixture.h
+--- a/dom/quota/test/gtest/QuotaManagerDependencyFixture.h	Wed Jun 12 15:12:34 2024 +0000
++++ b/dom/quota/test/gtest/QuotaManagerDependencyFixture.h	Fri Jun 14 07:21:24 2024 +0000
+@@ -11,6 +11,7 @@
+ #include "mozilla/MozPromise.h"
+ #include "mozilla/SpinEventLoopUntil.h"
+ #include "mozilla/dom/quota/DirectoryLock.h"
++#include "mozilla/dom/quota/DirectoryLockInlines.h"
+ #include "mozilla/dom/quota/ForwardDecls.h"
+ #include "mozilla/dom/quota/QuotaManager.h"
+ 
+@@ -112,7 +113,7 @@
+ 
+       PerformOnIOThread(std::move(task), directoryLock->Id());
+ 
+-      directoryLock = nullptr;
++      DropDirectoryLock(directoryLock);
+     });
+   }
+ 

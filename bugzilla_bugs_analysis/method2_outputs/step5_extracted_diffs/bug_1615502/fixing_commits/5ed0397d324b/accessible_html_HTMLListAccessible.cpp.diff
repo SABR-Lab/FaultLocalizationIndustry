@@ -1,0 +1,39 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: accessible/html/HTMLListAccessible.cpp
+# Commit: 5ed0397d324b
+# Full Hash: 5ed0397d324b1d74c34e3b5b857dc8667bb4014c
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2020-02-15 09:56:17
+# Description:
+#   Bug 1615502 - Support list items with display:contents. r=Jamie
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D62947
+# ==============================================================================
+
+diff -r c4aaefede9d7 -r 5ed0397d324b accessible/html/HTMLListAccessible.cpp
+--- a/accessible/html/HTMLListAccessible.cpp	Fri Feb 14 20:33:05 2020 +0000
++++ b/accessible/html/HTMLListAccessible.cpp	Fri Feb 14 21:14:02 2020 +0000
+@@ -38,12 +38,15 @@
+     : HyperTextAccessibleWrap(aContent, aDoc), mBullet(nullptr) {
+   mType = eHTMLLiType;
+ 
+-  const nsStyleList* styleList = GetFrame()->StyleList();
+-  if (nsLayoutUtils::GetMarkerFrame(aContent) &&
+-      (styleList->GetListStyleImage() || !styleList->mCounterStyle.IsNone())) {
+-    mBullet = new HTMLListBulletAccessible(mContent, mDoc);
+-    Document()->BindToDocument(mBullet, nullptr);
+-    AppendChild(mBullet);
++  if (nsIFrame* bulletFrame = nsLayoutUtils::GetMarkerFrame(aContent)) {
++    if (const nsStyleList* styleList = bulletFrame->StyleList()) {
++      if (styleList->GetListStyleImage() ||
++          !styleList->mCounterStyle.IsNone()) {
++        mBullet = new HTMLListBulletAccessible(mContent, mDoc);
++        Document()->BindToDocument(mBullet, nullptr);
++        AppendChild(mBullet);
++      }
++    }
+   }
+ }
+ 

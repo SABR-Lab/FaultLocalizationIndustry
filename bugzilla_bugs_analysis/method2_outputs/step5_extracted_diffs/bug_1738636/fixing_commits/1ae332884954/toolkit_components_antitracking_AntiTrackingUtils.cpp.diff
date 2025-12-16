@@ -1,0 +1,32 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/antitracking/AntiTrackingUtils.cpp
+# Commit: 1ae332884954
+# Full Hash: 1ae3328849542f9a1a824300c71b2f4f3ecba481
+# Author: Tim Huang <tihuang@mozilla.com>
+# Date: 2021-11-05 09:34:21
+# Description:
+#   Bug 1738636 - Return true if the browsing context is not available for a document in AntiTrackingUtils::IsThirdPartyWindow(). r=pbz
+#   
+#   The browsing context of a document might be a nullptr in some rare
+#   cases. This patch makes sure we won't pass a null browsingContext to
+#   IsThirdPartyContext() in AntiTrackingUtils::IsThirdPartyWindow().
+# ==============================================================================
+
+diff -r d9349bcda358 -r 1ae332884954 toolkit/components/antitracking/AntiTrackingUtils.cpp
+--- a/toolkit/components/antitracking/AntiTrackingUtils.cpp	Fri Nov 05 00:15:00 2021 +0200
++++ b/toolkit/components/antitracking/AntiTrackingUtils.cpp	Thu Nov 04 20:25:25 2021 +0000
+@@ -664,8 +664,10 @@
+   if (!doc->GetChannel()) {
+     // If we can't get the channel from the document, i.e. initial about:blank
+     // page, we use the browsingContext of the document to check if it's in the
+-    // third-party context.
+-    return IsThirdPartyContext(doc->GetBrowsingContext());
++    // third-party context. If the browsing context is still not available, we
++    // will treat the window as third-party.
++    RefPtr<BrowsingContext> bc = doc->GetBrowsingContext();
++    return bc ? IsThirdPartyContext(bc) : true;
+   }
+ 
+   // We only care whether the channel is 3rd-party with respect to

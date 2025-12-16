@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/extensions/Schemas.jsm
+# Commit: 0e68db4ad6af
+# Full Hash: 0e68db4ad6afe1f43d97533316d80e5aadd96082
+# Author: Luca Greco <lgreco@mozilla.com>
+# Date: 2020-07-01 21:32:12
+# Regressor Bug: 1609920
+# File Overlap Count: 2
+# Description:
+#   Bug 1609920 - part 1: Allow the WebExtension Framework to register a moz-extension service worker. r=dom-workers-and-storage-reviewers,asuth,mixedpuppy
+#   
+#   - Adds the new about:config pref "extensions.backgroundServiceWorker.enabled" (currently defaults to false).
+#   - Adds the background.service_worker property to the manifest JSON schema definition
+#   - Locks background.service_worker manifest property behind the new preference
+# ==============================================================================
+
+diff -r 2a107eabe00c -r 0e68db4ad6af toolkit/components/extensions/Schemas.jsm
+--- a/toolkit/components/extensions/Schemas.jsm	Mon Jun 29 16:18:44 2020 +0000
++++ b/toolkit/components/extensions/Schemas.jsm	Wed Jun 10 12:13:29 2020 +0000
+@@ -279,6 +279,17 @@
+ 
+     return string;
+   },
++  requireBackgroundServiceWorkerEnabled(value, context) {
++    if (WebExtensionPolicy.backgroundServiceWorkerEnabled) {
++      return value;
++    }
++
++    // Add an error to the manifest validations and throw the
++    // same error.
++    const msg = "background.service_worker is currently disabled";
++    context.logError(context.makeError(msg));
++    throw new Error(msg);
++  },
+ };
+ 
+ // Parses a regular expression, with support for the Python extended

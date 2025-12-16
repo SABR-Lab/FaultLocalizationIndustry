@@ -1,0 +1,31 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/EditorEventListener.cpp
+# Commit: 019ae805259f
+# Full Hash: 019ae805259f58a086c5358850f3b2c95b04518a
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2020-01-29 15:51:04
+# Regressor Bug: 1610264
+# File Overlap Count: 1
+# Description:
+#   Bug 1611895 - Make `EditorEventListener::DragOverOrDrop()` check whether the result of `DragEvent::GetRangeParentContentAndOffset()` returned `nullptr` or not r=smaug
+#   
+#   `DragEvent::GetRangeParentContentAndOffset()` may return `nullptr`.  Previously,
+#   it was checked and returned `NS_ERROR_FAILURE` before landing bug 1610264.
+#   
+# ==============================================================================
+
+diff -r 1e1237501a7d -r 019ae805259f editor/libeditor/EditorEventListener.cpp
+--- a/editor/libeditor/EditorEventListener.cpp	Wed Jan 29 09:58:38 2020 +0000
++++ b/editor/libeditor/EditorEventListener.cpp	Wed Jan 29 10:36:32 2020 +0000
+@@ -748,6 +748,9 @@
+   int32_t dropOffset = -1;
+   nsCOMPtr<nsIContent> dropParentContent =
+       aDragEvent->GetRangeParentContentAndOffset(&dropOffset);
++  if (NS_WARN_IF(!dropParentContent)) {
++    return NS_ERROR_FAILURE;
++  }
+   if (DetachedFromEditor()) {
+     RefuseToDropAndHideCaret(aDragEvent);
+     return NS_OK;

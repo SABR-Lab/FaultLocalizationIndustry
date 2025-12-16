@@ -1,0 +1,37 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/BaselineIC.h
+# Commit: 62a055d16919
+# Full Hash: 62a055d16919bb982f8d1a03b525b88fedd50e54
+# Author: Iain Ireland <iireland@mozilla.com>
+# Date: 2020-07-07 09:47:47
+# Regressor Bug: 1646378
+# File Overlap Count: 2
+# Description:
+#   Bug 1646378: Get stubspace from ICScript in AttachBaselineCacheIRStub r=jandem
+#   
+#   My current plan for stub allocation is as follows. A JitScript contains a fallbackStubSpace, which is used for all of its own stubs. When we decide to do trial inlining for a JitScript, we create an InliningRoot, which is owned by the JitScript. The InliningRoot contains an array of unique pointers to inlined ICScripts and has a single fallbackStubSpace which is shared by all those ICScripts.
+#   
+#   I wrote this code when I was thinking that we would throw the InliningRoot away after Warp compilation. If we intend to keep it around indefinitely, it might be better to reuse the stubspace in the root JitScript, in which case we don't need this patch.
+# ==============================================================================
+
+diff -r 88d8782f9cab -r 62a055d16919 js/src/jit/BaselineIC.h
+--- a/js/src/jit/BaselineIC.h	Thu Jul 02 22:58:05 2020 +0000
++++ b/js/src/jit/BaselineIC.h	Thu Jul 02 22:30:45 2020 +0000
+@@ -985,11 +985,13 @@
+  public:
+   virtual ICStub* getStub(ICStubSpace* space) = 0;
+ 
+-  static ICStubSpace* StubSpaceForStub(bool makesGCCalls, JSScript* script);
++  static ICStubSpace* StubSpaceForStub(bool makesGCCalls, JSScript* script,
++                                       ICScript* icScript);
+ 
+   ICStubSpace* getStubSpace(JSScript* outerScript) {
++    MOZ_ASSERT(IsTypeInferenceEnabled());
+     return StubSpaceForStub(ICStub::NonCacheIRStubMakesGCCalls(kind),
+-                            outerScript);
++                            outerScript, /*icScript = */ nullptr);
+   }
+ };
+ 

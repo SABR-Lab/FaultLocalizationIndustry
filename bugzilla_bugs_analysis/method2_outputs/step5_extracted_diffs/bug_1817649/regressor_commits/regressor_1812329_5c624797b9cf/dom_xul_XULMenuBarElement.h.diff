@@ -1,0 +1,83 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/xul/XULMenuBarElement.h
+# Commit: 5c624797b9cf
+# Full Hash: 5c624797b9cfc9a130d143a7d018c7c0d4a60b60
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-02-08 21:41:44
+# Regressor Bug: 1812329
+# File Overlap Count: 1
+# Description:
+#   Bug 1812329 - Remove nsMenuBarFrame. r=smaug
+#   
+#   This ended up being a lot more straight-forward than the menu changes.
+#   
+#   TLDR:
+# ==============================================================================
+
+diff -r 59c4e9d17bfc -r 5c624797b9cf dom/xul/XULMenuBarElement.h
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/dom/xul/XULMenuBarElement.h	Wed Feb 08 13:12:23 2023 +0000
+@@ -0,0 +1,61 @@
++/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
++/* vim: set ts=8 sts=2 et sw=2 tw=80: */
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++#ifndef XULMenuBarElement_h__
++#define XULMenuBarElement_h__
++
++#include "mozilla/Attributes.h"
++#include "mozilla/dom/NameSpaceConstants.h"
++#include "nsINode.h"
++#include "nsISupports.h"
++#include "XULMenuParentElement.h"
++
++namespace mozilla::dom {
++
++class KeyboardEvent;
++class XULButtonElement;
++class MenuBarListener;
++
++nsXULElement* NS_NewXULMenuBarElement(
++    already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
++
++class XULMenuBarElement final : public XULMenuParentElement {
++ public:
++  NS_DECL_ISUPPORTS_INHERITED
++  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(XULMenuBarElement,
++                                           XULMenuParentElement)
++  NS_IMPL_FROMNODE_WITH_TAG(XULMenuBarElement, kNameSpaceID_XUL, menubar)
++
++  explicit XULMenuBarElement(already_AddRefed<class NodeInfo>&&);
++
++  MOZ_CAN_RUN_SCRIPT void SetActive(bool);
++  bool IsActive() const { return mIsActive; }
++
++  void SetActiveByKeyboard() { mActiveByKeyboard = true; }
++  bool IsActiveByKeyboard() const { return mActiveByKeyboard; }
++
++  MOZ_CAN_RUN_SCRIPT void MenuClosed() { SetActive(false); }
++
++  nsresult BindToTree(BindContext&, nsINode& aParent) override;
++  void UnbindFromTree(bool aNullParent) override;
++
++ protected:
++  ~XULMenuBarElement() override;
++
++  // Whether or not the menu bar is active (a menu item is highlighted or
++  // shown).
++  bool mIsActive = false;
++
++  // Whether the menubar was made active via the keyboard.
++  bool mActiveByKeyboard = false;
++
++  // The event listener that listens to document key presses and so on.
++  RefPtr<MenuBarListener> mListener;
++};
++
++}  // namespace mozilla::dom
++
++#endif  // XULMenuBarElement_h

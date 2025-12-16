@@ -1,0 +1,80 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/WorkerPrivate.cpp
+# Commit: e7b103c79b1a
+# Full Hash: e7b103c79b1aafa9e4f01f4c976e0d2ef46b7c41
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-12-15 09:27:59
+# Regressor Bug: 1247687
+# File Overlap Count: 1
+# Description:
+#   Bug 1247687 - Implement requestCredentials for Module Workers; r=jonco
+#   
+#   This weaves credentials through from the private to script creation.
+#   
+#   Depends on D155567
+# ==============================================================================
+
+diff -r 4dbd510fb042 -r e7b103c79b1a dom/workers/WorkerPrivate.cpp
+--- a/dom/workers/WorkerPrivate.cpp	Wed Dec 14 14:55:36 2022 +0000
++++ b/dom/workers/WorkerPrivate.cpp	Wed Dec 14 14:55:36 2022 +0000
+@@ -2282,15 +2282,17 @@
+ 
+ WorkerPrivate::WorkerPrivate(
+     WorkerPrivate* aParent, const nsAString& aScriptURL, bool aIsChromeWorker,
+-    WorkerKind aWorkerKind, enum WorkerType aWorkerType,
+-    const nsAString& aWorkerName, const nsACString& aServiceWorkerScope,
+-    WorkerLoadInfo& aLoadInfo, nsString&& aId, const nsID& aAgentClusterId,
++    WorkerKind aWorkerKind, RequestCredentials aRequestCredentials,
++    enum WorkerType aWorkerType, const nsAString& aWorkerName,
++    const nsACString& aServiceWorkerScope, WorkerLoadInfo& aLoadInfo,
++    nsString&& aId, const nsID& aAgentClusterId,
+     const nsILoadInfo::CrossOriginOpenerPolicy aAgentClusterOpenerPolicy)
+     : mMutex("WorkerPrivate Mutex"),
+       mCondVar(mMutex, "WorkerPrivate CondVar"),
+       mParent(aParent),
+       mScriptURL(aScriptURL),
+       mWorkerName(aWorkerName),
++      mCredentialsMode(aRequestCredentials),
+       mWorkerType(aWorkerType),  // If the worker runs as a script or a module
+       mWorkerKind(aWorkerKind),
+       mLoadInfo(std::move(aLoadInfo)),
+@@ -2532,17 +2534,20 @@
+     WorkerKind aWorkerKind, const nsAString& aWorkerName,
+     const nsACString& aServiceWorkerScope, WorkerLoadInfo* aLoadInfo,
+     ErrorResult& aRv, nsString aId) {
+-  return WorkerPrivate::Constructor(
+-      aCx, aScriptURL, aIsChromeWorker, aWorkerKind, WorkerType::Classic,
+-      aWorkerName, aServiceWorkerScope, aLoadInfo, aRv, std::move(aId));
++  return WorkerPrivate::Constructor(aCx, aScriptURL, aIsChromeWorker,
++                                    aWorkerKind, RequestCredentials::Omit,
++                                    WorkerType::Classic, aWorkerName,
++                                    aServiceWorkerScope, aLoadInfo, aRv,
++                                    std::move(aId));
+ }
+ 
+ // static
+ already_AddRefed<WorkerPrivate> WorkerPrivate::Constructor(
+     JSContext* aCx, const nsAString& aScriptURL, bool aIsChromeWorker,
+-    WorkerKind aWorkerKind, enum WorkerType aWorkerType,
+-    const nsAString& aWorkerName, const nsACString& aServiceWorkerScope,
+-    WorkerLoadInfo* aLoadInfo, ErrorResult& aRv, nsString aId) {
++    WorkerKind aWorkerKind, RequestCredentials aRequestCredentials,
++    enum WorkerType aWorkerType, const nsAString& aWorkerName,
++    const nsACString& aServiceWorkerScope, WorkerLoadInfo* aLoadInfo,
++    ErrorResult& aRv, nsString aId) {
+   WorkerPrivate* parent =
+       NS_IsMainThread() ? nullptr : GetCurrentThreadWorkerPrivate();
+ 
+@@ -2604,8 +2609,8 @@
+       ComputeAgentClusterIdAndCoop(parent, aWorkerKind, aLoadInfo);
+ 
+   RefPtr<WorkerPrivate> worker = new WorkerPrivate(
+-      parent, aScriptURL, aIsChromeWorker, aWorkerKind, aWorkerType,
+-      aWorkerName, aServiceWorkerScope, *aLoadInfo, std::move(aId),
++      parent, aScriptURL, aIsChromeWorker, aWorkerKind, aRequestCredentials,
++      aWorkerType, aWorkerName, aServiceWorkerScope, *aLoadInfo, std::move(aId),
+       idAndCoop.mId, idAndCoop.mCoop);
+ 
+   // Gecko contexts always have an explicitly-set default locale (set by

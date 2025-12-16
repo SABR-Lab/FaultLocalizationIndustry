@@ -1,0 +1,41 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/NativeLayerCA.mm
+# Commit: b5cf099da28f
+# Full Hash: b5cf099da28fb4dceee2bbc0e0bb77fa88244fc9
+# Author: Brad Werth <bwerth@mozilla.com>
+# Date: 2021-01-20 09:51:21
+# Description:
+#   Bug 1686834: Increase the specificity of a release assert in NextSurfaceAsFramebuffer. r=jrmuizel
+#   
+#   Some callers of NextSurface can tolerate a false return value. This moves the
+#   release assert one level lower (more specific) towards
+#   RenderCompositorNativeOGL::Bind, which can't handle a missing surface.
+# ==============================================================================
+
+diff -r 7412605f5c47 -r b5cf099da28f gfx/layers/NativeLayerCA.mm
+--- a/gfx/layers/NativeLayerCA.mm	Tue Jan 19 20:28:07 2021 +0000
++++ b/gfx/layers/NativeLayerCA.mm	Tue Jan 19 21:31:45 2021 +0000
+@@ -618,7 +618,11 @@
+ }
+ 
+ bool NativeLayerCA::NextSurface(const MutexAutoLock& aLock) {
+-  MOZ_RELEASE_ASSERT(!mSize.IsEmpty(), "NextSurface invalid mSize.");
++  if (mSize.IsEmpty()) {
++    gfxCriticalError() << "NextSurface returning false because of invalid mSize (" << mSize.width
++                       << ", " << mSize.height << ").";
++    return false;
++  }
+ 
+   MOZ_RELEASE_ASSERT(
+       !mInProgressSurface,
+@@ -703,7 +707,7 @@
+                                                       const IntRegion& aUpdateRegion,
+                                                       bool aNeedsDepth) {
+   MutexAutoLock lock(mMutex);
+-  NextSurface(lock);
++  MOZ_RELEASE_ASSERT(NextSurface(lock), "NextSurfaceAsFramebuffer needs a surface.");
+ 
+   Maybe<GLuint> fbo =
+       mSurfacePoolHandle->GetFramebufferForSurface(mInProgressSurface->mSurface, aNeedsDepth);

@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/AudioConduit.cpp
+# Commit: 3bc5b0fab56a
+# Full Hash: 3bc5b0fab56a8813870cb51e1ad7b7063d8fc8fb
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 3
+# Description:
+#   Bug 1654112 - Rework AudioConduit DTMF API to be closer to the upstream API. r=ng
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D112860
+# ==============================================================================
+
+diff -r 0991ebfeb365 -r 3bc5b0fab56a dom/media/webrtc/libwebrtcglue/AudioConduit.cpp
+--- a/dom/media/webrtc/libwebrtcglue/AudioConduit.cpp	Sun Apr 18 21:06:49 2021 +0200
++++ b/dom/media/webrtc/libwebrtcglue/AudioConduit.cpp	Mon Apr 19 23:58:47 2021 +0200
+@@ -180,28 +180,16 @@
+   return mCall->Call()->GetStats();
+ }
+ 
+-bool WebrtcAudioConduit::SetDtmfPayloadType(unsigned char type, int freq) {
+-  CSFLogInfo(LOGTAG, "%s : setting dtmf payload %d", __FUNCTION__, (int)type);
++bool WebrtcAudioConduit::InsertDTMFTone(unsigned char payloadType,
++                                        int payloadFrequency, int eventCode,
++                                        int lengthMs) {
+   MOZ_ASSERT(mCallThread->IsOnCurrentThread());
+-  mDtmfPayloadType = type;
+-  mDtmfPayloadFrequency = freq;
+-
+-  return false;
+-}
+-
+-bool WebrtcAudioConduit::InsertDTMFTone(int channel, int eventCode,
+-                                        bool outOfBand, int lengthMs,
+-                                        int attenuationDb) {
+-  MOZ_ASSERT(mCallThread->IsOnCurrentThread());
+-  if (!mSendStream || !mDtmfEnabled || !outOfBand) {
++  if (!mSendStream || !mDtmfEnabled) {
+     return false;
+   }
+ 
+-  MOZ_DIAGNOSTIC_ASSERT(mDtmfPayloadType != -1);
+-  MOZ_DIAGNOSTIC_ASSERT(mDtmfPayloadFrequency != -1);
+-
+-  return mSendStream->SendTelephoneEvent(
+-      mDtmfPayloadType, mDtmfPayloadFrequency, eventCode, lengthMs);
++  return mSendStream->SendTelephoneEvent(payloadType, payloadFrequency,
++                                         eventCode, lengthMs);
+ }
+ 
+ void WebrtcAudioConduit::OnRtcpBye() {

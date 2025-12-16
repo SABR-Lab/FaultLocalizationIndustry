@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/ipc/RDDProcessManager.h
+# Commit: 21ea78b9dc84
+# Full Hash: 21ea78b9dc84e69b5604130b7a372efacefdb4b8
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2021-01-06 15:51:27
+# Regressor Bug: 1681043
+# File Overlap Count: 2
+# Description:
+#   Bug 1681043 - P1. Create method to launch RDD process early. r=alwu
+#   
+#   We can launch the RDD process early now that it is a fully asynchronous process and doesn't block anything.
+#   
+#   This will allow to retrieve the decoding capabilities of the RDD process right away.
+# ==============================================================================
+
+diff -r 12325181f43a -r 21ea78b9dc84 dom/media/ipc/RDDProcessManager.h
+--- a/dom/media/ipc/RDDProcessManager.h	Tue Jan 05 20:49:00 2021 +0000
++++ b/dom/media/ipc/RDDProcessManager.h	Wed Jan 06 08:53:38 2021 +0000
+@@ -31,6 +31,8 @@
+ 
+   using EnsureRDDPromise =
+       MozPromise<ipc::Endpoint<PRemoteDecoderManagerChild>, nsresult, true>;
++  // Launch a new RDD process asynchronously
++  RefPtr<GenericNonExclusivePromise> LaunchRDDProcess();
+   // If not using a RDD process, launch a new RDD process asynchronously and
+   // create a RemoteDecoderManager bridge
+   RefPtr<EnsureRDDPromise> EnsureRDDProcessAndCreateBridge(
+@@ -104,6 +106,9 @@
+   // the initial map is passed in command-line arguments) to be sent
+   // when the process can receive IPC messages.
+   nsTArray<dom::Pref> mQueuedPrefs;
++  // Promise will be resolved when the RDD process has been fully started and
++  // VideoBridge configured. Only accessed on the main thread.
++  RefPtr<GenericNonExclusivePromise> mLaunchRDDPromise;
+ };
+ 
+ }  // namespace mozilla

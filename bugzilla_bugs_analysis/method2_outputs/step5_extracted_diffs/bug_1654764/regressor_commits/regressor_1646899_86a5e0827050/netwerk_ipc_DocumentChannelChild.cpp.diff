@@ -1,0 +1,102 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/ipc/DocumentChannelChild.cpp
+# Commit: 86a5e0827050
+# Full Hash: 86a5e0827050e262bb713d6910a8c1d6e6ec3738
+# Author: Dan Glastonbury <dan.glastonbury@gmail.com>
+# Date: 2020-07-13 09:51:22
+# Regressor Bug: 1646899
+# File Overlap Count: 1
+# Description:
+#   Bug 1646899 - P4: Handle object & embed via DocumentChannel. r=mattwoodrow,jya
+#   
+#   Pass internal content policy type to DLL and switch behavior depending on type
+#   being loaded. This implementation immediately redirects channel back to the
+#   content process for further handling.
+# ==============================================================================
+
+diff -r d2fd0f955e24 -r 86a5e0827050 netwerk/ipc/DocumentChannelChild.cpp
+--- a/netwerk/ipc/DocumentChannelChild.cpp	Mon Jul 13 00:48:54 2020 +0000
++++ b/netwerk/ipc/DocumentChannelChild.cpp	Mon Jul 13 00:48:57 2020 +0000
+@@ -73,8 +73,16 @@
+ 
+   gHttpHandler->OnOpeningDocumentRequest(this);
+ 
+-  if (!GetDocShell() || !GetDocShell()->GetBrowsingContext() ||
+-      GetDocShell()->GetBrowsingContext()->IsDiscarded()) {
++  RefPtr<nsDocShell> docShell = GetDocShell();
++  if (!docShell) {
++    return NS_ERROR_FAILURE;
++  }
++
++  // `loadingContext` is the BC that is initiating the resource load.
++  // For normal subdocument loads, the BC is the one that the subdoc will load
++  // into. For <object>/<embed> it's the embedder doc's BC.
++  RefPtr<BrowsingContext> loadingContext = docShell->GetBrowsingContext();
++  if (!loadingContext || loadingContext->IsDiscarded()) {
+     return NS_ERROR_FAILURE;
+   }
+ 
+@@ -84,9 +92,6 @@
+   args.cacheKey() = mCacheKey;
+   args.channelId() = mChannelId;
+   args.asyncOpenTime() = mAsyncOpenTime;
+-  args.outerWindowId() = GetDocShell()->GetOuterWindowID();
+-  args.uriModified() = mUriModified;
+-  args.isXFOError() = mIsXFOError;
+ 
+   Maybe<IPCClientInfo> ipcClientInfo;
+   if (mInitialClientInfo.isSome()) {
+@@ -99,15 +104,44 @@
+   }
+ 
+   args.hasValidTransientUserAction() =
+-      GetDocShell()
+-          ->GetBrowsingContext()
+-          ->HasValidTransientUserGestureActivation();
++      loadingContext->HasValidTransientUserGestureActivation();
++
++  switch (mLoadInfo->GetExternalContentPolicyType()) {
++    case nsIContentPolicy::TYPE_DOCUMENT:
++    case nsIContentPolicy::TYPE_SUBDOCUMENT: {
++      DocumentCreationArgs docArgs;
++      docArgs.outerWindowId() = docShell->GetOuterWindowID();
++      docArgs.uriModified() = mUriModified;
++      docArgs.isXFOError() = mIsXFOError;
++
++      args.elementCreationArgs() = docArgs;
++      break;
++    }
+ 
+-  GetDocShell()->GetBrowsingContext()->SetCurrentLoadIdentifier(
+-      Some(mLoadState->GetLoadIdentifier()));
++    case nsIContentPolicy::TYPE_OBJECT: {
++      ObjectCreationArgs objectArgs;
++      objectArgs.embedderInnerWindowId() = InnerWindowIDForExtantDoc(docShell);
++      objectArgs.loadFlags() = mLoadFlags;
++      objectArgs.contentPolicyType() = mLoadInfo->InternalContentPolicyType();
++      objectArgs.isUrgentStart() = UserActivation::IsHandlingUserInput();
++
++      args.elementCreationArgs() = objectArgs;
++      break;
++    }
++  }
+ 
+-  gNeckoChild->SendPDocumentChannelConstructor(
+-      this, GetDocShell()->GetBrowsingContext(), args);
++  switch (mLoadInfo->GetExternalContentPolicyType()) {
++    case nsIContentPolicy::TYPE_DOCUMENT:
++    case nsIContentPolicy::TYPE_SUBDOCUMENT:
++      loadingContext->SetCurrentLoadIdentifier(
++          Some(mLoadState->GetLoadIdentifier()));
++      break;
++
++    default:
++      break;
++  }
++
++  gNeckoChild->SendPDocumentChannelConstructor(this, loadingContext, args);
+ 
+   mIsPending = true;
+   mWasOpened = true;

@@ -1,0 +1,35 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: ipc/glue/BackgroundStarterChild.h
+# Commit: 0345b0ad2536
+# Full Hash: 0345b0ad253608dad8b5edda97411dd3c18d6541
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2022-01-14 09:31:02
+# Description:
+#   Bug 1749744 - Handle re-creating PBackgroundStarter, r=handyman,kershaw
+#   
+#   This is possible if the socket process bridge ends up being restarted,
+#   so needs to be handled as an edge-case. The approach taken here is to
+#   tightly couple the task queue, pid, and BackgroundStarterChild instances
+# ==============================================================================
+
+diff -r b7493a1da8af -r 0345b0ad2536 ipc/glue/BackgroundStarterChild.h
+--- a/ipc/glue/BackgroundStarterChild.h	Thu Jan 13 23:42:28 2022 +0000
++++ b/ipc/glue/BackgroundStarterChild.h	Thu Jan 13 23:58:46 2022 +0000
+@@ -16,6 +16,15 @@
+  public:
+   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(BackgroundStarterChild, override)
+ 
++  BackgroundStarterChild(base::ProcessId aOtherPid,
++                         nsISerialEventTarget* aTaskQueue)
++      : mOtherPid(aOtherPid), mTaskQueue(aTaskQueue) {}
++
++  // Unlike the methods on `IToplevelProtocol`, may be accessed on any thread
++  // and will not be modified after construction.
++  const base::ProcessId mOtherPid;
++  const nsCOMPtr<nsISerialEventTarget> mTaskQueue;
++
+  private:
+   friend class PBackgroundStarterChild;
+   ~BackgroundStarterChild() = default;

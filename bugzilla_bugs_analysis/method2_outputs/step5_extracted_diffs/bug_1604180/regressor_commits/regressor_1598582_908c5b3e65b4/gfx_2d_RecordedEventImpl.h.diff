@@ -1,0 +1,103 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/2d/RecordedEventImpl.h
+# Commit: 908c5b3e65b4
+# Full Hash: 908c5b3e65b491cfcd71acedc853f989191a3e22
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-12-09 21:50:19
+# Regressor Bug: 1598582
+# File Overlap Count: 1
+# Description:
+#   Bug 1598582 Part 2: Add event to record OptimizeSourceSurface. r=jrmuizel
+#   
+#   This also optimizes the surface returned by CreateSourceSurfaceFromData to
+#   match what would happen in the non-recorded case. This means that all surfaces
+#   of type RECORDING are optimized, i.e. they represent a surface type that
+# ==============================================================================
+
+diff -r 593bc922d369 -r 908c5b3e65b4 gfx/2d/RecordedEventImpl.h
+--- a/gfx/2d/RecordedEventImpl.h	Thu Dec 05 15:07:06 2019 +0000
++++ b/gfx/2d/RecordedEventImpl.h	Fri Nov 29 21:59:11 2019 +0000
+@@ -911,6 +911,35 @@
+   MOZ_IMPLICIT RecordedSourceSurfaceDestruction(S& aStream);
+ };
+ 
++class RecordedOptimizeSourceSurface
++    : public RecordedEventDerived<RecordedOptimizeSourceSurface> {
++ public:
++  RecordedOptimizeSourceSurface(ReferencePtr aSurface, ReferencePtr aDT,
++                                ReferencePtr aOptimizedSurface)
++      : RecordedEventDerived(OPTIMIZESOURCESURFACE),
++        mSurface(aSurface),
++        mDT(aDT),
++        mOptimizedSurface(aOptimizedSurface) {}
++
++  bool PlayEvent(Translator* aTranslator) const override;
++
++  template <class S>
++  void Record(S& aStream) const;
++  void OutputSimpleEventInfo(std::stringstream& aStringStream) const override;
++
++  std::string GetName() const override { return "OptimizeSourceSurface"; }
++
++ private:
++  friend class RecordedEvent;
++
++  ReferencePtr mSurface;
++  ReferencePtr mDT;
++  ReferencePtr mOptimizedSurface;
++
++  template <class S>
++  MOZ_IMPLICIT RecordedOptimizeSourceSurface(S& aStream);
++};
++
+ class RecordedExternalSurfaceCreation
+     : public RecordedEventDerived<RecordedExternalSurfaceCreation> {
+  public:
+@@ -2869,6 +2898,35 @@
+   aStringStream << "[" << mRefPtr << "] SourceSurface Destroyed";
+ }
+ 
++inline bool RecordedOptimizeSourceSurface::PlayEvent(
++    Translator* aTranslator) const {
++  RefPtr<SourceSurface> src =
++      aTranslator->LookupDrawTarget(mDT)->OptimizeSourceSurface(
++          aTranslator->LookupSourceSurface(mSurface));
++  aTranslator->AddSourceSurface(mOptimizedSurface, src);
++  return true;
++}
++
++template <class S>
++void RecordedOptimizeSourceSurface::Record(S& aStream) const {
++  WriteElement(aStream, mSurface);
++  WriteElement(aStream, mDT);
++  WriteElement(aStream, mOptimizedSurface);
++}
++
++template <class S>
++RecordedOptimizeSourceSurface::RecordedOptimizeSourceSurface(S& aStream)
++    : RecordedEventDerived(OPTIMIZESOURCESURFACE) {
++  ReadElement(aStream, mSurface);
++  ReadElement(aStream, mDT);
++  ReadElement(aStream, mOptimizedSurface);
++}
++
++inline void RecordedOptimizeSourceSurface::OutputSimpleEventInfo(
++    std::stringstream& aStringStream) const {
++  aStringStream << "[" << mSurface << "] Surface Optimized (DT: " << mDT << ")";
++}
++
+ inline bool RecordedExternalSurfaceCreation::PlayEvent(
+     Translator* aTranslator) const {
+   RefPtr<SourceSurface> surface = aTranslator->LookupExternalSurface(mKey);
+@@ -3574,7 +3632,8 @@
+   f(INTOLUMINANCE, RecordedIntoLuminanceSource);                   \
+   f(EXTERNALSURFACECREATION, RecordedExternalSurfaceCreation);     \
+   f(FLUSH, RecordedFlush);                                         \
+-  f(DETACHALLSNAPSHOTS, RecordedDetachAllSnapshots);
++  f(DETACHALLSNAPSHOTS, RecordedDetachAllSnapshots);               \
++  f(OPTIMIZESOURCESURFACE, RecordedOptimizeSourceSurface);
+ 
+ #define DO_WITH_EVENT_TYPE(_typeenum, _class) \
+   case _typeenum: {                           \

@@ -1,0 +1,66 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsGlobalWindowInner.cpp
+# Commit: 812ed5275f0d
+# Full Hash: 812ed5275f0db9f92944955f891df2ab68c9f8e7
+# Author: Toshihito Kikuchi <tkikuchi@mozilla.com>
+# Date: 2021-11-19 04:11:43
+# Regressor Bug: 1734099
+# File Overlap Count: 5
+# Description:
+#   Bug 1734099 - Never unload tabs with active RTCPeerConnection instances.  r=peterv,jesup
+#   
+#   This patch makes sure the Tab Unloading feature does not unload tabs that have
+#   active peer connections not to disrupt browsing experience based on WebRTC peer
+#   connections.
+# ==============================================================================
+
+diff -r a733d049dbda -r 812ed5275f0d dom/base/nsGlobalWindowInner.cpp
+--- a/dom/base/nsGlobalWindowInner.cpp	Fri Nov 19 01:03:56 2021 +0200
++++ b/dom/base/nsGlobalWindowInner.cpp	Thu Nov 18 22:59:12 2021 +0000
+@@ -2612,33 +2612,32 @@
+ 
+ void nsPIDOMWindowInner::AddPeerConnection() {
+   MOZ_ASSERT(NS_IsMainThread());
+-  mTopInnerWindow ? mTopInnerWindow->mTotalActivePeerConnections++
+-                  : mTotalActivePeerConnections++;
+   ++mActivePeerConnections;
+   if (mActivePeerConnections == 1 && mWindowGlobalChild) {
+-    mWindowGlobalChild->BlockBFCacheFor(BFCacheStatus::ACTIVE_PEER_CONNECTION);
++    mWindowGlobalChild->SendUpdateActivePeerConnectionStatus(
++        /*aIsAdded*/ true);
+   }
+ }
+ 
+ void nsPIDOMWindowInner::RemovePeerConnection() {
+   MOZ_ASSERT(NS_IsMainThread());
+-  MOZ_ASSERT(mTopInnerWindow ? mTopInnerWindow->mTotalActivePeerConnections
+-                             : mTotalActivePeerConnections);
+   MOZ_ASSERT(mActivePeerConnections > 0);
+-
+-  mTopInnerWindow ? mTopInnerWindow->mTotalActivePeerConnections--
+-                  : mTotalActivePeerConnections--;
+   --mActivePeerConnections;
+   if (mActivePeerConnections == 0 && mWindowGlobalChild) {
+-    mWindowGlobalChild->UnblockBFCacheFor(
+-        BFCacheStatus::ACTIVE_PEER_CONNECTION);
++    mWindowGlobalChild->SendUpdateActivePeerConnectionStatus(
++        /*aIsAdded*/ false);
+   }
+ }
+ 
+ bool nsPIDOMWindowInner::HasActivePeerConnections() {
+   MOZ_ASSERT(NS_IsMainThread());
+-  return mTopInnerWindow ? mTopInnerWindow->mTotalActivePeerConnections
+-                         : mTotalActivePeerConnections;
++  WindowContext* wc = GetWindowContext();
++  if (!wc) {
++    return false;
++  }
++
++  WindowContext* topWindowContext = wc->TopWindowContext();
++  return topWindowContext && topWindowContext->GetHasActivePeerConnections();
+ }
+ 
+ void nsPIDOMWindowInner::AddMediaKeysInstance(MediaKeys* aMediaKeys) {

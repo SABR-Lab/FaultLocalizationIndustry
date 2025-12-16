@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/systemservices/CamerasTypes.h
+# Commit: fef894fcc429
+# Full Hash: fef894fcc4294027fdfb62af3997b87411bef554
+# Author: Jan Grulich <jgrulich@redhat.com>
+# Date: 2023-11-30 17:23:44
+# Regressor Bug: 1844020
+# File Overlap Count: 1
+# Description:
+#   Bug 1844020 - Add a camera device placeholder in case PipeWire is not initialized yet r=pehrsons
+#   
+#   Implement DeviceInfoPipeWire with option to add a device placeholder
+#   when there is a camera device, but we don't have access to PipeWire yet.
+#   We ask the Camera portal whether there is a camera device present.
+# ==============================================================================
+
+diff -r ed31b2acb5fb -r fef894fcc429 dom/media/systemservices/CamerasTypes.h
+--- a/dom/media/systemservices/CamerasTypes.h	Thu Nov 30 11:49:35 2023 +0000
++++ b/dom/media/systemservices/CamerasTypes.h	Thu Nov 30 11:49:36 2023 +0000
+@@ -21,6 +21,22 @@
+   MaxEngine
+ };
+ 
++enum class CamerasAccessStatus {
++  // We have full access to cameras, either because it was granted, or because
++  // requesting it from the user was not necessary.
++  Granted = 1,
++  // A permission request to the platform is required before we know the
++  // camera access status. Enumeration will result in a single placeholder
++  // device, should any cameras be present on the system. The placeholder
++  // device cannot be captured.
++  RequestRequired,
++  // A permission request was made and was rejected by the platform.
++  Rejected,
++  // Generic error while doing the request, for instance with pipewire most
++  // likely the xdg-desktop-portal request failed.
++  Error,
++};
++
+ TrackingId::Source CaptureEngineToTrackingSourceStr(
+     const CaptureEngine& aEngine);
+ 
+@@ -33,6 +49,13 @@
+           mozilla::camera::CaptureEngine,
+           mozilla::camera::CaptureEngine::InvalidEngine,
+           mozilla::camera::CaptureEngine::MaxEngine> {};
++
++template <>
++struct ParamTraits<mozilla::camera::CamerasAccessStatus>
++    : public ContiguousEnumSerializer<
++          mozilla::camera::CamerasAccessStatus,
++          mozilla::camera::CamerasAccessStatus::Granted,
++          mozilla::camera::CamerasAccessStatus::Error> {};
+ }  // namespace IPC
+ 
+ #endif  // mozilla_CamerasTypes_h

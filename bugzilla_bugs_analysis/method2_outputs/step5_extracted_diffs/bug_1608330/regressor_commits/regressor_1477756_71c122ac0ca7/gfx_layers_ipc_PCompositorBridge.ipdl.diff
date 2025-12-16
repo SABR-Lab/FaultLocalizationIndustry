@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/PCompositorBridge.ipdl
+# Commit: 71c122ac0ca7
+# Full Hash: 71c122ac0ca73391866b1ef19f4f82bc2d28568b
+# Author: David Parks <davidp99@gmail.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Initial out-of-process WebGL implementation. r=mccr8,handyman
+#   
+#   Splits WebGLContext into ClientWebGLContext and HostWebGLContext.  The Client enables the JS-control of a WebGL context in a content procecss while the Host executes the WebGL graphics operations (via a WebGLContext that maintains much of the existing code) in the compositor process.  At this point, the cross-process behavior is disabled -- this series of patches is an incremental step toward that final goal.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D54018
+# ==============================================================================
+
+diff -r 5cbf5bb11c58 -r 71c122ac0ca7 gfx/layers/ipc/PCompositorBridge.ipdl
+--- a/gfx/layers/ipc/PCompositorBridge.ipdl	Wed Jan 08 21:52:03 2020 +0000
++++ b/gfx/layers/ipc/PCompositorBridge.ipdl	Wed Jan 08 22:19:14 2020 +0000
+@@ -17,6 +17,7 @@
+ include protocol PCompositorWidget;
+ include protocol PLayerTransaction;
+ include protocol PTexture;
++include protocol PWebGL;
+ include protocol PWebRenderBridge;
+ include protocol PWebGPU;
+ include "mozilla/GfxMessageUtils.h";
+@@ -48,6 +49,10 @@
+ using mozilla::layers::TransactionId from "mozilla/layers/LayersTypes.h";
+ using struct DxgiAdapterDesc from "mozilla/D3DMessageUtils.h";
+ 
++using mozilla::WebGLVersion from "mozilla/GfxMessageUtils.h";
++using shmemholder mozilla::HostWebGLCommandSink from "mozilla/dom/WebGLCrossProcessCommandQueue.h";
++using shmemholder mozilla::HostWebGLErrorSource from "mozilla/dom/WebGLErrorQueue.h";
++
+ namespace mozilla {
+ namespace layers {
+ 
+@@ -103,6 +108,7 @@
+   manages PTexture;
+   manages PCompositorWidget;
+   manages PWebRenderBridge;
++  manages PWebGL;
+   manages PWebGPU;
+ 
+ child:
+@@ -294,6 +300,11 @@
+   // To set up sharing the composited output to Firefox Reality on Desktop
+   async RequestFxrOutput();
+ 
++  // Actor that represents one WebGL context.
++  sync PWebGL(WebGLVersion aWebGLVersion,
++              HostWebGLCommandSink aCommandSink,
++              HostWebGLErrorSource aErrorSource);
++
+ child:
+   // Send back Compositor Frame Metrics from APZCs so tiled layers can
+   // update progressively.

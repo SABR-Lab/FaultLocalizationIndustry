@@ -1,0 +1,90 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmIonCompile.cpp
+# Commit: 72bf9c871ded
+# Full Hash: 72bf9c871ded006f56f09b24d0723365516445bb
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2023-08-05 09:19:01
+# Regressor Bug: 1692065
+# File Overlap Count: 5
+# Description:
+#   Bug 1692065 - wasm: Add tagging for 31-bit integers and i31ref. r=yury
+#   
+#   This commit adds a tag 0x1 for 31-bit integers in AnyRef. Any JS value
+#   that is losslessly representable (without coercion) in this range is
+#   stored without boxing. This is chosen to line up exactly with how the
+# ==============================================================================
+
+diff -r 28feda14fdec -r 72bf9c871ded js/src/wasm/WasmIonCompile.cpp
+--- a/js/src/wasm/WasmIonCompile.cpp	Fri Aug 04 14:06:50 2023 +0000
++++ b/js/src/wasm/WasmIonCompile.cpp	Fri Aug 04 14:06:50 2023 +0000
+@@ -924,6 +924,20 @@
+ 
+ #endif  // ENABLE_WASM_FUNCTION_REFERENCES
+ 
++#ifdef ENABLE_WASM_GC
++  MDefinition* i31New(MDefinition* input) {
++    auto* ins = MWasmNewI31Ref::New(alloc(), input);
++    curBlock_->add(ins);
++    return ins;
++  }
++
++  MDefinition* i31Get(MDefinition* input, FieldWideningOp wideningOp) {
++    auto* ins = MWasmI31RefGet::New(alloc(), input, wideningOp);
++    curBlock_->add(ins);
++    return ins;
++  }
++#endif  // ENABLE_WASM_GC
++
+ #ifdef ENABLE_WASM_SIMD
+   // About Wasm SIMD as supported by Ion:
+   //
+@@ -7353,6 +7367,34 @@
+                              numElements, elemSizeDef);
+ }
+ 
++static bool EmitI31New(FunctionCompiler& f) {
++  MDefinition* input;
++  if (!f.iter().readConversion(ValType::I32, ValType(RefType::i31()), &input)) {
++    return false;
++  }
++  MDefinition* output = f.i31New(input);
++  if (!output) {
++    return false;
++  }
++  f.iter().setResult(output);
++  return true;
++}
++
++static bool EmitI31Get(FunctionCompiler& f, FieldWideningOp wideningOp) {
++  MOZ_ASSERT(wideningOp != FieldWideningOp::None);
++
++  MDefinition* input;
++  if (!f.iter().readConversion(ValType(RefType::i31()), ValType::I32, &input)) {
++    return false;
++  }
++  MDefinition* output = f.i31Get(input, wideningOp);
++  if (!output) {
++    return false;
++  }
++  f.iter().setResult(output);
++  return true;
++}
++
+ static bool EmitRefTestV5(FunctionCompiler& f) {
+   MDefinition* ref;
+   RefType sourceType;
+@@ -8160,6 +8202,12 @@
+             CHECK(EmitArrayLen(f, /*decodeIgnoredTypeIndex=*/false));
+           case uint32_t(GcOp::ArrayCopy):
+             CHECK(EmitArrayCopy(f));
++          case uint32_t(GcOp::I31New):
++            CHECK(EmitI31New(f));
++          case uint32_t(GcOp::I31GetS):
++            CHECK(EmitI31Get(f, FieldWideningOp::Signed));
++          case uint32_t(GcOp::I31GetU):
++            CHECK(EmitI31Get(f, FieldWideningOp::Unsigned));
+           case uint32_t(GcOp::RefTestV5):
+             CHECK(EmitRefTestV5(f));
+           case uint32_t(GcOp::RefCastV5):

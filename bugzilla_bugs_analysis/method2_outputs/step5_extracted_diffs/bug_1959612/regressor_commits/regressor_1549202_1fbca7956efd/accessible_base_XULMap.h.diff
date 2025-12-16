@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/base/XULMap.h
+# Commit: 1fbca7956efd
+# Full Hash: 1fbca7956efd1b73ae3cc50f21ac2780a9e2040c
+# Author: Morgan Rae Reschenberg <mreschenberg@mozilla.com>
+# Date: 2025-04-10 09:29:04
+# Regressor Bug: 1549202
+# File Overlap Count: 1
+# Description:
+#   Bug 1549202: Ensure ContentSelectDropdown local accessibles return the focused <select> remote accessible as their parent r=Jamie
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D243029
+# ==============================================================================
+
+diff -r 0b9e529a5541 -r 1fbca7956efd accessible/base/XULMap.h
+--- a/accessible/base/XULMap.h	Wed Apr 09 23:51:01 2025 +0000
++++ b/accessible/base/XULMap.h	Wed Apr 09 23:51:27 2025 +0000
+@@ -15,7 +15,6 @@
+ XULMAP_TYPE(menubar, XULMenubarAccessible)
+ XULMAP_TYPE(menucaption, XULMenuitemAccessible)
+ XULMAP_TYPE(menuitem, XULMenuitemAccessible)
+-XULMAP_TYPE(menulist, XULComboboxAccessible)
+ XULMAP_TYPE(menuseparator, XULMenuSeparatorAccessible)
+ XULMAP_TYPE(notification, XULAlertAccessible)
+ XULMAP_TYPE(radio, XULRadioButtonAccessible)
+@@ -67,6 +66,19 @@
+          return new ImageAccessible(aElement, aContext->Document());
+        })
+ 
++XULMAP(menulist,
++       [](Element* aElement, LocalAccessible* aContext) -> LocalAccessible* {
++         nsAutoString domID;
++         if (nsCoreUtils::GetID(aElement, domID)) {
++           if (domID.Equals(u"ContentSelectDropdown"_ns)) {
++             return new XULContentSelectDropdownAccessible(
++                 aElement, aContext->Document());
++           }
++         }
++
++         return new XULComboboxAccessible(aElement, aContext->Document());
++       })
++
+ XULMAP(menupopup, [](Element* aElement, LocalAccessible* aContext) {
+   return CreateMenupopupAccessible(aElement, aContext);
+ })

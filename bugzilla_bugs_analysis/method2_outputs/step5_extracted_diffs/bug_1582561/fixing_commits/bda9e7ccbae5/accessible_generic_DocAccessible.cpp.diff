@@ -1,0 +1,34 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: accessible/generic/DocAccessible.cpp
+# Commit: bda9e7ccbae5
+# Full Hash: bda9e7ccbae5597f96142be6dc5364d657b3a0fc
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2019-10-03 09:39:56
+# Description:
+#   Bug 1582561 - Don't access lazily created descendants in GetAccessibleOrDescendant. r=Jamie
+#   
+#   Lazily creating children might cause us to make layout calls at unsafe times.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D47361
+# ==============================================================================
+
+diff -r cd5563f698cd -r bda9e7ccbae5 accessible/generic/DocAccessible.cpp
+--- a/accessible/generic/DocAccessible.cpp	Thu Oct 03 02:43:28 2019 +0300
++++ b/accessible/generic/DocAccessible.cpp	Thu Oct 03 00:30:06 2019 +0000
+@@ -1222,9 +1222,12 @@
+   }
+ 
+   if (acc) {
+-    uint32_t childCnt = acc->ChildCount();
++    // We access the `mChildren` array directly so that we don't access
++    // lazily created children in places like `XULTreeAccessible` and
++    // `XULTreeGridAccessible`.
++    uint32_t childCnt = acc->mChildren.Length();
+     for (uint32_t idx = 0; idx < childCnt; idx++) {
+-      Accessible* child = acc->GetChildAt(idx);
++      Accessible* child = acc->mChildren.ElementAt(idx);
+       for (nsIContent* elm = child->GetContent();
+            elm && elm != acc->GetContent();
+            elm = elm->GetFlattenedTreeParent()) {

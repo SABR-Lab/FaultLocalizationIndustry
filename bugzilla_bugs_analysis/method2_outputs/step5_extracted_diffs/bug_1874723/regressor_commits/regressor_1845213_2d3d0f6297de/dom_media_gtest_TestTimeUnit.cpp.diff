@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/gtest/TestTimeUnit.cpp
+# Commit: 2d3d0f6297de
+# Full Hash: 2d3d0f6297debb08ec41087dbfab29222fb0fc62
+# Author: alwu <alwu@mozilla.com>
+# Date: 2023-08-01 03:45:57
+# Regressor Bug: 1845213
+# File Overlap Count: 1
+# Description:
+#   Bug 1845213 - part2 : round up the inbase to make the result more precise. r=padenot
+#   
+#   Eg. {448/48,000} - {1/1,000,000} without rounding, the result would be
+#   {447/48,000}, which loses around 20ms precision.
+#   
+# ==============================================================================
+
+diff -r 3d24fe88db0d -r 2d3d0f6297de dom/media/gtest/TestTimeUnit.cpp
+--- a/dom/media/gtest/TestTimeUnit.cpp	Mon Jul 31 19:45:50 2023 +0000
++++ b/dom/media/gtest/TestTimeUnit.cpp	Mon Jul 31 19:45:50 2023 +0000
+@@ -64,7 +64,7 @@
+     TimeUnit c = TimeUnit(9001, 90000);
+     TimeUnit d = (b - c).ToBase(90000);
+     EXPECT_EQ(d.mBase, 90000);
+-    EXPECT_EQ(d.mTicks.value(), 530998);
++    EXPECT_EQ(d.mTicks.value(), 530999);
+   }
+ }
+ 
+@@ -279,3 +279,17 @@
+     } while (pts.ToSeconds() < 36000);
+   }
+ }
++
++TEST(TimeUnit, MinimumRoundingError)
++{
++  TimeUnit a(448, 48000);  // ≈9333 us
++  TimeUnit b(1, 1000000);  // 1 us
++  TimeUnit rv = a - b;     // should close to 9332 us as much as possible
++  EXPECT_EQ(rv.mTicks.value(), 448);  // ≈9333 us is closer to 9332 us
++  EXPECT_EQ(rv.mBase, 48000);
++
++  TimeUnit c(11, 1000000);  // 11 us
++  rv = a - c;               // should close to 9322 as much as possible
++  EXPECT_EQ(rv.mTicks.value(), 447);  // ≈9312 us is closer to 9322 us
++  EXPECT_EQ(rv.mBase, 48000);
++}

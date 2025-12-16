@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/libwebrtc/video/rtp_video_stream_receiver2.cc
+# Commit: d0b311007c03
+# Full Hash: d0b311007c033e83824f5f6996a70ab9e870f31f
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 5
+# Description:
+#   Bug 1654112 - Get RTCP BYE and RTP timeout handling working again (from Bug 1595479) r=mjf,dminor
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D106145
+# ==============================================================================
+
+diff -r daa9eac709dc -r d0b311007c03 third_party/libwebrtc/video/rtp_video_stream_receiver2.cc
+--- a/third_party/libwebrtc/video/rtp_video_stream_receiver2.cc	Fri Feb 19 16:20:38 2021 +0000
++++ b/third_party/libwebrtc/video/rtp_video_stream_receiver2.cc	Fri Feb 19 15:56:41 2021 -0600
+@@ -83,7 +83,8 @@
+     RtcpRttStats* rtt_stats,
+     RtcpPacketTypeCounterObserver* rtcp_packet_type_counter_observer,
+     RtcpCnameCallback* rtcp_cname_callback,
+-    uint32_t local_ssrc) {
++    uint32_t local_ssrc,
++    RtcpEventObserver* rtcp_event_observer) {
+   RtpRtcpInterface::Configuration configuration;
+   configuration.clock = clock;
+   configuration.audio = false;
+@@ -95,6 +96,7 @@
+       rtcp_packet_type_counter_observer;
+   configuration.rtcp_cname_callback = rtcp_cname_callback;
+   configuration.local_media_ssrc = local_ssrc;
++  configuration.rtcp_event_observer = rtcp_event_observer;
+ 
+   std::unique_ptr<ModuleRtpRtcpImpl2> rtp_rtcp =
+       ModuleRtpRtcpImpl2::Create(configuration);
+@@ -234,7 +236,8 @@
+                                     rtt_stats,
+                                     rtcp_packet_type_counter_observer,
+                                     rtcp_cname_callback,
+-                                    config_.rtp.local_ssrc)),
++                                    config_.rtp.local_ssrc,
++                                    config_.rtp.rtcp_event_observer)),
+       complete_frame_callback_(complete_frame_callback),
+       keyframe_request_sender_(keyframe_request_sender),
+       keyframe_request_method_(config_.rtp.keyframe_method),

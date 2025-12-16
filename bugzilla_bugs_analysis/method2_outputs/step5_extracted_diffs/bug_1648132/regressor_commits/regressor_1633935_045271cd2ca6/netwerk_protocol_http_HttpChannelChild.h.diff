@@ -1,0 +1,32 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/HttpChannelChild.h
+# Commit: 045271cd2ca6
+# Full Hash: 045271cd2ca65fd83484574c24cb508e3aaa6579
+# Author: Junior Hsu <juhsu@mozilla.com>
+# Date: 2020-06-30 10:00:42
+# Regressor Bug: 1633935
+# File Overlap Count: 1
+# Description:
+#   Bug 1633935 - P8 suspend event queue in HttpChannelChild which needs listener for redirection, r=mayhemer,necko-reviewers
+#   
+#   Now OnStartRequest is passed to child process via pBg. Every IPC which is passed thru main thread could become a race.
+#   For the redirection flow in child process is:
+#   
+# ==============================================================================
+
+diff -r b1cdccfb383d -r 045271cd2ca6 netwerk/protocol/http/HttpChannelChild.h
+--- a/netwerk/protocol/http/HttpChannelChild.h	Tue Jun 30 00:33:34 2020 +0000
++++ b/netwerk/protocol/http/HttpChannelChild.h	Tue Jun 30 00:33:41 2020 +0000
+@@ -469,6 +469,10 @@
+   // is currently being processed.
+   uint8_t mIsLastPartOfMultiPart : 1;
+ 
++  // True if this channel is suspended by ConnectParent and not resumed by
++  // CompleteRedirectSetup/RecvDeleteSelf.
++  uint8_t mSuspendForWaitCompleteRedirectSetup : 1;
++
+   void FinishInterceptedRedirect();
+   void CleanupRedirectingChannel(nsresult rv);
+ 

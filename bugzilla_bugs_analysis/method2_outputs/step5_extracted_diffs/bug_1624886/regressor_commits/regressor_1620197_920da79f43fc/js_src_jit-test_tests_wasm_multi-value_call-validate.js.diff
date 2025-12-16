@@ -1,0 +1,69 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit-test/tests/wasm/multi-value/call-validate.js
+# Commit: 920da79f43fc
+# Full Hash: 920da79f43fcf5802ebd5eb2bf610a18e821dacc
+# Author: Andy Wingo <wingo@igalia.com>
+# Date: 2020-03-19 03:53:34
+# Regressor Bug: 1620197
+# File Overlap Count: 1
+# Description:
+#   Bug 1620197 - Enable multiple results from WebAssembly functions r=lth
+#   
+#   This patch enables multi-value calls and returns, adding some tests, and
+#   conditionally disabling a couple expect-fail reftests that now pass.
+#   
+# ==============================================================================
+
+diff -r 98d7f9e4839f -r 920da79f43fc js/src/jit-test/tests/wasm/multi-value/call-validate.js
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/js/src/jit-test/tests/wasm/multi-value/call-validate.js	Wed Mar 18 16:36:45 2020 +0000
+@@ -0,0 +1,47 @@
++wasmValidateText(`
++  (module
++    (func (result i32 i32)
++      (i32.const 32)
++      (i32.const 10)))`);
++
++wasmValidateText(`
++  (module
++    (type $t (func (result i32 i32)))
++    (func (type $t)
++      (i32.const 32)
++      (i32.const 10)))`);
++
++wasmValidateText(`
++  (module
++    (func (result i32 i32)
++      (block (result i32 i32)
++        (i32.const 32)
++        (i32.const 10))))`);
++
++wasmValidateText(`
++  (module
++    (func $return-2 (result i32 i32)
++      (i32.const 32)
++      (i32.const 10))
++    (func $tail-call (result i32 i32)
++      (call 0)))`);
++
++wasmValidateText(`
++  (module
++    (func $return-2 (result i32 i32)
++      (i32.const 32)
++      (i32.const 10))
++    (func $add (result i32)
++      (call 0)
++      i32.add))`);
++
++wasmValidateText(`
++  (module
++    (func $return-2 (param i32 i32) (result i32 i32)
++      (local.get 0)
++      (local.get 1))
++    (func (export "run") (result i32)
++      (i32.const 32)
++      (i32.const 10)
++      (call 0)
++      i32.add))`);

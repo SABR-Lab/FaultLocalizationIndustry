@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/audioipc/server/src/lib.rs
+# Commit: 3939f37f4740
+# Full Hash: 3939f37f47400a76a94962da4c38c24456952ee6
+# Author: Matthew Gregan <kinetik@flim.org>
+# Date: 2020-01-26 09:48:16
+# Regressor Bug: 1590249
+# File Overlap Count: 3
+# Description:
+#   Bug 1590249 - Update audioipc to 86d49ddf.  r=chunmin
+#   
+#   Minus audio_thread_priority 0.21, due to Android build breakage.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D60615
+# ==============================================================================
+
+diff -r a6f08a30777b -r 3939f37f4740 media/audioipc/server/src/lib.rs
+--- a/media/audioipc/server/src/lib.rs	Sat Jan 25 22:49:44 2020 +0000
++++ b/media/audioipc/server/src/lib.rs	Sat Jan 25 22:50:52 2020 +0000
+@@ -124,7 +124,7 @@
+     // is registered with the reactor core, the other side is returned
+     // to the caller.
+     MessageStream::anonymous_ipc_pair()
+-        .and_then(|(sock1, sock2)| {
++        .and_then(|(ipc_server, ipc_client)| {
+             // Spawn closure to run on same thread as reactor::Core
+             // via remote handle.
+             wrapper
+@@ -133,22 +133,22 @@
+                 .spawn(futures::future::lazy(|| {
+                     trace!("Incoming connection");
+                     let handle = reactor::Handle::default();
+-                    sock2.into_tokio_ipc(&handle)
++                    ipc_server.into_tokio_ipc(&handle)
+                     .and_then(|sock| {
+                         let transport = framed_with_platformhandles(sock, Default::default());
+                         rpc::bind_server(transport, server::CubebServer::new(core_handle));
+                         Ok(())
+                     }).map_err(|_| ())
+-                    // Notify waiting thread that sock2 has been registered.
++                    // Notify waiting thread that server has been registered.
+                     .and_then(|_| wait_tx.send(()))
+                 }))
+                 .expect("Failed to spawn CubebServer");
+-            // Wait for notification that sock2 has been registered
++            // Wait for notification that server has been registered
+             // with reactor::Core.
+             let _ = wait_rx.wait();
+-            Ok(PlatformHandle::from(sock1).as_raw())
++            Ok(unsafe { PlatformHandle::from(ipc_client).into_raw() })
+         })
+-        .unwrap_or(-1isize as PlatformHandleType)
++        .unwrap_or(audioipc::INVALID_HANDLE_VALUE)
+ }
+ 
+ #[no_mangle]

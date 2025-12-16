@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/BrowsingContext.h
+# Commit: aea4783f8b48
+# Full Hash: aea4783f8b4867167607f8ba00eadc4aaa45d61d
+# Author: Kris Maglione <maglione.k@gmail.com>
+# Date: 2020-02-07 03:55:51
+# Regressor Bug: 1582832
+# File Overlap Count: 1
+# Description:
+#   Bug 1582832: Part 3 - Correctly handle windowless BCs created for printing. r=nika
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D61006
+# ==============================================================================
+
+diff -r cefac6461948 -r aea4783f8b48 docshell/base/BrowsingContext.h
+--- a/docshell/base/BrowsingContext.h	Thu Feb 06 19:08:04 2020 +0000
++++ b/docshell/base/BrowsingContext.h	Thu Feb 06 19:08:06 2020 +0000
+@@ -162,6 +162,15 @@
+       BrowsingContext* aParent, BrowsingContext* aOpener,
+       const nsAString& aName, Type aType);
+ 
++  // Same as Create, but for a BrowsingContext which does not belong to a
++  // visible window, and will always be detached by the process that created it.
++  // In contrast, any top-level BrowsingContext created in a content process
++  // using Create() is assumed to belong to a <browser> element in the parent
++  // process, which will be responsible for detaching it.
++  static already_AddRefed<BrowsingContext> CreateWindowless(
++      BrowsingContext* aParent, BrowsingContext* aOpener,
++      const nsAString& aName, Type aType);
++
+   void EnsureAttached();
+ 
+   bool EverAttached() const { return mEverAttached; }
+@@ -179,6 +188,9 @@
+   // message.
+   bool IsDiscarded() const { return mIsDiscarded; }
+ 
++  bool Windowless() const { return mWindowless; }
++  void SetWindowless();
++
+   // Get the DocShell for this BrowsingContext if it is in-process, or
+   // null if it's not.
+   nsIDocShell* GetDocShell() const { return mDocShell; }
+@@ -489,6 +501,7 @@
+     uint64_t GetOpenerId() const { return mozilla::Get<IDX_OpenerId>(mFields); }
+ 
+     bool mCached;
++    bool mWindowless;
+ 
+     FieldTuple mFields;
+   };
+@@ -657,6 +670,10 @@
+   // only be discarded once.
+   bool mIsDiscarded : 1;
+ 
++  // True if this BrowsingContext has no associated visible window, and is owned
++  // by whichever process created it, even if top-level.
++  bool mWindowless : 1;
++
+   // This is true if the BrowsingContext was out of process, but is now in
+   // process, and might have remote window proxies that need to be cleaned up.
+   bool mDanglingRemoteOuterProxies : 1;

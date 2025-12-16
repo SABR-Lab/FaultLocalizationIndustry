@@ -1,0 +1,76 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/BufferAllocator.cpp
+# Commit: 1055931aad82
+# Full Hash: 1055931aad820878188250e89d5dacb35b893400
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2025-01-17 21:57:54
+# Description:
+#   Bug 1941728 - Increase the granularity of large buffer allocations to 1MB r=sfink
+#   
+#   Currently the granularity is PageSize, but that may be less then the system
+#   page size.
+#   
+# ==============================================================================
+
+diff -r f10cdccac853 -r 1055931aad82 js/src/gc/BufferAllocator.cpp
+--- a/js/src/gc/BufferAllocator.cpp	Fri Jan 17 18:39:40 2025 +0200
++++ b/js/src/gc/BufferAllocator.cpp	Fri Jan 17 15:23:05 2025 +0000
+@@ -27,6 +27,8 @@
+ 
+ static constexpr size_t MinAllocSize = MinCellSize;  // 16 bytes
+ 
++static constexpr size_t MaxSmallAllocSize =
++    1 << (BufferAllocator::MinMediumAllocShift - 1);
+ static constexpr size_t MinMediumAllocSize =
+     1 << BufferAllocator::MinMediumAllocShift;
+ static constexpr size_t MaxMediumAllocSize =
+@@ -524,16 +526,13 @@
+ }
+ 
+ /* static */
+-bool BufferAllocator::IsLargeAllocSize(size_t bytes) {
+-  return RoundUp(bytes + sizeof(MediumBuffer), PageSize) > MaxMediumAllocSize;
++bool BufferAllocator::IsSmallAllocSize(size_t bytes) {
++  return bytes + sizeof(SmallBuffer) <= MaxSmallAllocSize;
+ }
+ 
+ /* static */
+-bool BufferAllocator::IsSmallAllocSize(size_t bytes) {
+-  // Check for large alloc size first otherwise this may overflow.
+-  MOZ_ASSERT(!IsLargeAllocSize(bytes));
+-
+-  return mozilla::RoundUpPow2(bytes + sizeof(SmallBuffer)) < MinMediumAllocSize;
++bool BufferAllocator::IsLargeAllocSize(size_t bytes) {
++  return bytes + sizeof(MediumBuffer) > MaxMediumAllocSize;
+ }
+ 
+ /* static */
+@@ -542,7 +541,7 @@
+ 
+   if (IsLargeAllocSize(requiredBytes)) {
+     size_t headerSize = sizeof(LargeBuffer);
+-    return RoundUp(requiredBytes + headerSize, PageSize) - headerSize;
++    return RoundUp(requiredBytes + headerSize, ChunkSize) - headerSize;
+   }
+ 
+   // Small and medium headers have the same size.
+@@ -1546,7 +1545,7 @@
+   bytes = std::max(bytes, MinAllocSize);
+ 
+   size_t totalBytes = bytes + sizeof(SmallBuffer);
+-  MOZ_ASSERT(totalBytes < MinMediumAllocSize);
++  MOZ_ASSERT(totalBytes <= MaxSmallAllocSize);
+   MOZ_ASSERT(totalBytes >= bytes);
+ 
+   size_t logBytes = mozilla::CeilingLog2(totalBytes);
+@@ -2288,7 +2287,7 @@
+ }
+ 
+ void* BufferAllocator::allocLarge(size_t bytes, bool nurseryOwned, bool inGC) {
+-  size_t totalBytes = RoundUp(bytes + sizeof(LargeBuffer), PageSize);
++  size_t totalBytes = RoundUp(bytes + sizeof(LargeBuffer), ChunkSize);
+   MOZ_ASSERT(totalBytes > MaxMediumAllocSize);
+   MOZ_ASSERT(totalBytes >= bytes);
+ 

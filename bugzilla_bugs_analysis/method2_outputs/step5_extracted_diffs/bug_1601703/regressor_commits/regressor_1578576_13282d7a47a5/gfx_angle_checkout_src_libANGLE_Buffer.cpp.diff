@@ -1,0 +1,122 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/angle/checkout/src/libANGLE/Buffer.cpp
+# Commit: 13282d7a47a5
+# Full Hash: 13282d7a47a57a73be8d060efd9645b4d642f03e
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2019-09-08 09:46:52
+# Regressor Bug: 1578576
+# File Overlap Count: 4
+# Description:
+#   Bug 1578576 - Part 2: Update to ANGLE 3865 r=jgilbert
+#   
+#   Depends on D44561
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44579
+# ==============================================================================
+
+diff -r 3064469c073d -r 13282d7a47a5 gfx/angle/checkout/src/libANGLE/Buffer.cpp
+--- a/gfx/angle/checkout/src/libANGLE/Buffer.cpp	Sat Sep 07 13:36:46 2019 +0000
++++ b/gfx/angle/checkout/src/libANGLE/Buffer.cpp	Sat Sep 07 13:38:36 2019 +0000
+@@ -94,7 +94,7 @@
+     mState.mSize  = size;
+ 
+     // Notify when storage changes.
+-    onStateChange(context, angle::SubjectMessage::STORAGE_CHANGED);
++    onStateChange(angle::SubjectMessage::SubjectChanged);
+ 
+     return angle::Result::Continue;
+ }
+@@ -111,7 +111,7 @@
+                                      static_cast<unsigned int>(size));
+ 
+     // Notify when data changes.
+-    onStateChange(context, angle::SubjectMessage::CONTENTS_CHANGED);
++    onStateChange(angle::SubjectMessage::ContentsChanged);
+ 
+     return angle::Result::Continue;
+ }
+@@ -129,7 +129,7 @@
+                                      static_cast<unsigned int>(size));
+ 
+     // Notify when data changes.
+-    onStateChange(context, angle::SubjectMessage::CONTENTS_CHANGED);
++    onStateChange(angle::SubjectMessage::ContentsChanged);
+ 
+     return angle::Result::Continue;
+ }
+@@ -151,7 +151,7 @@
+     mIndexRangeCache.clear();
+ 
+     // Notify when state changes.
+-    onStateChange(context, angle::SubjectMessage::RESOURCE_MAPPED);
++    onStateChange(angle::SubjectMessage::SubjectMapped);
+ 
+     return angle::Result::Continue;
+ }
+@@ -185,7 +185,7 @@
+     }
+ 
+     // Notify when state changes.
+-    onStateChange(context, angle::SubjectMessage::RESOURCE_MAPPED);
++    onStateChange(angle::SubjectMessage::SubjectMapped);
+ 
+     return angle::Result::Continue;
+ }
+@@ -205,25 +205,25 @@
+     mState.mAccessFlags = 0;
+ 
+     // Notify when data changes.
+-    onStateChange(context, angle::SubjectMessage::RESOURCE_UNMAPPED);
++    onStateChange(angle::SubjectMessage::SubjectUnmapped);
+ 
+     return angle::Result::Continue;
+ }
+ 
+-void Buffer::onTransformFeedback(const Context *context)
++void Buffer::onTransformFeedback()
+ {
+     mIndexRangeCache.clear();
+ 
+     // Notify when data changes.
+-    onStateChange(context, angle::SubjectMessage::CONTENTS_CHANGED);
++    onStateChange(angle::SubjectMessage::ContentsChanged);
+ }
+ 
+-void Buffer::onPixelPack(const Context *context)
++void Buffer::onPixelPack()
+ {
+     mIndexRangeCache.clear();
+ 
+     // Notify when data changes.
+-    onStateChange(context, angle::SubjectMessage::CONTENTS_CHANGED);
++    onStateChange(angle::SubjectMessage::ContentsChanged);
+ }
+ 
+ angle::Result Buffer::getIndexRange(const gl::Context *context,
+@@ -266,7 +266,7 @@
+         ASSERT(bound || mState.mTransformFeedbackIndexedBindingCount > 0);
+         mState.mTransformFeedbackIndexedBindingCount += bound ? 1 : -1;
+ 
+-        onStateChange(context, angle::SubjectMessage::BINDING_CHANGED);
++        onStateChange(angle::SubjectMessage::BindingChanged);
+     }
+     else
+     {
+@@ -274,12 +274,11 @@
+     }
+ }
+ 
+-void Buffer::onSubjectStateChange(const gl::Context *context,
+-                                  angle::SubjectIndex index,
+-                                  angle::SubjectMessage message)
++void Buffer::onSubjectStateChange(angle::SubjectIndex index, angle::SubjectMessage message)
+ {
+     // Pass it along!
+     ASSERT(index == kImplementationSubjectIndex);
+-    onStateChange(context, message);
++    ASSERT(message == angle::SubjectMessage::SubjectChanged);
++    onStateChange(angle::SubjectMessage::SubjectChanged);
+ }
+ }  // namespace gl

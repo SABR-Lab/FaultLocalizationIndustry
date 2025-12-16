@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/html/HTMLLegendElement.cpp
+# Commit: 2d16e9e90401
+# Full Hash: 2d16e9e904010ba3389aad9729bac4f3744a588d
+# Author: Mats Palmgren <mats@mozilla.com>
+# Date: 2021-01-30 05:43:48
+# Regressor Bug: 1683748
+# File Overlap Count: 3
+# Description:
+#   Bug 1683748 - Support Grid/Flex/Table/Column layout for the rendered legend of a fieldset.  r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D101555
+# ==============================================================================
+
+diff -r 5b99d9a7ad8d -r 2d16e9e90401 dom/html/HTMLLegendElement.cpp
+--- a/dom/html/HTMLLegendElement.cpp	Fri Jan 29 11:30:44 2021 +0000
++++ b/dom/html/HTMLLegendElement.cpp	Fri Jan 29 15:45:42 2021 +0000
+@@ -103,6 +103,26 @@
+   return NS_SUCCEEDED(rv.StealNSResult());
+ }
+ 
++HTMLLegendElement::LegendAlignValue HTMLLegendElement::LogicalAlign(
++    mozilla::WritingMode aCBWM) const {
++  const nsAttrValue* attr = GetParsedAttr(nsGkAtoms::align);
++  if (!attr || attr->Type() != nsAttrValue::eEnum) {
++    return LegendAlignValue::InlineStart;
++  }
++
++  auto value = static_cast<LegendAlignValue>(attr->GetEnumValue());
++  switch (value) {
++    case LegendAlignValue::Left:
++      return aCBWM.IsBidiLTR() ? LegendAlignValue::InlineStart
++                               : LegendAlignValue::InlineEnd;
++    case LegendAlignValue::Right:
++      return aCBWM.IsBidiLTR() ? LegendAlignValue::InlineEnd
++                               : LegendAlignValue::InlineStart;
++    default:
++      return value;
++  }
++}
++
+ already_AddRefed<HTMLFormElement> HTMLLegendElement::GetForm() {
+   return do_AddRef(GetFormElement());
+ }

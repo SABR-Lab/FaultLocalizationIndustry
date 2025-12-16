@@ -1,0 +1,81 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: xpcom/threads/nsThread.cpp
+# Commit: 3f0b4e206853
+# Full Hash: 3f0b4e206853e813534a9d1416d39ee0fac05abd
+# Author: Karl Tomlinson <karlt+@karlt.net>
+# Date: 2019-12-10 05:01:13
+# Regressor Bug: 1599922
+# File Overlap Count: 1
+# Description:
+#   Bug 1599922 clear PRThread references before the PRThread is deleted r=froydnj
+#   
+#   Virtual thread references are used for IsOnCurrentThread(), which would
+#   spuriously return true when the dangling pointer happened to match that of a
+#   new PRThread.
+# ==============================================================================
+
+diff -r 2968e233f172 -r 3f0b4e206853 xpcom/threads/nsThread.cpp
+--- a/xpcom/threads/nsThread.cpp	Mon Dec 09 21:43:13 2019 +0000
++++ b/xpcom/threads/nsThread.cpp	Mon Dec 09 14:47:47 2019 +0000
+@@ -241,6 +241,7 @@
+                           NotNull<nsThread*> aJoiningThread,
+                           bool aAwaitingShutdownAck)
+       : mTerminatingThread(aTerminatingThread),
++        mTerminatingPRThread(aTerminatingThread->GetPRThread()),
+         mJoiningThread(aJoiningThread),
+         mAwaitingShutdownAck(aAwaitingShutdownAck),
+         mIsMainThreadJoining(NS_IsMainThread()) {
+@@ -250,6 +251,7 @@
+ 
+   // NB: This will be the last reference.
+   NotNull<RefPtr<nsThread>> mTerminatingThread;
++  PRThread* const mTerminatingPRThread;
+   NotNull<nsThread*> MOZ_UNSAFE_REF(
+       "Thread manager is holding reference to joining thread") mJoiningThread;
+   bool mAwaitingShutdownAck;
+@@ -504,6 +506,10 @@
+   FreeTraceInfo();
+ #endif
+ 
++  // The PRThread will be deleted in PR_JoinThread(), so clear references.
++  self->mThread = nullptr;
++  self->mVirtualThread = nullptr;
++  self->mEventTarget->ClearCurrentThread();
+   NS_RELEASE(self);
+ }
+ 
+@@ -764,8 +770,10 @@
+ 
+ NS_IMETHODIMP_(bool)
+ nsThread::IsOnCurrentThreadInfallible() {
+-  // Rely on mVirtualThread being correct.
+-  MOZ_CRASH("IsOnCurrentThreadInfallible should never be called on nsIThread");
++  // This method is only going to be called if `mVirtualThread` is null, which
++  // only happens when the thread has exited the event loop.  Therefore, when
++  // we are called, we can never be on this thread.
++  return false;
+ }
+ 
+ //-----------------------------------------------------------------------------
+@@ -866,7 +874,6 @@
+ void nsThread::ShutdownComplete(NotNull<nsThreadShutdownContext*> aContext) {
+   MOZ_ASSERT(mEvents);
+   MOZ_ASSERT(mEventTarget);
+-  MOZ_ASSERT(mThread);
+   MOZ_ASSERT(aContext->mTerminatingThread == this);
+ 
+   MaybeRemoveFromThreadList();
+@@ -879,9 +886,8 @@
+   }
+ 
+   // Now, it should be safe to join without fear of dead-locking.
+-
+-  PR_JoinThread(mThread);
+-  mThread = nullptr;
++  PR_JoinThread(aContext->mTerminatingPRThread);
++  MOZ_ASSERT(!mThread);
+ 
+ #ifdef DEBUG
+   nsCOMPtr<nsIThreadObserver> obs = mEvents->GetObserver();

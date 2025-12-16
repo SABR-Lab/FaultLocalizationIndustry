@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/style/ServoStyleSet.cpp
+# Commit: 7b671f8bf0fc
+# Full Hash: 7b671f8bf0fc98548adbd5d9eccf1fac41addd69
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2022-10-20 21:51:26
+# Regressor Bug: 1794720
+# File Overlap Count: 1
+# Description:
+#   Bug 1794720 - fix invalidation of sibling combinators in different slots. r=firefox-style-system-reviewers,layout-reviewers,boris
+#   
+#   This extends the code to deal with sibling invalidation to handle the
+#   case where the flat tree doesn't match the DOM tree. In the test-case
+#   for example, dom is:
+# ==============================================================================
+
+diff -r 6c6037523786 -r 7b671f8bf0fc layout/style/ServoStyleSet.cpp
+--- a/layout/style/ServoStyleSet.cpp	Thu Oct 20 08:36:24 2022 +0000
++++ b/layout/style/ServoStyleSet.cpp	Thu Oct 20 08:39:18 2022 +0000
+@@ -776,17 +776,24 @@
+     postTraversalRequired |= root->HasAnyOfFlags(
+         Element::kAllServoDescendantBits | NODE_NEEDS_FRAME);
+ 
+-    if (parent) {
+-      MOZ_ASSERT(root == mDocument->GetServoRestyleRoot());
+-      if (parent->HasDirtyDescendantsForServo()) {
++    {
++      uint32_t existingBits = mDocument->GetServoRestyleRootDirtyBits();
++      Element* newRoot = nullptr;
++      while (parent && parent->HasDirtyDescendantsForServo()) {
++        MOZ_ASSERT(root == mDocument->GetServoRestyleRoot(),
++                   "Restyle root shouldn't have magically changed");
+         // If any style invalidation was triggered in our siblings, then we may
+         // need to post-traverse them, even if the root wasn't restyled after
+         // all.
+-        uint32_t existingBits = mDocument->GetServoRestyleRootDirtyBits();
+-        // We need to propagate the existing bits to the parent.
++        // We need to propagate the existing bits to the ancestor.
+         parent->SetFlags(existingBits);
++        newRoot = parent;
++        parent = parent->GetFlattenedTreeParentElementForStyle();
++      }
++
++      if (newRoot) {
+         mDocument->SetServoRestyleRoot(
+-            parent, existingBits | ELEMENT_HAS_DIRTY_DESCENDANTS_FOR_SERVO);
++            newRoot, existingBits | ELEMENT_HAS_DIRTY_DESCENDANTS_FOR_SERVO);
+         postTraversalRequired = true;
+       }
+     }

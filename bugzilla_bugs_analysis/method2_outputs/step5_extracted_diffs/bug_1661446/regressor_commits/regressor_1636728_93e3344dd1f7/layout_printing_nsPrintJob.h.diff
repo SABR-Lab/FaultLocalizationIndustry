@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/printing/nsPrintJob.h
+# Commit: 93e3344dd1f7
+# Full Hash: 93e3344dd1f7454dc46c1553dd05e5e3bc78c349
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2020-08-26 03:24:37
+# Regressor Bug: 1636728
+# File Overlap Count: 1
+# Description:
+#   Bug 1636728 - Centralize printing entry points in nsGlobalWindowOuter, and move cloning out of nsPrintJob. r=jwatt,geckoview-reviewers,smaug,agi
+#   
+#   This centralizes our print and preview setup in nsGlobalWindowOuter so
+#   that we never re-clone a clone, and so that we reuse the window.open()
+#   codepath to create the browsing context to clone into.
+# ==============================================================================
+
+diff -r 2969f3de028f -r 93e3344dd1f7 layout/printing/nsPrintJob.h
+--- a/layout/printing/nsPrintJob.h	Tue Aug 25 02:58:57 2020 +0000
++++ b/layout/printing/nsPrintJob.h	Tue Aug 25 17:45:12 2020 +0000
+@@ -178,7 +178,7 @@
+   nsresult ReflowPrintObject(const mozilla::UniquePtr<nsPrintObject>& aPO);
+ 
+   void CalcNumPrintablePages(int32_t& aNumPages);
+-  void ShowPrintProgress(bool aIsForPrinting, bool& aDoNotify);
++  void ShowPrintProgress(bool aIsForPrinting, bool& aDoNotify, Document* aDoc);
+   void SetURLAndTitleOnProgressParams(
+       const mozilla::UniquePtr<nsPrintObject>& aPO,
+       nsIPrintProgressParams* aParams);
+@@ -190,8 +190,11 @@
+ 
+   /**
+    * @return The document from the focused windows for a document viewer.
++   *
++   * FIXME: This is somewhat unsound, this looks at the original document, which
++   * could've mutated after print was initiated.
+    */
+-  Document* FindFocusedDocument() const;
++  Document* FindFocusedDocument(Document* aDoc) const;
+ 
+   /// Customizes the behaviour of GetDisplayTitleAndURL.
+   enum class DocTitleDefault : uint32_t { eDocURLElseFallback, eFallback };

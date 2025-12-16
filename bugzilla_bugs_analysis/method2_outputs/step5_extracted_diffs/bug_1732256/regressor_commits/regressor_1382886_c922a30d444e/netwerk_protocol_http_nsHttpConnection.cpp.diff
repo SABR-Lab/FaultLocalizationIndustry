@@ -1,0 +1,116 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/nsHttpConnection.cpp
+# Commit: c922a30d444e
+# Full Hash: c922a30d444e359e6fa572089eb29b85e09a1168
+# Author: Dragana Damjanovic <dd.mozilla@gmail.com>
+# Date: 2021-09-17 21:50:08
+# Regressor Bug: 1382886
+# File Overlap Count: 1
+# Description:
+#   Bug 1382886 - Make sure that nsHttpConnection immediately knows that the handshake is done. r=necko-reviewers,kershaw
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D123919
+# ==============================================================================
+
+diff -r 7f2260b49e60 -r c922a30d444e netwerk/protocol/http/nsHttpConnection.cpp
+--- a/netwerk/protocol/http/nsHttpConnection.cpp	Fri Sep 17 13:19:01 2021 +0000
++++ b/netwerk/protocol/http/nsHttpConnection.cpp	Fri Sep 17 13:19:01 2021 +0000
+@@ -449,6 +449,10 @@
+     return true;
+   }
+ 
++  if (mTlsHandshakeComplitionPending) {
++    return false;
++  }
++
+   nsresult rv = NS_OK;
+   nsCOMPtr<nsISupports> securityInfo;
+   GetSecurityInfo(getter_AddRefs(securityInfo));
+@@ -1707,6 +1711,7 @@
+   // IsAlive() calls drive the handshake and that may cause nss and necko
+   // to be out of sync.
+   if (mWaitingFor0RTTResponse && !CheckCanWrite0RTTData()) {
++    MOZ_DIAGNOSTIC_ASSERT(!mTlsHandshakeComplitionPending);
+     LOG(
+         ("nsHttpConnection::OnReadSegment Do not write any data, wait"
+          " for EnsureNPNComplete to be called [this=%p]",
+@@ -1782,7 +1787,8 @@
+       rv = mProxyConnectStream->ReadSegments(ReadFromStream, this,
+                                              nsIOService::gDefaultSegmentSize,
+                                              &transactionBytes);
+-    } else if (!EnsureNPNComplete() && !mWaitingFor0RTTResponse) {
++    } else if (!EnsureNPNComplete() &&
++               (!mWaitingFor0RTTResponse || mTlsHandshakeComplitionPending)) {
+       mSocketOutCondition = NS_BASE_STREAM_WOULD_BLOCK;
+     } else if (!mTransaction) {
+       rv = NS_ERROR_FAILURE;
+@@ -2497,10 +2503,24 @@
+ 
+ NS_IMETHODIMP
+ nsHttpConnection::HandshakeDone() {
++  mTlsHandshakeComplitionPending = true;
++
++  // HandshakeDone needs to be dispatched so that it is not called inside
++  // nss locks.
++  RefPtr<nsHttpConnection> self(this);
++  NS_DispatchToCurrentThread(NS_NewRunnableFunction(
++      "nsHttpConnection::HandshakeDoneInternal",
++      [self{std::move(self)}]() {
++        self->HandshakeDoneInternal();
++        self->mTlsHandshakeComplitionPending = false;
++      }));
++  return NS_OK;
++}
++
++void nsHttpConnection::HandshakeDoneInternal() {
+   if (mNPNComplete) {
+-    return NS_OK;
++    return;
+   }
+-
+   nsresult rv = NS_OK;
+   nsCOMPtr<nsISupports> securityInfo;
+   nsCOMPtr<nsITransportSecurityInfo> info;
+@@ -2510,19 +2530,19 @@
+   GetSecurityInfo(getter_AddRefs(securityInfo));
+   if (!securityInfo) {
+     FinishNPNSetup(false, false);
+-    return NS_OK;
++    return;
+   }
+ 
+   ssl = do_QueryInterface(securityInfo, &rv);
+   if (NS_FAILED(rv)) {
+     FinishNPNSetup(false, false);
+-    return NS_OK;
++    return;
+   }
+ 
+   info = do_QueryInterface(securityInfo, &rv);
+   if (NS_FAILED(rv)) {
+     FinishNPNSetup(false, false);
+-    return NS_OK;
++    return;
+   }
+ 
+   DebugOnly<nsresult> rvDebug = info->GetNegotiatedNPN(negotiatedNPN);
+@@ -2547,7 +2567,7 @@
+            this, mTransaction.get()));
+       mTransaction->Close(NS_ERROR_NET_RESET);
+       FinishNPNSetup(false, true);
+-      return NS_OK;
++      return;
+     }
+     if (mDid0RTTSpdy && (negotiatedNPN != mEarlyNegotiatedALPN)) {
+       Reset0RttForSpdy();
+@@ -2603,7 +2623,7 @@
+   mWaitingFor0RTTResponse = false;
+ 
+   FinishNPNSetup(true, true);
+-  return NS_OK;
++  return;
+ }
+ 
+ }  // namespace net

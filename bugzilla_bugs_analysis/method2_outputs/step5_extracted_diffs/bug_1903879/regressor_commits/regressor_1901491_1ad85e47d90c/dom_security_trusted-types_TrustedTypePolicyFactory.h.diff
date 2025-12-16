@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/security/trusted-types/TrustedTypePolicyFactory.h
+# Commit: 1ad85e47d90c
+# Full Hash: 1ad85e47d90cd081bf4e8e4f5c674d8e8b22c501
+# Author: Mirko Brodesser <mbrodesser@igalia.com>
+# Date: 2024-06-20 16:10:57
+# Regressor Bug: 1901491
+# File Overlap Count: 1
+# Description:
+#   Bug 1901491: part 3) Implement `ShouldTrustedTypePolicyCreationBeBlockedByCSP` for Windows (not Workers) including reporting exceptions, excluding reporting violations. r=tschuster,webidl,saschanaz
+#   
+#   Parsing the trusted-types directive's values is not added to
+#   `nsCSPParser::sourceList` because the latter supports keywords not
+#   supported by the trusted-types directive. E.g. 'report-sample'.
+# ==============================================================================
+
+diff -r 8c535232b6c1 -r 1ad85e47d90c dom/security/trusted-types/TrustedTypePolicyFactory.h
+--- a/dom/security/trusted-types/TrustedTypePolicyFactory.h	Thu Jun 20 07:57:31 2024 +0000
++++ b/dom/security/trusted-types/TrustedTypePolicyFactory.h	Thu Jun 20 07:57:31 2024 +0000
+@@ -25,8 +25,10 @@
+ 
+ class DOMString;
+ 
+-namespace mozilla::dom {
++namespace mozilla {
++class ErrorResult;
+ 
++namespace dom {
+ class TrustedTypePolicy;
+ 
+ // https://w3c.github.io/trusted-types/dist/spec/#trusted-type-policy-factory
+@@ -48,7 +50,7 @@
+   // https://w3c.github.io/trusted-types/dist/spec/#dom-trustedtypepolicyfactory-createpolicy
+   already_AddRefed<TrustedTypePolicy> CreatePolicy(
+       const nsAString& aPolicyName,
+-      const TrustedTypePolicyOptions& aPolicyOptions);
++      const TrustedTypePolicyOptions& aPolicyOptions, ErrorResult& aRv);
+ 
+   // https://w3c.github.io/trusted-types/dist/spec/#dom-trustedtypepolicyfactory-ishtml
+   bool IsHTML(JSContext* aJSContext, const JS::Handle<JS::Value>& aValue) const;
+@@ -90,11 +92,16 @@
+   // Required because this class is ref-counted.
+   virtual ~TrustedTypePolicyFactory() = default;
+ 
++  // https://w3c.github.io/trusted-types/dist/spec/#abstract-opdef-should-trusted-type-policy-creation-be-blocked-by-content-security-policy
++  bool ShouldTrustedTypePolicyCreationBeBlockedByCSP(
++      const nsAString& aPolicyName) const;
++
+   RefPtr<nsIGlobalObject> mGlobalObject;
+ 
+   nsTArray<nsString> mCreatedPolicyNames;
+ };
+ 
+-}  // namespace mozilla::dom
++}  // namespace dom
++}  // namespace mozilla
+ 
+ #endif  // DOM_SECURITY_TRUSTED_TYPES_TRUSTEDTYPEPOLICYFACTORY_H_

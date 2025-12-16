@@ -1,0 +1,80 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/cookie/ThirdPartyCookieBlockingExceptions.h
+# Commit: 3386ee00459e
+# Full Hash: 3386ee00459e09b085cec20f4c46064d75acb285
+# Author: Tim Huang <tihuang@mozilla.com>
+# Date: 2025-01-09 04:16:57
+# Regressor Bug: 1915355
+# File Overlap Count: 1
+# Description:
+#   Bug 1915355 - Part 7: Improve the performance of ThirdPartyCookieBlockingExceptions. r=valentin
+#   
+#   Apparently, suspending the channel before setting cookie headers will
+#   impact performance. To improve the performance, this patch stops
+#   suspending the channel while we checking the third-party cookie blocking
+# ==============================================================================
+
+diff -r 98848e63dfbf -r 3386ee00459e netwerk/cookie/ThirdPartyCookieBlockingExceptions.h
+--- a/netwerk/cookie/ThirdPartyCookieBlockingExceptions.h	Wed Jan 08 19:26:00 2025 +0000
++++ b/netwerk/cookie/ThirdPartyCookieBlockingExceptions.h	Wed Jan 08 19:26:00 2025 +0000
+@@ -21,9 +21,8 @@
+ 
+ class ThirdPartyCookieBlockingExceptions final {
+  public:
+-  // Lazily initializes the foreign cookie blocking exception list. The function
+-  // returns the promise that resolves when the list is initialized.
+-  RefPtr<GenericNonExclusivePromise> EnsureInitialized();
++  // Initializes the foreign cookie blocking exception list.
++  void Initialize();
+ 
+   // Check if the given top-level and third-party URIs are in the exception
+   // list.
+@@ -32,16 +31,6 @@
+   // Check if the given channel is in the exception list.
+   bool CheckExceptionForChannel(nsIChannel* aChannel);
+ 
+-  // Check if the given third-party site is in the wildcard exception list.
+-  // The wildcard exception list is used to allow third-party cookies under
+-  // every top-level site.
+-  bool CheckWildcardException(const nsACString& aThirdPartySite);
+-
+-  // Check if the given first-party and third-party sites are in the exception
+-  // list.
+-  bool CheckException(const nsACString& aFirstPartySite,
+-                      const nsACString& aThirdPartySite);
+-
+   void Insert(const nsACString& aException);
+   void Remove(const nsACString& aException);
+ 
+@@ -49,6 +38,8 @@
+ 
+   void Shutdown();
+ 
++  bool IsInitialized() const { return mIsInitialized; }
++
+  private:
+   nsCOMPtr<nsIThirdPartyCookieBlockingExceptionListService>
+       m3PCBExceptionService;
+@@ -63,8 +54,18 @@
+     aKey.Append(aThirdPartySite);
+   }
+ 
+-  // The promise that resolves when the 3PCB exception service is initialized.
+-  RefPtr<GenericNonExclusivePromise::Private> mInitPromise;
++  // Check if the given third-party site is in the wildcard exception list.
++  // The wildcard exception list is used to allow third-party cookies under
++  // every top-level site.
++  bool CheckWildcardException(const nsACString& aThirdPartySite);
++
++  // Check if the given first-party and third-party sites are in the exception
++  // list.
++  bool CheckException(const nsACString& aFirstPartySite,
++                      const nsACString& aThirdPartySite);
++
++  // The flag that indicates if the 3PCB exception service is initialized.
++  bool mIsInitialized = false;
+   nsTHashSet<nsCStringHashKey> m3PCBExceptionsSet;
+ };
+ 

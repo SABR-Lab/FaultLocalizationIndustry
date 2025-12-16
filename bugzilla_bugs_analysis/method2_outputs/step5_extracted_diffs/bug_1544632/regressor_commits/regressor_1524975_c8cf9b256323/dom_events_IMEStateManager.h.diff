@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/events/IMEStateManager.h
+# Commit: c8cf9b256323
+# Full Hash: c8cf9b256323da1c2f488ccef3a88369ffa3c051
+# Author: Henri Sivonen <hsivonen@hsivonen.fi>
+# Date: 2019-04-01 21:54:51
+# Regressor Bug: 1524975
+# File Overlap Count: 1
+# Description:
+#   Bug 1524975 - Split cross-process IME committing and blurring out of IMEStateManager::OnChangeFocusInternal(). r=masayuki
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D23655
+# ==============================================================================
+
+diff -r 508dd8a22136 -r c8cf9b256323 dom/events/IMEStateManager.h
+--- a/dom/events/IMEStateManager.h	Mon Apr 01 16:45:00 2019 +0000
++++ b/dom/events/IMEStateManager.h	Mon Apr 01 07:22:54 2019 +0000
+@@ -56,7 +56,7 @@
+     if (sInstalledMenuKeyboardListener) {
+       return nullptr;
+     }
+-    return sActiveTabParent.get();
++    return TabParent::GetFocused();
+   }
+ 
+   /**
+@@ -283,12 +283,6 @@
+   static void CreateIMEContentObserver(EditorBase* aEditorBase);
+   static void DestroyIMEContentObserver();
+ 
+-  /**
+-   * NotifyIMEOfBlurForChildProcess() tries to send blur notification when
+-   * a remote process has IME focus.  Otherwise, do nothing.
+-   */
+-  static void NotifyIMEOfBlurForChildProcess();
+-
+   static bool IsEditable(nsINode* node);
+ 
+   static bool IsIMEObserverNeeded(const IMEState& aState);
+@@ -331,7 +325,6 @@
+   // If IMEStateManager set input context to different widget, PuppetWidget can
+   // return cached input context safely.
+   static nsIWidget* sActiveInputContextWidget;
+-  static StaticRefPtr<TabParent> sActiveTabParent;
+   // sActiveIMEContentObserver points to the currently active
+   // IMEContentObserver.  This is null if there is no focused editor.
+   static StaticRefPtr<IMEContentObserver> sActiveIMEContentObserver;
+@@ -345,9 +338,9 @@
+   // Origin type of current process.
+   static InputContext::Origin sOrigin;
+ 
+-  // sActiveChildInputContext is valid only when sActiveTabParent is not
++  // sActiveChildInputContext is valid only when TabParent::GetFocused() is not
+   // nullptr.  This stores last information of input context in the remote
+-  // process of sActiveTabParent.  I.e., they are set when
++  // process of TabParent::GetFocused().  I.e., they are set when
+   // SetInputContextForChildProcess() is called.  This is necessary for
+   // restoring IME state when menu keyboard listener is uninstalled.
+   static InputContext sActiveChildInputContext;

@@ -1,0 +1,66 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/CanonicalBrowsingContext.h
+# Commit: 6ebc7618a5fa
+# Full Hash: 6ebc7618a5fadb59585a4d8b9f17eb65e5654cc6
+# Author: Anny Gakhokidze <agakhokidze@mozilla.com>
+# Date: 2020-03-10 21:44:54
+# Regressor Bug: 1546759
+# File Overlap Count: 2
+# Description:
+#   Bug 1546759 - Change nsSHistory::WalkHistoryEntries to walk browsing context tree instead of doc shell tree, r=peterv,nika
+#   
+#   WalkHistoryEntries function gets called by nsSHistory::CloneAndReplaceChild
+#   and nsSHistory::SetChildHistoryEntry recursively, so those have to be moved
+#   into the parent process. This eliminates many sync IPC calls.
+# ==============================================================================
+
+diff -r ed75364b23c3 -r 6ebc7618a5fa docshell/base/CanonicalBrowsingContext.h
+--- a/docshell/base/CanonicalBrowsingContext.h	Tue Mar 10 11:39:06 2020 +0000
++++ b/docshell/base/CanonicalBrowsingContext.h	Tue Mar 10 14:28:22 2020 +0000
+@@ -16,6 +16,7 @@
+ #include "nsTHashtable.h"
+ #include "nsHashKeys.h"
+ #include "nsISHistory.h"
++#include "nsISHEntry.h"
+ 
+ namespace mozilla {
+ namespace dom {
+@@ -110,6 +111,25 @@
+   // if the top-level browsing context has been discarded.
+   MediaController* GetMediaController();
+ 
++  bool HasHistoryEntry(nsISHEntry* aEntry) const {
++    return aEntry && (aEntry == mOSHE || aEntry == mLSHE);
++  }
++
++  void UpdateSHEntries(nsISHEntry* aNewLSHE, nsISHEntry* aNewOSHE) {
++    mLSHE = aNewLSHE;
++    mOSHE = aNewOSHE;
++  }
++
++  void SwapHistoryEntries(nsISHEntry* aOldEntry, nsISHEntry* aNewEntry) {
++    if (aOldEntry == mOSHE) {
++      mOSHE = aNewEntry;
++    }
++
++    if (aOldEntry == mLSHE) {
++      mLSHE = aNewEntry;
++    }
++  }
++
+  protected:
+   // Called when the browsing context is being discarded.
+   void CanonicalDiscard();
+@@ -171,6 +191,10 @@
+   // browsing context tree, so it would only exist in the top level browsing
+   // context.
+   RefPtr<MediaController> mTabMediaController;
++
++  // These are being mirrored from docshell
++  nsCOMPtr<nsISHEntry> mOSHE;
++  nsCOMPtr<nsISHEntry> mLSHE;
+ };
+ 
+ }  // namespace dom

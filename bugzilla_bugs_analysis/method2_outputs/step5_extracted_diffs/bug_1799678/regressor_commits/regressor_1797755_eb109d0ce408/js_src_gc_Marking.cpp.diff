@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/Marking.cpp
+# Commit: eb109d0ce408
+# Full Hash: eb109d0ce408bda7631874511bddc204165023cd
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2022-10-28 21:22:11
+# Regressor Bug: 1797755
+# File Overlap Count: 1
+# Description:
+#   Bug 1797755 - Part 2: Make delayed marking colors work like normal marking r=sfink
+#   
+#   Currently the way mark colors work for delayed marking doesn't align with
+#   normal marking for gray marking of GC things that can only be marked black
+#   (e.g. strings).
+# ==============================================================================
+
+diff -r 186a012563fc -r eb109d0ce408 js/src/gc/Marking.cpp
+--- a/js/src/gc/Marking.cpp	Fri Oct 28 09:47:13 2022 +0000
++++ b/js/src/gc/Marking.cpp	Fri Oct 28 09:47:14 2022 +0000
+@@ -2009,21 +2009,20 @@
+     markLaterArenas++;
+ #endif
+   }
+-  JS::TraceKind kind = MapAllocToTraceKind(arena->getAllocKind());
+-  MarkColor colorToMark =
+-      TraceKindCanBeMarkedGray(kind) ? markColor() : MarkColor::Black;
+-  if (!arena->hasDelayedMarking(colorToMark)) {
+-    arena->setHasDelayedMarking(colorToMark, true);
++
++  if (!arena->hasDelayedMarking(markColor())) {
++    arena->setHasDelayedMarking(markColor(), true);
+     delayedMarkingWorkAdded = true;
+   }
+ }
+ 
+ void GCMarker::markDelayedChildren(Arena* arena) {
+   JS::TraceKind kind = MapAllocToTraceKind(arena->getAllocKind());
+-  MOZ_ASSERT_IF(markColor() == MarkColor::Gray, TraceKindCanBeMarkedGray(kind));
++  MarkColor colorToCheck =
++      TraceKindCanBeMarkedGray(kind) ? markColor() : MarkColor::Black;
+ 
+   for (ArenaCellIterUnderGC cell(arena); !cell.done(); cell.next()) {
+-    if (cell->isMarked(markColor())) {
++    if (cell->isMarked(colorToCheck)) {
+       JS::TraceChildren(this, JS::GCCellPtr(cell, kind));
+     }
+   }

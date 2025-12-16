@@ -1,0 +1,34 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/script/ScriptLoader.cpp
+# Commit: 484f95173d20
+# Full Hash: 484f95173d20f4f386f0a821c6e646f32e7d8984
+# Author: Denis Palmeiro <dpalmeiro@mozilla.com>
+# Date: 2020-09-18 15:11:18
+# Description:
+#   Bug 1665724: Clear mRunnable of request if user goes OOM while trying to off-thread compile.  r=smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D90645
+# ==============================================================================
+
+diff -r f999994ff312 -r 484f95173d20 dom/script/ScriptLoader.cpp
+--- a/dom/script/ScriptLoader.cpp	Thu Sep 17 16:36:04 2020 +0000
++++ b/dom/script/ScriptLoader.cpp	Fri Sep 18 10:31:45 2020 +0000
+@@ -2314,6 +2314,8 @@
+ 
+   // Save the runnable so it can be properly cleared during cancellation.
+   aRequest->mRunnable = runnable.get();
++  auto signalOOM =
++      mozilla::MakeScopeExit([&aRequest]() { aRequest->mRunnable = nullptr; });
+ 
+   if (aRequest->IsModuleRequest()) {
+     MOZ_ASSERT(aRequest->IsTextSource());
+@@ -2357,6 +2359,7 @@
+       return NS_ERROR_OUT_OF_MEMORY;
+     }
+   }
++  signalOOM.release();
+ 
+   aRequest->BlockOnload(mDocument);
+ 

@@ -1,0 +1,34 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/WorkerPrivate.cpp
+# Commit: 13780f5cb2f5
+# Full Hash: 13780f5cb2f5d698f35a23f2fafa1593ef7affe9
+# Author: Joshua Marshall <jmarshall@mozilla.com>
+# Date: 2024-01-28 21:22:06
+# Regressor Bug: 1805613
+# File Overlap Count: 1
+# Description:
+#   Bug 1805613 - Add a mutable status to WorkerRefs for logging. r=dom-worker-reviewers,asuth
+#   
+#   In DEBUG mode, add a settable string to WorkerRefs.  Record what we're doing in
+#   the XHR request worker, and log the status if we seem to be hanging (see
+#   WorkerPrivate::DumpCrashInformation).
+# ==============================================================================
+
+diff -r 1b609eb33a5f -r 13780f5cb2f5 dom/workers/WorkerPrivate.cpp
+--- a/dom/workers/WorkerPrivate.cpp	Sun Jan 28 13:43:54 2024 +0100
++++ b/dom/workers/WorkerPrivate.cpp	Sun Jan 28 14:28:44 2024 +0000
+@@ -5885,6 +5885,12 @@
+     if (workerRef->IsPreventingShutdown()) {
+       aString.Append("|");
+       aString.Append(workerRef->Name());
++      const nsCString status = GET_WORKERREF_DEBUG_STATUS(workerRef);
++      if (!status.IsEmpty()) {
++        aString.Append("[");
++        aString.Append(status);
++        aString.Append("]");
++      }
+     }
+   }
+ }

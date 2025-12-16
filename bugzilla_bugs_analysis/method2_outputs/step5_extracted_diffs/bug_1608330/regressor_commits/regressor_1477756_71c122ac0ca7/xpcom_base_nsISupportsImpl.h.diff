@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: xpcom/base/nsISupportsImpl.h
+# Commit: 71c122ac0ca7
+# Full Hash: 71c122ac0ca73391866b1ef19f4f82bc2d28568b
+# Author: David Parks <davidp99@gmail.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Initial out-of-process WebGL implementation. r=mccr8,handyman
+#   
+#   Splits WebGLContext into ClientWebGLContext and HostWebGLContext.  The Client enables the JS-control of a WebGL context in a content procecss while the Host executes the WebGL graphics operations (via a WebGLContext that maintains much of the existing code) in the compositor process.  At this point, the cross-process behavior is disabled -- this series of patches is an incremental step toward that final goal.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D54018
+# ==============================================================================
+
+diff -r 5cbf5bb11c58 -r 71c122ac0ca7 xpcom/base/nsISupportsImpl.h
+--- a/xpcom/base/nsISupportsImpl.h	Wed Jan 08 21:52:03 2020 +0000
++++ b/xpcom/base/nsISupportsImpl.h	Wed Jan 08 22:19:14 2020 +0000
+@@ -503,17 +503,28 @@
+   }
+ 
+ #define NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(_class) \
+- public:                                                           \
+-  NS_METHOD_(MozExternalRefCountType)                              \
+-  AddRef(void){NS_IMPL_CC_NATIVE_ADDREF_BODY(_class)} NS_METHOD_(  \
+-      MozExternalRefCountType) Release(void) {                     \
+-    NS_IMPL_CC_NATIVE_RELEASE_BODY(_class)                         \
+-  }                                                                \
+-  typedef mozilla::FalseType HasThreadSafeRefCnt;                  \
+-                                                                   \
+- protected:                                                        \
+-  nsCycleCollectingAutoRefCnt mRefCnt;                             \
+-  NS_DECL_OWNINGTHREAD                                             \
++  NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING_META(_class, NS_METHOD_)
++
++#define NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING_VIRTUAL(_class) \
++  NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING_META(_class, NS_IMETHOD_)
++
++#define NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING_INHERITED(_class)  \
++  NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING_META(_class, NS_METHOD_, \
++                                                          override)
++
++#define NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING_META(_class, _decl, \
++                                                                ...)           \
++ public:                                                                       \
++  _decl(MozExternalRefCountType) AddRef(void) __VA_ARGS__{                     \
++      NS_IMPL_CC_NATIVE_ADDREF_BODY(_class)} _decl(MozExternalRefCountType)    \
++      Release(void) __VA_ARGS__ {                                              \
++    NS_IMPL_CC_NATIVE_RELEASE_BODY(_class)                                     \
++  }                                                                            \
++  typedef mozilla::FalseType HasThreadSafeRefCnt;                              \
++                                                                               \
++ protected:                                                                    \
++  nsCycleCollectingAutoRefCnt mRefCnt;                                         \
++  NS_DECL_OWNINGTHREAD                                                         \
+  public:
+ 
+ #define NS_INLINE_DECL_MAIN_THREAD_ONLY_CYCLE_COLLECTING_NATIVE_REFCOUNTING( \

@@ -1,0 +1,65 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/websocket/nsWebSocketConnection.cpp
+# Commit: a2372b6285d7
+# Full Hash: a2372b6285d7871f7eb6e914583b1113da2038a1
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2020-09-11 15:10:42
+# Description:
+#   Bug 1663718 - Don't put too much data in buffer when the data can't be written to socket r=dragana
+#   
+#   The main reason we used too much memory is that we ignore the `NS_BASE_STREAM_WOULD_BLOCK` returned from socket output stream.
+#   When the output stream is blocked, all the data is stored in the output queue and make the memory usage high.
+#   
+# ==============================================================================
+
+diff -r 433c4ac7d65a -r a2372b6285d7 netwerk/protocol/websocket/nsWebSocketConnection.cpp
+--- a/netwerk/protocol/websocket/nsWebSocketConnection.cpp	Fri Sep 11 14:13:46 2020 +0300
++++ b/netwerk/protocol/websocket/nsWebSocketConnection.cpp	Fri Sep 11 08:44:07 2020 +0000
+@@ -20,7 +20,8 @@
+       mSocketIn(aInputStream),
+       mSocketOut(aOutputStream),
+       mWriteOffset(0),
+-      mStartReadingCalled(false) {
++      mStartReadingCalled(false),
++      mOutputStreamBlocked(false) {
+   LOG(("nsWebSocketConnection ctor %p\n", this));
+ }
+ 
+@@ -105,6 +106,10 @@
+     mSocketOut->AsyncWait(this, 0, 0, mEventTarget);
+   }
+ 
++  if (mOutputStreamBlocked) {
++    return NS_BASE_STREAM_WOULD_BLOCK;
++  }
++
+   return NS_OK;
+ }
+ 
+@@ -215,6 +220,8 @@
+     return NS_OK;
+   }
+ 
++  mOutputStreamBlocked = false;
++
+   while (!mOutputQueue.empty()) {
+     const OutputData& data = mOutputQueue.front();
+ 
+@@ -230,6 +237,7 @@
+ 
+     if (rv == NS_BASE_STREAM_WOULD_BLOCK) {
+       mSocketOut->AsyncWait(this, 0, 0, mEventTarget);
++      mOutputStreamBlocked = true;
+       return NS_OK;
+     }
+ 
+@@ -248,5 +256,7 @@
+     }
+   }
+ 
++  Unused << mListener->OnReadyToSendData();
++
+   return NS_OK;
+ }

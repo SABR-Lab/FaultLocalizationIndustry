@@ -1,0 +1,29 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/performance/PerformanceObserver.cpp
+# Commit: 186ec6c80cbd
+# Full Hash: 186ec6c80cbd528611b38761583fed210eda8712
+# Author: sefeng <sefeng@mozilla.com>
+# Date: 2020-05-29 09:54:26
+# Description:
+#   Bug 1631346 - Fix a null ptr crash in PerformanceObserver::Observe r=baku
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D76193
+# ==============================================================================
+
+diff -r 3ec1a7594f45 -r 186ec6c80cbd dom/performance/PerformanceObserver.cpp
+--- a/dom/performance/PerformanceObserver.cpp	Thu May 28 16:32:18 2020 +0000
++++ b/dom/performance/PerformanceObserver.cpp	Thu May 28 16:01:56 2020 +0000
+@@ -161,6 +161,11 @@
+   const Optional<nsString>& maybeType = aOptions.mType;
+   const Optional<bool>& maybeBuffered = aOptions.mBuffered;
+ 
++  if (!mPerformance) {
++    aRv.Throw(NS_ERROR_FAILURE);
++    return;
++  }
++
+   if (!maybeEntryTypes.WasPassed() && !maybeType.WasPassed()) {
+     /* Per spec (3.3.1.2), this should be a syntax error. */
+     aRv.Throw(NS_ERROR_DOM_SYNTAX_ERR);

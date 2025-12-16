@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/generic/LocalAccessible.cpp
+# Commit: 388a15605114
+# Full Hash: 388a156051146d9c128adc05365f9c1e0aa94cb2
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2022-05-27 15:58:57
+# Regressor Bug: 1737919
+# File Overlap Count: 1
+# Description:
+#   Bug 1737919 part 3: Support spelling errors for cached RemoteAccessibles. r=morgan
+#   
+#   Even though spelling errors can cross Accessibles and are represented in the DOM as ranges, we cache them for each text leaf.
+#   This is necessary so that we correctly update the offsets when text is inserted or removed from a leaf.
+#   We cache them as an array of offsets, including both the start and end offset for each range.
+# ==============================================================================
+
+diff -r 08d033b9651b -r 388a15605114 accessible/generic/LocalAccessible.cpp
+--- a/accessible/generic/LocalAccessible.cpp	Fri May 27 10:56:40 2022 +0000
++++ b/accessible/generic/LocalAccessible.cpp	Fri May 27 10:56:41 2022 +0000
+@@ -3256,6 +3256,17 @@
+     }
+   }
+ 
++  // If text changes, we must also update spelling errors.
++  if (aCacheDomain & (CacheDomain::Spelling | CacheDomain::Text) &&
++      IsTextLeaf()) {
++    auto spellingErrors = TextLeafPoint::GetSpellingErrorOffsets(this);
++    if (!spellingErrors.IsEmpty()) {
++      fields->SetAttribute(nsGkAtoms::spelling, std::move(spellingErrors));
++    } else if (aUpdateType == CacheUpdateType::Update) {
++      fields->SetAttribute(nsGkAtoms::spelling, DeleteEntry());
++    }
++  }
++
+   nsIFrame* frame = GetFrame();
+   if (aCacheDomain & (CacheDomain::Text | CacheDomain::Bounds) &&
+       !HasChildren()) {

@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/base/memory/ref_counted.cc
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 2
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/base/memory/ref_counted.cc
+--- a/security/sandbox/chromium/base/memory/ref_counted.cc	Wed Jun 12 21:55:59 2019 +1200
++++ b/security/sandbox/chromium/base/memory/ref_counted.cc	Wed Jun 12 11:10:48 2019 +0100
+@@ -21,12 +21,28 @@
+   return ref_count_.IsOne();
+ }
+ 
++bool RefCountedThreadSafeBase::HasAtLeastOneRef() const {
++  return !ref_count_.IsZero();
++}
++
++#if DCHECK_IS_ON()
+ RefCountedThreadSafeBase::~RefCountedThreadSafeBase() {
+-#if DCHECK_IS_ON()
+   DCHECK(in_dtor_) << "RefCountedThreadSafe object deleted without "
+                       "calling Release()";
++}
+ #endif
++
++// This is a security check. In 32-bit-archs, an attacker would run out of
++// address space after allocating at most 2^32 scoped_refptrs. This replicates
++// that boundary for 64-bit-archs.
++#if defined(ARCH_CPU_64_BITS)
++void RefCountedBase::AddRefImpl() const {
++  // Check if |ref_count_| overflow only on 64 bit archs since the number of
++  // objects may exceed 2^32.
++  // To avoid the binary size bloat, use non-inline function here.
++  CHECK(++ref_count_ > 0);
+ }
++#endif
+ 
+ #if !defined(ARCH_CPU_X86_FAMILY)
+ bool RefCountedThreadSafeBase::Release() const {
+@@ -35,6 +51,9 @@
+ void RefCountedThreadSafeBase::AddRef() const {
+   AddRefImpl();
+ }
++void RefCountedThreadSafeBase::AddRefWithCheck() const {
++  AddRefWithCheckImpl();
++}
+ #endif
+ 
+ #if DCHECK_IS_ON()

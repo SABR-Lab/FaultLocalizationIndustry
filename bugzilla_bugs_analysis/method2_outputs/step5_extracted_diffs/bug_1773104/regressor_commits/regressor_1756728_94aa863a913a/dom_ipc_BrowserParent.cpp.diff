@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/BrowserParent.cpp
+# Commit: 94aa863a913a
+# Full Hash: 94aa863a913a0f935b5e7636e49e5a33727c638a
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2022-06-01 09:46:32
+# Regressor Bug: 1756728
+# File Overlap Count: 1
+# Description:
+#   Bug 1756728 part 1: Make it possible to retrieve a BrowsingContext from a DocAccessibleParent. r=morgan
+#   
+#   Previously, even for remote in-process iframes, it was only possible to retrieve the top level BrowsingContext for the remote process by getting the managing BrowserParent.
+#   This makes it possible to get the correct BrowsingContext even for in-process iframes.
+#   
+# ==============================================================================
+
+diff -r f6b6083e77c9 -r 94aa863a913a dom/ipc/BrowserParent.cpp
+--- a/dom/ipc/BrowserParent.cpp	Wed Jun 01 00:01:50 2022 +0000
++++ b/dom/ipc/BrowserParent.cpp	Wed Jun 01 00:34:17 2022 +0000
+@@ -1205,7 +1205,8 @@
+ 
+ #ifdef ACCESSIBILITY
+ a11y::PDocAccessibleParent* BrowserParent::AllocPDocAccessibleParent(
+-    PDocAccessibleParent* aParent, const uint64_t&, const uint32_t&,
++    PDocAccessibleParent* aParent, const uint64_t&,
++    const MaybeDiscardedBrowsingContext&, const uint32_t&,
+     const IAccessibleHolder&) {
+   // Reference freed in DeallocPDocAccessibleParent.
+   return do_AddRef(new a11y::DocAccessibleParent()).take();
+@@ -1219,8 +1220,9 @@
+ 
+ mozilla::ipc::IPCResult BrowserParent::RecvPDocAccessibleConstructor(
+     PDocAccessibleParent* aDoc, PDocAccessibleParent* aParentDoc,
+-    const uint64_t& aParentID, const uint32_t& aMsaaID,
+-    const IAccessibleHolder& aDocCOMProxy) {
++    const uint64_t& aParentID,
++    const MaybeDiscardedBrowsingContext& aBrowsingContext,
++    const uint32_t& aMsaaID, const IAccessibleHolder& aDocCOMProxy) {
+ #  if defined(ANDROID)
+   MonitorAutoLock mal(nsAccessibilityService::GetAndroidMonitor());
+ #  endif
+@@ -1233,6 +1235,10 @@
+     return IPC_OK();
+   }
+ 
++  if (aBrowsingContext) {
++    doc->SetBrowsingContext(aBrowsingContext.get_canonical());
++  }
++
+   if (aParentDoc) {
+     // Iframe document rendered in the same process as its embedder.
+     // A document should never directly be the parent of another document.

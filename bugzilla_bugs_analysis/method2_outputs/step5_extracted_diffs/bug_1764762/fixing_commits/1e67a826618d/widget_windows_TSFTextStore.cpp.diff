@@ -1,0 +1,77 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: widget/windows/TSFTextStore.cpp
+# Commit: 1e67a826618d
+# Full Hash: 1e67a826618d920d5dcc1d6552eb9048077c8d47
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-04-21 09:43:46
+# Description:
+#   Bug 1764762 - Make `TSFTextStore::CreateNativeCaret` check whether there is selection range before accessing selection offset r=m_kato
+#   
+#   `selectionForTSF` may not have selection range. However, it retrieves max offset
+#   of selection before checking `selectionForTSF` has a selection range.
+#   
+# ==============================================================================
+
+diff -r cecd1565c462 -r 1e67a826618d widget/windows/TSFTextStore.cpp
+--- a/widget/windows/TSFTextStore.cpp	Thu Apr 21 04:32:28 2022 +0300
++++ b/widget/windows/TSFTextStore.cpp	Thu Apr 21 03:08:31 2022 +0000
+@@ -6398,13 +6398,24 @@
+            ToString(mComposition).c_str()));
+ 
+   Maybe<Selection>& selectionForTSF = SelectionForTSF();
+-  if (selectionForTSF.isNothing()) {
++  if (MOZ_UNLIKELY(selectionForTSF.isNothing())) {
+     MOZ_LOG(gIMELog, LogLevel::Error,
+             ("0x%p   TSFTextStore::CreateNativeCaret() FAILED due to "
+              "SelectionForTSF() failure",
+              this));
+     return;
+   }
++  if (!selectionForTSF->HasRange() && mComposition.isNothing()) {
++    // If there is no selection range nor composition, then, we don't have a
++    // good position to show windows of TIP...
++    // XXX It seems that storing last caret rect and using it in this case might
++    // be better?
++    MOZ_LOG(gIMELog, LogLevel::Warning,
++            ("0x%p   TSFTextStore::CreateNativeCaret() couludn't create native "
++             "caret due to no selection range",
++             this));
++    return;
++  }
+ 
+   WidgetQueryContentEvent queryCaretRectEvent(true, eQueryCaretRect, mWidget);
+   mWidget->InitEvent(queryCaretRectEvent);
+@@ -6412,22 +6423,21 @@
+   WidgetQueryContentEvent::Options options;
+   // XXX If this is called without composition and the selection isn't
+   //     collapsed, is it OK?
+-  int64_t caretOffset = selectionForTSF->MaxOffset();
++  int64_t caretOffset = selectionForTSF->HasRange()
++                            ? selectionForTSF->MaxOffset()
++                            : mComposition->StartOffset();
+   if (mComposition.isSome()) {
+-    // If there is a composition, use insertion point relative query for
+-    // deciding caret position because composition might be at different
+-    // position where TSFTextStore believes it at.
++    // If there is a composition, use the relative query for deciding caret
++    // position because composition might be different place from that
++    // TSFTextStore assumes.
+     options.mRelativeToInsertionPoint = true;
+     caretOffset -= mComposition->StartOffset();
+-  } else if (!selectionForTSF->HasRange()) {
+-    // If there is no selection range, there is no good position to show windows
+-    // of TIP...
+-    return;
+   } else if (!CanAccessActualContentDirectly()) {
+     // If TSF/TIP cannot access actual content directly, there may be pending
+     // text and/or selection changes which have not been notified TSF yet.
+-    // Therefore, we should use relative to insertion point query since
+-    // TSF/TIP computes the offset from the cached selection.
++    // Therefore, we should use the relative query from start of selection where
++    // TSFTextStore assumes since TSF/TIP computes the offset from our cached
++    // selection.
+     options.mRelativeToInsertionPoint = true;
+     caretOffset -= selectionForTSF->StartOffset();
+   }

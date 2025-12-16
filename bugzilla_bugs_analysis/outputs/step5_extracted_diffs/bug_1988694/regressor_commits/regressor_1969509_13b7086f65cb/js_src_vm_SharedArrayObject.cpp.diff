@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/SharedArrayObject.cpp
+# Commit: 13b7086f65cb
+# Full Hash: 13b7086f65cbbbf1fed6e0341cfbdfb309fb962c
+# Author: Julien Pages <jpages@mozilla.com>
+# Date: 2025-09-17 13:36 +0000
+# Regressor Bug: 1969509
+# File Overlap Count: 6
+# Overlapping Files: js/src/vm/ArrayBufferObject.cpp, js/src/wasm/WasmMemory.h, js/src/jit-test/tests/wasm/memory64/basic.js, js/src/jit-test/tests/wasm/wasm-resizablearraybuffer.js, js/src/jit-test/lib/wasm.js
+# Description:
+#   Bug 1969509 - wasm: Update .maxByteLength to report the source wasm max pages in bytes. r=rhunt
+# ==============================================================================
+
+diff -r f7c96ac82c1a -r 13b7086f65cb js/src/vm/SharedArrayObject.cpp
+--- a/js/src/vm/SharedArrayObject.cpp	Wed Sep 17 13:35:00 2025 +0000
++++ b/js/src/vm/SharedArrayObject.cpp	Wed Sep 17 13:36:10 2025 +0000
+@@ -331,6 +331,19 @@
+   MOZ_ASSERT(IsSharedArrayBuffer(args.thisv()));
+   auto* buffer = &args.thisv().toObject().as<SharedArrayBufferObject>();
+ 
++  // Special case for wasm with potentially 64-bits memory.
++  // Manually compute the maxByteLength to avoid an overflow on 32-bit machines.
++  if (buffer->isWasm() && buffer->isResizable()) {
++    Pages sourceMaxPages = buffer->rawWasmBufferObject()->wasmSourceMaxPages();
++    uint64_t sourceMaxBytes = sourceMaxPages.byteLength64();
++
++    MOZ_ASSERT(sourceMaxBytes <=
++               wasm::PageSize * wasm::MaxMemory64PagesValidation);
++    args.rval().setNumber(double(sourceMaxBytes));
++
++    return true;
++  }
++
+   // Steps 4-6.
+   args.rval().setNumber(buffer->byteLengthOrMaxByteLength());
+   return true;

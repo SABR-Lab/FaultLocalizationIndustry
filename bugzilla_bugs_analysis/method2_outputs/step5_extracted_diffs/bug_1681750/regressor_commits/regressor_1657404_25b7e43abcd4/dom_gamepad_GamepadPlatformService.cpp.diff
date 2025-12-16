@@ -1,0 +1,110 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/gamepad/GamepadPlatformService.cpp
+# Commit: 25b7e43abcd4
+# Full Hash: 25b7e43abcd417800b35718a674836704691af4c
+# Author: Chris Martin <cmartin@mozilla.com>
+# Date: 2020-12-16 09:36:04
+# Regressor Bug: 1657404
+# File Overlap Count: 1
+# Description:
+#   Bug 1681682 - Fix Mac OS X crash in GamepadPlatformService::GetParentService r=haik
+#   
+#   Bug 1657404 added assertions to catch errors in the platform-specific backends
+#   for Gamepad. A bug in CocoaGamepad.cpp:StopGamepadMonitoring() causes one of
+#   the new assertions to fire off.
+# ==============================================================================
+
+diff -r e9b7db96db4f -r 25b7e43abcd4 dom/gamepad/GamepadPlatformService.cpp
+--- a/dom/gamepad/GamepadPlatformService.cpp	Tue Dec 15 20:58:53 2020 +0000
++++ b/dom/gamepad/GamepadPlatformService.cpp	Tue Dec 15 20:16:02 2020 +0000
+@@ -11,6 +11,7 @@
+ #include "mozilla/dom/GamepadTestChannelParent.h"
+ #include "mozilla/ipc/BackgroundParent.h"
+ #include "mozilla/Mutex.h"
++#include "mozilla/StaticMutex.h"
+ #include "mozilla/Unused.h"
+ 
+ #include "nsCOMPtr.h"
+@@ -24,6 +25,7 @@
+ 
+ // This is the singleton instance of GamepadPlatformService, can be called
+ // by both background and monitor thread.
++static StaticMutex gGamepadPlatformServiceSingletonMutex;
+ static StaticRefPtr<GamepadPlatformService> gGamepadPlatformServiceSingleton;
+ 
+ }  // namespace
+@@ -103,9 +105,13 @@
+   // GamepadPlatformService can only be accessed in parent process
+   MOZ_ASSERT(XRE_IsParentProcess());
+ 
+-  MOZ_RELEASE_ASSERT(
+-      gGamepadPlatformServiceSingleton,
+-      "Impossible for monitor thread to be running with no platform service");
++  // TODO - Remove this mutex once Bug 1682554 is fixed
++  StaticMutexAutoLock lock(gGamepadPlatformServiceSingletonMutex);
++
++  // TODO - Turn this back into an assertion after Bug 1682554 is fixed
++  if (!gGamepadPlatformServiceSingleton) {
++    return nullptr;
++  }
+ 
+   return RefPtr<GamepadPlatformService>(gGamepadPlatformServiceSingleton)
+       .forget();
+@@ -299,14 +305,18 @@
+   AssertIsOnBackgroundThread();
+   MOZ_ASSERT(aParent);
+ 
+-  if (gGamepadPlatformServiceSingleton) {
+-    gGamepadPlatformServiceSingleton->AddChannelParentInternal(aParent);
+-    return;
++  {
++    StaticMutexAutoLock lock(gGamepadPlatformServiceSingletonMutex);
++
++    if (gGamepadPlatformServiceSingleton) {
++      gGamepadPlatformServiceSingleton->AddChannelParentInternal(aParent);
++      return;
++    }
++
++    gGamepadPlatformServiceSingleton =
++        RefPtr<GamepadPlatformService>(new GamepadPlatformService{aParent});
+   }
+ 
+-  gGamepadPlatformServiceSingleton =
+-      RefPtr<GamepadPlatformService>(new GamepadPlatformService{aParent});
+-
+   StartGamepadMonitoring();
+   GamepadMonitoringState::GetSingleton().Set(true);
+ }
+@@ -319,18 +329,23 @@
+   AssertIsOnBackgroundThread();
+   MOZ_ASSERT(aParent);
+ 
+-  MOZ_RELEASE_ASSERT(gGamepadPlatformServiceSingleton);
++  {
++    StaticMutexAutoLock lock(gGamepadPlatformServiceSingletonMutex);
++
++    MOZ_RELEASE_ASSERT(gGamepadPlatformServiceSingleton);
+ 
+-  // RemoveChannelParentInternal will refuse to remove the last channel
+-  // In that case, we should destroy the singleton
+-  if (gGamepadPlatformServiceSingleton->RemoveChannelParentInternal(aParent)) {
+-    return;
++    // RemoveChannelParentInternal will refuse to remove the last channel
++    // In that case, we should destroy the singleton
++    if (gGamepadPlatformServiceSingleton->RemoveChannelParentInternal(
++            aParent)) {
++      return;
++    }
+   }
+ 
+   GamepadMonitoringState::GetSingleton().Set(false);
+   StopGamepadMonitoring();
+-  // At this point, any monitor threads should be stopped so we don't need
+-  // synchronization
++
++  StaticMutexAutoLock lock(gGamepadPlatformServiceSingletonMutex);
+ 
+   // We should never be destroying the singleton with event channels left in it
+   MOZ_RELEASE_ASSERT(

@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/CacheIRCompiler.h
+# Commit: 954c1651adb2
+# Full Hash: 954c1651adb203c44392e127d6487aec3de53c97
+# Author: Iain Ireland <iireland@mozilla.com>
+# Date: 2020-07-07 09:47:47
+# Regressor Bug: 1646378
+# File Overlap Count: 1
+# Description:
+#   Bug 1646378: Add CallInlinedFunction r=jandem
+#   
+#   This is mostly the same as CallScriptedFunction. The key differences are:
+#   
+#   1. We have an extra argument, the ICScript, which must be stored in the JSContext so the Baseline prologue can find it.
+# ==============================================================================
+
+diff -r 01851025fa25 -r 954c1651adb2 js/src/jit/CacheIRCompiler.h
+--- a/js/src/jit/CacheIRCompiler.h	Thu Jul 02 23:02:23 2020 +0000
++++ b/js/src/jit/CacheIRCompiler.h	Mon Jul 06 19:05:21 2020 +0000
+@@ -990,6 +990,39 @@
+   operator Register() const { return scratchReg_; }
+ };
+ 
++// Like AutoScratchRegisterMaybeOutput, but tries to use the ValueOperand's
++// type register for the scratch register on 32-bit.
++//
++// Word of warning: Passing an instance of this class and AutoOutputRegister to
++// functions may not work correctly, because no guarantee is given that the type
++// register is used last when modifying the output's ValueOperand.
++class MOZ_RAII AutoScratchRegisterMaybeOutputType {
++  mozilla::Maybe<AutoScratchRegister> scratch_;
++  Register scratchReg_;
++
++ public:
++  AutoScratchRegisterMaybeOutputType(CacheRegisterAllocator& alloc,
++                                     MacroAssembler& masm,
++                                     const AutoOutputRegister& output) {
++#if defined(JS_NUNBOX32)
++    scratchReg_ = output.hasValue() ? output.valueReg().typeReg() : InvalidReg;
++#else
++    scratchReg_ = InvalidReg;
++#endif
++    if (scratchReg_ == InvalidReg) {
++      scratch_.emplace(alloc, masm);
++      scratchReg_ = scratch_.ref();
++    }
++  }
++
++  AutoScratchRegisterMaybeOutputType(
++      const AutoScratchRegisterMaybeOutputType&) = delete;
++
++  void operator=(const AutoScratchRegisterMaybeOutputType&) = delete;
++
++  operator Register() const { return scratchReg_; }
++};
++
+ // AutoCallVM is a wrapper class that unifies methods shared by
+ // IonCacheIRCompiler and BaselineCacheIRCompiler that perform a callVM, but
+ // require stub specific functionality before performing the VM call.

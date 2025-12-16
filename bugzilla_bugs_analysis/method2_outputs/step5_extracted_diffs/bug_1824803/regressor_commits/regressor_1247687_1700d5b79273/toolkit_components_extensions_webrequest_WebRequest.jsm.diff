@@ -1,0 +1,34 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/extensions/webrequest/WebRequest.jsm
+# Commit: 1700d5b79273
+# Full Hash: 1700d5b79273a6f34d67b7d16470973f0cb65793
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-12-21 21:21:23
+# Regressor Bug: 1247687
+# File Overlap Count: 1
+# Description:
+#   Bug 1247687 - Implement csp for Module Workers; r=evilpie,asuth,rpl,ckerschb
+#   
+#   Depends on D155691
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D156102
+# ==============================================================================
+
+diff -r 31888ffde37a -r 1700d5b79273 toolkit/components/extensions/webrequest/WebRequest.jsm
+--- a/toolkit/components/extensions/webrequest/WebRequest.jsm	Tue Dec 20 20:56:15 2022 +0000
++++ b/toolkit/components/extensions/webrequest/WebRequest.jsm	Tue Dec 20 20:56:15 2022 +0000
+@@ -116,8 +116,10 @@
+ 
+   if (
+     isServiceWorkerScript &&
+-    channel.loadInfo?.internalContentPolicyType ===
+-      Ci.nsIContentPolicy.TYPE_INTERNAL_WORKER_IMPORT_SCRIPTS &&
++    (channel.loadInfo?.internalContentPolicyType ===
++      Ci.nsIContentPolicy.TYPE_INTERNAL_WORKER_IMPORT_SCRIPTS ||
++      channel.loadInfo?.internalContentPolicyType ===
++        Ci.nsIContentPolicy.TYPE_INTERNAL_WORKER_STATIC_MODULE) &&
+     !ALLOWED_SERVICEWORKER_SCHEMES.includes(redirectUri?.scheme)
+   ) {
+     throw new Error(

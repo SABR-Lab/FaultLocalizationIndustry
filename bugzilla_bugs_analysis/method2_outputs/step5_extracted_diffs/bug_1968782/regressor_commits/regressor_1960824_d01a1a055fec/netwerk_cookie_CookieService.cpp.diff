@@ -1,0 +1,66 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/cookie/CookieService.cpp
+# Commit: d01a1a055fec
+# Full Hash: d01a1a055fece12b906b938954f984bd69278ef7
+# Author: Andrea Marchesini <amarchesini@mozilla.com>
+# Date: 2025-04-30 20:49:53
+# Regressor Bug: 1960824
+# File Overlap Count: 1
+# Description:
+#   Bug 1960824 - Introduce nsICookie::SAMESITE_UNSET, r=edgul,webdriver-reviewers,extension-reviewers,cookie-reviewers,valentin,Sasha,robwu
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D246638
+# ==============================================================================
+
+diff -r 307ff391dd02 -r d01a1a055fec netwerk/cookie/CookieService.cpp
+--- a/netwerk/cookie/CookieService.cpp	Wed Apr 30 08:53:12 2025 +0000
++++ b/netwerk/cookie/CookieService.cpp	Wed Apr 30 08:59:18 2025 +0000
+@@ -154,13 +154,14 @@
+   // Explicit SameSite=None cookies are always processed. When laxByDefault
+   // is OFF then so are default cookies.
+   if (aCookie->SameSite() == nsICookie::SAMESITE_NONE ||
+-      (!aLaxByDefault && aCookie->IsDefaultSameSite())) {
++      (!aLaxByDefault && aCookie->SameSite() == nsICookie::SAMESITE_UNSET)) {
+     return true;
+   }
+ 
+   // Lax-by-default cookies are processed even with an intermediate
+   // cross-site redirect (they are treated like aIsSameSiteForeign = false).
+-  if (aLaxByDefault && aCookie->IsDefaultSameSite() && aHadCrossSiteRedirects &&
++  if (aLaxByDefault && aCookie->SameSite() == nsICookie::SAMESITE_UNSET &&
++      aHadCrossSiteRedirects &&
+       StaticPrefs::
+           network_cookie_sameSite_laxByDefault_allowBoomerangRedirect()) {
+     return true;
+@@ -170,7 +171,7 @@
+ 
+   // 2 minutes of tolerance for 'SameSite=Lax by default' for cookies set
+   // without a SameSite value when used for unsafe http methods.
+-  if (aLaxByDefault && aCookie->IsDefaultSameSite() &&
++  if (aLaxByDefault && aCookie->SameSite() == nsICookie::SAMESITE_UNSET &&
+       StaticPrefs::network_cookie_sameSite_laxPlusPOST_timeout() > 0 &&
+       currentTimeInUsec - aCookie->CreationTime() <=
+           (StaticPrefs::network_cookie_sameSite_laxPlusPOST_timeout() *
+@@ -179,8 +180,9 @@
+     return true;
+   }
+ 
+-  MOZ_ASSERT((aLaxByDefault && aCookie->IsDefaultSameSite()) ||
+-             aCookie->SameSite() == nsICookie::SAMESITE_LAX);
++  MOZ_ASSERT(
++      (aLaxByDefault && aCookie->SameSite() == nsICookie::SAMESITE_UNSET) ||
++      aCookie->SameSite() == nsICookie::SAMESITE_LAX);
+   // We only have SameSite=Lax or lax-by-default cookies at this point.  These
+   // are processed only if it's a top-level navigation
+   return aIsSafeTopLevelNav;
+@@ -757,7 +759,7 @@
+                           nsCString(aPath), aExpiry, currentTimeInUsec,
+                           Cookie::GenerateUniqueCreationTime(currentTimeInUsec),
+                           aIsHttpOnly, aIsSession, aIsSecure, aIsPartitioned,
+-                          aSameSite, aSameSite, aSchemeMap);
++                          aSameSite, aSchemeMap);
+ 
+   if (!aCheck(cookieData)) {
+     return NS_ERROR_FAILURE;

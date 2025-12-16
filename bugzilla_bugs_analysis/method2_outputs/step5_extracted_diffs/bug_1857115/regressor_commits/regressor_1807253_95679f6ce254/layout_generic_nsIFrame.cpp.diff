@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/nsIFrame.cpp
+# Commit: 95679f6ce254
+# Full Hash: 95679f6ce2544b21ec9cfd0d19961058d60155d6
+# Author: Frederic Wang <fred.wang@free.fr>
+# Date: 2023-11-27 17:00:06
+# Regressor Bug: 1807253
+# File Overlap Count: 1
+# Description:
+#   Bug 1807253 - unreliable timing for content-visibility:auto, r=emilio
+#   
+#   Rewrite implementation of content-visibility: auto as defined in
+#   https://github.com/w3c/csswg-drafts/issues/8542
+#   
+# ==============================================================================
+
+diff -r 9ea04a2cc829 -r 95679f6ce254 layout/generic/nsIFrame.cpp
+--- a/layout/generic/nsIFrame.cpp	Mon Nov 27 08:00:41 2023 +0000
++++ b/layout/generic/nsIFrame.cpp	Mon Nov 27 08:26:46 2023 +0000
+@@ -745,9 +745,6 @@
+   if (StyleDisplay()->ContentVisibility(*this) ==
+       StyleContentVisibility::Auto) {
+     PresShell()->RegisterContentVisibilityAutoFrame(this);
+-    auto* element = Element::FromNodeOrNull(GetContent());
+-    MOZ_ASSERT(element);
+-    PresContext()->Document()->ObserveForContentVisibility(*element);
+   } else if (auto* element = Element::FromNodeOrNull(GetContent())) {
+     element->ClearContentRelevancy();
+   }
+@@ -819,13 +816,6 @@
+     }
+   }
+ 
+-  if (StyleDisplay()->ContentVisibility(*this) ==
+-      StyleContentVisibility::Auto) {
+-    if (auto* element = Element::FromNodeOrNull(GetContent())) {
+-      PresContext()->Document()->UnobserveForContentVisibility(*element);
+-    }
+-  }
+-
+   // Disable visibility tracking. Note that we have to do this before we clear
+   // frame properties and lose track of whether we were previously visible.
+   // XXX(seth): It'd be ideal to assert that we're already marked nonvisible

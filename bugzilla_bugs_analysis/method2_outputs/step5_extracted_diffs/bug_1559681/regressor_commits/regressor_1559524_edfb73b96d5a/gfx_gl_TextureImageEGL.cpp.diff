@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/gl/TextureImageEGL.cpp
+# Commit: edfb73b96d5a
+# Full Hash: edfb73b96d5ad946bbdd9da2e98d07b1f4565e1f
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2019-06-15 21:44:24
+# Regressor Bug: 1559524
+# File Overlap Count: 2
+# Description:
+#   Bug 1559524 - Reduce calls to GLLibraryEGL::Get(). r=lsalzman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D35103
+# ==============================================================================
+
+diff -r 0378898329b2 -r edfb73b96d5a gfx/gl/TextureImageEGL.cpp
+--- a/gfx/gl/TextureImageEGL.cpp	Sat Jun 15 05:14:53 2019 +0000
++++ b/gfx/gl/TextureImageEGL.cpp	Sat Jun 15 05:21:12 2019 +0000
+@@ -143,7 +143,8 @@
+ bool TextureImageEGL::BindTexImage() {
+   if (mBound && !ReleaseTexImage()) return false;
+ 
+-  auto* egl = gl::GLLibraryEGL::Get();
++  const auto& gle = GLContextEGL::Cast(mGLContext);
++  const auto& egl = gle->mEgl;
+   EGLBoolean success = egl->fBindTexImage(egl->Display(), (EGLSurface)mSurface,
+                                           LOCAL_EGL_BACK_BUFFER);
+ 
+@@ -156,7 +157,8 @@
+ bool TextureImageEGL::ReleaseTexImage() {
+   if (!mBound) return true;
+ 
+-  auto* egl = gl::GLLibraryEGL::Get();
++  const auto& gle = GLContextEGL::Cast(mGLContext);
++  const auto& egl = gle->mEgl;
+   EGLBoolean success = egl->fReleaseTexImage(
+       egl->Display(), (EGLSurface)mSurface, LOCAL_EGL_BACK_BUFFER);
+ 
+@@ -169,7 +171,8 @@
+ void TextureImageEGL::DestroyEGLSurface(void) {
+   if (!mSurface) return;
+ 
+-  auto* egl = gl::GLLibraryEGL::Get();
++  const auto& gle = GLContextEGL::Cast(mGLContext);
++  const auto& egl = gle->mEgl;
+   egl->fDestroySurface(egl->Display(), mSurface);
+   mSurface = nullptr;
+ }

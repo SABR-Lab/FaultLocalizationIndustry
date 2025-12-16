@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: ipc/glue/GeckoChildProcessHost.h
+# Commit: 48088463c656
+# Full Hash: 48088463c6568b03a3e6a4ca6417dd9b650ced2a
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2021-06-22 21:29:07
+# Regressor Bug: 1706374
+# File Overlap Count: 2
+# Description:
+#   Bug 1706374 - Part 12a: Initialize NodeController when creating IO thread, r=handyman
+#   
+#   This also consumes the existing channel created when launching a process to
+#   create the the conneciton required by NodeController for communicating between
+#   processes. In part 12b, consumers of the broken APIs will be adjusted to use
+# ==============================================================================
+
+diff -r b09ae4c3a94b -r 48088463c656 ipc/glue/GeckoChildProcessHost.h
+--- a/ipc/glue/GeckoChildProcessHost.h	Mon Jun 21 21:53:10 2021 +0000
++++ b/ipc/glue/GeckoChildProcessHost.h	Mon Jun 21 21:53:10 2021 +0000
+@@ -12,8 +12,10 @@
+ #include "base/waitable_event.h"
+ #include "chrome/common/child_process_host.h"
+ #include "chrome/common/ipc_message.h"
++#include "mojo/core/ports/port_ref.h"
+ 
+ #include "mozilla/ipc/FileDescriptor.h"
++#include "mozilla/ipc/ScopedPort.h"
+ #include "mozilla/Atomics.h"
+ #include "mozilla/Buffer.h"
+ #include "mozilla/LinkedList.h"
+@@ -119,14 +121,16 @@
+   // LaunchAndWaitForProcessHandle); use with AsyncLaunch.
+   RefPtr<ProcessHandlePromise> WhenProcessHandleReady();
+ 
+-  virtual void InitializeChannel();
++  void InitializeChannel(
++      const std::function<void(IPC::Channel*)>& aChannelReady);
+ 
+   virtual bool CanShutdown() override { return true; }
+ 
+-  using ChildProcessHost::TakeChannel;
+   IPC::Channel* GetChannel() { return channelp(); }
+   ChannelId GetChannelId() { return channel_id(); }
+ 
++  ScopedPort TakeInitialPort() { return std::move(mInitialPort); }
++
+   // Returns a "borrowed" handle to the child process - the handle returned
+   // by this function must not be closed by the caller.
+   ProcessHandle GetChildProcessHandle() { return mChildProcessHandle; }
+@@ -202,6 +206,7 @@
+   // then used for the actual launch on another thread.  This pointer
+   // is set to null to free the options after the child is launched.
+   UniquePtr<base::LaunchOptions> mLaunchOptions;
++  ScopedPort mInitialPort;
+ 
+   // This value must be accessed while holding mMonitor.
+   enum {

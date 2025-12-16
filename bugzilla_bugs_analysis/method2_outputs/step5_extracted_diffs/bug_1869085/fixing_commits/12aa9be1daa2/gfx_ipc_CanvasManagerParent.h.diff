@@ -1,0 +1,56 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/ipc/CanvasManagerParent.h
+# Commit: 12aa9be1daa2
+# Full Hash: 12aa9be1daa25a0f455c799f62cb5391971792d3
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2023-12-10 09:36:11
+# Description:
+#   Bug 1869085 - Make CanvasManagerParent use content parent ID for recording textures. r=bobowen
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D195957
+# ==============================================================================
+
+diff -r 19967878c4b0 -r 12aa9be1daa2 gfx/ipc/CanvasManagerParent.h
+--- a/gfx/ipc/CanvasManagerParent.h	Sat Dec 09 19:49:22 2023 +0000
++++ b/gfx/ipc/CanvasManagerParent.h	Sat Dec 09 20:16:02 2023 +0000
+@@ -16,6 +16,7 @@
+ namespace mozilla {
+ namespace layers {
+ class CanvasTranslator;
++class HostIPCAllocator;
+ class SurfaceDescriptor;
+ }  // namespace layers
+ 
+@@ -42,7 +43,7 @@
+   static void RemoveReplayTextures(layers::CanvasTranslator* aOwner);
+ 
+   static UniquePtr<layers::SurfaceDescriptor> WaitForReplayTexture(
+-      base::ProcessId aOtherPid, int64_t aTextureId);
++      layers::HostIPCAllocator* aAllocator, int64_t aTextureId);
+ 
+   explicit CanvasManagerParent(const dom::ContentParentId& aContentId);
+ 
+@@ -61,7 +62,7 @@
+ 
+  private:
+   static UniquePtr<layers::SurfaceDescriptor> TakeReplayTexture(
+-      base::ProcessId aOtherPid, int64_t aTextureId)
++      const dom::ContentParentId& aContentId, int64_t aTextureId)
+       MOZ_REQUIRES(sReplayTexturesMonitor);
+ 
+   static void ShutdownInternal();
+@@ -76,9 +77,10 @@
+   static ManagerSet sManagers;
+ 
+   struct ReplayTexture {
+-    RefPtr<layers::CanvasTranslator> mOwner;
+-    int64_t mId;
+     UniquePtr<layers::SurfaceDescriptor> mDesc;
++    dom::ContentParentId mContentId;
++    int64_t mTextureId;
++    uint32_t mManagerId;
+   };
+ 
+   static StaticMonitor sReplayTexturesMonitor;

@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/prim_store/picture.rs
+# Commit: 9fa6f71111d0
+# Full Hash: 9fa6f71111d0d77477abc4502b721d8d4ba23604
+# Author: Glenn Watson <git@intuitionlibrary.com>
+# Date: 2022-02-20 21:58:21
+# Regressor Bug: 1749380
+# File Overlap Count: 1
+# Description:
+#   Bug 1749380 - Part 1 - Improve how WR handles bounding rects for off-screen surfaces r=gfx-reviewers
+#   
+#   This patch introduces a number of subtle but important changes
+#   to how we deal with off-screen surfaces. The overall goals are:
+#   
+# ==============================================================================
+
+diff -r 336a2aa0a29e -r 9fa6f71111d0 gfx/wr/webrender/src/prim_store/picture.rs
+--- a/gfx/wr/webrender/src/prim_store/picture.rs	Sat Feb 19 23:27:02 2022 +0000
++++ b/gfx/wr/webrender/src/prim_store/picture.rs	Sun Feb 20 18:56:54 2022 +0000
+@@ -79,7 +79,7 @@
+     Identity,
+ 
+     // FilterOp
+-    Blur(Au, Au),
++    Blur(Au, Au, bool),
+     Brightness(Au),
+     Contrast(Au),
+     Grayscale(Au),
+@@ -142,8 +142,8 @@
+             }
+             Some(PictureCompositeMode::Filter(op)) => {
+                 match op {
+-                    Filter::Blur(width, height) =>
+-                        PictureCompositeKey::Blur(Au::from_f32_px(width), Au::from_f32_px(height)),
++                    Filter::Blur { width, height, should_inflate } =>
++                        PictureCompositeKey::Blur(Au::from_f32_px(width), Au::from_f32_px(height), should_inflate),
+                     Filter::Brightness(value) => PictureCompositeKey::Brightness(Au::from_f32_px(value)),
+                     Filter::Contrast(value) => PictureCompositeKey::Contrast(Au::from_f32_px(value)),
+                     Filter::Grayscale(value) => PictureCompositeKey::Grayscale(Au::from_f32_px(value)),

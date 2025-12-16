@@ -1,0 +1,70 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/test/gtest/QuotaManagerDependencyFixture.cpp
+# Commit: d586b6b63319
+# Full Hash: d586b6b633191a7c6ff251361b0442d98d06c764
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2025-06-15 09:03:40
+# Regressor Bug: 1962133
+# File Overlap Count: 14
+# Description:
+#   Bug 1962133 - QM: Add accessed flag to FullOriginMetadata and persist it in the origin metadata file; r=dom-storage-reviewers,hsingh
+#   
+#   This patch introduces a new mAccessed field in OriginStateMetadata, which is
+#   inherited by FullOriginMetadata. One of the reserved 32-bit fields in the
+#   metadata header is now used as a bitfield, with one bit allocated to represent
+# ==============================================================================
+
+diff -r ca3bdda9fbfd -r d586b6b63319 dom/quota/test/gtest/QuotaManagerDependencyFixture.cpp
+--- a/dom/quota/test/gtest/QuotaManagerDependencyFixture.cpp	Sat Jun 14 02:29:19 2025 +0000
++++ b/dom/quota/test/gtest/QuotaManagerDependencyFixture.cpp	Sat Jun 14 02:46:33 2025 +0000
+@@ -6,6 +6,7 @@
+ 
+ #include "QuotaManagerDependencyFixture.h"
+ 
++#include "DirectoryMetadata.h"
+ #include "mozIStorageService.h"
+ #include "mozStorageCID.h"
+ #include "mozilla/BasePrincipal.h"
+@@ -429,6 +430,40 @@
+ }
+ 
+ // static
++Maybe<OriginStateMetadata>
++QuotaManagerDependencyFixture::LoadDirectoryMetadataHeader(
++    const OriginMetadata& aOriginMetadata) {
++  auto result =
++      PerformOnIOThread([aOriginMetadata]() -> Maybe<OriginStateMetadata> {
++        QuotaManager* quotaManager = QuotaManager::Get();
++        MOZ_RELEASE_ASSERT(quotaManager);
++
++        auto directoryRes = quotaManager->GetOriginDirectory(aOriginMetadata);
++        MOZ_RELEASE_ASSERT(directoryRes.isOk());
++
++        auto directory = directoryRes.unwrap();
++
++        bool exists;
++        nsresult rv = directory->Exists(&exists);
++        MOZ_RELEASE_ASSERT(NS_SUCCEEDED(rv));
++
++        if (!exists) {
++          return Nothing();
++        }
++
++        auto originStateMetadataRes =
++            quota::LoadDirectoryMetadataHeader(*directory);
++        MOZ_RELEASE_ASSERT(originStateMetadataRes.isOk());
++
++        auto originStateMetadata = originStateMetadataRes.unwrap();
++
++        return Some(originStateMetadata);
++      });
++
++  return result;
++}
++
++// static
+ uint64_t QuotaManagerDependencyFixture::TotalDirectoryIterations() {
+   const auto result = PerformOnIOThread([]() -> uint64_t {
+     QuotaManager* quotaManager = QuotaManager::Get();

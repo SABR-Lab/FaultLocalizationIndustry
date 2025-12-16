@@ -1,0 +1,89 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/CoalescedInputData.h
+# Commit: 37f6acd499b1
+# Full Hash: 37f6acd499b11386a9c97f5783c89c4908692029
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2025-05-16 16:19:07
+# Regressor Bug: 1550462
+# File Overlap Count: 1
+# Description:
+#   Bug 1550462 - part 2: Make PresShell::HandleEvent dispatch preceding pointerrawupdate event r=smaug,dom-core,edgar
+#   
+#   This patch tries to dispatch ePointerRawUpdate with
+#   PresShell::EventHandler::DispatchPrecedingPointerEvent as same as usual
+#   pointer events.
+# ==============================================================================
+
+diff -r 32ba02fa32ec -r 37f6acd499b1 dom/ipc/CoalescedInputData.h
+--- a/dom/ipc/CoalescedInputData.h	Fri May 16 09:49:43 2025 +0000
++++ b/dom/ipc/CoalescedInputData.h	Fri May 16 09:49:44 2025 +0000
+@@ -24,12 +24,21 @@
+ 
+   UniquePtr<InputEventType> mCoalescedInputEvent;
+   ScrollableLayerGuid mGuid;
+-  uint64_t mInputBlockId;
++  uint64_t mInputBlockId = 0;
++  uint32_t mGeneration = 0;
++
++  void AdvanceGeneration() {
++    if (!IsEmpty()) {
++      mGeneration++;
++    }
++  }
+ 
+  public:
+-  CoalescedInputData() : mInputBlockId(0) {}
++  CoalescedInputData() = default;
+ 
+   void RetrieveDataFrom(CoalescedInputData& aSource) {
++    aSource.AdvanceGeneration();
++    AdvanceGeneration();
+     mCoalescedInputEvent = std::move(aSource.mCoalescedInputEvent);
+     mGuid = aSource.mGuid;
+     mInputBlockId = aSource.mInputBlockId;
+@@ -42,12 +51,23 @@
+                    const uint64_t& aInputBlockId);
+ 
+   UniquePtr<InputEventType> TakeCoalescedEvent() {
++    AdvanceGeneration();
+     return std::move(mCoalescedInputEvent);
+   }
+ 
+   ScrollableLayerGuid GetScrollableLayerGuid() { return mGuid; }
+ 
+   uint64_t GetInputBlockId() { return mInputBlockId; }
++
++  /**
++   * The generation number of the latest state stored by the instance.
++   * It'll be incremented when the coalesced event data is retrieved or taken.
++   * So, this is useful to avoid handling same coalesced events twice when
++   * a nested event loop may handle this.
++   * NOTE: You should compare the value only with `==` or `!=`.  Do not use
++   * `<` nor `>` because the value may circulate to 0 from UINT32_MAX.
++   */
++  [[nodiscard]] uint32_t Generation() const { return mGeneration; }
+ };
+ 
+ class CoalescedInputFlusher : public nsARefreshObserver {
+@@ -61,12 +81,17 @@
+   void StartObserver();
+   void RemoveObserver();
+ 
++  /**
++   * Return a refresh driver which is proper one for BrowserChild.
++   * Note that this is not a getter of mRefreshDriver.
++   */
++  [[nodiscard]] nsRefreshDriver* GetRefreshDriver();
++
+  protected:
+   virtual ~CoalescedInputFlusher();
+ 
+-  nsRefreshDriver* GetRefreshDriver();
+-
+   BrowserChild* mBrowserChild;
++  // A refresh driver which this instance waits for the next refresh of.
+   RefPtr<nsRefreshDriver> mRefreshDriver;
+ };
+ }  // namespace mozilla::dom

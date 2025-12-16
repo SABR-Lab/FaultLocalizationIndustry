@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/svg/SVGUtils.h
+# Commit: 0fdbf0a455f2
+# Full Hash: 0fdbf0a455f26afa0a7a0390d6a380e318fce9d4
+# Author: Robert Longson <longsonr@gmail.com>
+# Date: 2023-10-24 03:54:44
+# Regressor Bug: 1765202
+# File Overlap Count: 1
+# Description:
+#   Bug 1765202 part 3 - ignore clip-path and mask properties that don't point to clipPath and mask elements r=emilio
+#   
+#   This refactors the logic for testing whether something has a clip-path or mask and what to do about it in one place rather than using many overlapping functions.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D190767
+# ==============================================================================
+
+diff -r 2a8d11fcc746 -r 0fdbf0a455f2 layout/svg/SVGUtils.h
+--- a/layout/svg/SVGUtils.h	Mon Oct 23 20:32:20 2023 +0000
++++ b/layout/svg/SVGUtils.h	Mon Oct 23 20:32:37 2023 +0000
+@@ -567,12 +567,19 @@
+       return mShouldApplyBasicShapeOrPath;
+     }
+ 
++    bool IsSimpleClipShape() const { return mIsSimpleClipShape; }
++
+     bool IsOpaque() const { return mOpacity == 1.0f; }
+ 
+     bool IsTransparent() const { return mOpacity == 0.0f; }
+ 
+     float Opacity() const { return mOpacity; }
+ 
++    bool UsingMaskOrClipPath() const {
++      return mShouldGenerateMaskLayer || mShouldGenerateClipMaskLayer ||
++             mShouldApplyClipPath || mShouldApplyBasicShapeOrPath;
++    }
++
+     bool ShouldDoSomething() const {
+       return mShouldGenerateMaskLayer || mShouldGenerateClipMaskLayer ||
+              mShouldApplyClipPath || mShouldApplyBasicShapeOrPath ||
+@@ -587,6 +594,7 @@
+     bool mShouldGenerateClipMaskLayer = false;
+     bool mShouldApplyClipPath = false;
+     bool mShouldApplyBasicShapeOrPath = false;
++    bool mIsSimpleClipShape = false;
+   };
+ 
+   static float ComputeOpacity(const nsIFrame* aFrame, bool aHandleOpacity);

@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/nsFrame.cpp
+# Commit: c09a51622e98
+# Full Hash: c09a51622e988e81077c75e3aaa5a49df66284b3
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2019-03-22 16:44:08
+# Regressor Bug: 1441308
+# File Overlap Count: 2
+# Description:
+#   Bug 1441308 - Core renderroot splitting changes r=kats,sotaro
+#   
+#   This is a large patch that contains all of the core changes for
+#   renderroot splitting.
+#   
+# ==============================================================================
+
+diff -r 737807563dd5 -r c09a51622e98 layout/generic/nsFrame.cpp
+--- a/layout/generic/nsFrame.cpp	Thu Mar 21 23:14:26 2019 +0000
++++ b/layout/generic/nsFrame.cpp	Fri Mar 22 03:15:14 2019 +0000
+@@ -10551,8 +10551,19 @@
+ void nsIFrame::CreateOwnLayerIfNeeded(nsDisplayListBuilder* aBuilder,
+                                       nsDisplayList* aList,
+                                       bool* aCreatedContainerItem) {
+-  if (GetContent() && GetContent()->IsXULElement() &&
+-      GetContent()->AsElement()->HasAttr(kNameSpaceID_None, nsGkAtoms::layer)) {
++  wr::RenderRoot renderRoot = gfxUtils::GetRenderRootForFrame(this)
++      .valueOr(wr::RenderRoot::Default);
++
++  if (renderRoot != wr::RenderRoot::Default) {
++    aList->AppendToTop(MakeDisplayItem<nsDisplayRenderRoot>(
++        aBuilder, this, aList, aBuilder->CurrentActiveScrolledRoot(),
++        renderRoot));
++    if (aCreatedContainerItem) {
++      *aCreatedContainerItem = true;
++    }
++  } else if (GetContent() && GetContent()->IsXULElement() &&
++             GetContent()->AsElement()->HasAttr(kNameSpaceID_None,
++                                                nsGkAtoms::layer)) {
+     aList->AppendToTop(MakeDisplayItem<nsDisplayOwnLayer>(
+         aBuilder, this, aList, aBuilder->CurrentActiveScrolledRoot()));
+     if (aCreatedContainerItem) {

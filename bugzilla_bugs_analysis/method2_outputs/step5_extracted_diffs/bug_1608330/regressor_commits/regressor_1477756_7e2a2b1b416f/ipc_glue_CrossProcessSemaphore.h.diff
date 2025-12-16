@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: ipc/glue/CrossProcessSemaphore.h
+# Commit: 7e2a2b1b416f
+# Full Hash: 7e2a2b1b416f1a64c6548aab29e92acc9554ae7d
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Fix all webgl regression tests according to CI. r=handyman
+#   
+#   (This is a combination of 31 commits)
+#   
+#   * Fix Linux compilation.
+# ==============================================================================
+
+diff -r ccfa767dba64 -r 7e2a2b1b416f ipc/glue/CrossProcessSemaphore.h
+--- a/ipc/glue/CrossProcessSemaphore.h	Wed Jan 08 22:19:16 2020 +0000
++++ b/ipc/glue/CrossProcessSemaphore.h	Wed Jan 08 22:19:23 2020 +0000
+@@ -28,10 +28,22 @@
+ //
+ //  - CrossProcessSemaphore, a semaphore that can be shared across processes
+ namespace mozilla {
++
++template <typename T>
++inline bool IsHandleValid(const T& handle) {
++  return bool(handle);
++}
++
+ #if defined(OS_WIN)
+ typedef HANDLE CrossProcessSemaphoreHandle;
+ #elif !defined(OS_MACOSX)
+ typedef mozilla::ipc::SharedMemoryBasic::Handle CrossProcessSemaphoreHandle;
++
++template <>
++inline bool IsHandleValid<CrossProcessSemaphoreHandle>(
++    const CrossProcessSemaphoreHandle& handle) {
++  return !(handle == mozilla::ipc::SharedMemoryBasic::NULLHandle());
++}
+ #else
+ // Stub for other platforms. We can't use uintptr_t here since different
+ // processes could disagree on its size.

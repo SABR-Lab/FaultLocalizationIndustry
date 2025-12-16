@@ -1,0 +1,119 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fs/child/FileSystemRequestHandler.cpp
+# Commit: 214c4d6bf7f9
+# Full Hash: 214c4d6bf7f98a332c4ab81d325d9245ae810955
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2022-10-20 21:51:26
+# Regressor Bug: 1792245
+# File Overlap Count: 2
+# Description:
+#   Bug 1792245 - Add ErrorResult to FileSystemRequestHandler methods; r=dom-storage-reviewers,jesup
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D159572
+# ==============================================================================
+
+diff -r 330c69218a93 -r 214c4d6bf7f9 dom/fs/child/FileSystemRequestHandler.cpp
+--- a/dom/fs/child/FileSystemRequestHandler.cpp	Thu Oct 20 07:33:41 2022 +0300
++++ b/dom/fs/child/FileSystemRequestHandler.cpp	Thu Oct 20 04:21:30 2022 +0000
+@@ -306,8 +306,9 @@
+ 
+ void FileSystemRequestHandler::GetRootHandle(
+     RefPtr<FileSystemManager>
+-        aManager,                // NOLINT(performance-unnecessary-value-param)
+-    RefPtr<Promise> aPromise) {  // NOLINT(performance-unnecessary-value-param)
++        aManager,              // NOLINT(performance-unnecessary-value-param)
++    RefPtr<Promise> aPromise,  // NOLINT(performance-unnecessary-value-param)
++    ErrorResult& aError) {
+   MOZ_ASSERT(aManager);
+   MOZ_ASSERT(aPromise);
+ 
+@@ -326,7 +327,8 @@
+ void FileSystemRequestHandler::GetDirectoryHandle(
+     RefPtr<FileSystemManager>& aManager,
+     const FileSystemChildMetadata& aDirectory, bool aCreate,
+-    RefPtr<Promise> aPromise) {  // NOLINT(performance-unnecessary-value-param)
++    RefPtr<Promise> aPromise,  // NOLINT(performance-unnecessary-value-param)
++    ErrorResult& aError) {
+   MOZ_ASSERT(aManager);
+   MOZ_ASSERT(!aDirectory.parentId().IsEmpty());
+   MOZ_ASSERT(aPromise);
+@@ -354,7 +356,8 @@
+ void FileSystemRequestHandler::GetFileHandle(
+     RefPtr<FileSystemManager>& aManager, const FileSystemChildMetadata& aFile,
+     bool aCreate,
+-    RefPtr<Promise> aPromise) {  // NOLINT(performance-unnecessary-value-param)
++    RefPtr<Promise> aPromise,  // NOLINT(performance-unnecessary-value-param)
++    ErrorResult& aError) {
+   MOZ_ASSERT(aManager);
+   MOZ_ASSERT(!aFile.parentId().IsEmpty());
+   MOZ_ASSERT(aPromise);
+@@ -381,7 +384,7 @@
+ 
+ void FileSystemRequestHandler::GetAccessHandle(
+     RefPtr<FileSystemManager>& aManager, const FileSystemEntryMetadata& aFile,
+-    const RefPtr<Promise>& aPromise) {
++    const RefPtr<Promise>& aPromise, ErrorResult& aError) {
+   MOZ_ASSERT(aPromise);
+   LOG(("getAccessHandle"));
+ 
+@@ -401,7 +404,8 @@
+ 
+ void FileSystemRequestHandler::GetFile(
+     RefPtr<FileSystemManager>& aManager, const FileSystemEntryMetadata& aFile,
+-    RefPtr<Promise> aPromise) {  // NOLINT(performance-unnecessary-value-param)
++    RefPtr<Promise> aPromise,  // NOLINT(performance-unnecessary-value-param)
++    ErrorResult& aError) {
+   MOZ_ASSERT(aManager);
+   MOZ_ASSERT(!aFile.entryId().IsEmpty());
+   MOZ_ASSERT(aPromise);
+@@ -423,7 +427,7 @@
+     RefPtr<FileSystemManager>& aManager, const EntryId& aDirectory,
+     PageNumber aPage,
+     RefPtr<Promise> aPromise,  // NOLINT(performance-unnecessary-value-param)
+-    RefPtr<FileSystemEntryMetadataArray>& aSink) {
++    RefPtr<FileSystemEntryMetadataArray>& aSink, ErrorResult& aError) {
+   MOZ_ASSERT(aManager);
+   MOZ_ASSERT(!aDirectory.IsEmpty());
+   MOZ_ASSERT(aPromise);
+@@ -444,7 +448,8 @@
+ void FileSystemRequestHandler::RemoveEntry(
+     RefPtr<FileSystemManager>& aManager, const FileSystemChildMetadata& aEntry,
+     bool aRecursive,
+-    RefPtr<Promise> aPromise) {  // NOLINT(performance-unnecessary-value-param)
++    RefPtr<Promise> aPromise,  // NOLINT(performance-unnecessary-value-param)
++    ErrorResult& aError) {
+   MOZ_ASSERT(aManager);
+   MOZ_ASSERT(!aEntry.parentId().IsEmpty());
+   MOZ_ASSERT(aPromise);
+@@ -472,7 +477,8 @@
+     RefPtr<FileSystemManager>& aManager, FileSystemHandle* aHandle,
+     const FileSystemEntryMetadata& aEntry,
+     const FileSystemChildMetadata& aNewEntry,
+-    RefPtr<Promise> aPromise) {  // NOLINT(performance-unnecessary-value-param)
++    RefPtr<Promise> aPromise,  // NOLINT(performance-unnecessary-value-param)
++    ErrorResult& aError) {
+   MOZ_ASSERT(aPromise);
+   LOG(("MoveEntry"));
+ 
+@@ -498,7 +504,8 @@
+ void FileSystemRequestHandler::RenameEntry(
+     RefPtr<FileSystemManager>& aManager, FileSystemHandle* aHandle,
+     const FileSystemEntryMetadata& aEntry, const Name& aName,
+-    RefPtr<Promise> aPromise) {  // NOLINT(performance-unnecessary-value-param)
++    RefPtr<Promise> aPromise,  // NOLINT(performance-unnecessary-value-param)
++    ErrorResult& aError) {
+   MOZ_ASSERT(!aEntry.entryId().IsEmpty());
+   MOZ_ASSERT(aPromise);
+   LOG(("RenameEntry"));
+@@ -525,7 +532,8 @@
+ void FileSystemRequestHandler::Resolve(
+     RefPtr<FileSystemManager>& aManager,
+     // NOLINTNEXTLINE(performance-unnecessary-value-param)
+-    const FileSystemEntryPair& aEndpoints, RefPtr<Promise> aPromise) {
++    const FileSystemEntryPair& aEndpoints, RefPtr<Promise> aPromise,
++    ErrorResult& aError) {
+   MOZ_ASSERT(aManager);
+   MOZ_ASSERT(!aEndpoints.parentId().IsEmpty());
+   MOZ_ASSERT(!aEndpoints.childId().IsEmpty());

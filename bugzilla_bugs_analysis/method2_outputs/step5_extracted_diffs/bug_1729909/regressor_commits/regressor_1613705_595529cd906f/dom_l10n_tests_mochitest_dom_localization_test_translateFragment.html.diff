@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/l10n/tests/mochitest/dom_localization/test_translateFragment.html
+# Commit: 595529cd906f
+# Full Hash: 595529cd906f94cdb2bc12a7a40072db0c07198e
+# Author: Zibi Braniecki <zbraniecki@mozilla.com>
+# Date: 2021-08-03 22:01:19
+# Regressor Bug: 1613705
+# File Overlap Count: 1
+# Description:
+#   Bug 1613705 - [localization] part9: Update DOMLocalization to match Localization constructor. r=nika,emilio
+#   
+#   Depends on D113691
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D113692
+# ==============================================================================
+
+diff -r 9f3e2963d925 -r 595529cd906f dom/l10n/tests/mochitest/dom_localization/test_translateFragment.html
+--- a/dom/l10n/tests/mochitest/dom_localization/test_translateFragment.html	Tue Aug 03 05:52:03 2021 +0000
++++ b/dom/l10n/tests/mochitest/dom_localization/test_translateFragment.html	Tue Aug 03 05:52:03 2021 +0000
+@@ -7,20 +7,24 @@
+   <link rel="stylesheet" type="text/css" href="chrome://mochikit/content/tests/SimpleTest/test.css">
+   <script type="application/javascript">
+   "use strict";
+-  async function* generateBundles(resourceIds) {
+-    const bundle = new FluentBundle("en-US");
+-    bundle.addResource(new FluentResource("title = Hello World"));
+-    bundle.addResource(new FluentResource("subtitle = Welcome to FluentBundle"));
+-    yield bundle;
+-  }
++  const l10nReg = new L10nRegistry();
++  const fs = [
++    { path: "/localization/en-US/mock.ftl", source: `
++title = Hello World
++subtitle = Welcome to FluentBundle
++` },
++  ];
++  const source = L10nFileSource.createMock("test", ["en-US"], "/localization/{locale}", fs);
++  l10nReg.registerSources([source]);
+ 
+   window.onload = async function() {
+     SimpleTest.waitForExplicitFinish();
+ 
+     const domLoc = new DOMLocalization(
+-      [],
++      ["/mock.ftl"],
+       false,
+-      { generateBundles },
++      l10nReg,
++      ["en-US"],
+     );
+ 
+     const frag = document.querySelectorAll("div")[0];

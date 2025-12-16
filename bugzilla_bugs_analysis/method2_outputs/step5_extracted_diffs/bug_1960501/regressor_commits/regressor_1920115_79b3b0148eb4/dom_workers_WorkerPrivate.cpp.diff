@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/WorkerPrivate.cpp
+# Commit: 79b3b0148eb4
+# Full Hash: 79b3b0148eb416e0690d3e71723bd68ac67245e7
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2025-02-27 21:52:52
+# Regressor Bug: 1920115
+# File Overlap Count: 2
+# Description:
+#   Bug 1920115 - Implement scheduler.yield r=jjaschke,dom-core,webidl,smaug
+#   
+#   Spec: https://wicg.github.io/scheduling-apis/#dom-scheduler-yield
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D234232
+# ==============================================================================
+
+diff -r 78181c32bdc6 -r 79b3b0148eb4 dom/workers/WorkerPrivate.cpp
+--- a/dom/workers/WorkerPrivate.cpp	Thu Feb 27 16:17:35 2025 +0000
++++ b/dom/workers/WorkerPrivate.cpp	Thu Feb 27 16:17:35 2025 +0000
+@@ -3606,8 +3606,9 @@
+       if (data->mScope) {
+         data->mScope->NoteTerminating();
+         data->mScope->DisconnectGlobalTeardownObservers();
+-        if (data->mScope->GetExistingScheduler()) {
+-          data->mScope->GetExistingScheduler()->Disconnect();
++        if (WebTaskScheduler* scheduler =
++                data->mScope->GetExistingScheduler()) {
++          scheduler->Disconnect();
+         }
+       }
+     }

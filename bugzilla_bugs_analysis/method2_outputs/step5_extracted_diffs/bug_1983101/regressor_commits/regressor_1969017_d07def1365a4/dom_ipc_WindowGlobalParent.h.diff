@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/WindowGlobalParent.h
+# Commit: d07def1365a4
+# Full Hash: d07def1365a49dc8ecbf5b6c10fdfbd5ec750932
+# Author: pstanciu <pstanciu@mozilla.com>
+# Date: 2025-06-11 18:38:51
+# Regressor Bug: 1969017
+# File Overlap Count: 2
+# Description:
+#   Revert "Bug 1969015, 1969017: apply code formatting via Lando" for causing WPT failures @lfedcm-identity.create-store-collect.tentative.sub.https.html
+#   
+#   This reverts commit 03d4474e360f28be0fb075379f4e4535bd34b252.
+#   
+#   Revert "Bug 1969017 - Refactor FedCM to use a managed actor rather than tagging onto WindowGlobalParent - r=anti-tracking-reviewers,emz"
+# ==============================================================================
+
+diff -r 4e25ddaadc86 -r d07def1365a4 dom/ipc/WindowGlobalParent.h
+--- a/dom/ipc/WindowGlobalParent.h	Wed Jun 11 13:42:13 2025 +0000
++++ b/dom/ipc/WindowGlobalParent.h	Wed Jun 11 18:04:27 2025 +0300
+@@ -318,6 +318,22 @@
+ 
+   mozilla::ipc::IPCResult RecvReloadWithHttpsOnlyException();
+ 
++  mozilla::ipc::IPCResult RecvGetIdentityCredential(
++      IdentityCredentialRequestOptions&& aOptions,
++      const CredentialMediationRequirement& aMediationRequirement,
++      bool aHasUserActivation, const GetIdentityCredentialResolver& aResolver);
++  mozilla::ipc::IPCResult RecvStoreIdentityCredential(
++      const IPCIdentityCredential& aCredential,
++      const StoreIdentityCredentialResolver& aResolver);
++  mozilla::ipc::IPCResult RecvDisconnectIdentityCredential(
++      const IdentityCredentialDisconnectOptions& aOptions,
++      const DisconnectIdentityCredentialResolver& aResolver);
++  mozilla::ipc::IPCResult RecvSetLoginStatus(
++      LoginStatus aStatus, const SetLoginStatusResolver& aResolver);
++
++  mozilla::ipc::IPCResult RecvPreventSilentAccess(
++      const PreventSilentAccessResolver& aResolver);
++
+   mozilla::ipc::IPCResult RecvGetStorageAccessPermission(
+       bool aIncludeIdentityCredential,
+       GetStorageAccessPermissionResolver&& aResolve);
+@@ -334,8 +350,6 @@
+   already_AddRefed<dom::PWebAuthnTransactionParent>
+   AllocPWebAuthnTransactionParent();
+ 
+-  already_AddRefed<dom::PWebIdentityParent> AllocPWebIdentityParent();
+-
+  private:
+   WindowGlobalParent(CanonicalBrowsingContext* aBrowsingContext,
+                      uint64_t aInnerWindowId, uint64_t aOuterWindowId,

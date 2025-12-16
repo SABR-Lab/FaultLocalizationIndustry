@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasink/AudioSinkWrapper.cpp
+# Commit: c632760187c5
+# Full Hash: c632760187c5c0d69adcff405050d8f233ebca1d
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2022-05-24 21:44:48
+# Regressor Bug: 1743834
+# File Overlap Count: 1
+# Description:
+#   Bug 1743834 - Trigger the audibility event at the beginning of the initialization of an audio stream, when un-muting. r=alwu
+#   
+#   The initialization itself can take some time and this audibility event is used
+#   to prioritize the process, that will soon become audible, on at least Windows,
+#   so it's better to get prioritized slightly ahead of time.
+# ==============================================================================
+
+diff -r 7f259ef8550f -r c632760187c5 dom/media/mediasink/AudioSinkWrapper.cpp
+--- a/dom/media/mediasink/AudioSinkWrapper.cpp	Tue May 24 13:09:09 2022 +0000
++++ b/dom/media/mediasink/AudioSinkWrapper.cpp	Tue May 24 13:09:10 2022 +0000
+@@ -337,7 +337,8 @@
+           // for that amount of time, and the video would therefore not
+           // update. The Start() call is very cheap on the other hand, we can
+           // do it from the MDSM thread.
+-          nsresult rv = audioSink->InitializeAudioStream(mParams);
++          nsresult rv = audioSink->InitializeAudioStream(
++              mParams, AudioSink::InitializationType::UNMUTING);
+           mOwnerThread->Dispatch(NS_NewRunnableFunction(
+               "StartAudioSink (Async part: start from MDSM thread)",
+               [self = RefPtr<AudioSinkWrapper>(this),
+@@ -386,7 +387,8 @@
+         }));
+   } else {
+     mAudioSink.reset(mCreator->Create());
+-    nsresult rv = mAudioSink->InitializeAudioStream(mParams);
++    nsresult rv = mAudioSink->InitializeAudioStream(
++        mParams, AudioSink::InitializationType::INITIAL);
+     if (NS_FAILED(rv)) {
+       mEndedPromiseHolder.RejectIfExists(rv, __func__);
+       LOG("Sync AudioSinkWrapper initialization failed");

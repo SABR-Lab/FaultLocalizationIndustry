@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/GCRuntime.h
+# Commit: 73928903648a
+# Full Hash: 73928903648aa79ca0b4fa0bb27ae844c34577e5
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2022-08-24 21:34:05
+# Regressor Bug: 1786506
+# File Overlap Count: 1
+# Description:
+#   Bug 1786506 - Part 2: Give shared permanent things their own zone r=sfink
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D155378
+# ==============================================================================
+
+diff -r 747154213937 -r 73928903648a js/src/gc/GCRuntime.h
+--- a/js/src/gc/GCRuntime.h	Wed Aug 24 09:43:06 2022 +0000
++++ b/js/src/gc/GCRuntime.h	Wed Aug 24 09:43:06 2022 +0000
+@@ -290,21 +290,14 @@
+   void finishRoots();
+   void finish();
+ 
+-#ifdef DEBUG
+-  void assertNoPermanentSharedThings();
+-#endif
+-
+   Zone* atomsZone() {
+     Zone* zone = zones()[0];
+     MOZ_ASSERT(JS::shadow::Zone::from(zone)->isAtomsZone());
+     return zone;
+   }
+ 
+-  void freezePermanentSharedThings();
+-  template <typename T>
+-  void freezeAtomsZoneArenas(AllocKind kind, ArenaList& arenaList);
+-  void restorePermanentSharedThings();
+-  void restoreAtomsZoneArenas(AllocKind kind, ArenaList& arenaList);
++  [[nodiscard]] bool freezeSharedAtomsZone();
++  void restoreSharedAtomsZone();
+ 
+   JS::HeapState heapState() const { return heapState_; }
+ 
+@@ -942,6 +935,10 @@
+   MainThreadData<JS::GCContext> mainThreadContext;
+ 
+  private:
++  // For parent runtimes, a zone containing atoms that is shared by child
++  // runtimes.
++  MainThreadData<Zone*> sharedAtomsZone_;
++
+   // All zones in the runtime. The first element is always the atoms zone.
+   MainThreadOrGCTaskData<ZoneVector> zones_;
+ 

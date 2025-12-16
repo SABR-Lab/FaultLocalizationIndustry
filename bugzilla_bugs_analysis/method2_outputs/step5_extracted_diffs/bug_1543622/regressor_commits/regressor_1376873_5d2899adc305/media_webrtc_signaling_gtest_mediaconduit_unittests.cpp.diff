@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/webrtc/signaling/gtest/mediaconduit_unittests.cpp
+# Commit: 5d2899adc305
+# Full Hash: 5d2899adc3057fe4df9dd454887c1832f54d91d9
+# Author: Dan Minor <dminor@mozilla.com>
+# Date: 2018-11-09 10:01:40
+# Regressor Bug: 1376873
+# File Overlap Count: 4
+# Description:
+#   Bug 1376873 - Use Call interface in AudioConduit; r=padenot
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D7441
+# ==============================================================================
+
+diff -r df960ea2d29e -r 5d2899adc305 media/webrtc/signaling/gtest/mediaconduit_unittests.cpp
+--- a/media/webrtc/signaling/gtest/mediaconduit_unittests.cpp	Mon Mar 26 16:19:23 2018 -0400
++++ b/media/webrtc/signaling/gtest/mediaconduit_unittests.cpp	Tue Aug 21 13:39:53 2018 -0400
+@@ -14,6 +14,7 @@
+ #include <VideoConduit.h>
+ #include "mozilla/UniquePtr.h"
+ #include "mozilla/Unused.h"
++#include "mtransport_test_utils.h"
+ #include "nss.h"
+ #include "runnable_utils.h"
+ #include "signaling/src/common/EncodingConstraints.h"
+@@ -21,6 +22,8 @@
+ #define GTEST_HAS_RTTI 0
+ #include "gtest/gtest.h"
+ 
++static MtransportTestUtils *test_utils;
++
+ const uint32_t SSRC = 1;
+ 
+ //MWC RNG of George Marsaglia
+@@ -378,12 +381,16 @@
+   {
+     //get pointer to AudioSessionConduit
+     int err=0;
+-    mAudioSession = mozilla::AudioSessionConduit::Create();
++    mAudioSession = mozilla::AudioSessionConduit::Create(
++                      WebRtcCallWrapper::Create(),
++                      test_utils->sts_target());
+     if( !mAudioSession ) {
+       ASSERT_NE(mAudioSession, (void*)nullptr);
+     }
+ 
+-    mAudioSession2 = mozilla::AudioSessionConduit::Create();
++    mAudioSession2 = mozilla::AudioSessionConduit::Create(
++                       WebRtcCallWrapper::Create(),
++                       test_utils->sts_target());
+     if( !mAudioSession2 ) {
+       ASSERT_NE(mAudioSession2, (void*)nullptr);
+     }

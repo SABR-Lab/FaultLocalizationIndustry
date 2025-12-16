@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsContentUtils.h
+# Commit: c7ef05dae614
+# Full Hash: c7ef05dae61432443aafb8e78b31fa1ad314d70e
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2020-06-12 03:05:25
+# Regressor Bug: 1599160
+# File Overlap Count: 3
+# Description:
+#   Bug 1599160 - Better integration of the shared stylesheet cache with the network cache. r=tnikkel,mayhemer,heycam
+#   
+#   Make the stylesheet cache respect the same headers as the image cache
+#   does. This makes no-cache stylesheets work as they do now, which is
+#   useful for developers that want to develop sites locally, and for
+# ==============================================================================
+
+diff -r 466cfd0ad5db -r c7ef05dae614 dom/base/nsContentUtils.h
+--- a/dom/base/nsContentUtils.h	Thu Jun 11 11:41:59 2020 +0000
++++ b/dom/base/nsContentUtils.h	Thu Jun 11 11:42:01 2020 +0000
+@@ -48,6 +48,7 @@
+ #include "mozilla/dom/Document.h"
+ #include "nsPIDOMWindow.h"
+ #include "nsRFPService.h"
++#include "prtime.h"
+ 
+ #if defined(XP_WIN)
+ // Undefine LoadImage to prevent naming conflict with Windows.
+@@ -3246,6 +3247,23 @@
+       nsIScreen* aScreen, const mozilla::ScreenIntMargin& aSafeareaInsets,
+       const mozilla::LayoutDeviceIntRect& aWindowRect);
+ 
++  struct SubresourceCacheValidationInfo {
++    // The expiration time, in seconds, if known.
++    Maybe<uint32_t> mExpirationTime;
++    bool mMustRevalidate = false;
++  };
++
++  /**
++   * Gets cache validation info for subresources such as images or CSS
++   * stylesheets.
++   */
++  static SubresourceCacheValidationInfo GetSubresourceCacheValidationInfo(
++      nsIRequest*);
++
++  static uint32_t SecondsFromPRTime(PRTime aTime) {
++    return uint32_t(int64_t(aTime) / int64_t(PR_USEC_PER_SEC));
++  }
++
+  private:
+   static bool InitializeEventTable();
+ 

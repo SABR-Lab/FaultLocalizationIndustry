@@ -1,0 +1,83 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: widget/windows/WinUtils.cpp
+# Commit: bf4c56a950dc
+# Full Hash: bf4c56a950dcd591ba8c6f6f97442c83edb4fe5e
+# Author: dadaa <daisuke.akatsuka@birchill.co.jp>
+# Date: 2025-07-04 03:26:13
+# Description:
+#   Bug 1974901: Reject all errors that occur in CacheFavicon by Promise. r=win-reviewers,mak,gstoll
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D255887
+# ==============================================================================
+
+diff -r cd3b33e1e917 -r bf4c56a950dc widget/windows/WinUtils.cpp
+--- a/widget/windows/WinUtils.cpp	Thu Jul 03 22:29:10 2025 +0000
++++ b/widget/windows/WinUtils.cpp	Thu Jul 03 23:11:19 2025 +0000
+@@ -713,7 +713,9 @@
+         aPromiseHolder) {
+   nsresult rv = NS_OK;
+   auto guard = MakeScopeExit([&]() {
+-    if (NS_FAILED(rv) && aPromiseHolder) {
++    MOZ_ASSERT(NS_FAILED(rv));
++
++    if (aPromiseHolder) {
+       aPromiseHolder->RejectIfExists(rv, __func__);
+     }
+   });
+@@ -752,7 +754,9 @@
+   RefPtr<SourceSurface> surface = container->GetFrame(
+       imgIContainer::FRAME_FIRST,
+       imgIContainer::FLAG_SYNC_DECODE | imgIContainer::FLAG_ASYNC_NOTIFY);
+-  NS_ENSURE_TRUE(surface, NS_ERROR_FAILURE);
++  if (MOZ_UNLIKELY(!surface)) {
++    return (rv = NS_ERROR_FAILURE);
++  }
+ 
+   RefPtr<DataSourceSurface> dataSurface;
+   IntSize size;
+@@ -764,11 +768,13 @@
+     size.height = std::max(surface->GetSize().height, 48);
+     dataSurface =
+         Factory::CreateDataSourceSurface(size, SurfaceFormat::B8G8R8A8);
+-    NS_ENSURE_TRUE(dataSurface, NS_ERROR_FAILURE);
++    if (MOZ_UNLIKELY(!dataSurface)) {
++      return (rv = NS_ERROR_FAILURE);
++    }
+ 
+     DataSourceSurface::MappedSurface map;
+     if (!dataSurface->Map(DataSourceSurface::MapType::WRITE, &map)) {
+-      return NS_ERROR_FAILURE;
++      return (rv = NS_ERROR_FAILURE);
+     }
+ 
+     RefPtr<DrawTarget> dt = Factory::CreateDrawTargetForData(
+@@ -776,7 +782,7 @@
+         dataSurface->GetFormat());
+     if (!dt) {
+       gfxWarning() << "CreateDrawTargetForData failed in CacheFavicon";
+-      return NS_ERROR_OUT_OF_MEMORY;
++      return (rv = NS_ERROR_OUT_OF_MEMORY);
+     }
+     dt->FillRect(Rect(0, 0, size.width, size.height),
+                  ColorPattern(ToDeviceColor(sRGBColor::OpaqueWhite())));
+@@ -801,14 +807,16 @@
+     size.width = surface->GetSize().width;
+     size.height = surface->GetSize().height;
+     dataSurface = surface->GetDataSurface();
+-    NS_ENSURE_TRUE(dataSurface, NS_ERROR_FAILURE);
++    if (MOZ_UNLIKELY(!dataSurface)) {
++      return (rv = NS_ERROR_FAILURE);
++    }
+   }
+ 
+   // Allocate a new buffer that we own and can use out of line in
+   // another thread.
+   UniquePtr<uint8_t[]> data = SurfaceToPackedBGRA(dataSurface);
+   if (!data) {
+-    return NS_ERROR_OUT_OF_MEMORY;
++    return (rv = NS_ERROR_OUT_OF_MEMORY);
+   }
+   int32_t stride = 4 * size.width;
+ 

@@ -1,0 +1,59 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/COLRFonts.cpp
+# Commit: 852d3945e38d
+# Full Hash: 852d3945e38d8d16c4cf17918e862882d7ef363c
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2024-04-17 04:08:18
+# Description:
+#   Bug 1891630 - Avoid calling GetPathForGlyphs with a TextDrawTarget. r=gfx-reviewers,lsalzman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D207619
+# ==============================================================================
+
+diff -r 38aec48b6c28 -r 852d3945e38d gfx/thebes/COLRFonts.cpp
+--- a/gfx/thebes/COLRFonts.cpp	Tue Apr 16 19:52:39 2024 +0000
++++ b/gfx/thebes/COLRFonts.cpp	Tue Apr 16 20:10:51 2024 +0000
+@@ -1298,8 +1298,7 @@
+       // Core Text's own color font support may step in and ignore the
+       // pattern. So to avoid this, fill the glyph as a path instead.
+ #if XP_MACOSX
+-      RefPtr<Path> path =
+-          aState.mScaledFont->GetPathForGlyphs(buffer, aState.mDrawTarget);
++      RefPtr<Path> path = GetPathForGlyphs(aState, buffer);
+       aState.mDrawTarget->Fill(path, *fillPattern, aState.mDrawOptions);
+ #else
+       aState.mDrawTarget->FillGlyphs(aState.mScaledFont, buffer, *fillPattern,
+@@ -1307,8 +1306,7 @@
+ #endif
+       return true;
+     }
+-    RefPtr<Path> path =
+-        aState.mScaledFont->GetPathForGlyphs(buffer, aState.mDrawTarget);
++    RefPtr<Path> path = GetPathForGlyphs(aState, buffer);
+     aState.mDrawTarget->PushClip(path);
+     bool ok = DispatchPaint(aState, aOffset + paintOffset, aBounds);
+     aState.mDrawTarget->PopClip();
+@@ -1319,10 +1317,19 @@
+     MOZ_ASSERT(format == kFormat);
+     Glyph g{uint16_t(glyphID), Point()};
+     GlyphBuffer buffer{&g, 1};
+-    RefPtr<Path> path =
+-        aState.mScaledFont->GetPathForGlyphs(buffer, aState.mDrawTarget);
++    RefPtr<Path> path = GetPathForGlyphs(aState, buffer);
+     return path->GetFastBounds();
+   }
++
++ private:
++  RefPtr<Path> GetPathForGlyphs(const PaintState& aState,
++                                const GlyphBuffer& buffer) const {
++    if (aState.mDrawTarget->GetBackendType() == BackendType::WEBRENDER_TEXT) {
++      RefPtr dt = gfxPlatform::ThreadLocalScreenReferenceDrawTarget();
++      return aState.mScaledFont->GetPathForGlyphs(buffer, dt);
++    }
++    return aState.mScaledFont->GetPathForGlyphs(buffer, aState.mDrawTarget);
++  }
+ };
+ 
+ struct PaintColrGlyph {

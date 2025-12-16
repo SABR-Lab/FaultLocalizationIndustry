@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/events/EventListenerManager.cpp
+# Commit: 7d5683180ac3
+# Full Hash: 7d5683180ac3f9e7cc96d68dde27b8b48642a7ac
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-02-18 09:08:22
+# Regressor Bug: 1742437
+# File Overlap Count: 5
+# Description:
+#   Bug 1742437 - re-scope all generic module/script loader files under js/loader; r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D138133
+# ==============================================================================
+
+diff -r a48aff5f2555 -r 7d5683180ac3 dom/events/EventListenerManager.cpp
+--- a/dom/events/EventListenerManager.cpp	Thu Feb 17 15:57:52 2022 +0000
++++ b/dom/events/EventListenerManager.cpp	Thu Feb 17 15:57:52 2022 +0000
+@@ -7,6 +7,7 @@
+ // Microsoft's API Name hackery sucks
+ #undef CreateEvent
+ 
++#include "js/loader/LoadedScript.h"
+ #include "mozilla/BasicEvents.h"
+ #include "mozilla/CycleCollectedJSRuntime.h"
+ #include "mozilla/DOMEventTargetHelper.h"
+@@ -25,7 +26,6 @@
+ #include "mozilla/dom/Element.h"
+ #include "mozilla/dom/Event.h"
+ #include "mozilla/dom/EventTargetBinding.h"
+-#include "mozilla/dom/LoadedScript.h"
+ #include "mozilla/dom/PopupBlocker.h"
+ #include "mozilla/dom/ScriptLoader.h"
+ #include "mozilla/dom/ScriptSettings.h"
+@@ -1234,12 +1234,13 @@
+     return NS_ERROR_FAILURE;
+   }
+ 
+-  RefPtr<ScriptFetchOptions> fetchOptions = new ScriptFetchOptions(
+-      CORS_NONE, aElement->OwnerDoc()->GetReferrerPolicy(),
+-      aElement->OwnerDoc()->NodePrincipal());
++  RefPtr<JS::loader::ScriptFetchOptions> fetchOptions =
++      new JS::loader::ScriptFetchOptions(
++          CORS_NONE, aElement->OwnerDoc()->GetReferrerPolicy(),
++          aElement->OwnerDoc()->NodePrincipal());
+ 
+-  RefPtr<EventScript> eventScript =
+-      new EventScript(fetchOptions, uri, aElement);
++  RefPtr<JS::loader::EventScript> eventScript =
++      new JS::loader::EventScript(fetchOptions, uri, aElement);
+ 
+   JS::CompileOptions options(cx);
+   // Use line 0 to make the function body starts from line 1.

@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/GC.cpp
+# Commit: 5a6684922b98
+# Full Hash: 5a6684922b980d32b05bd7210cfadc34e734a845
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2020-03-21 21:28:09
+# Regressor Bug: 1623973
+# File Overlap Count: 2
+# Description:
+#   Bug 1623973 - Make FinalizationRegistryObject active record set and registrations map values weak r=sfink
+#   
+#   This removes tracing for the values of the registration map and the active record set and sweeps them instead. This requires maintaining a map of FinalizationRegistryObjects on the zone.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D67677
+# ==============================================================================
+
+diff -r c4d2ca8f78b7 -r 5a6684922b98 js/src/gc/GC.cpp
+--- a/js/src/gc/GC.cpp	Thu Mar 19 16:42:42 2020 +0000
++++ b/js/src/gc/GC.cpp	Fri Mar 20 21:57:22 2020 +0000
+@@ -4956,8 +4956,9 @@
+ void GCRuntime::sweepFinalizationRegistriesOnMainThread() {
+   // This calls back into the browser which expects to be called from the main
+   // thread.
+-  gcstats::AutoPhase ap(stats(),
+-                        gcstats::PhaseKind::SWEEP_FINALIZATION_REGISTRIES);
++  gcstats::AutoPhase ap1(stats(), gcstats::PhaseKind::SWEEP_COMPARTMENTS);
++  gcstats::AutoPhase ap2(stats(),
++                         gcstats::PhaseKind::SWEEP_FINALIZATION_REGISTRIES);
+   for (SweepGroupZonesIter zone(this); !zone.done(); zone.next()) {
+     sweepFinalizationRegistries(zone);
+   }
+@@ -5242,7 +5243,6 @@
+     {
+       AutoUnlockHelperThreadState unlock(lock);
+       sweepJitDataOnMainThread(fop);
+-      sweepFinalizationRegistriesOnMainThread();
+     }
+ 
+     for (auto& task : sweepCacheTasks) {
+@@ -5254,6 +5254,10 @@
+     startSweepingAtomsTable();
+   }
+ 
++  // FinalizationRegistry sweeping touches weak maps and so must not run in
++  // parallel with that.
++  sweepFinalizationRegistriesOnMainThread();
++
+   // Queue all GC things in all zones for sweeping, either on the foreground
+   // or on the background thread.
+ 

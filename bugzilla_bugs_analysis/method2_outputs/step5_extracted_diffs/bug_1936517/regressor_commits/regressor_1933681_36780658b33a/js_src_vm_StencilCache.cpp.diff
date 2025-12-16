@@ -1,0 +1,92 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/StencilCache.cpp
+# Commit: 36780658b33a
+# Full Hash: 36780658b33a050e82385161eab2e5e2e5e90064
+# Author: Tooru Fujisawa <arai_a@mac.com>
+# Date: 2024-12-05 09:58:04
+# Regressor Bug: 1933681
+# File Overlap Count: 1
+# Description:
+#   Bug 1933681 - Part 2: Rewrite concurrent delazification's input/output based on InitialStencilAndDelazifications. r=nbp
+#   
+#   The concurrent delazification internal is still using CompilationStencilMerger.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D230388
+# ==============================================================================
+
+diff -r 31d3f2901db9 -r 36780658b33a js/src/vm/StencilCache.cpp
+--- a/js/src/vm/StencilCache.cpp	Wed Dec 04 23:44:33 2024 +0000
++++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
+@@ -1,70 +0,0 @@
+-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*-
+- * vim: set ts=8 sts=2 et sw=2 tw=80:
+- * This Source Code Form is subject to the terms of the Mozilla Public
+- * License, v. 2.0. If a copy of the MPL was not distributed with this
+- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+-
+-#include "vm/StencilCache.h"
+-
+-#include "frontend/CompilationStencil.h"
+-#include "js/experimental/JSStencil.h"
+-#include "vm/MutexIDs.h"
+-
+-js::StencilCache::StencilCache()
+-    : cache(js::mutexid::StencilCache), enabled(false) {}
+-
+-js::StencilCache::AccessKey js::StencilCache::isSourceCached(
+-    ScriptSource* src) {
+-  if (!enabled) {
+-    return cache.noAccess();
+-  }
+-
+-  AccessKey lock(cache.lock());
+-  if (!enabled) {
+-    // As we checked the flag before taking the lock, we have to check again to
+-    // avoid races on the cache manipulation.
+-    return cache.noAccess();
+-  }
+-  if (!lock->watched.has(src)) {
+-    // If the source does not have any cached function, and we do not expect to
+-    // cache any delazification in the future, then skip any cache handling.
+-    return cache.noAccess();
+-  }
+-  return lock;
+-}
+-
+-bool js::StencilCache::startCaching(RefPtr<ScriptSource>&& src) {
+-  auto guard = cache.lock();
+-  if (!guard->watched.putNew(std::move(src))) {
+-    return false;
+-  }
+-  enabled = true;
+-  return true;
+-}
+-
+-js::frontend::CompilationStencil* js::StencilCache::lookup(
+-    AccessKey& guard, const StencilContext& key) {
+-  auto ptr = guard->functions.lookup(key);
+-  if (!ptr) {
+-    return nullptr;
+-  }
+-
+-  return ptr->value().get();
+-}
+-
+-bool js::StencilCache::putNew(AccessKey& guard, const StencilContext& key,
+-                              js::frontend::CompilationStencil* value) {
+-  return guard->functions.putNew(key, value);
+-}
+-
+-// Important: This function should not be called within a scope checking for
+-// isSourceCached, as this would cause a dead-lock.
+-void js::StencilCache::clearAndDisable() {
+-  auto guard = cache.lock();
+-  guard->functions.clearAndCompact();
+-  guard->watched.clearAndCompact();
+-  enabled = false;
+-}
+-
+-MOZ_RUNINIT /* static */ js::DelazificationCache
+-    js::DelazificationCache::singleton;

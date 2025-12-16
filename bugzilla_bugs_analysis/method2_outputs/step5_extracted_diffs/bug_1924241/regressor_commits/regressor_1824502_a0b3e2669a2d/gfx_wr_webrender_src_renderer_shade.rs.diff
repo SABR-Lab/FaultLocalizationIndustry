@@ -1,0 +1,68 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/renderer/shade.rs
+# Commit: a0b3e2669a2d
+# Full Hash: a0b3e2669a2dc49c467521cb9b7966ca05e3dbc3
+# Author: Ashley Hale <ahale@mozilla.com>
+# Date: 2024-05-08 09:49:23
+# Regressor Bug: 1824502
+# File Overlap Count: 1
+# Description:
+#   Bug 1824502 - Implement native SVG filter rendering in WebRender r=gw
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D209646
+# ==============================================================================
+
+diff -r d1df40ba7c88 -r a0b3e2669a2d gfx/wr/webrender/src/renderer/shade.rs
+--- a/gfx/wr/webrender/src/renderer/shade.rs	Wed May 08 01:43:25 2024 +0000
++++ b/gfx/wr/webrender/src/renderer/shade.rs	Wed May 08 04:38:26 2024 +0000
+@@ -263,6 +263,7 @@
+                 VertexArrayKind::Scale => &desc::SCALE,
+                 VertexArrayKind::Resolve => &desc::RESOLVE,
+                 VertexArrayKind::SvgFilter => &desc::SVG_FILTER,
++                VertexArrayKind::SvgFilterNode => &desc::SVG_FILTER_NODE,
+                 VertexArrayKind::Composite => &desc::COMPOSITE,
+                 VertexArrayKind::Clear => &desc::CLEAR,
+                 VertexArrayKind::Copy => &desc::COPY,
+@@ -601,6 +602,7 @@
+     pub cs_radial_gradient: LazilyCompiledShader,
+     pub cs_conic_gradient: LazilyCompiledShader,
+     pub cs_svg_filter: LazilyCompiledShader,
++    pub cs_svg_filter_node: LazilyCompiledShader,
+ 
+     // Brush shaders
+     brush_solid: BrushShader,
+@@ -770,6 +772,16 @@
+             profile,
+         )?;
+ 
++        let cs_svg_filter_node = LazilyCompiledShader::new(
++            ShaderKind::Cache(VertexArrayKind::SvgFilterNode),
++            "cs_svg_filter_node",
++            &[],
++            device,
++            options.precache_flags,
++            &shader_list,
++            profile,
++        )?;
++
+         let ps_mask = LazilyCompiledShader::new(
+             ShaderKind::Cache(VertexArrayKind::Mask),
+             "ps_quad_mask",
+@@ -1129,6 +1141,7 @@
+             cs_border_solid,
+             cs_scale,
+             cs_svg_filter,
++            cs_svg_filter_node,
+             brush_solid,
+             brush_image,
+             brush_fast_image,
+@@ -1300,6 +1313,7 @@
+         self.cs_blur_a8.deinit(device);
+         self.cs_blur_rgba8.deinit(device);
+         self.cs_svg_filter.deinit(device);
++        self.cs_svg_filter_node.deinit(device);
+         self.brush_solid.deinit(device);
+         self.brush_blend.deinit(device);
+         self.brush_mix_blend.deinit(device);

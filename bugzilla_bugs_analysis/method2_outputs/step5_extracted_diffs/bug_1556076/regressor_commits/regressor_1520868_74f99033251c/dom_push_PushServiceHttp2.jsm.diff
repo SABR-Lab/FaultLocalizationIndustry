@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/push/PushServiceHttp2.jsm
+# Commit: 74f99033251c
+# Full Hash: 74f99033251cd6c36eb6b0b5a4713eb6b5c793fa
+# Author: Jonathan Kingston <jkt@mozilla.com>
+# Date: 2019-02-13 09:48:26
+# Regressor Bug: 1520868
+# File Overlap Count: 1
+# Description:
+#   Bug 1520868 - Replacing AsyncOpen2 with AsyncOpen always r=valentin
+#   
+#   Replacing js and text occurences of asyncOpen2
+#   Replacing open2 with open
+#   
+# ==============================================================================
+
+diff -r 3378fd5f4f22 -r 74f99033251c dom/push/PushServiceHttp2.jsm
+--- a/dom/push/PushServiceHttp2.jsm	Tue Feb 12 17:58:19 2019 +0100
++++ b/dom/push/PushServiceHttp2.jsm	Tue Feb 12 16:08:25 2019 +0000
+@@ -90,7 +90,7 @@
+   onPush: function(associatedChannel, pushChannel) {
+     console.debug("PushSubscriptionListener: onPush()");
+     var pushChannelListener = new PushChannelListener(this);
+-    pushChannel.asyncOpen2(pushChannelListener);
++    pushChannel.asyncOpen(pushChannelListener);
+   },
+ 
+   disconnect: function() {
+@@ -492,7 +492,7 @@
+ 
+       var chan = this._makeChannel(this._serverURI.spec);
+       chan.requestMethod = "POST";
+-      chan.asyncOpen2(listener);
++      chan.asyncOpen(listener);
+     })
+     .catch(err => {
+       if ("retry" in err) {
+@@ -508,7 +508,7 @@
+     return new Promise((resolve,reject) => {
+       var chan = this._makeChannel(aUri);
+       chan.requestMethod = "DELETE";
+-      chan.asyncOpen2(new PushServiceDelete(resolve, reject));
++      chan.asyncOpen(new PushServiceDelete(resolve, reject));
+     });
+   },
+ 
+@@ -542,10 +542,10 @@
+     chan.notificationCallbacks = listener;
+ 
+     try {
+-      chan.asyncOpen2(listener);
++      chan.asyncOpen(listener);
+     } catch (e) {
+       console.error("listenForMsgs: Error connecting to push server.",
+-        "asyncOpen2 failed", e);
++        "asyncOpen failed", e);
+       conn.listener.disconnect();
+       chan.cancel(Cr.NS_ERROR_ABORT);
+       this._retryAfterBackoff(aSubscriptionUri, -1);

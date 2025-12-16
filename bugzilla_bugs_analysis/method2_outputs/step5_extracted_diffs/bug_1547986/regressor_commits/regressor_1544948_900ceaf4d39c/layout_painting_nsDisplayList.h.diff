@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/painting/nsDisplayList.h
+# Commit: 900ceaf4d39c
+# Full Hash: 900ceaf4d39c8968eb4ba8c7769b47064f34ad18
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2019-04-29 09:53:17
+# Regressor Bug: 1544948
+# File Overlap Count: 1
+# Description:
+#   Bug 1544948 - Skip merging display lists that we're sure can't have changed. r=miko
+#   
+#   ComputeRebuildRegion sets ForceDescendIntoIfVisible on all modified frames and their ancestors,
+#   so we can use this to detect if a display list might have modified children by looking for this
+#   flag on the container item.
+# ==============================================================================
+
+diff -r 90c4bb8c0d5c -r 900ceaf4d39c layout/painting/nsDisplayList.h
+--- a/layout/painting/nsDisplayList.h	Mon Apr 29 00:20:30 2019 +0000
++++ b/layout/painting/nsDisplayList.h	Mon Apr 29 03:14:49 2019 +0000
+@@ -2085,6 +2085,7 @@
+  protected:
+   nsDisplayItemLink() : mAbove(nullptr) {}
+   nsDisplayItemLink(const nsDisplayItemLink&) : mAbove(nullptr) {}
++  ~nsDisplayItemLink() { MOZ_RELEASE_ASSERT(!mAbove); }
+   nsDisplayItem* mAbove;
+ 
+   friend class nsDisplayList;
+@@ -3680,13 +3681,17 @@
+     MOZ_ASSERT(mOldItems.IsEmpty(), "Can only move into an empty list!");
+     AppendToTop(&aOther);
+     mDAG = std::move(aOther.mDAG);
++    mOldItems = std::move(aOther.mOldItems);
+     return *this;
+   }
+ 
+   void DeleteAll(nsDisplayListBuilder* aBuilder) override {
+     for (OldItemInfo& i : mOldItems) {
+-      if (i.mItem) {
++      if (i.mItem && i.mOwnsItem) {
+         i.mItem->Destroy(aBuilder);
++        MOZ_ASSERT(!GetBottom(),
++                   "mOldItems should not be owning items if we also have items "
++                   "in the normal list");
+       }
+     }
+     mOldItems.Clear();

@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/cairo/cairo/meson-cc-tests/pthread.c
+# Commit: 3cdfb39376b7
+# Full Hash: 3cdfb39376b736597fe658a322389117686b7e82
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2024-05-07 09:13:07
+# Regressor Bug: 1892913
+# File Overlap Count: 3
+# Description:
+#   Bug 1892913 - patch 1 - Update cairo source to 1.18.0 r=gfx-reviewers,lsalzman
+#   
+#   Wholesale replacement of files in gfx/cairo/cairo with contents of the 1.18.0 release tarball,
+#   omitting subdirectories that are not part of the core library build.
+#   
+# ==============================================================================
+
+diff -r 9daa351f875b -r 3cdfb39376b7 gfx/cairo/cairo/meson-cc-tests/pthread.c
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/gfx/cairo/cairo/meson-cc-tests/pthread.c	Mon May 06 19:25:12 2024 +0000
+@@ -0,0 +1,35 @@
++#ifndef _GNU_SOURCE
++#define _GNU_SOURCE /* for PTHREAD_MUTEX_INITIALIZER under linux */
++#endif
++#include <pthread.h>
++
++pthread_mutex_t test_mutex_initializer = PTHREAD_MUTEX_INITIALIZER;
++int test_mutex (void)
++{
++	int x = 0;
++	pthread_mutex_t mutex;
++	x |= pthread_mutex_init (&mutex, NULL);
++	x |= pthread_mutex_lock (&mutex);
++	x |= pthread_mutex_unlock (&mutex);
++	x |= pthread_mutex_destroy (&mutex);
++	return 0;
++}
++
++int test_mutex_attr (void)
++{
++	int x = 0;
++	pthread_mutexattr_t attr;
++	pthread_mutex_t mutex;
++	x |= pthread_mutexattr_init (&attr);
++	x |= pthread_mutexattr_settype (&attr, PTHREAD_MUTEX_RECURSIVE);
++	x |= pthread_mutex_init (&mutex, &attr);
++	x |= pthread_mutex_lock (&mutex);
++	x |= pthread_mutex_unlock (&mutex);
++	x |= pthread_mutex_destroy (&mutex);
++	x |= pthread_mutexattr_destroy (&attr);
++	return x;
++}
++
++int main(void) {
++  return 0;
++}

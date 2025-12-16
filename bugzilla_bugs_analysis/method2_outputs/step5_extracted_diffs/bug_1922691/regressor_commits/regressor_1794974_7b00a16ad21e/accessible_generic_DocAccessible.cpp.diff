@@ -1,0 +1,114 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/generic/DocAccessible.cpp
+# Commit: 7b00a16ad21e
+# Full Hash: 7b00a16ad21ee2b820b679199ae3806250d861e9
+# Author: Nathan LaPre <nlapre@mozilla.com>
+# Date: 2024-09-10 09:03:27
+# Regressor Bug: 1794974
+# File Overlap Count: 1
+# Description:
+#   Bug 1794974: Part 2: Add ability to query and send individual cache domains, r=Jamie
+#   
+#   This revision adds the capability of querying and sending information about
+#   individual cache domains. It introduces the concept of active cache domains to
+#   the accessibility service: cache domains that we think clients need. Conversely,
+# ==============================================================================
+
+diff -r 642b6d8c4d3b -r 7b00a16ad21e accessible/generic/DocAccessible.cpp
+--- a/accessible/generic/DocAccessible.cpp	Mon Sep 09 23:02:19 2024 +0000
++++ b/accessible/generic/DocAccessible.cpp	Mon Sep 09 23:02:19 2024 +0000
+@@ -354,8 +354,26 @@
+   if (docType) docType->GetPublicId(aType);
+ }
+ 
+-void DocAccessible::QueueCacheUpdate(LocalAccessible* aAcc,
+-                                     uint64_t aNewDomain) {
++// Certain cache domain updates might require updating other cache domains.
++// This function takes the given cache domains and returns those cache domains
++// plus any other required associated cache domains. Made for use with
++// QueueCacheUpdate.
++static uint64_t GetCacheDomainsQueueUpdateSuperset(uint64_t aCacheDomains) {
++  // Text domain updates imply updates to the TextOffsetAttributes and
++  // TextBounds domains.
++  if (aCacheDomains & CacheDomain::Text) {
++    aCacheDomains |= CacheDomain::TextOffsetAttributes;
++    aCacheDomains |= CacheDomain::TextBounds;
++  }
++  // Bounds domain updates imply updates to the TextBounds domain.
++  if (aCacheDomains & CacheDomain::Bounds) {
++    aCacheDomains |= CacheDomain::TextBounds;
++  }
++  return aCacheDomains;
++}
++
++void DocAccessible::QueueCacheUpdate(LocalAccessible* aAcc, uint64_t aNewDomain,
++                                     bool aBypassActiveDomains) {
+   if (!mIPCDoc) {
+     return;
+   }
+@@ -378,9 +396,32 @@
+         // LocalAccessible twice.
+         return entry.Insert(index);
+       });
++
++  // We may need to bypass the active domain restriction when populating domains
++  // for the first time. In that case, queue cache updates regardless of domain.
++  if (aBypassActiveDomains) {
++    auto& [arrayAcc, domain] = mQueuedCacheUpdatesArray[arrayIndex];
++    MOZ_ASSERT(arrayAcc == aAcc);
++    domain |= aNewDomain;
++    Controller()->ScheduleProcessing();
++    return;
++  }
++
++  // Potentially queue updates for required related domains.
++  const uint64_t newDomains = GetCacheDomainsQueueUpdateSuperset(aNewDomain);
++
++  // Only queue cache updates for domains that are active.
++  const uint64_t domainsToUpdate =
++      nsAccessibilityService::GetActiveCacheDomains() & newDomains;
++
++  // Avoid queueing cache updates if we have no domains to update.
++  if (domainsToUpdate == CacheDomain::None) {
++    return;
++  }
++
+   auto& [arrayAcc, domain] = mQueuedCacheUpdatesArray[arrayIndex];
+   MOZ_ASSERT(arrayAcc == aAcc);
+-  domain |= aNewDomain;
++  domain |= domainsToUpdate;
+   Controller()->ScheduleProcessing();
+ }
+ 
+@@ -1526,7 +1567,7 @@
+   mInvalidationList.Clear();
+ }
+ 
+-void DocAccessible::ProcessQueuedCacheUpdates() {
++void DocAccessible::ProcessQueuedCacheUpdates(uint64_t aInitialDomains) {
+   AUTO_PROFILER_MARKER_TEXT("DocAccessible::ProcessQueuedCacheUpdates", A11Y,
+                             {}, ""_ns);
+   PerfStats::AutoMetricRecording<
+@@ -1537,8 +1578,8 @@
+   nsTArray<CacheData> data;
+   for (auto [acc, domain] : mQueuedCacheUpdatesArray) {
+     if (acc && acc->IsInDocument() && !acc->IsDefunct()) {
+-      RefPtr<AccAttributes> fields =
+-          acc->BundleFieldsForCache(domain, CacheUpdateType::Update);
++      RefPtr<AccAttributes> fields = acc->BundleFieldsForCache(
++          domain, CacheUpdateType::Update, aInitialDomains);
+ 
+       if (fields->Count()) {
+         data.AppendElement(CacheData(
+@@ -1698,7 +1739,8 @@
+       // Send an initial update for this document and its attributes. Each acc
+       // contained in this doc will have its initial update sent in
+       // `InsertIntoIpcTree`.
+-      SendCache(CacheDomain::All, CacheUpdateType::Initial);
++      SendCache(nsAccessibilityService::GetActiveCacheDomains(),
++                CacheUpdateType::Initial);
+ 
+       for (auto idx = 0U; idx < mChildren.Length(); idx++) {
+         ipcDoc->InsertIntoIpcTree(mChildren.ElementAt(idx), true);

@@ -1,0 +1,72 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/base/containers/adapters.h
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 3
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/base/containers/adapters.h
+--- a/security/sandbox/chromium/base/containers/adapters.h	Wed Jun 12 21:55:59 2019 +1200
++++ b/security/sandbox/chromium/base/containers/adapters.h	Wed Jun 12 11:10:48 2019 +0100
+@@ -8,6 +8,7 @@
+ #include <stddef.h>
+ 
+ #include <iterator>
++#include <utility>
+ 
+ #include "base/macros.h"
+ 
+@@ -19,15 +20,13 @@
+ template <typename T>
+ class ReversedAdapter {
+  public:
+-  using Iterator = decltype(static_cast<T*>(nullptr)->rbegin());
++  using Iterator = decltype(std::rbegin(std::declval<T&>()));
+ 
+   explicit ReversedAdapter(T& t) : t_(t) {}
+   ReversedAdapter(const ReversedAdapter& ra) : t_(ra.t_) {}
+ 
+-  // TODO(mdempsky): Once we can use C++14 library features, use std::rbegin
+-  // and std::rend instead, so we can remove the specialization below.
+-  Iterator begin() const { return t_.rbegin(); }
+-  Iterator end() const { return t_.rend(); }
++  Iterator begin() const { return std::rbegin(t_); }
++  Iterator end() const { return std::rend(t_); }
+ 
+  private:
+   T& t_;
+@@ -35,23 +34,6 @@
+   DISALLOW_ASSIGN(ReversedAdapter);
+ };
+ 
+-template <typename T, size_t N>
+-class ReversedAdapter<T[N]> {
+- public:
+-  using Iterator = std::reverse_iterator<T*>;
+-
+-  explicit ReversedAdapter(T (&t)[N]) : t_(t) {}
+-  ReversedAdapter(const ReversedAdapter& ra) : t_(ra.t_) {}
+-
+-  Iterator begin() const { return Iterator(&t_[N]); }
+-  Iterator end() const { return Iterator(&t_[0]); }
+-
+- private:
+-  T (&t_)[N];
+-
+-  DISALLOW_ASSIGN(ReversedAdapter);
+-};
+-
+ }  // namespace internal
+ 
+ // Reversed returns a container adapter usable in a range-based "for" statement

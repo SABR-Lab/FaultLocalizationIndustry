@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/style/SheetLoadData.h
+# Commit: 313c1f782833
+# Full Hash: 313c1f7828336b6163271454aaface96f0e3fc96
+# Author: Tooru Fujisawa <arai_a@mac.com>
+# Date: 2024-10-02 09:50:09
+# Regressor Bug: 1899734
+# File Overlap Count: 1
+# Description:
+#   Bug 1899734 - Part 5: Make SharedSubResourceCache capable of handling CacheablePerformanceTimingData. r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D223351
+# ==============================================================================
+
+diff -r baa464d5f255 -r 313c1f782833 layout/style/SheetLoadData.h
+--- a/layout/style/SheetLoadData.h	Tue Oct 01 12:17:21 2024 +0000
++++ b/layout/style/SheetLoadData.h	Tue Oct 01 12:17:22 2024 +0000
+@@ -7,6 +7,7 @@
+ #ifndef mozilla_css_SheetLoadData_h
+ #define mozilla_css_SheetLoadData_h
+ 
++#include "mozilla/RefPtr.h"
+ #include "mozilla/css/Loader.h"
+ #include "mozilla/css/SheetParsingMode.h"
+ #include "mozilla/Encoding.h"
+@@ -257,6 +258,8 @@
+ 
+   const bool mRecordErrors;
+ 
++  RefPtr<SubResourceNetworkMetadataHolder> mNetworkMetadata;
++
+   bool ShouldDefer() const { return mWasAlternate || !mMediaMatched; }
+ 
+   RefPtr<StyleSheet> ValueForCache() const;
+@@ -287,6 +290,10 @@
+   bool IsLoading() const override { return mIsLoading; }
+   bool IsCancelled() const override { return mIsCancelled; }
+ 
++  SubResourceNetworkMetadataHolder* GetNetworkMetadata() const override {
++    return mNetworkMetadata.get();
++  }
++
+   void StartLoading() override;
+   void SetLoadCompleted() override;
+   void OnCoalescedTo(const SheetLoadData& aExistingLoad) override {

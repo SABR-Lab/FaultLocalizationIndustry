@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/wr/WebRenderCommandBuilder.cpp
+# Commit: 60a413f472fd
+# Full Hash: 60a413f472fd505322e3ffbbb2b17592ef2b1c25
+# Author: Jeff Muizelaar <jmuizelaar@mozilla.com>
+# Date: 2021-05-13 03:26:48
+# Regressor Bug: 1710695
+# File Overlap Count: 1
+# Description:
+#   Bug 1710695. Use a restricted visible area for masks. r=aosmond
+#   
+#   This is similar to the work done in bug 1494924 for fallback items.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D114915
+# ==============================================================================
+
+diff -r 301b4766a646 -r 60a413f472fd gfx/layers/wr/WebRenderCommandBuilder.cpp
+--- a/gfx/layers/wr/WebRenderCommandBuilder.cpp	Wed May 12 14:22:28 2021 +0000
++++ b/gfx/layers/wr/WebRenderCommandBuilder.cpp	Wed May 12 14:28:25 2021 +0000
+@@ -2499,12 +2499,18 @@
+       LayerIntRect::FromUnknownRect(bounds.ScaleToOutsidePixels(
+           scale.width, scale.height, appUnitsPerDevPixel));
+ 
+-  if (itemRect.IsEmpty()) {
++  LayerIntRect visibleRect =
++      LayerIntRect::FromUnknownRect(
++          aMaskItem->GetBuildingRect().ScaleToOutsidePixels(
++              scale.width, scale.height, appUnitsPerDevPixel))
++          .Intersect(itemRect);
++
++  if (visibleRect.IsEmpty()) {
+     return Nothing();
+   }
+ 
+   LayoutDeviceToLayerScale2D layerScale(scale.width, scale.height);
+-  LayoutDeviceRect imageRect = LayerRect(itemRect) / layerScale;
++  LayoutDeviceRect imageRect = LayerRect(visibleRect) / layerScale;
+ 
+   nsPoint maskOffset = aMaskItem->ToReferenceFrame() - bounds.TopLeft();
+ 
+@@ -2611,6 +2617,11 @@
+     }
+   }
+ 
++  aResources.SetBlobImageVisibleArea(
++      maskData->mBlobKey.value(),
++      ViewAs<ImagePixel>(visibleRect - itemRect.TopLeft(),
++                         PixelCastJustification::LayerIsImage));
++
+   MOZ_DIAGNOSTIC_ASSERT(
+       mManager->WrBridge()->MatchesNamespace(maskData->mBlobKey.ref()),
+       "Stale blob key for mask!");

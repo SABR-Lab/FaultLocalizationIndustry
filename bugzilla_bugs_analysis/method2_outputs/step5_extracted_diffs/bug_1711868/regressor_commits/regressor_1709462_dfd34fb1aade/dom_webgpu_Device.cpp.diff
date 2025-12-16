@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/webgpu/Device.cpp
+# Commit: dfd34fb1aade
+# Full Hash: dfd34fb1aade1295579715b1c21f1e51bbfe370e
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-05-18 21:36:28
+# Regressor Bug: 1709462
+# File Overlap Count: 2
+# Description:
+#   Bug 1709462 - Fix freeing of WebGPU bind group layouts r=jimb
+#   
+#   When the pipeline layout is implicit at pipeline creation,
+#   we collect the IDs of BGLs, to be able to produce GPUBindGroupLayout
+#   object upon user request. However, the produced object didn't know if
+# ==============================================================================
+
+diff -r 5c6f0950714d -r dfd34fb1aade dom/webgpu/Device.cpp
+--- a/dom/webgpu/Device.cpp	Tue May 18 16:24:49 2021 +0000
++++ b/dom/webgpu/Device.cpp	Tue May 18 16:26:27 2021 +0000
+@@ -169,7 +169,7 @@
+ already_AddRefed<BindGroupLayout> Device::CreateBindGroupLayout(
+     const dom::GPUBindGroupLayoutDescriptor& aDesc) {
+   RawId id = mBridge->DeviceCreateBindGroupLayout(mId, aDesc);
+-  RefPtr<BindGroupLayout> object = new BindGroupLayout(this, id);
++  RefPtr<BindGroupLayout> object = new BindGroupLayout(this, id, true);
+   return object.forget();
+ }
+ already_AddRefed<PipelineLayout> Device::CreatePipelineLayout(
+@@ -196,20 +196,24 @@
+ already_AddRefed<ComputePipeline> Device::CreateComputePipeline(
+     const dom::GPUComputePipelineDescriptor& aDesc) {
+   nsTArray<RawId> implicitBindGroupLayoutIds;
+-  RawId id = mBridge->DeviceCreateComputePipeline(mId, aDesc,
+-                                                  &implicitBindGroupLayoutIds);
++  RawId implicitPipelineLayoutId = 0;
++  RawId id = mBridge->DeviceCreateComputePipeline(
++      mId, aDesc, &implicitPipelineLayoutId, &implicitBindGroupLayoutIds);
+   RefPtr<ComputePipeline> object =
+-      new ComputePipeline(this, id, std::move(implicitBindGroupLayoutIds));
++      new ComputePipeline(this, id, implicitPipelineLayoutId,
++                          std::move(implicitBindGroupLayoutIds));
+   return object.forget();
+ }
+ 
+ already_AddRefed<RenderPipeline> Device::CreateRenderPipeline(
+     const dom::GPURenderPipelineDescriptor& aDesc) {
+   nsTArray<RawId> implicitBindGroupLayoutIds;
+-  RawId id = mBridge->DeviceCreateRenderPipeline(mId, aDesc,
+-                                                 &implicitBindGroupLayoutIds);
++  RawId implicitPipelineLayoutId = 0;
++  RawId id = mBridge->DeviceCreateRenderPipeline(
++      mId, aDesc, &implicitPipelineLayoutId, &implicitBindGroupLayoutIds);
+   RefPtr<RenderPipeline> object =
+-      new RenderPipeline(this, id, std::move(implicitBindGroupLayoutIds));
++      new RenderPipeline(this, id, implicitPipelineLayoutId,
++                         std::move(implicitBindGroupLayoutIds));
+   return object.forget();
+ }
+ 

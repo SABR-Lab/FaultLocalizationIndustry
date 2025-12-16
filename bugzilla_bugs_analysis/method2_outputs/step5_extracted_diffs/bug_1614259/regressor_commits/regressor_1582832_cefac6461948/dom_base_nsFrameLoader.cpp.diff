@@ -1,0 +1,75 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsFrameLoader.cpp
+# Commit: cefac6461948
+# Full Hash: cefac6461948d6b8ef6cd6b1f563a2e487e0bbac
+# Author: Kris Maglione <maglione.k@gmail.com>
+# Date: 2020-02-07 03:55:51
+# Regressor Bug: 1582832
+# File Overlap Count: 1
+# Description:
+#   Bug 1582832: Part 2 - Don't attach a BrowsingContext before a FrameLoader is initialized. r=nika
+#   
+#   There are cases where the initial BrowsingContext that we create for a
+#   FrameLoader will never have a DocShell created for it. In the particular case
+#   when the frame it belongs to is part of an inactive document, trying to
+# ==============================================================================
+
+diff -r 6fd57b83bb52 -r cefac6461948 dom/base/nsFrameLoader.cpp
+--- a/dom/base/nsFrameLoader.cpp	Thu Feb 06 19:07:56 2020 +0000
++++ b/dom/base/nsFrameLoader.cpp	Thu Feb 06 19:08:04 2020 +0000
+@@ -281,16 +281,23 @@
+   nsAutoString frameName;
+   GetFrameName(aOwner, frameName);
+ 
++  // Create our BrowsingContext without immediately attaching it. It's possible
++  // that no DocShell or remote browser will ever be created for this
++  // FrameLoader, particularly if the document that we were created for is not
++  // currently active. And in that latter case, if we try to attach our BC now,
++  // it will wind up attached as a child of the currently active inner window
++  // for the BrowsingContext, and cause no end of trouble.
+   if (IsTopContent(parentContext, aOwner)) {
+     // Create toplevel content without a parent & as Type::Content.
+-    return BrowsingContext::Create(nullptr, aOpener, frameName,
+-                                   BrowsingContext::Type::Content);
++    return BrowsingContext::CreateDetached(nullptr, aOpener, frameName,
++                                           BrowsingContext::Type::Content);
+   }
+ 
+   auto type = parentContext->IsContent() ? BrowsingContext::Type::Content
+                                          : BrowsingContext::Type::Chrome;
+ 
+-  return BrowsingContext::Create(parentContext, aOpener, frameName, type);
++  return BrowsingContext::CreateDetached(parentContext, aOpener, frameName,
++                                         type);
+ }
+ 
+ static bool InitialLoadIsRemote(Element* aOwner) {
+@@ -1899,7 +1906,7 @@
+     GetDocShell()->Destroy();
+   }
+ 
+-  if (!mWillChangeProcess) {
++  if (!mWillChangeProcess && mBrowsingContext->EverAttached()) {
+     mBrowsingContext->Detach();
+   }
+ 
+@@ -2019,6 +2026,8 @@
+     return NS_ERROR_UNEXPECTED;
+   }
+ 
++  mBrowsingContext->EnsureAttached();
++
+   // nsDocShell::Create will attach itself to the passed browsing
+   // context inside of nsDocShell::Create
+   RefPtr<nsDocShell> docShell = nsDocShell::Create(mBrowsingContext);
+@@ -2508,6 +2517,8 @@
+     return false;
+   }
+ 
++  mBrowsingContext->EnsureAttached();
++
+   RefPtr<ContentParent> openerContentParent;
+   RefPtr<nsIPrincipal> openerContentPrincipal;
+   RefPtr<BrowserParent> sameTabGroupAs;

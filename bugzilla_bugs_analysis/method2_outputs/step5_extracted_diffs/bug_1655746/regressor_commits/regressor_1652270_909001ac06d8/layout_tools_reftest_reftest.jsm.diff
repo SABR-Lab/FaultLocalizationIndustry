@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/tools/reftest/reftest.jsm
+# Commit: 909001ac06d8
+# Full Hash: 909001ac06d8b3982116a0b0f753ae365b1cea22
+# Author: Jonathan Watt <jwatt@jwatt.org>
+# Date: 2020-07-23 03:20:25
+# Regressor Bug: 1652270
+# File Overlap Count: 1
+# Description:
+#   Bug 1652270. Convert nsFrameLoader::Print to return a Promise. r=farre,remote-protocol-reviewers,marionette-reviewers,jgraham,whimboo,mixedpuppy
+#   
+#   (Instead of requiring callers to pass an nsIWebProgressListener.)
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D83249
+# ==============================================================================
+
+diff -r 8cfbd5213d04 -r 909001ac06d8 layout/tools/reftest/reftest.jsm
+--- a/layout/tools/reftest/reftest.jsm	Thu Jul 23 02:01:54 2020 +0300
++++ b/layout/tools/reftest/reftest.jsm	Wed Jul 22 23:17:45 2020 +0000
+@@ -1691,19 +1691,9 @@
+                 getService(Ci.nsIPrefBranch);
+     ps.printInColor = prefs.getBoolPref("print.print_in_color", true);
+ 
+-    g.browser.frameLoader.print(g.browser.outerWindowID, ps, {
+-        onStateChange: function(webProgress, request, stateFlags, status) {
+-            if (stateFlags & Ci.nsIWebProgressListener.STATE_STOP &&
+-                stateFlags & Ci.nsIWebProgressListener.STATE_IS_NETWORK) {
+-                SendPrintDone(status, file.path);
+-            }
+-        },
+-        onProgressChange: function () {},
+-        onLocationChange: function () {},
+-        onStatusChange: function () {},
+-        onSecurityChange: function () {},
+-        onContentBlockingEvent: function () {},
+-    });
++    g.browser.print(g.browser.outerWindowID, ps)
++        .then(() => SendPrintDone(Cr.NS_OK, file.path))
++        .catch(exception => SendPrintDone(exception.code, file.path));
+ }
+ 
+ function RecvPrintResult(runtimeMs, status, fileName)

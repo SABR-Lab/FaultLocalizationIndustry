@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/wifi/nsIWifiMonitor.idl
+# Commit: cefcb5f4f4e0
+# Full Hash: cefcb5f4f4e037cc90d4d87e474020ddac411a7b
+# Author: David Parks <daparks@mozilla.com>
+# Date: 2023-05-13 21:42:25
+# Regressor Bug: 1810421
+# File Overlap Count: 2
+# Description:
+#   Bug 1810421: Only scan wifi when the network changes or when on mobile r=necko-reviewers,kershaw a=reland CLOSED TREE
+#   
+#   Simplifies the concurrent operations of wifi scanning and reduces the
+#   frequency in common cases.  Wifi scanning when on mobile is reduced from
+#   every 5 seconds to every minute.  Wifi scans will also happen whenever
+# ==============================================================================
+
+diff -r af2b512cb5ac -r cefcb5f4f4e0 netwerk/wifi/nsIWifiMonitor.idl
+--- a/netwerk/wifi/nsIWifiMonitor.idl	Sat May 13 00:36:00 2023 +0000
++++ b/netwerk/wifi/nsIWifiMonitor.idl	Sat May 13 00:36:01 2023 +0000
+@@ -9,12 +9,15 @@
+ [scriptable, uuid(F289701E-D9AF-4685-BC2F-E4226FF7C018)]
+ interface nsIWifiMonitor : nsISupports
+ {
+-
+   /*
+    * startWatching
+-   * aListener will be called once, then each time the list of wifi access points change.
++   * aListener will be called once, then each time the list of wifi access
++   * points change.  The wifi access point list will be updated when our
++   * network changes, or on a regular interval if we are on a mobile network.
++   * If aForcePolling is true then we will always poll as long as this
++   * listener is watching.
+    */
+-  void startWatching(in nsIWifiListener aListener);
++  void startWatching(in nsIWifiListener aListener, in boolean aForcePolling);
+ 
+   /*
+    * stopWatching

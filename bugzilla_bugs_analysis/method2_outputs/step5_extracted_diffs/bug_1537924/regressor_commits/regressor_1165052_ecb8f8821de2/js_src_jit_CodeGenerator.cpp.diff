@@ -1,0 +1,94 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/CodeGenerator.cpp
+# Commit: ecb8f8821de2
+# Full Hash: ecb8f8821de2ab318eb4a0d863b5d9c1cd97d70f
+# Author: Tooru Fujisawa <arai_a@mac.com>
+# Date: 2016-04-07 20:42:20
+# Regressor Bug: 1165052
+# File Overlap Count: 1
+# Description:
+#   Bug 1165052 - Part 4: Inline IsConstructor intrinsic. r=jandem
+# ==============================================================================
+
+diff -r ae46f7e09a22 -r ecb8f8821de2 js/src/jit/CodeGenerator.cpp
+--- a/js/src/jit/CodeGenerator.cpp	Wed Dec 23 12:46:35 2015 +0900
++++ b/js/src/jit/CodeGenerator.cpp	Mon Nov 16 09:01:37 2015 +0900
+@@ -10458,6 +10458,76 @@
+     masm.jump(ool->rejoin());
+ }
+ 
++class OutOfLineIsConstructor : public OutOfLineCodeBase<CodeGenerator>
++{
++    LIsConstructor* ins_;
++
++  public:
++    explicit OutOfLineIsConstructor(LIsConstructor* ins)
++      : ins_(ins)
++    { }
++
++    void accept(CodeGenerator* codegen) {
++        codegen->visitOutOfLineIsConstructor(this);
++    }
++    LIsConstructor* ins() const {
++        return ins_;
++    }
++};
++
++void
++CodeGenerator::visitIsConstructor(LIsConstructor* ins)
++{
++    Register object = ToRegister(ins->object());
++    Register output = ToRegister(ins->output());
++
++    OutOfLineIsConstructor* ool = new(alloc()) OutOfLineIsConstructor(ins);
++    addOutOfLineCode(ool, ins->mir());
++
++    Label notFunction, notConstructor, done;
++    masm.loadObjClass(object, output);
++
++    // Just skim proxies off. Their notion of isConstructor() is more complicated.
++    masm.branchTestClassIsProxy(true, output, ool->entry());
++
++    // An object is constructor iff
++    //  ((is<JSFunction>() && as<JSFunction>().isConstructor) ||
++    //   getClass()->construct).
++    masm.branchPtr(Assembler::NotEqual, output, ImmPtr(&JSFunction::class_), &notFunction);
++    masm.load16ZeroExtend(Address(object, JSFunction::offsetOfFlags()), output);
++    masm.and32(Imm32(JSFunction::CONSTRUCTOR), output);
++    masm.branchTest32(Assembler::Zero, output, output, &notConstructor);
++    masm.move32(Imm32(1), output);
++    masm.jump(&done);
++    masm.bind(&notConstructor);
++    masm.move32(Imm32(0), output);
++    masm.jump(&done);
++
++    masm.bind(&notFunction);
++    masm.cmpPtrSet(Assembler::NonZero, Address(output, offsetof(js::Class, construct)), ImmPtr(nullptr), output);
++    masm.bind(&done);
++    masm.bind(ool->rejoin());
++}
++
++void
++CodeGenerator::visitOutOfLineIsConstructor(OutOfLineIsConstructor* ool)
++{
++    LIsConstructor* ins = ool->ins();
++    Register object = ToRegister(ins->object());
++    Register output = ToRegister(ins->output());
++
++    saveVolatile(output);
++    masm.setupUnalignedABICall(output);
++    masm.passABIArg(object);
++    masm.callWithABI(JS_FUNC_TO_DATA_PTR(void*, ObjectIsConstructor));
++    masm.storeCallResult(output);
++    // C++ compilers like to only use the bottom byte for bools, but we need to maintain the entire
++    // register.
++    masm.and32(Imm32(0xFF), output);
++    restoreVolatile(output);
++    masm.jump(ool->rejoin());
++}
++
+ void
+ CodeGenerator::visitIsObject(LIsObject* ins)
+ {

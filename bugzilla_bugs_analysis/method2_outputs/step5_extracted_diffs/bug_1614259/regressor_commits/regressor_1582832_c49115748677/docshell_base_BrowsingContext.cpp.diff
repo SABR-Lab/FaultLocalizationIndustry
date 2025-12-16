@@ -1,0 +1,34 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/BrowsingContext.cpp
+# Commit: c49115748677
+# Full Hash: c491157486775555a61d748ccbbc054988aacae9
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-03-23 21:38:56
+# Regressor Bug: 1582832
+# File Overlap Count: 5
+# Description:
+#   Bug 1614259 - Ensure BrowisngContexts are detached when nsDocShell is destroyed, r=farre
+#   
+#   After bug 1582832, DocShell destruction and BrowsingContext detaching happen
+#   in separate operations, leaving a gap where a DocShell has been destroyed, but
+#   its BrowsingContext is still considered attached. During this gap, the usual
+# ==============================================================================
+
+diff -r e8f6b2875121 -r c49115748677 docshell/base/BrowsingContext.cpp
+--- a/docshell/base/BrowsingContext.cpp	Mon Mar 23 15:19:14 2020 +0000
++++ b/docshell/base/BrowsingContext.cpp	Mon Mar 23 13:28:09 2020 +0000
+@@ -513,7 +513,11 @@
+         // Only the embedder process is allowed to initiate a BrowsingContext
+         // detach, so if we've gotten here, the host process already knows we've
+         // been detached, and there's no need to tell it again.
+-        if (!Canonical()->IsEmbeddedInProcess(aParent->ChildID())) {
++        // If the owner process is not the same as the embedder process, its
++        // BrowsingContext will be detached when its nsWebBrowser instance is
++        // destroyed.
++        if (!Canonical()->IsEmbeddedInProcess(aParent->ChildID()) &&
++            !Canonical()->IsOwnedByProcess(aParent->ChildID())) {
+           aParent->SendDetachBrowsingContext(Id(), callback, callback);
+         }
+       });

@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/platforms/agnostic/AgnosticDecoderModule.cpp
+# Commit: 8b2be3d7ece9
+# Full Hash: 8b2be3d7ece96e3ea35ea4f7b4a9cf7d3559012e
+# Author: Alex Chronopoulos <achronop@gmail.com>
+# Date: 2018-11-27 21:53:40
+# Regressor Bug: 1493400
+# File Overlap Count: 1
+# Description:
+#   Bug 1493400 - Implement platform decoder for dav1d. r=jya
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D12164
+# ==============================================================================
+
+diff -r 5c4bf474ddb3 -r 8b2be3d7ece9 dom/media/platforms/agnostic/AgnosticDecoderModule.cpp
+--- a/dom/media/platforms/agnostic/AgnosticDecoderModule.cpp	Sat Nov 24 01:53:31 2018 +0000
++++ b/dom/media/platforms/agnostic/AgnosticDecoderModule.cpp	Tue Nov 27 14:18:58 2018 +0000
+@@ -15,6 +15,7 @@
+ 
+ #ifdef MOZ_AV1
+ #include "AOMDecoder.h"
++#include "DAV1DDecoder.h"
+ #endif
+ 
+ namespace mozilla {
+@@ -46,7 +47,11 @@
+ #ifdef MOZ_AV1
+   else if (AOMDecoder::IsAV1(aParams.mConfig.mMimeType) &&
+            StaticPrefs::MediaAv1Enabled()) {
+-    m = new AOMDecoder(aParams);
++    if (StaticPrefs::MediaAv1UseDav1d()) {
++      m = new DAV1DDecoder(aParams);
++    } else {
++      m = new AOMDecoder(aParams);
++    }
+   }
+ #endif
+   else if (TheoraDecoder::IsTheora(aParams.mConfig.mMimeType)) {

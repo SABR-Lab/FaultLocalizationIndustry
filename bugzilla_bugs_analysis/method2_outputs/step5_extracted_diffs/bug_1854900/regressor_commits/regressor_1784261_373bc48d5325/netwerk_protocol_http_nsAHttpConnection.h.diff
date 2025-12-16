@@ -1,0 +1,37 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/nsAHttpConnection.h
+# Commit: 373bc48d5325
+# Full Hash: 373bc48d5325e17cb67a11035d4542d221023594
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2023-09-19 09:37:28
+# Regressor Bug: 1784261
+# File Overlap Count: 1
+# Description:
+#   Bug 1784261 - Add telemetry to understand the reason of connection closure, r=necko-reviewers,valentin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D188132
+# ==============================================================================
+
+diff -r f2fee3884997 -r 373bc48d5325 netwerk/protocol/http/nsAHttpConnection.h
+--- a/netwerk/protocol/http/nsAHttpConnection.h	Mon Sep 18 14:28:30 2023 +0000
++++ b/netwerk/protocol/http/nsAHttpConnection.h	Mon Sep 18 14:44:18 2023 +0000
+@@ -173,6 +173,7 @@
+   virtual nsITRRSkipReason::value TRRSkipReason() = 0;
+   virtual bool GetEchConfigUsed() = 0;
+   virtual PRIntervalTime LastWriteTime() = 0;
++  virtual void SetCloseReason(ConnectionCloseReason aReason) = 0;
+ };
+ 
+ NS_DEFINE_STATIC_IID_ACCESSOR(nsAHttpConnection, NS_AHTTPCONNECTION_IID)
+@@ -277,6 +278,9 @@
+   bool GetEchConfigUsed() override {                                         \
+     return (!(fwdObject)) ? false : (fwdObject)->GetEchConfigUsed();         \
+   }                                                                          \
++  void SetCloseReason(ConnectionCloseReason aReason) override {              \
++    if (fwdObject) (fwdObject)->SetCloseReason(aReason);                     \
++  }                                                                          \
+   PRIntervalTime LastWriteTime() override;
+ 
+ // ThrottleResponse deliberately ommited since we want different implementation

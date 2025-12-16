@@ -1,0 +1,83 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLQuery.h
+# Commit: ccfa767dba64
+# Full Hash: ccfa767dba644dc193e0246eb8e8ff3377e8b8a5
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Client-side bindings mirror for precise CC, and merge similar codepaths. r=handyman
+#   
+#   * Context loss using RAII
+#   * Move Program reflection Client-side
+#   
+# ==============================================================================
+
+diff -r 71c122ac0ca7 -r ccfa767dba64 dom/canvas/WebGLQuery.h
+--- a/dom/canvas/WebGLQuery.h	Wed Jan 08 22:19:14 2020 +0000
++++ b/dom/canvas/WebGLQuery.h	Wed Jan 08 22:19:16 2020 +0000
+@@ -6,9 +6,6 @@
+ #ifndef WEBGL_QUERY_H_
+ #define WEBGL_QUERY_H_
+ 
+-#include "mozilla/LinkedList.h"
+-#include "nsWrapperCache.h"
+-
+ #include "WebGLObjectModel.h"
+ #include "nsThreadUtils.h"
+ 
+@@ -17,17 +14,17 @@
+ class AvailabilityRunnable;
+ }  // namespace webgl
+ 
+-class WebGLQuery final : public WebGLRefCountedObject<WebGLQuery>,
+-                         public LinkedListElement<WebGLQuery> {
++class WebGLQuery final : public WebGLContextBoundObject {
+   friend class webgl::AvailabilityRunnable;
+-  friend class WebGLRefCountedObject<WebGLQuery>;
++
++  MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(WebGLQuery, override)
+ 
+  public:
+   const GLuint mGLName;
+ 
+  private:
+   GLenum mTarget;
+-  WebGLRefPtr<WebGLQuery>* mActiveSlot;
++  RefPtr<WebGLQuery>* mActiveSlot;
+ 
+   bool mCanBeAvailable = false;  // Track whether the event loop has spun
+ 
+@@ -38,25 +35,18 @@
+ 
+   ////
+ 
+-  NS_INLINE_DECL_REFCOUNTING(WebGLQuery)
+-
+   explicit WebGLQuery(WebGLContext* webgl);
+ 
+  private:
+-  ~WebGLQuery() { DeleteOnce(); };
+-
+-  // WebGLRefCountedObject
+-  void Delete();
++  ~WebGLQuery() override;
+ 
+  public:
+   ////
+ 
+-  void BeginQuery(GLenum target, WebGLRefPtr<WebGLQuery>& slot);
+-  void DeleteQuery();
++  void BeginQuery(GLenum target, RefPtr<WebGLQuery>& slot);
+   void EndQuery();
+-  MaybeWebGLVariant GetQueryParameter(GLenum pname) const;
+-  bool IsQuery() const;
+-  void QueryCounter(GLenum target);
++  Maybe<double> GetQueryParameter(GLenum pname) const;
++  void QueryCounter();
+ };
+ 
+ }  // namespace mozilla

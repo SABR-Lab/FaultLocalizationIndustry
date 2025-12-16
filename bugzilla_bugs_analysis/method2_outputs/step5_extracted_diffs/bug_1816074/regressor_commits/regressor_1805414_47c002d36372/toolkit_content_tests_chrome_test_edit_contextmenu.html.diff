@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/content/tests/chrome/test_edit_contextmenu.html
+# Commit: 47c002d36372
+# Full Hash: 47c002d3637247e71ee901f32421deaecc9d8ea3
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-01-05 03:40:49
+# Regressor Bug: 1805414
+# File Overlap Count: 2
+# Description:
+#   Bug 1805414 - Remove nsMenuFrame and nsMenuParent. r=smaug,Jamie,desktop-theme-reviewers,settings-reviewers,dao
+#   
+#   Move most the event handling stuff to the DOM. I've left nsMenuBarFrame
+#   for now, but I will be removing that in the future.
+#   
+# ==============================================================================
+
+diff -r 0c989b2bcd78 -r 47c002d36372 toolkit/content/tests/chrome/test_edit_contextmenu.html
+--- a/toolkit/content/tests/chrome/test_edit_contextmenu.html	Wed Jan 04 18:28:34 2023 +0000
++++ b/toolkit/content/tests/chrome/test_edit_contextmenu.html	Wed Jan 04 19:01:13 2023 +0000
+@@ -66,13 +66,13 @@
+       ok(contextmenu.querySelector("[command=cmd_delete]").hasAttribute("disabled"), "delete disabled");
+       ok(!contextmenu.querySelector("[command=cmd_selectAll]").hasAttribute("disabled"), "select all enabled");
+ 
+-      contextmenu.querySelector("[command=cmd_undo]").click();
+-      is(element.value, "", "undo worked");
++      let popuphidden = new Promise(r => win.addEventListener("popuphidden", r, { once: true }));
++
++      contextmenu.activateItem(contextmenu.querySelector("[command=cmd_undo]"));
+ 
+-      // Close the context menu to avoid affecting next test
+-      let popuphidden = new Promise(r => win.addEventListener("popuphidden", r, { once: true }));
+-      contextmenu.hidePopup();
+       await popuphidden;
++
++      is(element.value, "", "undo worked");
+       contextmenu.remove();
+     }
+   </script>

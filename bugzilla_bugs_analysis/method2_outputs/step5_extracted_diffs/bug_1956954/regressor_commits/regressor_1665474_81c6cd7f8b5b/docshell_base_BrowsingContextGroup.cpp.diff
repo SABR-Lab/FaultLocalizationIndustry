@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/BrowsingContextGroup.cpp
+# Commit: 81c6cd7f8b5b
+# Full Hash: 81c6cd7f8b5bd2750c00cc092d67199092b4ed87
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2025-03-04 04:58:00
+# Regressor Bug: 1665474
+# File Overlap Count: 1
+# Description:
+#   Bug 1665474 - Part 9: Handle calls to browser.createAboutBlankDocumentViewer with http(s) principals, r=farre
+#   
+#   It is possible for frontend JS to call this method on a browser element
+#   with an http(s) principal. In this case, treat the new about:blank
+#   document like it was created without a Origin-Agent-Cluster header, and
+# ==============================================================================
+
+diff -r 5a4d6c2e0dec -r 81c6cd7f8b5b docshell/base/BrowsingContextGroup.cpp
+--- a/docshell/base/BrowsingContextGroup.cpp	Mon Mar 03 22:51:30 2025 +0000
++++ b/docshell/base/BrowsingContextGroup.cpp	Mon Mar 03 22:51:30 2025 +0000
+@@ -660,6 +660,21 @@
+   return Nothing();
+ }
+ 
++void BrowsingContextGroup::EnsureUsesOriginAgentClusterInitialized(
++    nsIPrincipal* aPrincipal) {
++  if (UsesOriginAgentCluster(aPrincipal).isSome()) {
++    return;
++  }
++
++  MOZ_RELEASE_ASSERT(!XRE_IsContentProcess(),
++                     "Cannot determine origin-keying in content process!");
++
++  // We're about to load a document for this principal without hitting the
++  // network, so simulate no HTTP header being received on the network.
++  SetUseOriginAgentClusterFromNetwork(
++      aPrincipal, StaticPrefs::dom_origin_agent_cluster_default());
++}
++
+ NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(BrowsingContextGroup, mContexts,
+                                       mToplevels, mHosts, mSubscribers,
+                                       mTimerEventQueue, mWorkerEventQueue,

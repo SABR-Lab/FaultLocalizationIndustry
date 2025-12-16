@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/TLSTransportLayer.cpp
+# Commit: 521c9e019678
+# Full Hash: 521c9e019678f584590f63473416d40e03f33342
+# Author: Valentin Gosu <valentin.gosu@gmail.com>
+# Date: 2023-03-15 04:10:55
+# Regressor Bug: 1805372
+# File Overlap Count: 1
+# Description:
+#   Bug 1805372 - Pass effectiveTRRMode to nsHttpChannel from socketTransport/DnsAndConnectSocket r=necko-reviewers,kershaw
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D164539
+# ==============================================================================
+
+diff -r dfb39ca05529 -r 521c9e019678 netwerk/protocol/http/TLSTransportLayer.cpp
+--- a/netwerk/protocol/http/TLSTransportLayer.cpp	Tue Mar 14 15:29:49 2023 +0200
++++ b/netwerk/protocol/http/TLSTransportLayer.cpp	Tue Mar 14 12:59:40 2023 +0000
+@@ -535,6 +535,22 @@
+   return mSocketTransport->ResolvedByTRR(aResolvedByTRR);
+ }
+ 
++NS_IMETHODIMP TLSTransportLayer::GetEffectiveTRRMode(
++    nsIRequest::TRRMode* aEffectiveTRRMode) {
++  if (!mSocketTransport) {
++    return NS_ERROR_FAILURE;
++  }
++  return mSocketTransport->GetEffectiveTRRMode(aEffectiveTRRMode);
++}
++
++NS_IMETHODIMP TLSTransportLayer::GetTrrSkipReason(
++    nsITRRSkipReason::value* aTrrSkipReason) {
++  if (!mSocketTransport) {
++    return NS_ERROR_FAILURE;
++  }
++  return mSocketTransport->GetTrrSkipReason(aTrrSkipReason);
++}
++
+ #define FWD_TS_PTR(fx, ts)                          \
+   NS_IMETHODIMP                                     \
+   TLSTransportLayer::fx(ts* arg) {                  \

@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: xpcom/io/InputStreamLengthHelper.cpp
+# Commit: 48eaa84c206d
+# Full Hash: 48eaa84c206dbdda637c57b55ddbd07e975ba103
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2020-06-23 16:15:06
+# Regressor Bug: 1637500
+# File Overlap Count: 2
+# Description:
+#   Bug 1637500 - P2. Rename methods as they are not always dealing with "threads". r=froydnj
+#   
+#   Before P1, GetCurrentThreadSerialEventTarget would have always returned the same data as NS_GetCurrentThread, making the comment incorrect Now it will properly return the running TaskQueue if any.
+#   
+#   This change of name more clearly exposes what they are doing, as we aren't always dealing with threads directly; but a nsISerialEventTarget
+# ==============================================================================
+
+diff -r 00687d06a8a6 -r 48eaa84c206d xpcom/io/InputStreamLengthHelper.cpp
+--- a/xpcom/io/InputStreamLengthHelper.cpp	Tue Jun 23 05:02:39 2020 +0000
++++ b/xpcom/io/InputStreamLengthHelper.cpp	Tue Jun 23 05:05:36 2020 +0000
+@@ -25,7 +25,7 @@
+         mStream(stream),
+         mCallback(aCallback),
+         mSize(-1) {
+-    mCallbackTarget = GetCurrentThreadSerialEventTarget();
++    mCallbackTarget = GetCurrentSerialEventTarget();
+     MOZ_ASSERT(NS_IsMainThread());
+   }
+ 
+@@ -175,7 +175,7 @@
+ 
+   // Let's go async in order to have similar behaviors for sync and async
+   // nsIInputStreamLength implementations.
+-  GetCurrentThreadSerialEventTarget()->Dispatch(helper, NS_DISPATCH_NORMAL);
++  GetCurrentSerialEventTarget()->Dispatch(helper, NS_DISPATCH_NORMAL);
+ }
+ 
+ InputStreamLengthHelper::InputStreamLengthHelper(
+@@ -217,8 +217,8 @@
+   nsCOMPtr<nsIAsyncInputStreamLength> asyncStreamLength =
+       do_QueryInterface(mStream);
+   if (asyncStreamLength) {
+-    nsresult rv = asyncStreamLength->AsyncLengthWait(
+-        this, GetCurrentThreadSerialEventTarget());
++    nsresult rv =
++        asyncStreamLength->AsyncLengthWait(this, GetCurrentSerialEventTarget());
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       ExecCallback(-1);
+     }

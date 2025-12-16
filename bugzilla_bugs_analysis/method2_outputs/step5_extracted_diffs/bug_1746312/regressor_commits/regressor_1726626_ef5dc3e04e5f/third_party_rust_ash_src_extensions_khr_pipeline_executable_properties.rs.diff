@@ -1,0 +1,107 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/ash/src/extensions/khr/pipeline_executable_properties.rs
+# Commit: ef5dc3e04e5f
+# Full Hash: ef5dc3e04e5f271eea0636ab3a495e95cc912f1d
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-09-04 09:40:24
+# Regressor Bug: 1726626
+# File Overlap Count: 3
+# Description:
+#   Bug 1726626 - Move gfx/wgpu into a 3rd party dependency r=jgilbert,bholley
+#   
+#   This update makes wgpu a vendored dependency instead of having it in gfx/wgpu.
+#   
+#   ## Notes
+# ==============================================================================
+
+diff --git a/third_party/rust/ash/src/extensions/khr/pipeline_executable_properties.rs b/third_party/rust/ash/src/extensions/khr/pipeline_executable_properties.rs
+--- a/third_party/rust/ash/src/extensions/khr/pipeline_executable_properties.rs
++++ b/third_party/rust/ash/src/extensions/khr/pipeline_executable_properties.rs
+@@ -1,43 +1,38 @@
+-#![allow(dead_code)]
+ use crate::prelude::*;
+-use crate::version::{EntryV1_0, InstanceV1_0};
+ use crate::vk;
++use crate::{EntryCustom, Instance};
+ use std::ffi::CStr;
+ use std::mem;
+ use std::ptr;
+ 
+ #[derive(Clone)]
+ pub struct PipelineExecutableProperties {
+     handle: vk::Instance,
+     pipeline_executable_properties_fn: vk::KhrPipelineExecutablePropertiesFn,
+ }
+ 
+ impl PipelineExecutableProperties {
+-    pub fn new<E: EntryV1_0, I: InstanceV1_0>(
+-        entry: &E,
+-        instance: &I,
+-    ) -> PipelineExecutableProperties {
++    pub fn new<L>(entry: &EntryCustom<L>, instance: &Instance) -> Self {
+         let pipeline_executable_properties_fn =
+             vk::KhrPipelineExecutablePropertiesFn::load(|name| unsafe {
+                 mem::transmute(entry.get_instance_proc_addr(instance.handle(), name.as_ptr()))
+             });
+-
+-        PipelineExecutableProperties {
++        Self {
+             handle: instance.handle(),
+             pipeline_executable_properties_fn,
+         }
+     }
+ 
+     pub fn name() -> &'static CStr {
+         vk::KhrPipelineExecutablePropertiesFn::name()
+     }
+ 
+-    #[doc = "https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/vkGetPipelineExecutableInternalRepresentationsKHR.html"]
++    #[doc = "<https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/vkGetPipelineExecutableInternalRepresentationsKHR.html>"]
+     pub unsafe fn get_pipeline_executable_internal_representations(
+         &self,
+         device: vk::Device,
+         executable_info: &vk::PipelineExecutableInfoKHR,
+     ) -> VkResult<Vec<vk::PipelineExecutableInternalRepresentationKHR>> {
+         let mut count = 0;
+         let err_code = self
+             .pipeline_executable_properties_fn
+@@ -56,17 +51,17 @@ impl PipelineExecutableProperties {
+                 device,
+                 executable_info,
+                 &mut count,
+                 v.as_mut_ptr(),
+             )
+             .result_with_success(v)
+     }
+ 
+-    #[doc = "https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/vkGetPipelineExecutablePropertiesKHR.html"]
++    #[doc = "<https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/vkGetPipelineExecutablePropertiesKHR.html>"]
+     pub unsafe fn get_pipeline_executable_properties(
+         &self,
+         device: vk::Device,
+         pipeline_info: &vk::PipelineInfoKHR,
+     ) -> VkResult<Vec<vk::PipelineExecutablePropertiesKHR>> {
+         let mut count = 0;
+         let err_code = self
+             .pipeline_executable_properties_fn
+@@ -85,17 +80,17 @@ impl PipelineExecutableProperties {
+                 device,
+                 pipeline_info,
+                 &mut count,
+                 v.as_mut_ptr(),
+             )
+             .result_with_success(v)
+     }
+ 
+-    #[doc = "https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/vkGetPipelineExecutableStatisticsKHR.html"]
++    #[doc = "<https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/vkGetPipelineExecutableStatisticsKHR.html>"]
+     pub unsafe fn get_pipeline_executable_statistics(
+         &self,
+         device: vk::Device,
+         executable_info: &vk::PipelineExecutableInfoKHR,
+     ) -> VkResult<Vec<vk::PipelineExecutableStatisticKHR>> {
+         let mut count = 0;
+         let err_code = self
+             .pipeline_executable_properties_fn

@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/ipc/RemoteAccessibleBase.cpp
+# Commit: f6ce0e05c92e
+# Full Hash: f6ce0e05c92e16e33c4bc136228ab4bc6058f358
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2022-01-05 09:33:53
+# Regressor Bug: 1737944
+# File Overlap Count: 2
+# Description:
+#   Bug 1737944 - P4: Cache aria group attributes and introduce Accessible getter. r=Jamie
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D134207
+# ==============================================================================
+
+diff -r afea577be988 -r f6ce0e05c92e accessible/ipc/RemoteAccessibleBase.cpp
+--- a/accessible/ipc/RemoteAccessibleBase.cpp	Tue Jan 04 21:01:35 2022 +0000
++++ b/accessible/ipc/RemoteAccessibleBase.cpp	Tue Jan 04 21:01:35 2022 +0000
+@@ -501,6 +501,33 @@
+ }
+ 
+ template <class Derived>
++void RemoteAccessibleBase<Derived>::ARIAGroupPosition(
++    int32_t* aLevel, int32_t* aSetSize, int32_t* aPosInSet) const {
++  if (!mCachedFields) {
++    return;
++  }
++
++  if (aLevel) {
++    if (auto level =
++            mCachedFields->GetAttribute<int32_t>(nsGkAtoms::aria_level)) {
++      *aLevel = *level;
++    }
++  }
++  if (aSetSize) {
++    if (auto setsize =
++            mCachedFields->GetAttribute<int32_t>(nsGkAtoms::aria_setsize)) {
++      *aSetSize = *setsize;
++    }
++  }
++  if (aPosInSet) {
++    if (auto posinset =
++            mCachedFields->GetAttribute<int32_t>(nsGkAtoms::aria_posinset)) {
++      *aPosInSet = *posinset;
++    }
++  }
++}
++
++template <class Derived>
+ void RemoteAccessibleBase<Derived>::TakeFocus() const {
+   Unused << mDoc->SendTakeFocus(mID);
+ }

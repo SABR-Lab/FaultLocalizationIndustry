@@ -1,0 +1,70 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/nsSelection.cpp
+# Commit: 21cb609fe669
+# Full Hash: 21cb609fe6690fbad6c6167e10ee2e7f9804a593
+# Author: David Zbarsky <dzbarsky@gmail.com>
+# Date: 2012-10-16 08:09:24
+# Regressor Bug: 779684
+# File Overlap Count: 1
+# Description:
+#   Backout bug 779684 for topcrash
+# ==============================================================================
+
+diff -r a96deba7de41 -r 21cb609fe669 layout/generic/nsSelection.cpp
+--- a/layout/generic/nsSelection.cpp	Mon Oct 15 01:42:40 2012 -0400
++++ b/layout/generic/nsSelection.cpp	Mon Oct 15 14:35:50 2012 -0400
+@@ -40,12 +40,14 @@
+ #include "nsTextFragment.h"
+ 
+ // for IBMBIDI
+-#include "nsFrameIterator.h"
++#include "nsFrameTraversal.h"
+ #include "nsILineIterator.h"
+ #include "nsGkAtoms.h"
++#include "nsIFrameTraversal.h"
+ #include "nsLayoutUtils.h"
+ #include "nsLayoutCID.h"
+ #include "nsBidiPresUtils.h"
++static NS_DEFINE_CID(kFrameTraversalCID, NS_FRAMETRAVERSAL_CID);
+ #include "nsTextFrame.h"
+ 
+ #include "nsIDOMText.h"
+@@ -1245,17 +1247,30 @@
+   uint8_t foundLevel = 0;
+   nsIFrame *foundFrame = aFrameIn;
+ 
+-  nsFrameIterator frameTraversal(mShell->GetPresContext(), aFrameIn,
+-                                 eLeaf, nsFrameIterator::FLAG_NONE);
++  nsCOMPtr<nsIFrameEnumerator> frameTraversal;
++  nsresult result;
++  nsCOMPtr<nsIFrameTraversal> trav(do_CreateInstance(kFrameTraversalCID,&result));
++  if (NS_FAILED(result))
++      return result;
++
++  result = trav->NewFrameTraversal(getter_AddRefs(frameTraversal),
++                                   mShell->GetPresContext(), aFrameIn,
++                                   eLeaf,
++                                   false, // aVisual
++                                   false, // aLockInScrollView
++                                   false     // aFollowOOFs
++                                   );
++  if (NS_FAILED(result))
++    return result;
+ 
+   do {
+     *aFrameOut = foundFrame;
+     if (aDirection == eDirNext)
+-      frameTraversal.Next();
++      frameTraversal->Next();
+     else
+-      frameTraversal.Prev();
+-
+-    foundFrame = frameTraversal.CurrentItem();
++      frameTraversal->Prev();
++
++    foundFrame = frameTraversal->CurrentItem();
+     if (!foundFrame)
+       return NS_ERROR_FAILURE;
+     foundLevel = NS_GET_EMBEDDING_LEVEL(foundFrame);

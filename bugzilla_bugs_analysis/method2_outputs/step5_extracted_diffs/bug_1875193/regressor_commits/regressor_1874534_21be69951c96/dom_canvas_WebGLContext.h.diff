@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLContext.h
+# Commit: 21be69951c96
+# Full Hash: 21be69951c962d3833d7117f56c2909b20b3d841
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2024-01-14 09:31:25
+# Regressor Bug: 1874534
+# File Overlap Count: 2
+# Description:
+#   Bug 1874534 - Fix DrawTargetWebgl and RemoteTextureMap context loss handling. r=aosmond
+#   
+#   When a context loss occurs on DrawTargetWebgl, this may result in a fallback TextureData
+#   being created. Each of these are currently managed by two different RemoteTextureOwnerClients.
+#   This is not really safe at all.
+# ==============================================================================
+
+diff -r 0930954b46bb -r 21be69951c96 dom/canvas/WebGLContext.h
+--- a/dom/canvas/WebGLContext.h	Sat Jan 13 18:00:25 2024 +0000
++++ b/dom/canvas/WebGLContext.h	Sat Jan 13 18:19:24 2024 +0000
+@@ -502,7 +502,7 @@
+   void CopyToSwapChain(
+       WebGLFramebuffer*, layers::TextureType,
+       const webgl::SwapChainOptions& options = webgl::SwapChainOptions(),
+-      base::ProcessId pid = base::kInvalidProcessId);
++      layers::RemoteTextureOwnerClient* ownerClient = nullptr);
+   // In use cases where a framebuffer is used as an offscreen framebuffer and
+   // does not need to be committed to the swap chain, it may still be useful
+   // for the implementation to delineate distinct frames, such as when sharing
+@@ -1261,10 +1261,10 @@
+ 
+   RefPtr<layers::RemoteTextureOwnerClient> mRemoteTextureOwner;
+ 
+-  bool PushRemoteTexture(WebGLFramebuffer*, gl::SwapChain&,
+-                         std::shared_ptr<gl::SharedSurface>,
+-                         const webgl::SwapChainOptions& options,
+-                         base::ProcessId pid = base::kInvalidProcessId);
++  bool PushRemoteTexture(
++      WebGLFramebuffer*, gl::SwapChain&, std::shared_ptr<gl::SharedSurface>,
++      const webgl::SwapChainOptions& options,
++      layers::RemoteTextureOwnerClient* ownerClient = nullptr);
+ 
+   // --
+ 

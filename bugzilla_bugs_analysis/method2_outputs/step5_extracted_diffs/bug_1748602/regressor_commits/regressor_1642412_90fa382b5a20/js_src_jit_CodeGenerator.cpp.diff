@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/CodeGenerator.cpp
+# Commit: 90fa382b5a20
+# Full Hash: 90fa382b5a203d2e28bfa69f29ab8edee150b77b
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2021-12-23 09:34:36
+# Regressor Bug: 1642412
+# File Overlap Count: 8
+# Description:
+#   Bug 1642412 - wasm: Optimize ion table.get/set/size. r=lth
+#   
+#   This commit adds ion fast paths for table.get/set when the table
+#   representation is anyref. An unconditional fast path is added for
+#   table.size.
+# ==============================================================================
+
+diff -r 40f861f62a0f -r 90fa382b5a20 js/src/jit/CodeGenerator.cpp
+--- a/js/src/jit/CodeGenerator.cpp	Wed Dec 22 17:36:29 2021 +0000
++++ b/js/src/jit/CodeGenerator.cpp	Wed Dec 22 17:36:30 2021 +0000
+@@ -8176,11 +8176,26 @@
+   }
+ }
+ 
++void CodeGenerator::visitWasmLoadTableElement(LWasmLoadTableElement* ins) {
++  Register elements = ToRegister(ins->elements());
++  Register index = ToRegister(ins->index());
++  Register output = ToRegister(ins->output());
++  masm.loadPtr(BaseIndex(elements, index, ScalePointer), output);
++}
++
+ void CodeGenerator::visitWasmDerivedPointer(LWasmDerivedPointer* ins) {
+   masm.movePtr(ToRegister(ins->base()), ToRegister(ins->output()));
+   masm.addPtr(Imm32(int32_t(ins->offset())), ToRegister(ins->output()));
+ }
+ 
++void CodeGenerator::visitWasmDerivedIndexPointer(
++    LWasmDerivedIndexPointer* ins) {
++  Register base = ToRegister(ins->base());
++  Register index = ToRegister(ins->index());
++  Register output = ToRegister(ins->output());
++  masm.computeEffectiveAddress(BaseIndex(base, index, ins->scale()), output);
++}
++
+ void CodeGenerator::visitWasmStoreRef(LWasmStoreRef* ins) {
+   Register tls = ToRegister(ins->tls());
+   Register valueAddr = ToRegister(ins->valueAddr());

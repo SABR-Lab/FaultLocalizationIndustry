@@ -1,0 +1,40 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: widget/windows/ShellHeaderOnlyUtils.h
+# Commit: 82449212da88
+# Full Hash: 82449212da88f1ffdb4d2b50df3f77d817cb314c
+# Author: Aaron Klotz <aklotz@mozilla.com>
+# Date: 2019-07-31 21:55:44
+# Description:
+#   Bug 1569756: Check for S_FALSE after calling IShellWindows::FindWindowSW; r=jmathies
+#   
+#   `IShellWindows::FindWindowSW` may return the dreaded `S_FALSE`, so we need to
+#   ensure that we're handling that.
+#   
+# ==============================================================================
+
+diff -r 7a1b62721c24 -r 82449212da88 widget/windows/ShellHeaderOnlyUtils.h
+--- a/widget/windows/ShellHeaderOnlyUtils.h	Wed Jul 31 16:05:47 2019 +0000
++++ b/widget/windows/ShellHeaderOnlyUtils.h	Wed Jul 31 15:31:07 2019 +0000
+@@ -61,7 +61,7 @@
+   }
+ 
+   // 1. Find the shell view for the desktop.
+-  _variant_t loc(CSIDL_DESKTOP);
++  _variant_t loc(int(CSIDL_DESKTOP));
+   _variant_t empty;
+   long hwnd;
+   RefPtr<IDispatch> dispDesktop;
+@@ -72,6 +72,11 @@
+     return LAUNCHER_ERROR_FROM_HRESULT(hr);
+   }
+ 
++  if (hr == S_FALSE) {
++    // The call succeeded but the window was not found.
++    return LAUNCHER_ERROR_FROM_WIN32(ERROR_NOT_FOUND);
++  }
++
+   RefPtr<IServiceProvider> servProv;
+   hr = dispDesktop->QueryInterface(IID_IServiceProvider,
+                                    getter_AddRefs(servProv));

@@ -1,0 +1,69 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmTypes.cpp
+# Commit: 048c2bf91290
+# Full Hash: 048c2bf9129090d91f2111579e130d913c871cdd
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2020-08-19 10:01:16
+# Regressor Bug: 1561521
+# File Overlap Count: 1
+# Description:
+#   Bug 1561521 - Clean up wasm::ToString and drop wasm::ToCString. r=lth
+#   
+#   wasm::ToCString is losing relevance as we have more constructed types. This
+#   commit removes ToCString and replaces all uses with wasm::ToString.
+#   
+# ==============================================================================
+
+diff -r a72132acc190 -r 048c2bf91290 js/src/wasm/WasmTypes.cpp
+--- a/js/src/wasm/WasmTypes.cpp	Tue Aug 18 16:59:22 2020 +0000
++++ b/js/src/wasm/WasmTypes.cpp	Tue Aug 18 16:59:26 2020 +0000
+@@ -1016,17 +1016,38 @@
+       literal = "f64";
+       break;
+     case ValType::Ref:
+-      switch (type.refTypeKind()) {
+-        case RefType::Extern:
+-          literal = "externref";
+-          break;
+-        case RefType::Func:
+-          literal = "funcref";
+-          break;
+-        case RefType::TypeIndex:
+-          return JS_smprintf("optref %d", type.refType().typeIndex());
++      if (type.isNullable() && !type.isTypeIndex()) {
++        switch (type.refTypeKind()) {
++          case RefType::Extern:
++            literal = "externref";
++            break;
++          case RefType::Func:
++            literal = "funcref";
++            break;
++          case RefType::TypeIndex:
++            MOZ_ASSERT_UNREACHABLE();
++        }
++      } else {
++        const char* heapType = nullptr;
++        switch (type.refTypeKind()) {
++          case RefType::Extern:
++            heapType = "externref";
++            break;
++          case RefType::Func:
++            heapType = "funcref";
++            break;
++          case RefType::TypeIndex:
++            return JS_smprintf("ref %s%d", type.isNullable() ? "null " : " ",
++                               type.refType().typeIndex());
++        }
++        return JS_smprintf("ref %s%s", type.isNullable() ? "null " : " ",
++                           heapType);
+       }
+       break;
+   }
+   return JS_smprintf("%s", literal);
+ }
++
++UniqueChars wasm::ToString(const Maybe<ValType>& type) {
++  return type ? ToString(type.ref()) : JS_smprintf("%s", "void");
++}

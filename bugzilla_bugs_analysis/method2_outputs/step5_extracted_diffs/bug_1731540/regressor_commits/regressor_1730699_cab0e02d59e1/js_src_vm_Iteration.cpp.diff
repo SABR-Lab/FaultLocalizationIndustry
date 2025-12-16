@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/Iteration.cpp
+# Commit: cab0e02d59e1
+# Full Hash: cab0e02d59e1b9b8ebff156bb63128aa4e8d8c5c
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2021-09-15 15:26:38
+# Regressor Bug: 1730699
+# File Overlap Count: 1
+# Description:
+#   Bug 1730699 part 2 - Cache empty iterator on the global. r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D125552
+# ==============================================================================
+
+diff -r c7eae2ddd714 -r cab0e02d59e1 js/src/vm/Iteration.cpp
+--- a/js/src/vm/Iteration.cpp	Wed Sep 15 09:20:44 2021 +0000
++++ b/js/src/vm/Iteration.cpp	Wed Sep 15 09:20:45 2021 +0000
+@@ -1267,6 +1267,21 @@
+   return NewObjectWithGivenProto<RegExpStringIteratorObject>(cx, proto);
+ }
+ 
++// static
++PropertyIteratorObject* GlobalObject::getOrCreateEmptyIterator(JSContext* cx) {
++  if (!cx->global()->data().emptyIterator) {
++    RootedIdVector props(cx);  // Empty
++    PropertyIteratorObject* iter =
++        CreatePropertyIterator(cx, nullptr, props, 0, 0);
++    if (!iter) {
++      return nullptr;
++    }
++    MOZ_ASSERT(iter->getNativeIterator()->isEmptyIteratorSingleton());
++    cx->global()->data().emptyIterator.init(iter);
++  }
++  return cx->global()->data().emptyIterator;
++}
++
+ JSObject* js::ValueToIterator(JSContext* cx, HandleValue vp) {
+   RootedObject obj(cx);
+   if (vp.isObject()) {
+@@ -1278,8 +1293,7 @@
+      * that |for (var p in <null or undefined>) <loop>;| never executes
+      * <loop>, per ES5 12.6.4.
+      */
+-    RootedIdVector props(cx);  // Empty
+-    return CreatePropertyIterator(cx, nullptr, props, 0, 0);
++    return GlobalObject::getOrCreateEmptyIterator(cx);
+   } else {
+     obj = ToObject(cx, vp);
+     if (!obj) {

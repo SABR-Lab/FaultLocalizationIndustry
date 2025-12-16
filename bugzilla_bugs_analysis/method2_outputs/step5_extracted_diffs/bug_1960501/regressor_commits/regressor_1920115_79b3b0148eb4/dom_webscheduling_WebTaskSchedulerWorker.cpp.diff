@@ -1,0 +1,82 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/webscheduling/WebTaskSchedulerWorker.cpp
+# Commit: 79b3b0148eb4
+# Full Hash: 79b3b0148eb416e0690d3e71723bd68ac67245e7
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2025-02-27 21:52:52
+# Regressor Bug: 1920115
+# File Overlap Count: 2
+# Description:
+#   Bug 1920115 - Implement scheduler.yield r=jjaschke,dom-core,webidl,smaug
+#   
+#   Spec: https://wicg.github.io/scheduling-apis/#dom-scheduler-yield
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D234232
+# ==============================================================================
+
+diff -r 78181c32bdc6 -r 79b3b0148eb4 dom/webscheduling/WebTaskSchedulerWorker.cpp
+--- a/dom/webscheduling/WebTaskSchedulerWorker.cpp	Thu Feb 27 16:17:35 2025 +0000
++++ b/dom/webscheduling/WebTaskSchedulerWorker.cpp	Thu Feb 27 16:17:35 2025 +0000
+@@ -11,7 +11,7 @@
+ namespace mozilla::dom {
+ 
+ WebTaskWorkerRunnable::WebTaskWorkerRunnable(
+-    WorkerPrivate* aWorkerPrivate, WebTaskSchedulerWorker* aSchedulerWorker)
++    WebTaskSchedulerWorker* aSchedulerWorker)
+     : WorkerSameThreadRunnable("WebTaskWorkerRunnable"),
+       mSchedulerWorker(aSchedulerWorker) {
+   MOZ_ASSERT(mSchedulerWorker);
+@@ -54,12 +54,11 @@
+   return true;
+ }
+ 
+-nsresult WebTaskSchedulerWorker::SetTimeoutForDelayedTask(WebTask* aTask,
+-                                                          uint64_t aDelay) {
++nsresult WebTaskSchedulerWorker::SetTimeoutForDelayedTask(
++    WebTask* aTask, uint64_t aDelay, EventQueuePriority aPriority) {
+   if (mWorkerIsShuttingDown) {
+     return NS_ERROR_ABORT;
+   }
+-
+   if (!mWorkerRef) {
+     return NS_ERROR_UNEXPECTED;
+   }
+@@ -73,7 +72,7 @@
+     return NS_ERROR_UNEXPECTED;
+   }
+   RefPtr<DelayedWebTaskHandler> handler =
+-      new DelayedWebTaskHandler(cx, this, aTask);
++      new DelayedWebTaskHandler(cx, this, aTask, aPriority);
+   ErrorResult rv;
+ 
+   int32_t delay = aDelay > INT32_MAX ? INT32_MAX : (int32_t)aDelay;
+@@ -83,7 +82,16 @@
+   return rv.StealNSResult();
+ }
+ 
+-bool WebTaskSchedulerWorker::DispatchEventLoopRunnable() {
++bool WebTaskSchedulerWorker::DispatchEventLoopRunnable(
++    EventQueuePriority aPriority) {
++  // aPriority is unused at the moment, we can't control
++  // the priorities for runnables on workers at the moment.
++  //
++  // This won't affect the correctness of this API because
++  // WebTaskScheduler maintains its own priority queues.
++  //
++  // It's just that we can't interfere the ordering between
++  // `WebTask` and other runnables.
+   if (mWorkerIsShuttingDown) {
+     return false;
+   }
+@@ -94,8 +102,7 @@
+   MOZ_ASSERT(mWorkerRef->Private());
+   mWorkerRef->Private()->AssertIsOnWorkerThread();
+ 
+-  RefPtr<WebTaskWorkerRunnable> runnable =
+-      new WebTaskWorkerRunnable(mWorkerRef->Private(), this);
++  RefPtr<WebTaskWorkerRunnable> runnable = new WebTaskWorkerRunnable(this);
+   return runnable->Dispatch(mWorkerRef->Private());
+ }
+ 

@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/nsDocShell.cpp
+# Commit: bfe21f274ed5
+# Full Hash: bfe21f274ed5a4630a3503bcb875fed04f90533c
+# Author: Anny Gakhokidze <agakhokidze@mozilla.com>
+# Date: 2020-04-16 03:00:04
+# Regressor Bug: 1594529
+# File Overlap Count: 1
+# Description:
+#   Bug 1594529 - Create LoadInfo for subdocuments directly in parent process with DocumentChannel. r=mattwoodrow,nika
+#   
+#   Currently, with Fission enabled we are not able to create a proper LoadInfo
+#   object when doing a subdocument load because we do not have access to a loading
+#   context if the load is happening inside of an OOP frame. To solve this problem,
+# ==============================================================================
+
+diff -r 29ff609063c2 -r bfe21f274ed5 docshell/base/nsDocShell.cpp
+--- a/docshell/base/nsDocShell.cpp	Wed Apr 15 18:53:22 2020 +0000
++++ b/docshell/base/nsDocShell.cpp	Wed Apr 15 18:53:06 2020 +0000
+@@ -9634,11 +9634,17 @@
+           "subframes should have the same docshell type as their parent");
+ #endif
+     } else {
+-      // If this isn't a top-level load and mScriptGlobal's frame element is
+-      // null, then the element got removed from the DOM while we were trying
+-      // to load this resource. This docshell is scheduled for destruction
+-      // already, so bail out here.
+-      return NS_OK;
++      if (mIsBeingDestroyed) {
++        // If this isn't a top-level load and mScriptGlobal's frame element is
++        // null, then the element got removed from the DOM while we were trying
++        // to load this resource. This docshell is scheduled for destruction
++        // already, so bail out here.
++        return NS_OK;
++      }
++      // If we are not being destroyed and we do not have access to the loading
++      // node, then we are a remote subframe. Set the loading principal
++      // to be a null principal and then set it correctly in the parent.
++      loadingPrincipal = NullPrincipal::Create(GetOriginAttributes(), nullptr);
+     }
+   }
+ 

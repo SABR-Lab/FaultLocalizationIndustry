@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/BrowserHost.cpp
+# Commit: a902acfbc868
+# Full Hash: a902acfbc8680811e4538f8d27e78e4fe6ca55f2
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2019-05-23 15:55:11
+# Regressor Bug: 1525720
+# File Overlap Count: 1
+# Description:
+#   Bug 1525720, part 13 - Stop inheriting nsIRemoteTab interface in BrowserParent. r=nika
+#   
+#   This commit removes nsIRemoteTab as a parent class from BrowserParent,
+#   so that BrowserHost is the only concrete implementation of nsIRemoteTab.
+#   
+# ==============================================================================
+
+diff -r 50475885250c -r a902acfbc868 dom/ipc/BrowserHost.cpp
+--- a/dom/ipc/BrowserHost.cpp	Wed May 08 11:45:23 2019 -0500
++++ b/dom/ipc/BrowserHost.cpp	Wed May 08 14:34:47 2019 -0500
+@@ -18,6 +18,10 @@
+   mRoot->SetBrowserHost(this);
+ }
+ 
++BrowserHost* BrowserHost::GetFrom(nsIRemoteTab* aRemoteTab) {
++  return static_cast<BrowserHost*>(aRemoteTab);
++}
++
+ mozilla::layers::LayersId BrowserHost::GetLayersId() const {
+   return mRoot->GetRenderFrame()->GetLayersId();
+ }
+@@ -31,6 +35,10 @@
+   return loadContext;
+ }
+ 
++a11y::DocAccessibleParent* BrowserHost::GetTopLevelDocAccessible() const {
++  return mRoot->GetTopLevelDocAccessible();
++}
++
+ void BrowserHost::LoadURL(nsIURI* aURI) { mRoot->LoadURL(aURI); }
+ 
+ void BrowserHost::ResumeLoad(uint64_t aPendingSwitchId) {

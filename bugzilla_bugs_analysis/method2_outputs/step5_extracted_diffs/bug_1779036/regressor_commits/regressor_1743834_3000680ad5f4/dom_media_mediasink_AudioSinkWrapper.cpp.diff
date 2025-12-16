@@ -1,0 +1,31 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasink/AudioSinkWrapper.cpp
+# Commit: 3000680ad5f4
+# Full Hash: 3000680ad5f46c43b409bdd5468dff476634aec7
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2022-04-20 21:53:00
+# Regressor Bug: 1743834
+# File Overlap Count: 1
+# Description:
+#   Bug 1743834 - Wait for the audio callbacks to start being called before using the audio clock. r=alwu,media-playback-reviewers
+#   
+#   Because we're generally using high latency on the cubeb stream used by
+#   AudioStream instance, it can take some time for the callbacks to start being
+#   called, and the for the audio clock (cubeb_stream_get_position(...)) to advance.
+# ==============================================================================
+
+diff -r 048e93d0a274 -r 3000680ad5f4 dom/media/mediasink/AudioSinkWrapper.cpp
+--- a/dom/media/mediasink/AudioSinkWrapper.cpp	Wed Apr 20 12:07:09 2022 +0000
++++ b/dom/media/mediasink/AudioSinkWrapper.cpp	Wed Apr 20 12:07:10 2022 +0000
+@@ -77,8 +77,7 @@
+   TimeUnit pos;
+   TimeStamp t = TimeStamp::Now();
+ 
+-  if (!mAudioEnded && !IsMuted()) {
+-    MOZ_ASSERT(mAudioSink);
++  if (!mAudioEnded && !IsMuted() && mAudioSink && mAudioSink->AudioStreamCallbackStarted()) {
+     // Rely on the audio sink to report playback position when it is not ended.
+     pos = mAudioSink->GetPosition();
+     LOGV("%p: Getting position from the Audio Sink %lf", this, pos.ToSeconds());

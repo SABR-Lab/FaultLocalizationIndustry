@@ -1,0 +1,68 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/svg/SVGUtils.cpp
+# Commit: 0fdbf0a455f2
+# Full Hash: 0fdbf0a455f26afa0a7a0390d6a380e318fce9d4
+# Author: Robert Longson <longsonr@gmail.com>
+# Date: 2023-10-24 03:54:44
+# Regressor Bug: 1765202
+# File Overlap Count: 1
+# Description:
+#   Bug 1765202 part 3 - ignore clip-path and mask properties that don't point to clipPath and mask elements r=emilio
+#   
+#   This refactors the logic for testing whether something has a clip-path or mask and what to do about it in one place rather than using many overlapping functions.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D190767
+# ==============================================================================
+
+diff -r 2a8d11fcc746 -r 0fdbf0a455f2 layout/svg/SVGUtils.cpp
+--- a/layout/svg/SVGUtils.cpp	Mon Oct 23 20:32:20 2023 +0000
++++ b/layout/svg/SVGUtils.cpp	Mon Oct 23 20:32:37 2023 +0000
+@@ -421,10 +421,10 @@
+ 
+   const nsStyleSVGReset* svgReset = firstFrame->StyleSVGReset();
+ 
+-  nsTArray<SVGMaskFrame*> maskFrames;
+-  // XXX check return value?
+-  SVGObserverUtils::GetAndObserveMasks(firstFrame, &maskFrames);
+-  usage.mShouldGenerateMaskLayer = (maskFrames.Length() > 0);
++  if (SVGObserverUtils::GetAndObserveMasks(firstFrame, nullptr) !=
++      SVGObserverUtils::eHasNoRefs) {
++    usage.mShouldGenerateMaskLayer = true;
++  }
+ 
+   SVGClipPathFrame* clipPathFrame;
+   // XXX check return value?
+@@ -441,7 +441,14 @@
+         }
+       }
+       break;
+-    case ClipPathType::Shape:
++    case ClipPathType::Shape: {
++      usage.mShouldApplyBasicShapeOrPath = true;
++      const auto& shape = svgReset->mClipPath.AsShape()._0;
++      usage.mIsSimpleClipShape =
++          !usage.mShouldGenerateMaskLayer &&
++          (shape->IsRect() || shape->IsCircle() || shape->IsEllipse());
++      break;
++    }
+     case ClipPathType::Box:
+       usage.mShouldApplyBasicShapeOrPath = true;
+       break;
+@@ -604,13 +611,8 @@
+   const bool hasInvalidFilter =
+       SVGObserverUtils::GetAndObserveFilters(aFrame, &filterFrames) ==
+       SVGObserverUtils::eHasRefsSomeInvalid;
+-  if (SVGObserverUtils::GetAndObserveClipPath(aFrame, &clipPathFrame) ==
+-          SVGObserverUtils::eHasRefsSomeInvalid ||
+-      SVGObserverUtils::GetAndObserveMasks(aFrame, &maskFrames) ==
+-          SVGObserverUtils::eHasRefsSomeInvalid) {
+-    // Some resource is invalid. We shouldn't paint anything.
+-    return;
+-  }
++  SVGObserverUtils::GetAndObserveClipPath(aFrame, &clipPathFrame);
++  SVGObserverUtils::GetAndObserveMasks(aFrame, &maskFrames);
+ 
+   SVGMaskFrame* maskFrame = maskFrames.IsEmpty() ? nullptr : maskFrames[0];
+ 

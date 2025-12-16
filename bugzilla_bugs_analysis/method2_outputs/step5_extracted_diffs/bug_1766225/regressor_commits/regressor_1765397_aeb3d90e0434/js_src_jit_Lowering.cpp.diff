@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/Lowering.cpp
+# Commit: aeb3d90e0434
+# Full Hash: aeb3d90e0434c2b010c771e4c22d818311259340
+# Author: André Bargull <andre.bargull@gmail.com>
+# Date: 2022-04-21 15:23:18
+# Regressor Bug: 1765397
+# File Overlap Count: 1
+# Description:
+#   Bug 1765397 - Part 2: Transpile ArgumentsSliceResult for Warp. r=iain
+#   
+#   Transpile "ArgumentsSliceResult" similar to how "PackedArraySliceResult" is
+#   optimised.
+#   
+# ==============================================================================
+
+diff -r ba4b24512db8 -r aeb3d90e0434 js/src/jit/Lowering.cpp
+--- a/js/src/jit/Lowering.cpp	Thu Apr 21 08:45:44 2022 +0000
++++ b/js/src/jit/Lowering.cpp	Thu Apr 21 08:45:45 2022 +0000
+@@ -3722,6 +3722,20 @@
+   assignSafepoint(lir, ins);
+ }
+ 
++void LIRGenerator::visitArgumentsSlice(MArgumentsSlice* ins) {
++  MOZ_ASSERT(ins->type() == MIRType::Object);
++  MOZ_ASSERT(ins->object()->type() == MIRType::Object);
++  MOZ_ASSERT(ins->begin()->type() == MIRType::Int32);
++  MOZ_ASSERT(ins->end()->type() == MIRType::Int32);
++
++  auto* lir = new (alloc()) LArgumentsSlice(
++      useRegisterAtStart(ins->object()), useRegisterAtStart(ins->begin()),
++      useRegisterAtStart(ins->end()), tempFixed(CallTempReg0),
++      tempFixed(CallTempReg1));
++  defineReturn(lir, ins);
++  assignSafepoint(lir, ins);
++}
++
+ void LIRGenerator::visitArrayJoin(MArrayJoin* ins) {
+   MOZ_ASSERT(ins->type() == MIRType::String);
+   MOZ_ASSERT(ins->array()->type() == MIRType::Object);

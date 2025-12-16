@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLFramebuffer.h
+# Commit: bbfe23c61add
+# Full Hash: bbfe23c61add07377daf80696fd6996c0463f5b6
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-06-09 09:21:34
+# Regressor Bug: 1632249
+# File Overlap Count: 1
+# Description:
+#   Bug 1632249 - Support compositing out-of-process WebGL. r=handyman,lsalzman,nical,geckoview-reviewers,agi,imanol
+#   
+#   * Majorly simplity CanvasRenderer
+#   * Replace GLScreenBuffer with trivial GLSwapChain
+#   * Use descriptor structs so that future SharedSurface changes aren't so painful
+# ==============================================================================
+
+diff -r 8fcfac450ecc -r bbfe23c61add dom/canvas/WebGLFramebuffer.h
+--- a/dom/canvas/WebGLFramebuffer.h	Mon Jun 08 20:13:01 2020 +0000
++++ b/dom/canvas/WebGLFramebuffer.h	Mon Jun 08 20:34:15 2020 +0000
+@@ -11,7 +11,6 @@
+ #include "mozilla/WeakPtr.h"
+ 
+ #include "WebGLObjectModel.h"
+-#include "WebGLRenderbuffer.h"
+ #include "WebGLStrongTypes.h"
+ #include "WebGLTexture.h"
+ #include "WebGLTypes.h"
+@@ -58,11 +57,10 @@
+ 
+   ////
+ 
+-  WebGLFBAttachPoint() = default;
++  WebGLFBAttachPoint();
++  explicit WebGLFBAttachPoint(WebGLFBAttachPoint&);  // Make this private.
+   WebGLFBAttachPoint(const WebGLContext* webgl, GLenum attachmentPoint);
+ 
+-  explicit WebGLFBAttachPoint(WebGLFBAttachPoint&) =
+-      default;  // Make this private.
+ 
+  public:
+   ~WebGLFBAttachPoint();

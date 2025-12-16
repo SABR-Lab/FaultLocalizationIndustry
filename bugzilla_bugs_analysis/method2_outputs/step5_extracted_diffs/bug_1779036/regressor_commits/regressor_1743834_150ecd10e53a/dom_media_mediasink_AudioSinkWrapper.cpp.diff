@@ -1,0 +1,85 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasink/AudioSinkWrapper.cpp
+# Commit: 150ecd10e53a
+# Full Hash: 150ecd10e53a7e51b563bc8595638516e969aa3b
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2022-05-10 03:50:31
+# Regressor Bug: 1743834
+# File Overlap Count: 1
+# Description:
+#   Bug 1743834 - Don't start with an AudioSink if muted from the start. r=alwu
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D141990
+# ==============================================================================
+
+diff -r 4076e2055960 -r 150ecd10e53a dom/media/mediasink/AudioSinkWrapper.cpp
+--- a/dom/media/mediasink/AudioSinkWrapper.cpp	Mon May 09 13:20:51 2022 +0000
++++ b/dom/media/mediasink/AudioSinkWrapper.cpp	Mon May 09 13:20:51 2022 +0000
+@@ -190,13 +190,16 @@
+ void AudioSinkWrapper::SetVolume(double aVolume) {
+   AssertOwnerThread();
+ 
+-  if (aVolume == 0. && mParams.mVolume != 0.) {
++  bool wasMuted = mParams.mVolume == 0;
++  bool nowMuted = aVolume == 0.;
++  mParams.mVolume = aVolume;
++
++  if (!wasMuted && nowMuted) {
+     OnMuted(true);
+-  } else if (aVolume != 0. && mParams.mVolume == 0.) {
++  } else if (wasMuted && !nowMuted) {
+     OnMuted(false);
+   }
+ 
+-  mParams.mVolume = aVolume;
+   if (mAudioSink) {
+     mAudioSink->SetVolume(aVolume);
+   }
+@@ -286,9 +289,7 @@
+     return NS_OK;
+   }
+ 
+-  nsresult rv = StartAudioSink(aStartTime);
+-
+-  return rv;
++  return StartAudioSink(aStartTime);
+ }
+ 
+ nsresult AudioSinkWrapper::StartAudioSink(const TimeUnit& aStartTime) {
+@@ -297,8 +298,16 @@
+   RefPtr<MediaSink::EndedPromise> promise =
+       mEndedPromiseHolder.Ensure(__func__);
+ 
+-  mAudioSink.reset(mCreator->Create(aStartTime));
+-  nsresult rv = mAudioSink->Start(mParams, mEndedPromiseHolder);
++  nsresult rv = NS_OK;
++
++  if (!IsMuted()) {
++    LOG("Not muted: starting a new audio sink");
++    mAudioSink.reset(mCreator->Create(aStartTime));
++    rv = mAudioSink->Start(mParams, mEndedPromiseHolder);
++  } else {
++    LOG("Muted: not starting an audio sink");
++  }
++
+   if (NS_FAILED(rv)) {
+     mEndedPromise = MediaSink::EndedPromise::CreateAndReject(rv, __func__);
+   } else {
+@@ -325,11 +334,14 @@
+   AssertOwnerThread();
+   MOZ_ASSERT(mIsStarted, "playback not started.");
+ 
++  LOG("%p: Stop", this);
++
+   mIsStarted = false;
+   mAudioEnded = true;
+ 
++  mAudioSinkEndedPromise.DisconnectIfExists();
++
+   if (mAudioSink) {
+-    mAudioSinkEndedPromise.DisconnectIfExists();
+     DebugOnly<Maybe<MozPromiseHolder<EndedPromise>>> rv =
+         mAudioSink->Shutdown();
+     MOZ_ASSERT(rv.inspect().isNothing());

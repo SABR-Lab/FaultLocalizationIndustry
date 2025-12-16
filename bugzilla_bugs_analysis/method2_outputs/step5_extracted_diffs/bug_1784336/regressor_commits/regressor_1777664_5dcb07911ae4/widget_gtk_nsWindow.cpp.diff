@@ -1,0 +1,72 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/nsWindow.cpp
+# Commit: 5dcb07911ae4
+# Full Hash: 5dcb07911ae473a5bf63717bffe9cca630a545b1
+# Author: stransky <stransky@redhat.com>
+# Date: 2022-07-26 21:44:38
+# Regressor Bug: 1777664
+# File Overlap Count: 1
+# Description:
+#   Bug 1777664 [Wayland] Split ShowWaylandWindow() to ShowWaylandPopupWindow()/ShowWaylandToplevelWindow() and enable/disable VSync for visible/hidden toplevel windows r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D152691
+# ==============================================================================
+
+diff -r 66c3420f8f7f -r 5dcb07911ae4 widget/gtk/nsWindow.cpp
+--- a/widget/gtk/nsWindow.cpp	Tue Jul 26 14:56:48 2022 +0000
++++ b/widget/gtk/nsWindow.cpp	Tue Jul 26 14:56:48 2022 +0000
+@@ -1118,13 +1118,9 @@
+   return true;
+ }
+ 
+-void nsWindow::ShowWaylandWindow() {
+-  LOG("nsWindow::ShowWaylandWindow: [%p]\n", this);
+-  if (!IsWaylandPopup()) {
+-    LOG("  toplevel, show it now");
+-    gtk_widget_show(mShell);
+-    return;
+-  }
++void nsWindow::ShowWaylandPopupWindow() {
++  LOG("nsWindow::ShowWaylandPopupWindow: [%p]\n", this);
++  MOZ_ASSERT(IsWaylandPopup());
+ 
+   if (!mPopupTrackInHierarchy) {
+     LOG("  popup is not tracked in popup hierarchy, show it now");
+@@ -1217,6 +1213,13 @@
+     }
+   }
+   gtk_widget_hide(mShell);
++  WaylandStopVsync();
++}
++
++void nsWindow::ShowWaylandToplevelWindow() {
++  LOG("nsWindow::ShowWaylandToplevelWindow: [%p]\n", this);
++  gtk_widget_show(mShell);
++  WaylandStartVsync();
+ }
+ 
+ void nsWindow::WaylandPopupRemoveClosedPopups() {
+@@ -1387,7 +1390,7 @@
+     if (popup->mPopupTemporaryHidden) {
+       popup->mPopupTemporaryHidden = false;
+       LOG("  showing temporary hidden popup [%p]", popup);
+-      popup->ShowWaylandWindow();
++      popup->ShowWaylandPopupWindow();
+     }
+     popup = popup->mWaylandPopupNext;
+   }
+@@ -6225,7 +6228,11 @@
+       SetUserTimeAndStartupIDForActivatedWindow(mShell);
+     }
+     if (GdkIsWaylandDisplay()) {
+-      ShowWaylandWindow();
++      if (IsWaylandPopup()) {
++        ShowWaylandPopupWindow();
++      } else {
++        ShowWaylandToplevelWindow();
++      }
+     } else {
+       LOG("  calling gtk_widget_show(mShell)\n");
+       gtk_widget_show(mShell);

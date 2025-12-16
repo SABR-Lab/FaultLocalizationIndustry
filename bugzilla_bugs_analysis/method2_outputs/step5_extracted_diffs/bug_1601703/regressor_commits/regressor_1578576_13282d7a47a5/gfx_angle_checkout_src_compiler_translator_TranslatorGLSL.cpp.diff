@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/angle/checkout/src/compiler/translator/TranslatorGLSL.cpp
+# Commit: 13282d7a47a5
+# Full Hash: 13282d7a47a57a73be8d060efd9645b4d642f03e
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2019-09-08 09:46:52
+# Regressor Bug: 1578576
+# File Overlap Count: 4
+# Description:
+#   Bug 1578576 - Part 2: Update to ANGLE 3865 r=jgilbert
+#   
+#   Depends on D44561
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44579
+# ==============================================================================
+
+diff -r 3064469c073d -r 13282d7a47a5 gfx/angle/checkout/src/compiler/translator/TranslatorGLSL.cpp
+--- a/gfx/angle/checkout/src/compiler/translator/TranslatorGLSL.cpp	Sat Sep 07 13:36:46 2019 +0000
++++ b/gfx/angle/checkout/src/compiler/translator/TranslatorGLSL.cpp	Sat Sep 07 13:38:36 2019 +0000
+@@ -194,11 +194,9 @@
+         }
+     }
+ 
+-    if (getShaderType() == GL_COMPUTE_SHADER && isComputeShaderLocalSizeDeclared())
++    if (getShaderType() == GL_COMPUTE_SHADER)
+     {
+-        const sh::WorkGroupSize &localSize = getComputeShaderLocalSize();
+-        sink << "layout (local_size_x=" << localSize[0] << ", local_size_y=" << localSize[1]
+-             << ", local_size_z=" << localSize[2] << ") in;\n";
++        EmitWorkGroupSizeGLSL(*this, sink);
+     }
+ 
+     if (getShaderType() == GL_GEOMETRY_SHADER_EXT)
+@@ -277,7 +275,8 @@
+             }
+         }
+ 
+-        const bool isMultiview = (iter.first == TExtension::OVR_multiview2);
++        const bool isMultiview =
++            (iter.first == TExtension::OVR_multiview) || (iter.first == TExtension::OVR_multiview2);
+         if (isMultiview)
+         {
+             EmitMultiviewGLSL(*this, compileOptions, iter.second, sink);

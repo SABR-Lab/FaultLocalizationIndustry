@@ -1,0 +1,37 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webaudio/FFTBlock.h
+# Commit: e14709849528
+# Full Hash: e1470984952894bd293df04c68240fd835d57f7c
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2024-03-07 21:46:15
+# Description:
+#   Bug 1882980 - Restore checking function pointers to gracefully handle deleted mozavutil.so when initializing an AudioContext. r=karlt
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D203773
+# ==============================================================================
+
+diff -r 18dde41563b1 -r e14709849528 dom/media/webaudio/FFTBlock.h
+--- a/dom/media/webaudio/FFTBlock.h	Thu Mar 07 09:37:50 2024 +0000
++++ b/dom/media/webaudio/FFTBlock.h	Thu Mar 07 09:47:51 2024 +0000
+@@ -164,6 +164,9 @@
+  private:
+   bool EnsureFFT() {
+     if (!mTxCtx) {
++      if (!sFFTFuncs.init) {
++        return false;
++      }
+       // Forward transform is always unscaled for our purpose.
+       float scale = 1.0f;
+       int rv = sFFTFuncs.init(&mTxCtx, &mFn, AV_TX_FLOAT_RDFT, 0 /* forward */,
+@@ -175,6 +178,9 @@
+   }
+   bool EnsureIFFT() {
+     if (!mITxCtx) {
++      if (!sFFTFuncs.init) {
++        return false;
++      }
+       int rv =
+           sFFTFuncs.init(&mITxCtx, &mIFn, AV_TX_FLOAT_RDFT, 1 /* inverse */,
+                          AssertedCast<int>(mFFTSize), &mInverseScaling, 0);

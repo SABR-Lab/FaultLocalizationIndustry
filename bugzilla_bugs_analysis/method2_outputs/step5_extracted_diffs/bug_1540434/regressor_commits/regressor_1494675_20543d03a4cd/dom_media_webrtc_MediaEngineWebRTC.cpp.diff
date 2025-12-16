@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/MediaEngineWebRTC.cpp
+# Commit: 20543d03a4cd
+# Full Hash: 20543d03a4cda05c785011a25079aa42aec8b2ba
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2019-03-29 21:53:01
+# Regressor Bug: 1494675
+# File Overlap Count: 2
+# Description:
+#   Bug 1494675 - Remove AllocationHandle. r=padenot
+#   
+#   The handle was used to keep separate allocations of the same source in a single
+#   process apart. Sources no longer use sharing, so we no longer need allocations
+#   or their handles even as a concept.
+# ==============================================================================
+
+diff -r 9e7832fee028 -r 20543d03a4cd dom/media/webrtc/MediaEngineWebRTC.cpp
+--- a/dom/media/webrtc/MediaEngineWebRTC.cpp	Wed Mar 27 14:10:27 2019 +0000
++++ b/dom/media/webrtc/MediaEngineWebRTC.cpp	Wed Mar 27 14:10:24 2019 +0000
+@@ -6,12 +6,12 @@
+ 
+ #include "MediaEngineWebRTC.h"
+ 
+-#include "AllocationHandle.h"
+ #include "CamerasChild.h"
+ #include "CSFLog.h"
+ #include "MediaEngineTabVideoSource.h"
+ #include "MediaEngineRemoteVideoSource.h"
+ #include "MediaEngineWebRTCAudio.h"
++#include "MediaManager.h"
+ #include "MediaTrackConstraints.h"
+ #include "mozilla/dom/MediaDeviceInfo.h"
+ #include "mozilla/Logging.h"
+@@ -132,16 +132,9 @@
+ 
+     nsRefPtrHashtable<nsStringHashKey, MediaEngineSource>*
+         devicesForThisWindow = mVideoSources.LookupOrAdd(aWindowId);
+-
+-    if (devicesForThisWindow->Get(uuid, getter_AddRefs(vSource)) &&
+-        vSource->RequiresSharing()) {
+-      // We've already seen this shared device, just refresh and append.
+-      static_cast<MediaEngineRemoteVideoSource*>(vSource.get())->Refresh(i);
+-    } else {
+-      vSource = new MediaEngineRemoteVideoSource(i, aCapEngine,
+-                                                 scaryKind || scarySource);
+-      devicesForThisWindow->Put(uuid, vSource);
+-    }
++    vSource = new MediaEngineRemoteVideoSource(i, aCapEngine,
++                                               scaryKind || scarySource);
++    devicesForThisWindow->Put(uuid, vSource);
+     aDevices->AppendElement(MakeRefPtr<MediaDevice>(
+         vSource, vSource->GetName(), NS_ConvertUTF8toUTF16(vSource->GetUUID()),
+         vSource->GetGroupId(), NS_LITERAL_STRING("")));

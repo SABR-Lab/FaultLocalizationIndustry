@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/nsTextFrame.cpp
+# Commit: c4a471b86fc0
+# Full Hash: c4a471b86fc0091946ad142515332c5532be5f62
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2023-03-02 04:57:23
+# Regressor Bug: 1818654
+# File Overlap Count: 3
+# Description:
+#   Bug 1818654 - Don't give up on clipping to the visible rect in nsDisplayText when selection or shadow is present. r=emilio
+#   
+#   Although I haven't been able to reproduce the reporter's OOM crash here, I hope this will avoid
+#   the issue; it certainly improves performance characteristics in my local build.
+#   
+# ==============================================================================
+
+diff -r 80627767254a -r c4a471b86fc0 layout/generic/nsTextFrame.cpp
+--- a/layout/generic/nsTextFrame.cpp	Wed Mar 01 11:28:54 2023 +0000
++++ b/layout/generic/nsTextFrame.cpp	Wed Mar 01 11:37:27 2023 +0000
+@@ -6227,14 +6227,17 @@
+  * type of selection.
+  * If text-shadow was not specified, *aShadows is left untouched.
+  */
+-static void GetSelectionTextShadow(nsIFrame* aFrame,
+-                                   SelectionType aSelectionType,
+-                                   nsTextPaintStyle& aTextPaintStyle,
+-                                   Span<const StyleSimpleShadow>* aShadows) {
++void nsTextFrame::GetSelectionTextShadow(
++    SelectionType aSelectionType, Span<const StyleSimpleShadow>* aShadows,
++    nsTextPaintStyle* aTextPaintStyle) {
+   if (aSelectionType != SelectionType::eNormal) {
+     return;
+   }
+-  aTextPaintStyle.GetSelectionShadow(aShadows);
++  if (aTextPaintStyle) {
++    aTextPaintStyle->GetSelectionShadow(aShadows);
++  } else {
++    nsTextPaintStyle(this).GetSelectionShadow(aShadows);
++  }
+ }
+ 
+ /**
+@@ -6673,8 +6676,7 @@
+     // Determine what shadow, if any, to draw - either from textStyle
+     // or from the ::-moz-selection pseudo-class if specified there
+     Span<const StyleSimpleShadow> shadows = textStyle->mTextShadow.AsSpan();
+-    GetSelectionTextShadow(this, selectionType, *aParams.textPaintStyle,
+-                           &shadows);
++    GetSelectionTextShadow(selectionType, &shadows, aParams.textPaintStyle);
+     if (!shadows.IsEmpty()) {
+       nscoord startEdge = iOffset;
+       if (mTextRun->IsInlineReversed()) {

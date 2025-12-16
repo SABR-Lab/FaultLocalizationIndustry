@@ -1,0 +1,104 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/shistory/SHistoryChild.cpp
+# Commit: 6ebc7618a5fa
+# Full Hash: 6ebc7618a5fadb59585a4d8b9f17eb65e5654cc6
+# Author: Anny Gakhokidze <agakhokidze@mozilla.com>
+# Date: 2020-03-10 21:44:54
+# Regressor Bug: 1546759
+# File Overlap Count: 2
+# Description:
+#   Bug 1546759 - Change nsSHistory::WalkHistoryEntries to walk browsing context tree instead of doc shell tree, r=peterv,nika
+#   
+#   WalkHistoryEntries function gets called by nsSHistory::CloneAndReplaceChild
+#   and nsSHistory::SetChildHistoryEntry recursively, so those have to be moved
+#   into the parent process. This eliminates many sync IPC calls.
+# ==============================================================================
+
+diff -r ed75364b23c3 -r 6ebc7618a5fa docshell/shistory/SHistoryChild.cpp
+--- a/docshell/shistory/SHistoryChild.cpp	Tue Mar 10 11:39:06 2020 +0000
++++ b/docshell/shistory/SHistoryChild.cpp	Tue Mar 10 14:28:22 2020 +0000
+@@ -8,6 +8,11 @@
+ #include "SHEntryChild.h"
+ #include "nsISHistoryListener.h"
+ 
++namespace mozilla {
++namespace dom {
++class SwapEntriesDocshellData;
++}
++}  // namespace mozilla
+ #define CONTENT_VIEWER_TIMEOUT_SECONDS \
+   "browser.sessionhistory.contentViewerTimeout"
+ 
+@@ -392,5 +397,70 @@
+   return NS_OK;
+ }
+ 
++NS_IMETHODIMP
++SHistoryChild::AddToRootSessionHistory(bool aCloneChildren, nsISHEntry* aOSHE,
++                                       BrowsingContext* aBC, nsISHEntry* aEntry,
++                                       uint32_t aLoadType, bool aShouldPersist,
++                                       Maybe<int32_t>* aPreviousEntryIndex,
++                                       Maybe<int32_t>* aLoadedEntryIndex) {
++  nsresult rv;
++  int32_t entriesPurged;
++  nsTArray<SwapEntriesDocshellData> entriesToUpdate;
++  if (!SendAddToRootSessionHistory(
++          aCloneChildren, static_cast<SHEntryChild*>(aOSHE), aBC,
++          static_cast<SHEntryChild*>(aEntry), aLoadType, aShouldPersist,
++          aPreviousEntryIndex, aLoadedEntryIndex, &entriesToUpdate,
++          &entriesPurged, &rv)) {
++    return NS_ERROR_FAILURE;
++  }
++  for (auto& data : entriesToUpdate) {
++    MOZ_ASSERT(!data.context().IsNull(), "Browsing context cannot be null");
++    nsDocShell* docshell = static_cast<nsDocShell*>(
++        data.context().GetMaybeDiscarded()->GetDocShell());
++    if (docshell) {
++      docshell->SwapHistoryEntries(data.oldEntry()->ToSHEntryChild(),
++                                   data.newEntry()->ToSHEntryChild());
++    }
++  }
++  if (NS_SUCCEEDED(rv) && mRootDocShell && entriesPurged > 0) {
++    mRootDocShell->HistoryPurged(entriesPurged);
++  }
++  return rv;
++}
++
++NS_IMETHODIMP
++SHistoryChild::AddChildSHEntryHelper(nsISHEntry* aCloneRef,
++                                     nsISHEntry* aNewEntry,
++                                     BrowsingContext* aBC,
++                                     bool aCloneChildren) {
++  nsresult rv;
++  RefPtr<CrossProcessSHEntry> child;
++  int32_t entriesPurged;
++  nsTArray<SwapEntriesDocshellData> entriesToUpdate;
++  if (!SendAddChildSHEntryHelper(static_cast<SHEntryChild*>(aCloneRef),
++                                 static_cast<SHEntryChild*>(aNewEntry), aBC,
++                                 aCloneChildren, &entriesToUpdate,
++                                 &entriesPurged, &child, &rv)) {
++    return NS_ERROR_FAILURE;
++  }
++  for (auto& data : entriesToUpdate) {
++    MOZ_ASSERT(!data.context().IsNull(), "Browsing context cannot be null");
++    nsDocShell* docshell = static_cast<nsDocShell*>(
++        data.context().GetMaybeDiscarded()->GetDocShell());
++    if (docshell) {
++      docshell->SwapHistoryEntries(data.oldEntry()->ToSHEntryChild(),
++                                   data.newEntry()->ToSHEntryChild());
++    }
++  }
++  if (!child) {
++    return rv;
++  }
++  if (NS_SUCCEEDED(rv) && mRootDocShell && entriesPurged > 0) {
++    mRootDocShell->HistoryPurged(entriesPurged);
++  }
++
++  return rv;
++}
++
+ }  // namespace dom
+ }  // namespace mozilla

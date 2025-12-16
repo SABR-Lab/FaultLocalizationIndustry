@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/CacheIRGenerator.h
+# Commit: 12d75626c542
+# Full Hash: 12d75626c542273a7821537deb1a9fa7e3863aa1
+# Author: André Bargull <andre.bargull@gmail.com>
+# Date: 2024-10-17 20:50:15
+# Regressor Bug: 1925195
+# File Overlap Count: 1
+# Description:
+#   Bug 1925195 - Part 3: Inline Date.prototype.get{FullYear,Month,Date,Day}. r=jandem
+#   
+#   These functions return the cached local date-time values, so we just need
+#   the `DateFillLocalTimeSlots` CacheIR op from part 2, followed by reading the
+#   corresponding slot.
+# ==============================================================================
+
+diff -r 64ed1e7ffcbc -r 12d75626c542 js/src/jit/CacheIRGenerator.h
+--- a/js/src/jit/CacheIRGenerator.h	Thu Oct 17 12:37:01 2024 +0000
++++ b/js/src/jit/CacheIRGenerator.h	Thu Oct 17 12:37:01 2024 +0000
+@@ -637,6 +637,13 @@
+ 
+   AtomicsReadWriteModifyOperands emitAtomicsReadWriteModifyOperands();
+ 
++  enum class DateComponent {
++    FullYear,
++    Month,
++    Date,
++    Day,
++  };
++
+   AttachDecision tryAttachArrayPush();
+   AttachDecision tryAttachArrayPopShift(InlinableNative native);
+   AttachDecision tryAttachArrayJoin();
+@@ -763,6 +770,7 @@
+   AttachDecision tryAttachMapHas();
+   AttachDecision tryAttachMapGet();
+   AttachDecision tryAttachDateGetTime(InlinableNative native);
++  AttachDecision tryAttachDateGet(DateComponent component);
+ #ifdef FUZZING_JS_FUZZILLI
+   AttachDecision tryAttachFuzzilliHash();
+ #endif

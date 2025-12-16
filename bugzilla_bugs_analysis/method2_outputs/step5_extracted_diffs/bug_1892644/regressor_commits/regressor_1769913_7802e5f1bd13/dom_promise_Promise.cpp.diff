@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/promise/Promise.cpp
+# Commit: 7802e5f1bd13
+# Full Hash: 7802e5f1bd1395f19f2d78636787c41f64192bd7
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2024-04-19 15:22:44
+# Regressor Bug: 1769913
+# File Overlap Count: 3
+# Description:
+#   Bug 1769913 - P3 Remove WorkerRunnable::mWorkerPrivate. r=dom-worker-reviewers,asuth
+#   
+#   WorkerRunnable no longer keeps a raw pointer(mWorkerPrivate) for the associated WorkerPrivate in this patch.
+#   Removing the WorkerRunnable::mWorkerPrivate needs to fix the following problems.
+#   
+# ==============================================================================
+
+diff -r ffc69aa8f2c3 -r 7802e5f1bd13 dom/promise/Promise.cpp
+--- a/dom/promise/Promise.cpp	Fri Apr 19 09:41:57 2024 +0000
++++ b/dom/promise/Promise.cpp	Fri Apr 19 09:41:58 2024 +0000
+@@ -723,8 +723,7 @@
+  public:
+   PromiseWorkerProxyRunnable(PromiseWorkerProxy* aPromiseWorkerProxy,
+                              PromiseWorkerProxy::RunCallbackFunc aFunc)
+-      : WorkerThreadRunnable(aPromiseWorkerProxy->GetWorkerPrivate(),
+-                             "PromiseWorkerProxyRunnable"),
++      : WorkerThreadRunnable("PromiseWorkerProxyRunnable"),
+         mPromiseWorkerProxy(aPromiseWorkerProxy),
+         mFunc(aFunc) {
+     MOZ_ASSERT(NS_IsMainThread());
+@@ -735,7 +734,6 @@
+                          WorkerPrivate* aWorkerPrivate) override {
+     MOZ_ASSERT(aWorkerPrivate);
+     aWorkerPrivate->AssertIsOnWorkerThread();
+-    MOZ_ASSERT(aWorkerPrivate == mWorkerPrivate);
+ 
+     MOZ_ASSERT(mPromiseWorkerProxy);
+     RefPtr<Promise> workerPromise = mPromiseWorkerProxy->GetWorkerPromise();
+@@ -862,7 +860,7 @@
+   RefPtr<PromiseWorkerProxyRunnable> runnable =
+       new PromiseWorkerProxyRunnable(this, aFunc);
+ 
+-  runnable->Dispatch();
++  runnable->Dispatch(GetWorkerPrivate());
+ }
+ 
+ void PromiseWorkerProxy::ResolvedCallback(JSContext* aCx,

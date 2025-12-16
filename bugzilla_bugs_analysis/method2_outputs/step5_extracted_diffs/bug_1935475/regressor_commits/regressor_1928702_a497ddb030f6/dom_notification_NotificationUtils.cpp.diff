@@ -1,0 +1,67 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/notification/NotificationUtils.cpp
+# Commit: a497ddb030f6
+# Full Hash: a497ddb030f6d0852bca56f875b48bc2e1ebc134
+# Author: Kagami Sascha Rosylight <saschanaz@outlook.com>
+# Date: 2024-11-08 04:19:40
+# Regressor Bug: 1928702
+# File Overlap Count: 1
+# Description:
+#   Bug 1928702 - Part 5: Implement RecvShow r=asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D227690
+# ==============================================================================
+
+diff -r 5a94b945a3ad -r a497ddb030f6 dom/notification/NotificationUtils.cpp
+--- a/dom/notification/NotificationUtils.cpp	Thu Nov 07 17:32:05 2024 +0000
++++ b/dom/notification/NotificationUtils.cpp	Thu Nov 07 17:32:05 2024 +0000
+@@ -9,6 +9,7 @@
+ #include "mozilla/BasePrincipal.h"
+ #include "mozilla/Components.h"
+ #include "mozilla/StaticPrefs_dom.h"
++#include "mozilla/dom/DOMTypes.h"
+ #include "mozilla/dom/NotificationBinding.h"
+ #include "mozilla/glean/GleanMetrics.h"
+ #include "nsContentUtils.h"
+@@ -184,6 +185,39 @@
+                                  : NS_NOTIFICATION_STORAGE_CONTRACTID);
+ }
+ 
++nsresult PersistNotification(nsIPrincipal* aPrincipal, const nsString& aId,
++                             const nsString& aAlertName,
++                             const IPCNotificationOptions& aOptions,
++                             const nsString& aScope) {
++  nsCOMPtr<nsINotificationStorage> notificationStorage =
++      GetNotificationStorage(aPrincipal->GetIsInPrivateBrowsing());
++  if (NS_WARN_IF(!notificationStorage)) {
++    return NS_ERROR_UNEXPECTED;
++  }
++
++  nsString origin;
++  nsresult rv = GetOrigin(aPrincipal, origin);
++  if (NS_WARN_IF(NS_FAILED(rv))) {
++    return rv;
++  }
++
++  nsAutoString behavior;
++  if (!aOptions.behavior().ToJSON(behavior)) {
++    return NS_ERROR_FAILURE;
++  }
++
++  rv = notificationStorage->Put(
++      origin, aId, aOptions.title(), GetEnumString(aOptions.dir()),
++      aOptions.lang(), aOptions.body(), aOptions.tag(), aOptions.icon(),
++      aAlertName, aOptions.dataSerialized(), behavior, aScope);
++
++  if (NS_FAILED(rv)) {
++    return rv;
++  }
++
++  return NS_OK;
++}
++
+ nsresult UnpersistNotification(nsIPrincipal* aPrincipal, const nsString& aId) {
+   if (!aPrincipal) {
+     return NS_ERROR_FAILURE;

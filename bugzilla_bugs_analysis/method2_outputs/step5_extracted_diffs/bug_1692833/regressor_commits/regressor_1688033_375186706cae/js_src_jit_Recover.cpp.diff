@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/Recover.cpp
+# Commit: 375186706cae
+# Full Hash: 375186706caeb4d480bb8c7be78a349601a3e7c1
+# Author: Iain Ireland <iireland@mozilla.com>
+# Date: 2021-02-13 09:52:34
+# Regressor Bug: 1688033
+# File Overlap Count: 1
+# Description:
+#   Bug 1688033: Recover CreateArgumentsObject on bailout r=nbp
+#   
+#   The original version of this patch only recovered CreateArgumentsObject on bailout if it didn't escape, but I removed that code based on discussion in #warpbuilder.
+#   
+#   This code is tested by `/ion/dce-with-rinstructions.js`. Prior to this patch, it failed with `--scalar-replace-arguments`.
+# ==============================================================================
+
+diff -r adaf366a60fa -r 375186706cae js/src/jit/Recover.cpp
+--- a/js/src/jit/Recover.cpp	Fri Feb 12 20:28:47 2021 +0000
++++ b/js/src/jit/Recover.cpp	Fri Feb 12 20:28:48 2021 +0000
+@@ -887,7 +887,7 @@
+ bool RArgumentsLength::recover(JSContext* cx, SnapshotIterator& iter) const {
+   RootedValue result(cx);
+ 
+-  result.setInt32(iter.readOuterNumActualArgs());
++  result.setInt32(iter.frame()->numActualArgs());
+ 
+   iter.storeInstructionResult(result);
+   return true;
+@@ -1947,3 +1947,25 @@
+   iter.storeInstructionResult(JS::BigIntValue(result));
+   return true;
+ }
++
++bool MCreateArgumentsObject::writeRecoverData(
++    CompactBufferWriter& writer) const {
++  MOZ_ASSERT(canRecoverOnBailout());
++  writer.writeUnsigned(uint32_t(RInstruction::Recover_CreateArgumentsObject));
++  return true;
++}
++
++RCreateArgumentsObject::RCreateArgumentsObject(CompactBufferReader& reader) {}
++
++bool RCreateArgumentsObject::recover(JSContext* cx,
++                                     SnapshotIterator& iter) const {
++  RootedObject callObject(cx, &iter.read().toObject());
++  RootedObject result(
++      cx, ArgumentsObject::createForIon(cx, iter.frame(), callObject));
++  if (!result) {
++    return false;
++  }
++
++  iter.storeInstructionResult(JS::ObjectValue(*result));
++  return true;
++}

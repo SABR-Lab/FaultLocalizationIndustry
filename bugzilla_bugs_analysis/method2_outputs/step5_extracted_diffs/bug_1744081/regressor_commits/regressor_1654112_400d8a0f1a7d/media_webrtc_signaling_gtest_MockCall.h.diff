@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/webrtc/signaling/gtest/MockCall.h
+# Commit: 400d8a0f1a7d
+# Full Hash: 400d8a0f1a7d5f7df39f159d4cdb3c86d9eea23b
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 2
+# Description:
+#   Bug 1654112 - Update conduit unittests to work with the Call worker thread. r=ng
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D112845
+# ==============================================================================
+
+diff -r 8d80a4ba914c -r 400d8a0f1a7d media/webrtc/signaling/gtest/MockCall.h
+--- a/media/webrtc/signaling/gtest/MockCall.h	Mon Apr 12 14:49:20 2021 +0200
++++ b/media/webrtc/signaling/gtest/MockCall.h	Tue Apr 06 17:45:07 2021 +0200
+@@ -5,9 +5,13 @@
+ #ifndef MOCK_CALL_H_
+ #define MOCK_CALL_H_
+ 
++#include "gmock/gmock.h"
+ #include "mozilla/Assertions.h"
+-#include <api/call/audio_sink.h>
+-#include <call/call.h>
++#include "WebrtcCallWrapper.h"
++
++// libwebrtc
++#include "api/call/audio_sink.h"
++#include "call/call.h"
+ 
+ using namespace webrtc;
+ 
+@@ -241,5 +245,21 @@
+   MockVideoSendStream* mCurrentVideoSendStream;
+ };
+ 
++class MockCallWrapper : public mozilla::WebrtcCallWrapper {
++ public:
++  MockCallWrapper()
++      : mozilla::WebrtcCallWrapper(
++            mozilla::AbstractThread::MainThread(), nullptr, nullptr, nullptr,
++            nullptr, mozilla::dom::RTCStatsTimestampMaker(), nullptr) {}
++
++  static RefPtr<testing::NiceMock<MockCallWrapper>> Create() {
++    auto wrapper = mozilla::MakeRefPtr<testing::NiceMock<MockCallWrapper>>();
++    wrapper->SetCall(mozilla::WrapUnique(new MockCall));
++    return wrapper;
++  }
++
++  MockCall* GetMockCall() { return static_cast<MockCall*>(Call()); }
++};
++
+ }  // namespace test
+ #endif

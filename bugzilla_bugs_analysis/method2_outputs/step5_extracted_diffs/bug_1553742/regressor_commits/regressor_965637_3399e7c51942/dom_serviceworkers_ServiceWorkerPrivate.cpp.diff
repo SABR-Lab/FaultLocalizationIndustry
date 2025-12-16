@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/serviceworkers/ServiceWorkerPrivate.cpp
+# Commit: 3399e7c51942
+# Full Hash: 3399e7c519424a82824f48abd3b2a4d75346d723
+# Author: Christoph Kerschbaumer <ckerschb@christophkerschbaumer.com>
+# Date: 2019-05-22 03:40:58
+# Regressor Bug: 965637
+# File Overlap Count: 3
+# Description:
+#   Bug 965637: Move CSP from Principal into Client, part 2: worker changes. r=baku
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D27655
+# ==============================================================================
+
+diff -r ddf4012a7652 -r 3399e7c51942 dom/serviceworkers/ServiceWorkerPrivate.cpp
+--- a/dom/serviceworkers/ServiceWorkerPrivate.cpp	Tue May 21 23:14:27 2019 +0000
++++ b/dom/serviceworkers/ServiceWorkerPrivate.cpp	Tue May 21 23:14:50 2019 +0000
+@@ -1735,10 +1735,13 @@
+ 
+   info.mOriginAttributes = mInfo->GetOriginAttributes();
+ 
+-  // Verify that we don't have any CSP on pristine principal.
++  // Verify that we don't have any CSP on pristine client.
+ #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
+   nsCOMPtr<nsIContentSecurityPolicy> csp;
+-  Unused << info.mPrincipal->GetCsp(getter_AddRefs(csp));
++  if (info.mChannel) {
++    nsCOMPtr<nsILoadInfo> loadinfo = info.mChannel->LoadInfo();
++    csp = loadinfo->GetCsp();
++  }
+   MOZ_DIAGNOSTIC_ASSERT(!csp);
+ #endif
+ 
+@@ -1749,8 +1752,8 @@
+ 
+   WorkerPrivate::OverrideLoadInfoLoadGroup(info, info.mPrincipal);
+ 
+-  rv = info.SetPrincipalsOnMainThread(info.mPrincipal, info.mStoragePrincipal,
+-                                      info.mLoadGroup);
++  rv = info.SetPrincipalsAndCSPOnMainThread(
++      info.mPrincipal, info.mStoragePrincipal, info.mLoadGroup, nullptr);
+   if (NS_WARN_IF(NS_FAILED(rv))) {
+     return rv;
+   }

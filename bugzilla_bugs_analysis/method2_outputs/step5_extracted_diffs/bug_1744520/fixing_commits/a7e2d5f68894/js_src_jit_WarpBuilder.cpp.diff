@@ -1,0 +1,29 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/WarpBuilder.cpp
+# Commit: a7e2d5f68894
+# Full Hash: a7e2d5f68894a40df8e7733b755d174c1fcb911a
+# Author: Iain Ireland <iireland@mozilla.com>
+# Date: 2021-12-08 03:42:13
+# Description:
+#   Bug 1744520: Fix OOM handling for variadic instructions r=jandem
+#   
+#   Variadic instructions contain a FixedList of operands which is initialized fallibly in MVariadicT::init. This means MFoo::New is fallible for variadic instructions. A fuzz bug found one unhandled OOM in scalar replacement. I did a quick survey of places where we create new variadic nodes, and found a few more latent bugs that I introduced in my patches to scalar-replace arguments. I fixed those bugs and added a comment on MVariadicInstruction in the hopes of avoiding the same mistake in the future.
+#   
+#   I'm not adding the fuzz testcase, because OOM tests of Ion internals are incredibly fragile and will stop working as soon as we add or remove one more allocation somewhere.
+# ==============================================================================
+
+diff -r 54b37531f2bc -r a7e2d5f68894 js/src/jit/WarpBuilder.cpp
+--- a/js/src/jit/WarpBuilder.cpp	Tue Dec 07 17:25:02 2021 +0000
++++ b/js/src/jit/WarpBuilder.cpp	Tue Dec 07 17:47:08 2021 +0000
+@@ -1658,6 +1658,9 @@
+   if (inlineCallInfo()) {
+     argsObj = MCreateInlinedArgumentsObject::New(alloc(), env, getCallee(),
+                                                  inlineCallInfo()->argv());
++    if (!argsObj) {
++      return false;
++    }
+   } else {
+     argsObj = MCreateArgumentsObject::New(alloc(), env, templateObj);
+   }

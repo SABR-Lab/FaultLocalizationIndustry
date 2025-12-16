@@ -1,0 +1,113 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/tests/browser/text/browser_text_caret.js
+# Commit: 57c30f1adca5
+# Full Hash: 57c30f1adca5fb5ccd4a9a09192c41e207e28d88
+# Author: Serban Stanca <sstanca@mozilla.com>
+# Date: 2025-07-13 21:41:00
+# Regressor Bug: 1950748
+# File Overlap Count: 3
+# Description:
+#   Revert "Bug 1950748 part 3: Don't return a caret inside an editor when no editor is focused. r=morgan" as requested for causing accessibility crashes (bug 1977012).
+#   
+#   This reverts commit aaf970807d281c28c1e937491719d996cb11648a.
+#   
+#   This reverts commit f5f2e3cf4d34c2430372ba790d77620837d56b75.
+# ==============================================================================
+
+diff -r 05ceace27341 -r 57c30f1adca5 accessible/tests/browser/text/browser_text_caret.js
+--- a/accessible/tests/browser/text/browser_text_caret.js	Sun Jul 13 14:48:08 2025 +0000
++++ b/accessible/tests/browser/text/browser_text_caret.js	Mon Jul 14 00:37:50 2025 +0300
+@@ -605,91 +605,3 @@
+     is(evt.caretOffset, 0, "Caret event is for offset 0");
+   }
+ );
+-
+-/**
+- * Test the caret when clicking in an empty area of a container immediately
+- * before/after a text input.
+- */
+-addAccessibleTask(
+-  `
+-<div id="inputThenEmpty" style="padding-bottom: 10vh;">
+-  <input id="inputBeforeEmpty" value="ab">
+-</div>
+-<div id="emptyThenInput" style="padding-top: 10vh;">
+-  <input id="inputAfterEmpty" value="cd">
+-</div>
+-  `,
+-  async function testEmptyNearInput(browser, docAcc) {
+-    info("Focusing inputBeforeEmpty");
+-    let input = findAccessibleChildByID(docAcc, "inputBeforeEmpty", [
+-      nsIAccessibleText,
+-    ]);
+-    let moved = waitForEvents([
+-      [EVENT_FOCUS, input],
+-      [EVENT_TEXT_CARET_MOVED, input],
+-    ]);
+-    input.takeFocus();
+-    await moved;
+-    is(input.caretOffset, 0, "caretOffset 0");
+-
+-    info("Clicking at bottom of inputThenEmpty");
+-    // BrowserTestUtils.synthesizeMouseAtPoint takes coordinates relative to the
+-    // document.
+-    const docX = {};
+-    const docY = {};
+-    docAcc.getBounds(docX, docY, {}, {});
+-    let container = findAccessibleChildByID(docAcc, "inputThenEmpty", [
+-      nsIAccessibleText,
+-    ]);
+-    const containerX = {};
+-    const containerY = {};
+-    const containerH = {};
+-    container.getBounds(containerX, containerY, {}, containerH);
+-    moved = waitForEvents([
+-      [EVENT_FOCUS, docAcc],
+-      [EVENT_TEXT_CARET_MOVED, container],
+-    ]);
+-    await BrowserTestUtils.synthesizeMouseAtPoint(
+-      containerX.value - docX.value,
+-      containerY.value + containerH.value - 1 - docY.value,
+-      {},
+-      docAcc.browsingContext
+-    );
+-    await moved;
+-    docAcc.QueryInterface(nsIAccessibleText);
+-    is(input.caretOffset, -1, "No caret in inputBeforeEmpty");
+-
+-    info("Focusing inputAfterEmpty");
+-    input = findAccessibleChildByID(docAcc, "inputAfterEmpty", [
+-      nsIAccessibleText,
+-    ]);
+-    moved = waitForEvents([
+-      [EVENT_FOCUS, input],
+-      [EVENT_TEXT_CARET_MOVED, input],
+-    ]);
+-    input.takeFocus();
+-    await moved;
+-    is(input.caretOffset, 0, "caretOffset 0");
+-
+-    info("Clicking at top of emptyThenInput");
+-    container = findAccessibleChildByID(docAcc, "emptyThenInput", [
+-      nsIAccessibleText,
+-    ]);
+-    container.getBounds(containerX, containerY, {}, {});
+-    // The caret event fires in the input instead of the container, but this
+-    // isn't really important.
+-    moved = waitForEvents([
+-      [EVENT_FOCUS, docAcc],
+-      [EVENT_TEXT_CARET_MOVED, input],
+-    ]);
+-    await BrowserTestUtils.synthesizeMouseAtPoint(
+-      containerX.value - docX.value,
+-      containerY.value - docY.value + 1,
+-      {},
+-      docAcc.browsingContext
+-    );
+-    await moved;
+-    is(input.caretOffset, -1, "No caret in inputAfterEmpty");
+-  },
+-  { chrome: true, topLevel: true }
+-);

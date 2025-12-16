@@ -1,0 +1,106 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/base/nsIOService.cpp
+# Commit: 20f3d7a5481d
+# Full Hash: 20f3d7a5481db59c20e27a1603a58a40fdad9c93
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2020-02-10 21:33:47
+# Regressor Bug: 1607194
+# File Overlap Count: 1
+# Description:
+#   Bug 1607194 - P1: NSS initialization without nsNSSComponent for  the socket process r=keeler
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D58774
+# ==============================================================================
+
+diff -r 79b7b94df8b6 -r 20f3d7a5481d netwerk/base/nsIOService.cpp
+--- a/netwerk/base/nsIOService.cpp	Mon Feb 10 15:53:23 2020 +0000
++++ b/netwerk/base/nsIOService.cpp	Mon Feb 10 17:07:26 2020 +0000
+@@ -58,6 +58,8 @@
+ #include "nsContentUtils.h"
+ #include "nsExceptionHandler.h"
+ #include "mozilla/StaticPrefs_network.h"
++#include "nsNSSComponent.h"
++#include "ssl.h"
+ 
+ #ifdef MOZ_WIDGET_GTK
+ #  include "nsGIOProtocolHandler.h"
+@@ -222,6 +224,28 @@
+     nullptr,
+ };
+ 
++static const char* gCallbackSecurityPrefs[] = {
++    // Note the prefs listed below should be in sync with the code in
++    // HandleTLSPrefChange().
++    "security.tls.version.min",
++    "security.tls.version.max",
++    "security.tls.version.enable-deprecated",
++    "security.tls.hello_downgrade_check",
++    "security.ssl.require_safe_negotiation",
++    "security.ssl.enable_false_start",
++    "security.ssl.enable_alpn",
++    "security.tls.enable_0rtt_data",
++    "security.ssl.disable_session_identifiers",
++    "security.tls.enable_post_handshake_auth",
++    "security.tls.enable_delegated_credentials",
++    // Note the prefs listed below should be in sync with the code in
++    // SetValidationOptionsCommon().
++    "security.ssl.enable_ocsp_stapling",
++    "security.ssl.enable_ocsp_must_staple",
++    "security.pki.certificate_transparency.mode",
++    nullptr,
++};
++
+ nsresult nsIOService::Init() {
+   // XXX hack until xpidl supports error info directly (bug 13423)
+   nsCOMPtr<nsIErrorService> errorService = nsErrorService::GetOrCreate();
+@@ -264,6 +288,11 @@
+   Preferences::AddBoolVarCache(&mOfflineMirrorsConnectivity,
+                                OFFLINE_MIRRORS_CONNECTIVITY, true);
+ 
++  if (IsSocketProcessChild()) {
++    Preferences::RegisterCallbacks(nsIOService::OnTLSPrefChange,
++                                   gCallbackSecurityPrefs, this);
++  }
++
+   gIOService = this;
+ 
+   InitializeNetworkLinkService();
+@@ -281,6 +310,23 @@
+   }
+ }
+ 
++// static
++void nsIOService::OnTLSPrefChange(const char* aPref, void* aSelf) {
++  MOZ_ASSERT(IsSocketProcessChild());
++
++  nsAutoCString pref(aPref);
++  // The preferences listed in gCallbackSecurityPrefs need to be in sync with
++  // the code in HandleTLSPrefChange() and SetValidationOptionsCommon().
++  if (HandleTLSPrefChange(pref)) {
++    LOG(("HandleTLSPrefChange done"));
++  } else if (pref.EqualsLiteral("security.ssl.enable_ocsp_stapling") ||
++             pref.EqualsLiteral("security.ssl.enable_ocsp_must_staple") ||
++             pref.EqualsLiteral("security.pki.certificate_transparency.mode")) {
++    SetValidationOptionsCommon();
++  }
++  SSL_ClearSessionCache();
++}
++
+ nsresult nsIOService::InitializeCaptivePortalService() {
+   if (XRE_GetProcessType() != GeckoProcessType_Default) {
+     // We only initalize a captive portal service in the main process
+@@ -1488,6 +1534,12 @@
+     SSLTokensCache::Shutdown();
+ 
+     DestroySocketProcess();
++
++    if (IsSocketProcessChild()) {
++      Preferences::UnregisterCallbacks(nsIOService::OnTLSPrefChange,
++                                       gCallbackSecurityPrefs, this);
++      NSSShutdownForSocketProcess();
++    }
+   } else if (!strcmp(topic, NS_NETWORK_LINK_TOPIC)) {
+     OnNetworkLinkEvent(NS_ConvertUTF16toUTF8(data).get());
+   } else if (!strcmp(topic, NS_NETWORK_ID_CHANGED_TOPIC)) {

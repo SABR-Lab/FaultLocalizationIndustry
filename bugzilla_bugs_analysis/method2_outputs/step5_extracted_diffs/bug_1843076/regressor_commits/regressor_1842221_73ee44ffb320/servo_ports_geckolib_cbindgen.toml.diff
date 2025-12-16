@@ -1,0 +1,68 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: servo/ports/geckolib/cbindgen.toml
+# Commit: 73ee44ffb320
+# Full Hash: 73ee44ffb32056a47a020486d3f8d1ba5dfe381f
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-07-12 21:49:07
+# Regressor Bug: 1842221
+# File Overlap Count: 1
+# Description:
+#   Bug 1842221 - Simplify ThinArc and friends. r=boris
+#   
+#   ThinArc is way more complex than it needs to be, and miri complains
+#   about various things when using the selectors crate with it.
+#   
+# ==============================================================================
+
+diff -r c32acbd14a56 -r 73ee44ffb320 servo/ports/geckolib/cbindgen.toml
+--- a/servo/ports/geckolib/cbindgen.toml	Wed Jul 12 07:03:02 2023 +0000
++++ b/servo/ports/geckolib/cbindgen.toml	Wed Jul 12 07:17:25 2023 +0000
+@@ -639,23 +639,25 @@
+   [[nodiscard]] inline bool DecrementRef();
+ """
+ 
++"HeaderSlice" = """
++  StyleHeaderSlice() = delete;
++  StyleHeaderSlice(const StyleHeaderSlice&) = delete;
++
++  inline ~StyleHeaderSlice();
++  inline bool operator==(const StyleHeaderSlice& other) const;
++  inline bool operator!=(const StyleHeaderSlice& other) const;
++
++  inline Span<const T> AsSpan() const;
++  inline size_t Length() const { return len; }
++  inline bool IsEmpty() const { return len == 0; }
++"""
++
+ "ArcSlice" = """
+   inline StyleArcSlice();
+-  inline StyleArcSlice(const StyleArcSlice& aOther);
+-
+-  inline StyleArcSlice& operator=(const StyleArcSlice&);
+-  inline StyleArcSlice& operator=(StyleArcSlice&&);
+-
+   inline explicit StyleArcSlice(const StyleForgottenArcSlicePtr<T>& aPtr);
+- private:
+-  inline void Release();
+- public:
+-  inline ~StyleArcSlice();
+   inline Span<const T> AsSpan() const;
+   inline size_t Length() const;
+   inline bool IsEmpty() const;
+-  inline bool operator==(const StyleArcSlice& other) const;
+-  inline bool operator!=(const StyleArcSlice& other) const;
+ """
+ 
+ "Arc" = """
+@@ -664,6 +666,9 @@
+  private:
+   inline void Release();
+  public:
++  explicit StyleArc(decltype(p) aP) : p(aP) {
++    MOZ_DIAGNOSTIC_ASSERT(p, "Arc shouldn't be null");
++  }
+   inline ~StyleArc();
+ 
+   inline StyleArc& operator=(const StyleArc&);

@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webaudio/blink/PeriodicWave.cpp
+# Commit: 2356949f5c6d
+# Full Hash: 2356949f5c6d9a4f229d012051bac51b3eb83aec
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2024-02-28 16:14:38
+# Regressor Bug: 1879873
+# File Overlap Count: 1
+# Description:
+#   Bug 1879873 - Scale the inverse FFT result using tx instead of pre- or post-processing the data. r=karlt
+#   
+#   This skips a copy at the expense of having to do a `const_cast`.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D202434
+# ==============================================================================
+
+diff -r 9b4ea6ecadd1 -r 2356949f5c6d dom/media/webaudio/blink/PeriodicWave.cpp
+--- a/dom/media/webaudio/blink/PeriodicWave.cpp	Wed Feb 28 12:50:27 2024 +0000
++++ b/dom/media/webaudio/blink/PeriodicWave.cpp	Wed Feb 28 12:50:27 2024 +0000
+@@ -266,7 +266,7 @@
+ 
+   // Apply an inverse FFT to generate the time-domain table data.
+   float* data = m_bandLimitedTables[rangeIndex]->Elements();
+-  frame.GetInverseWithoutScaling(data);
++  frame.GetInverse(data);
+ 
+   // For the first range (which has the highest power), calculate
+   // its peak value then compute normalization scale.

@@ -1,0 +1,68 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/base/BackgroundFileSaver.cpp
+# Commit: 9d578a7bbb75
+# Full Hash: 9d578a7bbb753270a510c926a1f9c2aecce2a633
+# Author: Chris Fronk <fronkc1@gmail.com>
+# Date: 2020-05-27 03:52:55
+# Regressor Bug: 1620366
+# File Overlap Count: 1
+# Description:
+#   Bug 1620366 - Convert BackgroundFileSaver to use background thread pool. r=valentin,necko-reviewers
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D74546
+# ==============================================================================
+
+diff -r b96d77cdb311 -r 9d578a7bbb75 netwerk/base/BackgroundFileSaver.cpp
+--- a/netwerk/base/BackgroundFileSaver.cpp	Tue May 26 19:43:57 2020 +0000
++++ b/netwerk/base/BackgroundFileSaver.cpp	Wed May 27 00:06:16 2020 +0000
+@@ -84,7 +84,7 @@
+ 
+ BackgroundFileSaver::BackgroundFileSaver()
+     : mControlEventTarget(nullptr),
+-      mWorkerThread(nullptr),
++      mBackgroundET(nullptr),
+       mPipeOutputStream(nullptr),
+       mPipeInputStream(nullptr),
+       mObserver(nullptr),
+@@ -125,7 +125,7 @@
+   mControlEventTarget = GetCurrentThreadEventTarget();
+   NS_ENSURE_TRUE(mControlEventTarget, NS_ERROR_NOT_INITIALIZED);
+ 
+-  rv = NS_NewNamedThread("BgFileSaver", getter_AddRefs(mWorkerThread));
++  rv = NS_CreateBackgroundTaskQueue("BgFileSaver", getter_AddRefs(mBackgroundET));
+   NS_ENSURE_SUCCESS(rv, rv);
+ 
+   sThreadCount++;
+@@ -286,10 +286,10 @@
+ 
+   if (!mAsyncCopyContext) {
+     // Copy is not in progress, post an event to handle the change manually.
+-    rv = mWorkerThread->Dispatch(
++    rv = mBackgroundET->Dispatch(
+         NewRunnableMethod("net::BackgroundFileSaver::ProcessAttention", this,
+                           &BackgroundFileSaver::ProcessAttention),
+-        NS_DISPATCH_NORMAL);
++        NS_DISPATCH_EVENT_MAY_BLOCK);
+     NS_ENSURE_SUCCESS(rv, rv);
+   } else if (aShouldInterruptCopy) {
+     // Interrupt the copy.  The copy will be resumed, if needed, by the
+@@ -588,7 +588,7 @@
+   {
+     MutexAutoLock lock(mLock);
+ 
+-    rv = NS_AsyncCopy(mPipeInputStream, outputStream, mWorkerThread,
++    rv = NS_AsyncCopy(mPipeInputStream, outputStream, mBackgroundET,
+                       NS_ASYNCCOPY_VIA_READSEGMENTS, 4096, AsyncCopyCallback,
+                       this, false, true, getter_AddRefs(mAsyncCopyContext),
+                       GetProgressCallback());
+@@ -734,7 +734,7 @@
+   // completion observer callback.  Re-entering the loop can only delay the
+   // final release and destruction of this saver object, since we are keeping a
+   // reference to it through the event object.
+-  mWorkerThread->Shutdown();
++  mBackgroundET = nullptr;
+ 
+   sThreadCount--;
+ 

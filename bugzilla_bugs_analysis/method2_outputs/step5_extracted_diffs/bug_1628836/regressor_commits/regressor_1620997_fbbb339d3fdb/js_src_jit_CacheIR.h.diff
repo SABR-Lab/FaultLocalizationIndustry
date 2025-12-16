@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/CacheIR.h
+# Commit: fbbb339d3fdb
+# Full Hash: fbbb339d3fdb70cb2b9f48c1194f6320909b6952
+# Author: André Bargull <andre.bargull@gmail.com>
+# Date: 2020-04-08 21:42:38
+# Regressor Bug: 1620997
+# File Overlap Count: 1
+# Description:
+#   Bug 1620997 - Part 2: Add JSOp::Pow support to CacheIR. r=jandem
+#   
+#   There are too few registers available on x86, so the code tries to reuse the output
+#   operand's type register in addition to its payload register.
+#   
+# ==============================================================================
+
+diff -r 815e8172ee57 -r fbbb339d3fdb js/src/jit/CacheIR.h
+--- a/js/src/jit/CacheIR.h	Tue Apr 07 11:22:51 2020 +0000
++++ b/js/src/jit/CacheIR.h	Tue Apr 07 11:46:58 2020 +0000
+@@ -356,11 +356,13 @@
+   _(DoubleMulResult, Id, Id)                                                   \
+   _(DoubleDivResult, Id, Id)                                                   \
+   _(DoubleModResult, Id, Id)                                                   \
++  _(DoublePowResult, Id, Id)                                                   \
+   _(Int32AddResult, Id, Id)                                                    \
+   _(Int32SubResult, Id, Id)                                                    \
+   _(Int32MulResult, Id, Id)                                                    \
+   _(Int32DivResult, Id, Id)                                                    \
+   _(Int32ModResult, Id, Id)                                                    \
++  _(Int32PowResult, Id, Id)                                                    \
+   _(BigIntAddResult, Id, Id)                                                   \
+   _(BigIntSubResult, Id, Id)                                                   \
+   _(BigIntMulResult, Id, Id)                                                   \
+@@ -1637,6 +1639,11 @@
+     writeOperandId(rhsId);
+   }
+ 
++  void doublePowResult(NumberOperandId lhsId, NumberOperandId rhsId) {
++    writeOpWithOperandId(CacheOp::DoublePowResult, lhsId);
++    writeOperandId(rhsId);
++  }
++
+   void int32AddResult(Int32OperandId lhs, Int32OperandId rhs) {
+     writeOpWithOperandId(CacheOp::Int32AddResult, lhs);
+     writeOperandId(rhs);
+@@ -1662,6 +1669,11 @@
+     writeOperandId(rhs);
+   }
+ 
++  void int32PowResult(Int32OperandId lhs, Int32OperandId rhs) {
++    writeOpWithOperandId(CacheOp::Int32PowResult, lhs);
++    writeOperandId(rhs);
++  }
++
+   void bigIntAddResult(BigIntOperandId lhsId, BigIntOperandId rhsId) {
+     writeOpWithOperandId(CacheOp::BigIntAddResult, lhsId);
+     writeOperandId(rhsId);

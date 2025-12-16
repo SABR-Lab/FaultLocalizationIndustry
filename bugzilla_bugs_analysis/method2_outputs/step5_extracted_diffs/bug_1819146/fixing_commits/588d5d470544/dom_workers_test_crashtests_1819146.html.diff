@@ -1,0 +1,41 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/test/crashtests/1819146.html
+# Commit: 588d5d470544
+# Full Hash: 588d5d4705444710c4a6c35290fc92d802557776
+# Author: Olli Pettay <Olli.Pettay@helsinki.fi>
+# Date: 2023-03-11 09:54:30
+# Description:
+#   Bug 1819146, don't try to use destroyed global when accessing signal's reason, r=peterv
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D172131
+# ==============================================================================
+
+diff -r 6ac0d009f1ef -r 588d5d470544 dom/workers/test/crashtests/1819146.html
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/dom/workers/test/crashtests/1819146.html	Fri Mar 10 15:14:32 2023 +0000
+@@ -0,0 +1,23 @@
++<!DOCTYPE html>
++<html>
++<head>
++    <script id="worker1" type="javascript/worker">
++        self.onmessage = async function (e) {
++          const abort = new AbortController()
++          const signal = abort.signal
++          abort.abort()
++          close()
++          try { await fetch(undefined, { signal: signal }) } catch (e) {}
++          await navigator.locks.request("weblock_0", { signal: signal }, () => {})
++          await fetch(undefined, { headers: [] })
++        }
++    </script>
++    <script>
++      document.addEventListener('DOMContentLoaded', () => {
++        const blob = new Blob([document.querySelector('#worker1').textContent], { type: 'text/javascript' })
++        const worker = new Worker(window.URL.createObjectURL(blob))
++        worker.postMessage([], [])
++      })
++    </script>
++</head>
++</html>

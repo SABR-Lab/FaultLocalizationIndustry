@@ -1,0 +1,31 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: servo/components/style/properties/properties.mako.rs
+# Commit: e575a9337c4a
+# Full Hash: e575a9337c4a2dbe8dd219a2a1212ca2008512b1
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2024-09-13 21:45:07
+# Description:
+#   Bug 1918454 - Prevent divide by zero when inverting effective zoom. r=firefox-style-system-reviewers,layout-reviewers,boris
+#   
+#   See comment.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D222090
+# ==============================================================================
+
+diff -r ba640de8df47 -r e575a9337c4a servo/components/style/properties/properties.mako.rs
+--- a/servo/components/style/properties/properties.mako.rs	Fri Sep 13 18:19:57 2024 +0000
++++ b/servo/components/style/properties/properties.mako.rs	Fri Sep 13 18:24:57 2024 +0000
+@@ -2726,7 +2726,10 @@
+     pub fn resolved_specified_zoom(&self) -> computed::Zoom {
+         let zoom = self.specified_zoom();
+         if zoom.is_document() {
+-            self.inherited_effective_zoom().inverted()
++            // If our inherited effective zoom has derived to zero, there's not much we can do.
++            // This value is not exposed to content anyways (it's used for scrollbars and to avoid
++            // zoom affecting canvas).
++            self.inherited_effective_zoom().inverted().unwrap_or(computed::Zoom::ONE)
+         } else {
+             zoom
+         }

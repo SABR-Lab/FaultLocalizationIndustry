@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/BrowserParent.cpp
+# Commit: e1fd1fa67a65
+# Full Hash: e1fd1fa67a6554ae8dc206a6fed9e5405a0bf778
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2021-04-01 03:12:48
+# Regressor Bug: 1699721
+# File Overlap Count: 1
+# Description:
+#   Bug 1699721 - Part 2: Track BrowserParent lifecycles during process switches, r=kmag
+#   
+#   This patch contains a large number of changes around the process switching
+#   mechanism in order to avoid issues which are caused by a mismatched
+#   understanding of the state of the process switch between processes in the
+# ==============================================================================
+
+diff -r 2b3a6042d48e -r e1fd1fa67a65 dom/ipc/BrowserParent.cpp
+--- a/dom/ipc/BrowserParent.cpp	Wed Mar 31 16:51:58 2021 +0000
++++ b/dom/ipc/BrowserParent.cpp	Wed Mar 31 16:51:58 2021 +0000
+@@ -738,25 +738,12 @@
+     if (why == AbnormalShutdown) {
+       frameLoader->MaybeNotifyCrashed(mBrowsingContext, Manager()->ChildID(),
+                                       GetIPCChannel());
+-
+-      auto* bridge = GetBrowserBridgeParent();
+-      if (bridge && bridge->CanSend() && !mBrowsingContext->IsDiscarded()) {
+-        MOZ_ASSERT(!mBrowsingContext->IsTop());
+-
+-        // Set the owner process of the root context belonging to a crashed
+-        // process to the embedding process, since we'll be showing the crashed
+-        // page in that process.
+-        mBrowsingContext->SetOwnerProcessId(
+-            bridge->Manager()->Manager()->ChildID());
+-        MOZ_ALWAYS_SUCCEEDS(mBrowsingContext->SetCurrentInnerWindowId(0));
+-
+-        // Tell the browser bridge to show the subframe crashed page.
+-        Unused << bridge->SendSubFrameCrashed();
+-      }
+     }
+   }
+ 
+   mFrameLoader = nullptr;
++
++  mBrowsingContext->BrowserParentDestroyed(this, why == AbnormalShutdown);
+ }
+ 
+ mozilla::ipc::IPCResult BrowserParent::RecvMoveFocus(

@@ -1,0 +1,77 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLRenderbuffer.h
+# Commit: ccfa767dba64
+# Full Hash: ccfa767dba644dc193e0246eb8e8ff3377e8b8a5
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Client-side bindings mirror for precise CC, and merge similar codepaths. r=handyman
+#   
+#   * Context loss using RAII
+#   * Move Program reflection Client-side
+#   
+# ==============================================================================
+
+diff -r 71c122ac0ca7 -r ccfa767dba64 dom/canvas/WebGLRenderbuffer.h
+--- a/dom/canvas/WebGLRenderbuffer.h	Wed Jan 08 22:19:14 2020 +0000
++++ b/dom/canvas/WebGLRenderbuffer.h	Wed Jan 08 22:19:16 2020 +0000
+@@ -6,9 +6,6 @@
+ #ifndef WEBGL_RENDERBUFFER_H_
+ #define WEBGL_RENDERBUFFER_H_
+ 
+-#include "mozilla/LinkedList.h"
+-#include "nsWrapperCache.h"
+-
+ #include "CacheInvalidator.h"
+ #include "WebGLObjectModel.h"
+ #include "WebGLStrongTypes.h"
+@@ -19,16 +16,16 @@
+ struct FormatUsageInfo;
+ }
+ 
+-class WebGLRenderbuffer final : public WebGLRefCountedObject<WebGLRenderbuffer>,
+-                                public LinkedListElement<WebGLRenderbuffer>,
++class WebGLRenderbuffer final : public WebGLContextBoundObject,
+                                 public WebGLRectangleObject,
+                                 public CacheInvalidator {
+   friend class WebGLFramebuffer;
+   friend class WebGLFBAttachPoint;
+ 
++  MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(WebGLRenderbuffer, override)
++
+  public:
+   const GLuint mPrimaryRB;
+-  bool mHasBeenBound = false;
+ 
+  protected:
+   const bool mEmulatePackedDepthStencil;
+@@ -36,23 +33,19 @@
+   webgl::ImageInfo mImageInfo;
+ 
+  public:
+-  NS_INLINE_DECL_REFCOUNTING(WebGLRenderbuffer)
+-
+   explicit WebGLRenderbuffer(WebGLContext* webgl);
+ 
+-  void Delete();
+-
+   const auto& ImageInfo() const { return mImageInfo; }
+ 
+   void RenderbufferStorage(uint32_t samples, GLenum internalFormat,
+                            uint32_t width, uint32_t height);
+   // Only handles a subset of `pname`s.
+-  GLint GetRenderbufferParameter(RBTarget target, RBParam pname) const;
++  GLint GetRenderbufferParameter(RBParam pname) const;
+ 
+   auto MemoryUsage() const { return mImageInfo.MemoryUsage(); }
+ 
+  protected:
+-  ~WebGLRenderbuffer() { DeleteOnce(); }
++  ~WebGLRenderbuffer() override;
+ 
+   void DoFramebufferRenderbuffer(GLenum attachment) const;
+   GLenum DoRenderbufferStorage(uint32_t samples,

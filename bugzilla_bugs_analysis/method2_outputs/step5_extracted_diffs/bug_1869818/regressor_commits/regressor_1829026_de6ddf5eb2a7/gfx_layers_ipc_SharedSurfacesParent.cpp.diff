@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/SharedSurfacesParent.cpp
+# Commit: de6ddf5eb2a7
+# Full Hash: de6ddf5eb2a7bd3d8a2f58636760e0aa16c584b9
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2023-12-05 21:29:44
+# Regressor Bug: 1829026
+# File Overlap Count: 1
+# Description:
+#   Bug 1829026 - Update CanvasTranslator to work with DrawTargetWebgl. r=aosmond
+#   
+#   This adds the necessary infrastructure for CanvasTranslator to allocate DrawTargetWebgl
+#   instead of just allocating TextureData, and to use RemoteTextureMap to handle sending
+#   the DrawTargetWebgl frames to the compositor.
+# ==============================================================================
+
+diff -r 773e7b31ac6e -r de6ddf5eb2a7 gfx/layers/ipc/SharedSurfacesParent.cpp
+--- a/gfx/layers/ipc/SharedSurfacesParent.cpp	Tue Dec 05 09:37:03 2023 +0000
++++ b/gfx/layers/ipc/SharedSurfacesParent.cpp	Tue Dec 05 09:37:03 2023 +0000
+@@ -27,7 +27,7 @@
+ 
+ // Short wait to allow for a surface to be added, where the consumer has a
+ // different thread route.
+-static const TimeDuration kGetTimeout = TimeDuration::FromMilliseconds(50);
++static const TimeDuration kGetTimeout = TimeDuration::FromMilliseconds(1000);
+ 
+ void SharedSurfacesParent::MappingTracker::NotifyExpiredLocked(
+     SourceSurfaceSharedDataWrapper* aSurface,
+@@ -95,7 +95,7 @@
+ 
+ /* static */
+ already_AddRefed<DataSourceSurface> SharedSurfacesParent::Get(
+-    const wr::ExternalImageId& aId) {
++    const wr::ExternalImageId& aId, bool aAllowWait) {
+   StaticMonitorAutoLock lock(sMonitor);
+   if (!sInstance) {
+     gfxCriticalNote << "SSP:Get " << wr::AsUint64(aId) << " shtd";
+@@ -105,6 +105,9 @@
+   RefPtr<SourceSurfaceSharedDataWrapper> surface;
+   while (
+       !sInstance->mSurfaces.Get(wr::AsUint64(aId), getter_AddRefs(surface))) {
++    if (!aAllowWait) {
++      return nullptr;
++    }
+     CVStatus status = lock.Wait(kGetTimeout);
+     if (status == CVStatus::Timeout) {
+       return nullptr;

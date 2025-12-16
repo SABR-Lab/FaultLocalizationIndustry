@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/metal/src/encoder.rs
+# Commit: ef5dc3e04e5f
+# Full Hash: ef5dc3e04e5f271eea0636ab3a495e95cc912f1d
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-09-04 09:40:24
+# Regressor Bug: 1726626
+# File Overlap Count: 3
+# Description:
+#   Bug 1726626 - Move gfx/wgpu into a 3rd party dependency r=jgilbert,bholley
+#   
+#   This update makes wgpu a vendored dependency instead of having it in gfx/wgpu.
+#   
+#   ## Notes
+# ==============================================================================
+
+diff --git a/third_party/rust/metal/src/encoder.rs b/third_party/rust/metal/src/encoder.rs
+--- a/third_party/rust/metal/src/encoder.rs
++++ b/third_party/rust/metal/src/encoder.rs
+@@ -1021,16 +1021,25 @@ impl ComputeCommandEncoderRef {
+             msg_send![self,
+                 dispatchThreadgroupsWithIndirectBuffer:buffer
+                 indirectBufferOffset:offset
+                 threadsPerThreadgroup:threads_per_threadgroup
+             ]
+         }
+     }
+ 
++    pub fn set_threadgroup_memory_length(&self, at_index: NSUInteger, size: NSUInteger) {
++        unsafe {
++            msg_send![self,
++                setThreadgroupMemoryLength:size
++                atIndex: at_index
++            ]
++        }
++    }
++
+     pub fn use_resource(&self, resource: &ResourceRef, usage: MTLResourceUsage) {
+         unsafe {
+             msg_send![self,
+                 useResource:resource
+                 usage:usage
+             ]
+         }
+     }

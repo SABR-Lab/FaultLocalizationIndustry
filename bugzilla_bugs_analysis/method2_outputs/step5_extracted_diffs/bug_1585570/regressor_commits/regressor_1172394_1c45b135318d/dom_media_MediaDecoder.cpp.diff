@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/MediaDecoder.cpp
+# Commit: 1c45b135318d
+# Full Hash: 1c45b135318d8cb519b8d58af72ab864fe6bfd62
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2019-11-14 17:12:31
+# Regressor Bug: 1172394
+# File Overlap Count: 1
+# Description:
+#   Bug 1172394 - Simplify MediaSink somewhat. r=padenot
+#   
+#   This patches does several minor things:
+#   - Moves SetSink (from setSinkid) to automatic coalescing of multiple calls
+#     through a Canonical/Mirror setup instead of a manual atomic counter.
+# ==============================================================================
+
+diff -r c57c41e8c39e -r 1c45b135318d dom/media/MediaDecoder.cpp
+--- a/dom/media/MediaDecoder.cpp	Wed Nov 13 08:55:39 2019 +0000
++++ b/dom/media/MediaDecoder.cpp	Wed Nov 13 08:55:54 2019 +0000
+@@ -6,6 +6,7 @@
+ 
+ #include "MediaDecoder.h"
+ 
++#include "AudioDeviceInfo.h"
+ #include "DOMMediaStream.h"
+ #include "DecoderBenchmark.h"
+ #include "ImageContainer.h"
+@@ -225,10 +226,11 @@
+   mVolume = aVolume;
+ }
+ 
+-RefPtr<GenericPromise> MediaDecoder::SetSink(AudioDeviceInfo* aSink) {
++RefPtr<GenericPromise> MediaDecoder::SetSink(AudioDeviceInfo* aSinkDevice) {
+   MOZ_ASSERT(NS_IsMainThread());
+   AbstractThread::AutoEnter context(AbstractMainThread());
+-  return GetStateMachine()->InvokeSetSink(aSink);
++  mSinkDevice = aSinkDevice;
++  return GetStateMachine()->InvokeSetSink(aSinkDevice);
+ }
+ 
+ void MediaDecoder::SetOutputCaptured(bool aCaptured) {
+@@ -309,6 +311,7 @@
+       INIT_CANONICAL(mVolume, aInit.mVolume),
+       INIT_CANONICAL(mPreservesPitch, aInit.mPreservesPitch),
+       INIT_CANONICAL(mLooping, aInit.mLooping),
++      INIT_CANONICAL(mSinkDevice, nullptr),
+       INIT_CANONICAL(mOutputCaptured, false),
+       INIT_CANONICAL(mOutputTracks, nsTArray<RefPtr<ProcessedMediaTrack>>()),
+       INIT_CANONICAL(mOutputPrincipal, PRINCIPAL_HANDLE_NONE),

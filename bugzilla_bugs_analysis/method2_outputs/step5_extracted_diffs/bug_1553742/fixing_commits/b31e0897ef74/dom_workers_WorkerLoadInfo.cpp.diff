@@ -1,0 +1,48 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/WorkerLoadInfo.cpp
+# Commit: b31e0897ef74
+# Full Hash: b31e0897ef74a390bc63e38c98e6960946e91d65
+# Author: Christoph Kerschbaumer <ckerschb@christophkerschbaumer.com>
+# Date: 2019-05-29 21:50:20
+# Description:
+#   Bug 1553742: Null Check CSP before calling CSPToCSPInfo to avoid half initialized state of cspinfo. r=baku,mccr8
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D32990
+# ==============================================================================
+
+diff -r c6c250b477a0 -r b31e0897ef74 dom/workers/WorkerLoadInfo.cpp
+--- a/dom/workers/WorkerLoadInfo.cpp	Wed May 29 16:01:37 2019 +0000
++++ b/dom/workers/WorkerLoadInfo.cpp	Wed May 29 15:42:13 2019 +0000
+@@ -109,24 +109,23 @@
+ 
+   if (mCSP) {
+     mCSP->GetAllowsEval(&mReportCSPViolations, &mEvalAllowed);
++    mCSPInfo = new CSPInfo();
++    nsresult rv = CSPToCSPInfo(aCsp, mCSPInfo);
++    if (NS_WARN_IF(NS_FAILED(rv))) {
++      return rv;
++    }
+   } else {
+     mEvalAllowed = true;
+     mReportCSPViolations = false;
+   }
+ 
+-  mCSPInfo = new CSPInfo();
+-  nsresult rv = CSPToCSPInfo(aCsp, mCSPInfo);
+-  if (NS_WARN_IF(NS_FAILED(rv))) {
+-    return rv;
+-  }
+-
+   mLoadGroup = aLoadGroup;
+ 
+   mPrincipalInfo = new PrincipalInfo();
+   mStoragePrincipalInfo = new PrincipalInfo();
+   mOriginAttributes = nsContentUtils::GetOriginAttributes(aLoadGroup);
+ 
+-  rv = PrincipalToPrincipalInfo(aPrincipal, mPrincipalInfo);
++  nsresult rv = PrincipalToPrincipalInfo(aPrincipal, mPrincipalInfo);
+   NS_ENSURE_SUCCESS(rv, rv);
+ 
+   if (aPrincipal->Equals(aStoragePrincipal)) {

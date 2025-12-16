@@ -1,0 +1,91 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/res/snap.glsl
+# Commit: 4352d1f0da34
+# Full Hash: 4352d1f0da341b26f79de16ca5b966ba17caa5da
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2019-05-05 21:39:08
+# Regressor Bug: 1540200
+# File Overlap Count: 1
+# Description:
+#   Bug 1540200 - Part 3. Reuse snapping offsets calculated on the CPU in the WebRender shaders. r=kvark
+#   
+#   Historically we calculated the snapping offsets in the GPU shaders.
+#   Because this information is always needed on the CPU side, we now just
+#   pass the values into the shader instead of recalculating again. This
+# ==============================================================================
+
+diff -r ff2ca836d8a7 -r 4352d1f0da34 gfx/wr/webrender/res/snap.glsl
+--- a/gfx/wr/webrender/res/snap.glsl	Wed Apr 10 14:20:34 2019 -0400
++++ b/gfx/wr/webrender/res/snap.glsl	Fri Apr 12 09:34:25 2019 -0400
+@@ -4,65 +4,19 @@
+ 
+ #ifdef WR_VERTEX_SHADER
+ 
+-vec4 compute_snap_positions(
+-    mat4 transform,
+-    RectWithSize snap_rect,
+-    float device_pixel_scale
+-) {
+-    // Ensure that the snap rect is at *least* one device pixel in size.
+-    // TODO(gw): It's not clear to me that this is "correct". Specifically,
+-    //           how should it interact with sub-pixel snap rects when there
+-    //           is a transform with scale present? But it does fix
+-    //           the test cases we have in Servo that are failing without it
+-    //           and seem better than not having this at all.
+-    snap_rect.size = max(snap_rect.size, vec2(1.0 / device_pixel_scale));
+-
+-    // Transform the snap corners to the world space.
+-    vec4 world_snap_p0 = transform * vec4(snap_rect.p0, 0.0, 1.0);
+-    vec4 world_snap_p1 = transform * vec4(snap_rect.p0 + snap_rect.size, 0.0, 1.0);
+-    // Snap bounds in world coordinates, adjusted for pixel ratio. XY = top left, ZW = bottom right
+-    vec4 world_snap = device_pixel_scale * vec4(world_snap_p0.xy, world_snap_p1.xy) /
+-                                           vec4(world_snap_p0.ww, world_snap_p1.ww);
+-    return world_snap;
+-}
+-
+ /// Given a point within a local rectangle, and the device space corners
+-/// of a snapped primitive, return the snap offsets. This *must* exactly
+-/// match the logic in the GLSL compute_snap_offset_impl function.
+-vec2 compute_snap_offset_impl(
++/// offsets for the unsnapped primitive, return the snap offsets. This *must*
++/// exactly match the logic in the Rust compute_snap_offset_impl function.
++vec2 compute_snap_offset(
+     vec2 reference_pos,
+     RectWithSize reference_rect,
+     vec4 snap_positions
+ ) {
+-    /// World offsets applied to the corners of the snap rectangle.
+-    vec4 snap_offsets = floor(snap_positions + 0.5) - snap_positions;
+-
+     /// Compute the position of this vertex inside the snap rectangle.
+     vec2 normalized_snap_pos = (reference_pos - reference_rect.p0) / reference_rect.size;
+ 
+     /// Compute the actual world offset for this vertex needed to make it snap.
+-    return mix(snap_offsets.xy, snap_offsets.zw, normalized_snap_pos);
+-}
+-
+-// Compute a snapping offset in world space (adjusted to pixel ratio),
+-// given local position on the transform and a snap rectangle.
+-vec2 compute_snap_offset(vec2 local_pos,
+-                         mat4 transform,
+-                         RectWithSize snap_rect,
+-                         float device_pixel_scale) {
+-    vec4 snap_positions = compute_snap_positions(
+-        transform,
+-        snap_rect,
+-        device_pixel_scale
+-    );
+-
+-    vec2 snap_offsets = compute_snap_offset_impl(
+-        local_pos,
+-        snap_rect,
+-        snap_positions
+-    );
+-
+-    return snap_offsets;
++    return mix(snap_positions.xy, snap_positions.zw, normalized_snap_pos);
+ }
+ 
+ #endif //WR_VERTEX_SHADER

@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmInstance.cpp
+# Commit: 538920d2d777
+# Full Hash: 538920d2d77751743a51f10cf730f1ce65b5d0ee
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2020-08-18 09:24:52
+# Regressor Bug: 1561521
+# File Overlap Count: 2
+# Description:
+#   Bug 1561521 - Rename TypeCode/ValType/RefType::Any to Extern. r=lth
+#   
+#   This commit renames the TypeCode/ValType/RefType occurrences of 'any' to 'extern'
+#   to match what they actually represent. All public API facing occurrences have
+#   already been switched to 'externref' so this should only be aligning the
+# ==============================================================================
+
+diff -r 3d3e3d124767 -r 538920d2d777 js/src/wasm/WasmInstance.cpp
+--- a/js/src/wasm/WasmInstance.cpp	Tue Aug 18 00:03:29 2020 +0000
++++ b/js/src/wasm/WasmInstance.cpp	Tue Aug 18 00:04:37 2020 +0000
+@@ -203,7 +203,7 @@
+       switch (type.refTypeKind()) {
+         case RefType::Func:
+           return ToWebAssemblyValue_funcref<Debug>(cx, val, (void**)loc);
+-        case RefType::Any:
++        case RefType::Extern:
+           return ToWebAssemblyValue_anyref<Debug>(cx, val, (void**)loc);
+         case RefType::TypeIndex:
+           return ToWebAssemblyValue_typeref<Debug>(cx, val, (void**)loc);
+@@ -310,7 +310,7 @@
+         case RefType::Func:
+           return ToJSValue_funcref<Debug>(
+               cx, *reinterpret_cast<void* const*>(src), dst);
+-        case RefType::Any:
++        case RefType::Extern:
+           return ToJSValue_anyref<Debug>(
+               cx, *reinterpret_cast<void* const*>(src), dst);
+         case RefType::TypeIndex:
+@@ -546,7 +546,7 @@
+           break;
+         case ValType::Ref:
+           switch (importArgs[i].refTypeKind()) {
+-            case RefType::Any:
++            case RefType::Extern:
+               // We don't know what type the value will be, so we can't really
+               // check whether the callee will accept it.  It doesn't make much
+               // sense to see if the callee accepts all of the types an AnyRef
+@@ -2174,7 +2174,7 @@
+           }
+           break;
+         }
+-        case RefType::Any: {
++        case RefType::Extern: {
+           RootedAnyRef ref(cx, AnyRef::fromCompiledCode(ptr));
+           ASSERT_ANYREF_IS_JSOBJECT;
+           if (!refs.emplaceBack(ref.get().asJSObject())) {

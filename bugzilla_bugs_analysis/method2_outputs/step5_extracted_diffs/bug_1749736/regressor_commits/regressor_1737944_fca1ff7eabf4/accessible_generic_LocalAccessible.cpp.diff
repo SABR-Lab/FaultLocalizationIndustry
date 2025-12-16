@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/generic/LocalAccessible.cpp
+# Commit: fca1ff7eabf4
+# Full Hash: fca1ff7eabf4ddfca60184253136535d2285488d
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2022-01-05 09:33:53
+# Regressor Bug: 1737944
+# File Overlap Count: 2
+# Description:
+#   Bug 1737944 - P6: Put AccGroupInfo getter/creator in Accessible. r=Jamie
+#   
+#   Changed the methods a bit, instead of a HasDirty boolean method, I went
+#   with a getter and a get-and-creator. This will lend better to remote
+#   accessibles where we won't have a dirty flag.
+# ==============================================================================
+
+diff -r c0a7fdc4bfca -r fca1ff7eabf4 accessible/generic/LocalAccessible.cpp
+--- a/accessible/generic/LocalAccessible.cpp	Tue Jan 04 21:01:36 2022 +0000
++++ b/accessible/generic/LocalAccessible.cpp	Tue Jan 04 21:01:36 2022 +0000
+@@ -2016,7 +2016,12 @@
+       if (roleMapEntry && (roleMapEntry->role == roles::OUTLINEITEM ||
+                            roleMapEntry->role == roles::LISTITEM ||
+                            roleMapEntry->role == roles::ROW)) {
+-        rel.AppendTarget(GetGroupInfo()->ConceptualParent());
++        LocalAccessible* parent = const_cast<LocalAccessible*>(this)
++                                      ->GetOrCreateGroupInfo()
++                                      ->ConceptualParent();
++        if (parent) {
++          rel.AppendTarget(parent);
++        }
+       }
+ 
+       // If this is an OOP iframe document, we can't support NODE_CHILD_OF
+@@ -3127,10 +3132,18 @@
+ }
+ 
+ AccGroupInfo* LocalAccessible::GetGroupInfo() const {
++  if (mBits.groupInfo && !(mStateFlags & eGroupInfoDirty)) {
++    return mBits.groupInfo;
++  }
++
++  return nullptr;
++}
++
++AccGroupInfo* LocalAccessible::GetOrCreateGroupInfo() {
+   if (IsProxy()) MOZ_CRASH("This should never be called on proxy wrappers");
+ 
+   if (mBits.groupInfo) {
+-    if (HasDirtyGroupInfo()) {
++    if (mStateFlags & eGroupInfoDirty) {
+       mBits.groupInfo->Update();
+       mStateFlags &= ~eGroupInfoDirty;
+     }
+@@ -3311,7 +3324,7 @@
+ 
+ void LocalAccessible::GetPositionAndSizeInternal(int32_t* aPosInSet,
+                                                  int32_t* aSetSize) {
+-  AccGroupInfo* groupInfo = GetGroupInfo();
++  AccGroupInfo* groupInfo = GetOrCreateGroupInfo();
+   if (groupInfo) {
+     *aPosInSet = groupInfo->PosInSet();
+     *aSetSize = groupInfo->SetSize();

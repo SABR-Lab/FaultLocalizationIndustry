@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/platforms/wmf/DXVA2Manager.cpp
+# Commit: 898ed02804fe
+# Full Hash: 898ed02804fefc9786112f135b9621cc444e6860
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2019-05-23 15:52:15
+# Regressor Bug: 1550422
+# File Overlap Count: 1
+# Description:
+#   Bug 1550422 - P15. Move Skip and Once gfxPrefs to StaticPrefs. r=jrmuizel
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D31259
+# ==============================================================================
+
+diff -r e1b7abc99ae9 -r 898ed02804fe dom/media/platforms/wmf/DXVA2Manager.cpp
+--- a/dom/media/platforms/wmf/DXVA2Manager.cpp	Wed May 22 12:44:04 2019 +0000
++++ b/dom/media/platforms/wmf/DXVA2Manager.cpp	Wed May 22 22:27:37 2019 +0000
+@@ -15,7 +15,6 @@
+ #include "VideoUtils.h"
+ #include "WMFUtils.h"
+ #include "gfxCrashReporterUtils.h"
+-#include "gfxPrefs.h"
+ #include "gfxWindowsPlatform.h"
+ #include "mfapi.h"
+ #include "mozilla/StaticPrefs.h"
+@@ -680,7 +679,8 @@
+         layers::ImageBridgeChild::GetSingleton().get(), mDevice,
+         gfx::SurfaceFormat::NV12);
+ 
+-    if (ImageBridgeChild::GetSingleton() && gfxPrefs::PDMWMFUseSyncTexture() &&
++    if (ImageBridgeChild::GetSingleton() &&
++        StaticPrefs::PDMWMFUseSyncTexture() &&
+         mDevice != DeviceManagerDx::Get()->GetCompositorDevice()) {
+       // We use a syncobject to avoid the cost of the mutex lock when
+       // compositing, and because it allows color conversion ocurring directly
+@@ -695,7 +695,7 @@
+   } else {
+     mTextureClientAllocator = new D3D11RecycleAllocator(
+         aKnowsCompositor, mDevice, gfx::SurfaceFormat::NV12);
+-    if (gfxPrefs::PDMWMFUseSyncTexture()) {
++    if (StaticPrefs::PDMWMFUseSyncTexture()) {
+       // We use a syncobject to avoid the cost of the mutex lock when
+       // compositing, and because it allows color conversion ocurring directly
+       // from this texture DXVA does not seem to accept IDXGIKeyedMutex textures

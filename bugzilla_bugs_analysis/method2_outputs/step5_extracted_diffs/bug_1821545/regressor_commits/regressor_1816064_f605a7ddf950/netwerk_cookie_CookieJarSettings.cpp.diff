@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/cookie/CookieJarSettings.cpp
+# Commit: f605a7ddf950
+# Full Hash: f605a7ddf9502fe74187f430417e9686d10d4b96
+# Author: Tim Huang <tihuang@mozilla.com>
+# Date: 2023-03-03 09:56:45
+# Regressor Bug: 1816064
+# File Overlap Count: 1
+# Description:
+#   Bug 1816064 - Part 2: Implement the fingerprinting randomization key to cookieJarSettings. r=tjr,pbz
+#   
+#   This patch adds a fingerprintingRandomizationKey to the
+#   nsICookieJarSettings. The random key will be generated when loading a
+#   top-level http channel and set to the cookieJarSettings. The key will
+# ==============================================================================
+
+diff -r 68074ac5a154 -r f605a7ddf950 netwerk/cookie/CookieJarSettings.cpp
+--- a/netwerk/cookie/CookieJarSettings.cpp	Thu Mar 02 21:47:06 2023 +0000
++++ b/netwerk/cookie/CookieJarSettings.cpp	Thu Mar 02 21:47:06 2023 +0000
+@@ -292,6 +292,17 @@
+ }
+ 
+ NS_IMETHODIMP
++CookieJarSettings::GetFingerprintingRandomizationKey(
++    nsTArray<uint8_t>& aFingerprintingRandomizationKey) {
++  if (!mFingerprintingRandomKey) {
++    return NS_ERROR_NOT_AVAILABLE;
++  }
++
++  aFingerprintingRandomizationKey = mFingerprintingRandomKey->Clone();
++  return NS_OK;
++}
++
++NS_IMETHODIMP
+ CookieJarSettings::CookiePermission(nsIPrincipal* aPrincipal,
+                                     uint32_t* aCookiePermission) {
+   MOZ_ASSERT(NS_IsMainThread());
+@@ -368,6 +379,12 @@
+   aData.shouldResistFingerprinting() = mShouldResistFingerprinting;
+   aData.isOnContentBlockingAllowList() = mIsOnContentBlockingAllowList;
+   aData.partitionKey() = mPartitionKey;
++  if (mFingerprintingRandomKey) {
++    aData.hasFingerprintingRandomizationKey() = true;
++    aData.fingerprintingRandomizationKey() = mFingerprintingRandomKey->Clone();
++  } else {
++    aData.hasFingerprintingRandomizationKey() = false;
++  }
+ 
+   for (const RefPtr<nsIPermission>& permission : mCookiePermissions) {
+     nsCOMPtr<nsIPrincipal> principal;
+@@ -431,6 +448,11 @@
+   cookieJarSettings->mShouldResistFingerprinting =
+       aData.shouldResistFingerprinting();
+ 
++  if (aData.hasFingerprintingRandomizationKey()) {
++    cookieJarSettings->mFingerprintingRandomKey.emplace(
++        aData.fingerprintingRandomizationKey().Clone());
++  }
++
+   cookieJarSettings.forget(aCookieJarSettings);
+ }
+ 

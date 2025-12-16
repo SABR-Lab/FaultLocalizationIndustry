@@ -1,0 +1,82 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/platforms/agnostic/DAV1DDecoder.h
+# Commit: 8b2be3d7ece9
+# Full Hash: 8b2be3d7ece96e3ea35ea4f7b4a9cf7d3559012e
+# Author: Alex Chronopoulos <achronop@gmail.com>
+# Date: 2018-11-27 21:53:40
+# Regressor Bug: 1493400
+# File Overlap Count: 1
+# Description:
+#   Bug 1493400 - Implement platform decoder for dav1d. r=jya
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D12164
+# ==============================================================================
+
+diff -r 5c4bf474ddb3 -r 8b2be3d7ece9 dom/media/platforms/agnostic/DAV1DDecoder.h
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/dom/media/platforms/agnostic/DAV1DDecoder.h	Tue Nov 27 14:18:58 2018 +0000
+@@ -0,0 +1,62 @@
++/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
++/* vim:set ts=2 sw=2 sts=2 et cindent: */
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++#if !defined(DAV1DDecoder_h_)
++#define DAV1DDecoder_h_
++
++#include "PlatformDecoderModule.h"
++#include "dav1d/dav1d.h"
++
++namespace mozilla {
++
++DDLoggedTypeDeclNameAndBase(DAV1DDecoder, MediaDataDecoder);
++
++typedef nsRefPtrHashtable<nsPtrHashKey<const uint8_t>, MediaRawData>
++    MediaRawDataHashtable;
++
++class DAV1DDecoder : public MediaDataDecoder,
++                     public DecoderDoctorLifeLogger<DAV1DDecoder> {
++ public:
++  explicit DAV1DDecoder(const CreateDecoderParams& aParams);
++
++  RefPtr<InitPromise> Init() override;
++  RefPtr<DecodePromise> Decode(MediaRawData* aSample) override;
++  RefPtr<DecodePromise> Drain() override;
++  RefPtr<FlushPromise> Flush() override;
++  RefPtr<ShutdownPromise> Shutdown() override;
++  nsCString GetDescriptionName() const override {
++    return NS_LITERAL_CSTRING("av1 libdav1d video decoder");
++  }
++
++  void ReleaseDataBuffer(const uint8_t* buf);
++
++ private:
++  ~DAV1DDecoder();
++  RefPtr<DecodePromise> InvokeDecode(MediaRawData* aSample);
++  int GetPicture(const MediaRawData* aSample, DecodedData& aData,
++                 MediaResult& aResult);
++  already_AddRefed<VideoData> ConstructImage(const MediaRawData* aSample,
++                                             const Dav1dPicture&);
++
++  Dav1dContext* mContext;
++
++  const VideoInfo& mInfo;
++  const RefPtr<TaskQueue> mTaskQueue;
++  const RefPtr<layers::ImageContainer> mImageContainer;
++
++  // Keep the buffers alive until dav1d
++  // does not need them any more.
++  MediaRawDataHashtable mDecodingBuffers;
++
++  // Store the last timing values to use
++  // them during drain.
++  media::TimeUnit mLastTimecode;
++  media::TimeUnit mLastDuration;
++  int64_t mLastOffset = 0;
++};
++
++}  // namespace mozilla
++
++#endif  // DAV1DDecoder_h_

@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: remote/webdriver-bidi/modules/root/storage.sys.mjs
+# Commit: d01a1a055fec
+# Full Hash: d01a1a055fece12b906b938954f984bd69278ef7
+# Author: Andrea Marchesini <amarchesini@mozilla.com>
+# Date: 2025-04-30 20:49:53
+# Regressor Bug: 1960824
+# File Overlap Count: 1
+# Description:
+#   Bug 1960824 - Introduce nsICookie::SAMESITE_UNSET, r=edgul,webdriver-reviewers,extension-reviewers,cookie-reviewers,valentin,Sasha,robwu
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D246638
+# ==============================================================================
+
+diff -r 307ff391dd02 -r d01a1a055fec remote/webdriver-bidi/modules/root/storage.sys.mjs
+--- a/remote/webdriver-bidi/modules/root/storage.sys.mjs	Wed Apr 30 08:53:12 2025 +0000
++++ b/remote/webdriver-bidi/modules/root/storage.sys.mjs	Wed Apr 30 08:59:18 2025 +0000
+@@ -66,6 +66,7 @@
+   [Ci.nsICookie.SAMESITE_NONE]: "none",
+   [Ci.nsICookie.SAMESITE_LAX]: "lax",
+   [Ci.nsICookie.SAMESITE_STRICT]: "strict",
++  [Ci.nsICookie.SAMESITE_UNSET]: "none",
+ };
+ 
+ class StorageModule extends RootBiDiModule {
+@@ -887,6 +888,14 @@
+         storedCookieValue = this.#getCookieSize(storedCookie);
+       }
+ 
++      // Let's map any SAMESITE_UNSET to SAMESITE_NONE.
++      if (
++        fieldName === "sameSite" &&
++        storedCookieValue === Ci.nsICookie.SAMESITE_UNSET
++      ) {
++        storedCookieValue = Ci.nsICookie.SAMESITE_NONE;
++      }
++
+       if (storedCookieValue !== value) {
+         return false;
+       }

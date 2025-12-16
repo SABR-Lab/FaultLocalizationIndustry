@@ -1,0 +1,67 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/mtransport/ipc/WebrtcTCPSocketChild.h
+# Commit: c684f79d8c67
+# Full Hash: c684f79d8c673f21179fce00358d70845a9692c0
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2019-09-18 21:49:27
+# Regressor Bug: 1569183
+# File Overlap Count: 2
+# Description:
+#   Bug 1569183: Rename PWebrtcProxyChannel to PWebrtcTCPSocket. r=mjf
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D45098
+# ==============================================================================
+
+diff -r 82af7b115f60 -r c684f79d8c67 media/mtransport/ipc/WebrtcTCPSocketChild.h
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/media/mtransport/ipc/WebrtcTCPSocketChild.h	Tue Sep 17 18:15:41 2019 +0000
+@@ -0,0 +1,47 @@
++/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
++/* vim: set sw=2 ts=8 et tw=80 ft=cpp : */
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
++ * You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++#ifndef mozilla_net_WebrtcTCPSocketChild_h
++#define mozilla_net_WebrtcTCPSocketChild_h
++
++#include "mozilla/net/PWebrtcTCPSocketChild.h"
++#include "mozilla/dom/ipc/IdType.h"
++
++namespace mozilla {
++
++namespace net {
++
++class WebrtcTCPSocketCallback;
++
++class WebrtcTCPSocketChild : public PWebrtcTCPSocketChild {
++ public:
++  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(WebrtcTCPSocketChild)
++
++  mozilla::ipc::IPCResult RecvOnClose(const nsresult& aReason) override;
++
++  mozilla::ipc::IPCResult RecvOnConnected() override;
++
++  mozilla::ipc::IPCResult RecvOnRead(nsTArray<uint8_t>&& aReadData) override;
++
++  explicit WebrtcTCPSocketChild(WebrtcTCPSocketCallback* aProxyCallbacks);
++
++  void AsyncOpen(const nsCString& aHost, const int& aPort,
++                 const net::LoadInfoArgs& aArgs, const nsCString& aAlpn,
++                 const dom::TabId& aTabId);
++
++  void AddIPDLReference() { AddRef(); }
++  void ReleaseIPDLReference() { Release(); }
++
++ protected:
++  virtual ~WebrtcTCPSocketChild();
++
++  RefPtr<WebrtcTCPSocketCallback> mProxyCallbacks;
++};
++
++}  // namespace net
++}  // namespace mozilla
++
++#endif  // mozilla_net_WebrtcTCPSocketChild_h

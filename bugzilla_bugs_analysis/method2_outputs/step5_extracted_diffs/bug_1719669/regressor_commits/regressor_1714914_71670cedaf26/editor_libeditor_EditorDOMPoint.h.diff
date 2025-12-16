@@ -1,0 +1,66 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/EditorDOMPoint.h
+# Commit: 71670cedaf26
+# Full Hash: 71670cedaf26214f3bcb8562a445cf1ef24f4db6
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2021-06-30 09:36:48
+# Regressor Bug: 1714914
+# File Overlap Count: 1
+# Description:
+#   Bug 1714914 - Make editor classes treat offset in parent node as uint32_t r=m_kato
+#   
+#   It should be treated as `uint32_t` since DOM API does so.  However, there are
+#   some exceptions:
+#   
+# ==============================================================================
+
+diff -r f5dcc2d793d6 -r 71670cedaf26 editor/libeditor/EditorDOMPoint.h
+--- a/editor/libeditor/EditorDOMPoint.h	Tue Jun 29 22:00:09 2021 +0000
++++ b/editor/libeditor/EditorDOMPoint.h	Wed Jun 30 07:07:28 2021 +0000
+@@ -85,7 +85,7 @@
+       : mParent(nullptr), mChild(nullptr), mIsChildInitialized(false) {}
+ 
+   template <typename ContainerType>
+-  EditorDOMPointBase(const ContainerType* aContainer, int32_t aOffset)
++  EditorDOMPointBase(const ContainerType* aContainer, uint32_t aOffset)
+       : mParent(const_cast<ContainerType*>(aContainer)),
+         mChild(nullptr),
+         mOffset(mozilla::Some(aOffset)),
+@@ -100,7 +100,7 @@
+ 
+   template <typename ContainerType, template <typename> typename StrongPtr>
+   EditorDOMPointBase(const StrongPtr<ContainerType>& aContainer,
+-                     int32_t aOffset)
++                     uint32_t aOffset)
+       : EditorDOMPointBase(aContainer.get(), aOffset) {}
+ 
+   /**
+@@ -123,7 +123,7 @@
+   }
+ 
+   EditorDOMPointBase(nsINode* aContainer, nsIContent* aPointedNode,
+-                     int32_t aOffset)
++                     uint32_t aOffset)
+       : mParent(aContainer),
+         mChild(aPointedNode),
+         mOffset(mozilla::Some(aOffset)),
+@@ -443,7 +443,7 @@
+    * mOffset may be invalidated.
+    */
+   template <typename ContainerType>
+-  void Set(ContainerType* aContainer, int32_t aOffset) {
++  void Set(ContainerType* aContainer, uint32_t aOffset) {
+     mParent = aContainer;
+     mChild = nullptr;
+     mOffset = mozilla::Some(aOffset);
+@@ -452,7 +452,7 @@
+                  "The offset is out of bounds");
+   }
+   template <typename ContainerType, template <typename> typename StrongPtr>
+-  void Set(const StrongPtr<ContainerType>& aContainer, int32_t aOffset) {
++  void Set(const StrongPtr<ContainerType>& aContainer, uint32_t aOffset) {
+     Set(aContainer.get(), aOffset);
+   }
+   void Set(const nsINode* aChild) {

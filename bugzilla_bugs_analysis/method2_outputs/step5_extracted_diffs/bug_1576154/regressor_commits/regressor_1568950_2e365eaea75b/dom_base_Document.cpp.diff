@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/Document.cpp
+# Commit: 2e365eaea75b
+# Full Hash: 2e365eaea75b925b2b5ff621634ba8f7d7fec00b
+# Author: Edgar Chen <echen@mozilla.com>
+# Date: 2019-08-22 04:04:03
+# Regressor Bug: 1568950
+# File Overlap Count: 1
+# Description:
+#   Bug 1568950 - Part 5: Remove nsIDOMWindowUtils::forceUseCounterFlush; r=smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D42818
+# ==============================================================================
+
+diff -r 1c1c4ca0bc14 -r 2e365eaea75b dom/base/Document.cpp
+--- a/dom/base/Document.cpp	Wed Aug 21 10:29:14 2019 +0000
++++ b/dom/base/Document.cpp	Wed Aug 21 12:52:19 2019 +0000
+@@ -14397,15 +14397,7 @@
+   return allowsInlineScript;
+ }
+ 
+-static bool ReportExternalResourceUseCounters(Document* aDocument,
+-                                              void* aData) {
+-  const auto reportKind =
+-      Document::UseCounterReportKind::eIncludeExternalResources;
+-  aDocument->ReportUseCounters(reportKind);
+-  return true;
+-}
+-
+-void Document::ReportUseCounters(UseCounterReportKind aKind) {
++void Document::ReportUseCounters() {
+   static const bool sDebugUseCounters = false;
+   if (mReportedUseCounters) {
+     return;
+@@ -14413,10 +14405,6 @@
+ 
+   mReportedUseCounters = true;
+ 
+-  if (aKind == UseCounterReportKind::eIncludeExternalResources) {
+-    EnumerateExternalResources(ReportExternalResourceUseCounters, nullptr);
+-  }
+-
+   if (Telemetry::HistogramUseCounterCount > 0 &&
+       (IsContentDocument() || IsResourceDoc())) {
+     nsCOMPtr<nsIURI> uri;

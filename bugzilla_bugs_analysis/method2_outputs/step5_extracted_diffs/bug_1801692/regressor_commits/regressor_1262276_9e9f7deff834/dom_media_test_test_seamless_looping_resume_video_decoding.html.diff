@@ -1,0 +1,86 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/test/test_seamless_looping_resume_video_decoding.html
+# Commit: 9e9f7deff834
+# Full Hash: 9e9f7deff8344b9f7dea8f09d302034ccda8bc7a
+# Author: alwu <alwu@mozilla.com>
+# Date: 2022-11-05 21:53:50
+# Regressor Bug: 1262276
+# File Overlap Count: 1
+# Description:
+#   Bug 1262276 - part14 : video-only seek should use original time as a seek target. r=padenot
+#   
+#   When requesting data from demuxer, it should always use normalized data,
+#   which is within [0, original-track-duration]. So we need to adjust seek
+#   target time in order not to use clock time which has grown over the
+# ==============================================================================
+
+diff -r 12aaeb776da1 -r 9e9f7deff834 dom/media/test/test_seamless_looping_resume_video_decoding.html
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/dom/media/test/test_seamless_looping_resume_video_decoding.html	Sat Nov 05 02:23:34 2022 +0000
+@@ -0,0 +1,64 @@
++<!DOCTYPE HTML>
++<html>
++<head>
++<title>Seamless looping test with resuming video decoding</title>
++<script src="/tests/SimpleTest/SimpleTest.js"></script>
++<link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
++<script type="text/javascript" src="manifest.js"></script>
++<script src="background_video.js"></script>
++</head>
++<script type="application/javascript">
++
++/**
++ * This test aims to check if seamless looping can work well with the mechanism
++ * of resuming video decoding. When resuming decoding, MDSM will leave the
++ * looping state and go to video only seek state. We want to ensure that the
++ * timestamp of new video data that state requests will also be adjusted in
++ * order to keep video playback ongoing without video being frozen because
++ * frames get discarded.
++ */
++add_task(async function testSeamlessLoopingResumeVideoDecoding() {
++  await SpecialPowers.pushPrefEnv({
++    set: [
++      ["media.test.video-suspend", true],
++      ["media.suspend-bkgnd-video.enabled", true],
++      ["media.suspend-bkgnd-video.delay-ms", 0],
++    ],
++  });
++
++  info(`create video and play it`);
++  let video = document.createElement('video');
++  video.loop = true;
++  video.src = "gizmo.mp4";
++  document.body.appendChild(video);
++  // speed up the test.
++  video.playbackRate = 2;
++  await video.play();
++
++  info(`test seamless looping once`);
++  await once(video, "seeked");
++  ok(true, `loop back happened`);
++
++  info(`suspend video decoding`);
++  video.setVisible(false);
++  await nextVideoSuspends(video);
++  info(`suspended video decoding`);
++
++  info(`resume video decoding (enter video-only seek state)`);
++  video.setVisible(true);
++  await testVideoOnlySeekCompletedWhenShown(video);
++  info(`resumed video decoding and finished video-only seeking`);
++
++  const lastPaintedFramesAmount = video.mozPaintedFrames;
++  info(`end test after looping one more time`);
++  await once(video, "seeked");
++
++  const currentPaintedFrameAmount  = video.mozPaintedFrames;
++  ok(lastPaintedFramesAmount < currentPaintedFrameAmount,
++      `painted frames keeps growing from ${lastPaintedFramesAmount} to ${currentPaintedFrameAmount}`);
++});
++
++</script>
++<body>
++</body>
++</html>

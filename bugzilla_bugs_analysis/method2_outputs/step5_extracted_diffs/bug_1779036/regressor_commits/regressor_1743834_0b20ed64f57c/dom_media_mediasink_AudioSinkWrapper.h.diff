@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasink/AudioSinkWrapper.h
+# Commit: 0b20ed64f57c
+# Full Hash: 0b20ed64f57cf7272cf1b4e9e5e2f52a34fd5075
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2022-05-24 21:44:48
+# Regressor Bug: 1743834
+# File Overlap Count: 1
+# Description:
+#   Bug 1743834 - Create and manage the lifetime of the AudioStream EndedPromise in AudioSinkWrapper. r=alwu,media-playback-reviewers
+#   
+#   We're going to shutdown the AudioStream in a subsequent patch, when audio is
+#   muted. This will allow resolving it at the right time when the media ends while
+#   muted.
+# ==============================================================================
+
+diff -r 0b1dc7c2fdfd -r 0b20ed64f57c dom/media/mediasink/AudioSinkWrapper.h
+--- a/dom/media/mediasink/AudioSinkWrapper.h	Tue May 24 13:09:05 2022 +0000
++++ b/dom/media/mediasink/AudioSinkWrapper.h	Tue May 24 13:09:05 2022 +0000
+@@ -92,6 +92,8 @@
+     MOZ_ASSERT(mOwnerThread->IsCurrentThreadIn());
+   }
+ 
++  nsresult StartAudioSink(const media::TimeUnit& aStartTime);
++
+   media::TimeUnit GetVideoPosition(TimeStamp aNow) const;
+ 
+   void OnAudioEnded();
+@@ -103,6 +105,7 @@
+   UniquePtr<AudioSink> mAudioSink;
+   // Will only exist when media has an audio track.
+   RefPtr<EndedPromise> mEndedPromise;
++  MozPromiseHolder<EndedPromise> mEndedPromiseHolder;
+ 
+   bool mIsStarted;
+   PlaybackParams mParams;

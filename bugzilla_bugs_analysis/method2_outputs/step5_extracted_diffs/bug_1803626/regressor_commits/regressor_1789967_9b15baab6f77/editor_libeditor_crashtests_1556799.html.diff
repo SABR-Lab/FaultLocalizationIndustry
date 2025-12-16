@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/crashtests/1556799.html
+# Commit: 9b15baab6f77
+# Full Hash: 9b15baab6f77d09eca2956276f66fee97555e4a1
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-09-22 09:56:47
+# Regressor Bug: 1789967
+# File Overlap Count: 1
+# Description:
+#   Bug 1789967 - part 3: Make `HTMLEditor::CollapseSelectionToEndOfLastLeafNodeOfDocument` and `HTMLEditor::InitEditorContentAndSelection` do nothing if the document is partially editable r=m_kato
+#   
+#   They and their callees work with the result of `GetRoot()` which is the document
+#   element or the body element.  If the body is not editable, `Selection` should
+#   not be updated in non-editable region nor `<br>` elements should not be
+# ==============================================================================
+
+diff -r 4d1e93c629da -r 9b15baab6f77 editor/libeditor/crashtests/1556799.html
+--- a/editor/libeditor/crashtests/1556799.html	Thu Sep 22 06:24:38 2022 +0000
++++ b/editor/libeditor/crashtests/1556799.html	Thu Sep 22 06:27:37 2022 +0000
+@@ -1,11 +1,19 @@
+ <script>
+-function go() {
+-  document.getSelection().selectAllChildren(a)
+-  document.execCommand("insertUnorderedList", false)
+-  document.execCommand("enableObjectResizing", false)
++function onError() {
++  // For emulating the traditional behavior, collapse Selection to end of the
++  // <dl> which is the last deepest child of the <body>.
++  getSelection().collapse(
++    document.querySelector("dl"),
++    document.querySelector("dl").childNodes.length
++  );
++  getSelection().selectAllChildren(
++    document.querySelector("img")
++  );
++  document.execCommand("insertUnorderedList");
++  document.execCommand("enableObjectResizing");
+ }
+ </script>
+ <dd contenteditable="true">
+-<audio src="data:text/html,foo" onerror="go()">
+-<img id="a"></img>
++<audio src="data:text/html,foo" onerror="onError()">
++<img></img>
+ <dl>

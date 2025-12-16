@@ -1,0 +1,78 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/Statistics.cpp
+# Commit: 71d2bf08d2da
+# Full Hash: 71d2bf08d2da8edd6e390cf38eee723d8d4733d8
+# Author: Denis Palmeiro <dpalmeiro@mozilla.com>
+# Date: 2025-01-21 21:28:51
+# Description:
+#   Bug 1942415: Revert changes for GC_GLEAN_SLOW_PHASE and GC_GLEAN_SLOW_TASK probes.  r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D234808
+# ==============================================================================
+
+diff -r 19e1106de68c -r 71d2bf08d2da js/src/gc/Statistics.cpp
+--- a/js/src/gc/Statistics.cpp	Tue Jan 21 16:08:01 2025 +0200
++++ b/js/src/gc/Statistics.cpp	Tue Jan 21 14:28:44 2025 +0000
+@@ -181,12 +181,6 @@
+   operator Phase() const { return phase; }
+ };
+ 
+-JS_PUBLIC_API const char* JS::GetGCPhaseName(uint32_t val) {
+-  PhaseKind kind = static_cast<PhaseKind>(val);
+-  MOZ_RELEASE_ASSERT(kind < PhaseKind::LIMIT);
+-  return phaseKinds[kind].name;
+-}
+-
+ static double t(TimeDuration duration) { return duration.ToMilliseconds(); }
+ 
+ static TimeDuration TimeBetween(TimeStamp start, TimeStamp end) {
+@@ -1354,21 +1348,18 @@
+       // Record the longest phase in any long slice.
+       if (wasLongSlice) {
+         PhaseKind longest = LongestPhaseSelfTimeInMajorGC(slice.phaseTimes);
+-        if (longest != PhaseKind::NONE) {
+-          runtime->metrics().GC_SLOW_PHASE(phaseKinds[longest].telemetryBucket);
+-          runtime->metrics().GC_GLEAN_SLOW_PHASE(
+-              static_cast<uint32_t>(longest));
++        reportLongestPhaseInMajorGC(longest, [runtime](auto sample) {
++          runtime->metrics().GC_SLOW_PHASE(sample);
++        });
+ 
+-          // If the longest phase was waiting for parallel tasks then record the
+-          // longest task.
+-          if (longest == PhaseKind::JOIN_PARALLEL_TASKS) {
+-            PhaseKind longestParallel =
+-                FindLongestPhaseKind(slice.maxParallelTimes);
+-            runtime->metrics().GC_SLOW_TASK(
+-                phaseKinds[longestParallel].telemetryBucket);
+-            runtime->metrics().GC_GLEAN_SLOW_TASK(
+-                static_cast<uint32_t>(longestParallel));
+-          }
++        // If the longest phase was waiting for parallel tasks then record the
++        // longest task.
++        if (longest == PhaseKind::JOIN_PARALLEL_TASKS) {
++          PhaseKind longestParallel =
++              FindLongestPhaseKind(slice.maxParallelTimes);
++          reportLongestPhaseInMajorGC(longestParallel, [runtime](auto sample) {
++            runtime->metrics().GC_SLOW_TASK(sample);
++          });
+         }
+       }
+     }
+@@ -1378,6 +1369,14 @@
+   }
+ }
+ 
++template <typename Fn>
++void Statistics::reportLongestPhaseInMajorGC(PhaseKind longest, Fn reportFn) {
++  if (longest != PhaseKind::NONE) {
++    uint8_t bucket = phaseKinds[longest].telemetryBucket;
++    reportFn(bucket);
++  }
++}
++
+ bool Statistics::startTimingMutator() {
+   if (phaseStack.length() != 0) {
+     // Should only be called from outside of GC.

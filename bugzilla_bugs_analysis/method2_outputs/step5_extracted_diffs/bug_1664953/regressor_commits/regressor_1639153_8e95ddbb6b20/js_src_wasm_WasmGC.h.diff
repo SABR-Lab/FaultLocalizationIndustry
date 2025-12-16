@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmGC.h
+# Commit: 8e95ddbb6b20
+# Full Hash: 8e95ddbb6b20a3532d92e6bcf106f75d5565cf52
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-11-03 21:39:33
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 1: Reserve two slots after stack arguments for the future tls preservation. r=lth
+#   
+#   We are going to remove Frame::tls and support trampolines for indirect calls, so we need to get rid of using Frame::tls.
+#   In this and the followup patches I will iteratively remove all dependencies of Frame::tls and remove it eventually.
+#   
+# ==============================================================================
+
+diff -r f8862431f979 -r 8e95ddbb6b20 js/src/wasm/WasmGC.h
+--- a/js/src/wasm/WasmGC.h	Tue Nov 03 14:32:33 2020 +0000
++++ b/js/src/wasm/WasmGC.h	Tue Nov 03 10:18:03 2020 +0000
+@@ -261,7 +261,7 @@
+ // the complete native-ABI-level call signature.
+ template <class T>
+ static inline size_t StackArgAreaSizeUnaligned(const T& argTypes) {
+-  ABIArgIter<const T> i(argTypes);
++  WasmABIArgIter<const T> i(argTypes);
+   while (!i.done()) {
+     i++;
+   }
+@@ -270,7 +270,7 @@
+ 
+ static inline size_t StackArgAreaSizeUnaligned(
+     const SymbolicAddressSignature& saSig) {
+-  // ABIArgIter::ABIArgIter wants the items to be iterated over to be
++  // WasmABIArgIter::ABIArgIter wants the items to be iterated over to be
+   // presented in some type that has methods length() and operator[].  So we
+   // have to wrap up |saSig|'s array of types in this API-matching class.
+   class MOZ_STACK_CLASS ItemsAndLength {

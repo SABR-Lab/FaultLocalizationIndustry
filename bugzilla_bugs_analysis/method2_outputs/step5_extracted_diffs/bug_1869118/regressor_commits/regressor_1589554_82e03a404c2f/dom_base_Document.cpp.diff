@@ -1,0 +1,74 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/Document.cpp
+# Commit: 82e03a404c2f
+# Full Hash: 82e03a404c2fe76b1240dce4fa3d0b6bde909a87
+# Author: Vincent Hilla <vhilla@mozilla.com>
+# Date: 2023-12-05 21:29:44
+# Regressor Bug: 1589554
+# File Overlap Count: 1
+# Description:
+#   Bug 1589554 - Part 2: Implement Screen Wake Lock API. r=dom-core,edgar
+#   
+#   Depends on D189508
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D189509
+# ==============================================================================
+
+diff -r b55991835aec -r 82e03a404c2f dom/base/Document.cpp
+--- a/dom/base/Document.cpp	Tue Dec 05 15:37:05 2023 +0000
++++ b/dom/base/Document.cpp	Tue Dec 05 15:37:05 2023 +0000
+@@ -233,6 +233,7 @@
+ #include "mozilla/dom/URL.h"
+ #include "mozilla/dom/UseCounterMetrics.h"
+ #include "mozilla/dom/UserActivation.h"
++#include "mozilla/dom/WakeLockJS.h"
+ #include "mozilla/dom/WakeLockSentinel.h"
+ #include "mozilla/dom/WindowBinding.h"
+ #include "mozilla/dom/WindowContext.h"
+@@ -18260,6 +18261,44 @@
+   return mActiveLocks.LookupOrInsert(aType);
+ }
+ 
++class UnlockAllWakeLockRunnable final : public Runnable {
++ public:
++  UnlockAllWakeLockRunnable(WakeLockType aType, Document* aDoc)
++      : Runnable("UnlockAllWakeLocks"), mType(aType), mDoc(aDoc) {}
++
++  // MOZ_CAN_RUN_SCRIPT_BOUNDARY until Runnable::Run is MOZ_CAN_RUN_SCRIPT.  See
++  // bug 1535398.
++  MOZ_CAN_RUN_SCRIPT_BOUNDARY
++  NS_IMETHOD Run() override {
++    // Move, as ReleaseWakeLock will try to remove from and possibly allow
++    // scripts via onrelease to add to document.[[ActiveLocks]]["screen"]
++    nsCOMPtr<Document> doc = mDoc;
++    nsTHashSet<RefPtr<WakeLockSentinel>> locks =
++        std::move(doc->ActiveWakeLocks(mType));
++    for (const auto& lock : locks) {
++      // ReleaseWakeLock runs script, which could release other locks
++      if (!lock->Released()) {
++        ReleaseWakeLock(doc, MOZ_KnownLive(lock), mType);
++      }
++    }
++    return NS_OK;
++  }
++
++ protected:
++  ~UnlockAllWakeLockRunnable() = default;
++
++ private:
++  WakeLockType mType;
++  nsCOMPtr<Document> mDoc;
++};
++
++void Document::UnlockAllWakeLocks(WakeLockType aType) {
++  // Perform unlock in a runnable to prevent UnlockAll being MOZ_CAN_RUN_SCRIPT
++  RefPtr<UnlockAllWakeLockRunnable> runnable =
++      MakeRefPtr<UnlockAllWakeLockRunnable>(aType, this);
++  NS_DispatchToMainThread(runnable);
++}
++
+ RefPtr<Document::AutomaticStorageAccessPermissionGrantPromise>
+ Document::AutomaticStorageAccessPermissionCanBeGranted(bool hasUserActivation) {
+   // requestStorageAccessForOrigin may not require user activation. If we don't

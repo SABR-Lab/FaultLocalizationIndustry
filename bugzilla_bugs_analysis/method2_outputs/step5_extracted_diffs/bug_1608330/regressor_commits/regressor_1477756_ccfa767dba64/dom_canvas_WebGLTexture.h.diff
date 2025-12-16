@@ -1,0 +1,157 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLTexture.h
+# Commit: ccfa767dba64
+# Full Hash: ccfa767dba644dc193e0246eb8e8ff3377e8b8a5
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Client-side bindings mirror for precise CC, and merge similar codepaths. r=handyman
+#   
+#   * Context loss using RAII
+#   * Move Program reflection Client-side
+#   
+# ==============================================================================
+
+diff -r 71c122ac0ca7 -r ccfa767dba64 dom/canvas/WebGLTexture.h
+--- a/dom/canvas/WebGLTexture.h	Wed Jan 08 22:19:14 2020 +0000
++++ b/dom/canvas/WebGLTexture.h	Wed Jan 08 22:19:16 2020 +0000
+@@ -15,8 +15,6 @@
+ #include "mozilla/Casting.h"
+ #include "mozilla/CheckedInt.h"
+ #include "mozilla/dom/TypedArray.h"
+-#include "mozilla/LinkedList.h"
+-#include "nsWrapperCache.h"
+ 
+ #include "CacheInvalidator.h"
+ #include "WebGLObjectModel.h"
+@@ -95,15 +93,14 @@
+ 
+ }  // namespace webgl
+ 
+-// NOTE: When this class is switched to new DOM bindings, update the (then-slow)
+-// WrapObject calls in GetParameter and GetFramebufferAttachmentParameter.
+-class WebGLTexture final : public WebGLRefCountedObject<WebGLTexture>,
+-                           public LinkedListElement<WebGLTexture>,
++class WebGLTexture final : public WebGLContextBoundObject,
+                            public CacheInvalidator {
+   // Friends
+   friend class WebGLContext;
+   friend class WebGLFramebuffer;
+ 
++  MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(WebGLTexture, override)
++
+   ////////////////////////////////////
+   // Members
+  public:
+@@ -165,23 +162,19 @@
+ 
+   ////////////////////////////////////
+ 
+-  NS_INLINE_DECL_REFCOUNTING(WebGLTexture)
+-
+   WebGLTexture(WebGLContext* webgl, GLuint tex);
+ 
+-  void Delete();
+-
+   TexTarget Target() const { return mTarget; }
+ 
+  protected:
+-  ~WebGLTexture() { DeleteOnce(); }
++  ~WebGLTexture() override;
+ 
+  public:
+   ////////////////////////////////////
+   // GL calls
+   bool BindTexture(TexTarget texTarget);
+   void GenerateMipmap();
+-  MaybeWebGLVariant GetTexParameter(TexTarget texTarget, GLenum pname);
++  Maybe<double> GetTexParameter(GLenum pname) const;
+   void TexParameter(TexTarget texTarget, GLenum pname, const FloatOrInt& param);
+ 
+   ////////////////////////////////////
+@@ -193,60 +186,37 @@
+                          GLint zOffset, const webgl::PackingInfo& pi,
+                          const webgl::TexUnpackBlob* blob);
+ 
+-  bool ValidateTexImageSpecification(TexImageTarget target, GLint level,
+-                                     uint32_t width, uint32_t height,
+-                                     uint32_t depth,
++  bool ValidateTexImageSpecification(TexImageTarget target, uint32_t level,
++                                     const uvec3& size,
+                                      webgl::ImageInfo** const out_imageInfo);
+-  bool ValidateTexImageSelection(TexImageTarget target, GLint level,
+-                                 GLint xOffset, GLint yOffset, GLint zOffset,
+-                                 uint32_t width, uint32_t height,
+-                                 uint32_t depth,
++  bool ValidateTexImageSelection(TexImageTarget target, uint32_t level,
++                                 const uvec3& offset, const uvec3& size,
+                                  webgl::ImageInfo** const out_imageInfo);
+ 
+   bool ValidateUnpack(const webgl::TexUnpackBlob* blob, bool isFunc3D,
+                       const webgl::PackingInfo& srcPI) const;
+ 
+  public:
+-  void TexStorage(TexTarget target, GLsizei levels, GLenum sizedFormat,
+-                  GLsizei width, GLsizei height, GLsizei depth);
++  void TexStorage(TexTarget target, uint32_t levels, GLenum sizedFormat,
++                  const uvec3& size);
+ 
+-  void TexImage(TexImageTarget target, GLint level, GLenum internalFormat,
+-                GLsizei width, GLsizei height, GLsizei depth, GLint border,
+-                const webgl::PackingInfo& pi,
+-                UniquePtr<webgl::TexUnpackBlob>&& src);
+-  void TexSubImage(TexImageTarget target, GLint level, GLint xOffset,
+-                   GLint yOffset, GLint zOffset, GLsizei width, GLsizei height,
+-                   GLsizei depth, const webgl::PackingInfo& pi,
+-                   UniquePtr<webgl::TexUnpackBlob>&& src);
+-
+- protected:
+-  void TexImage(TexImageTarget target, GLint level, GLenum internalFormat,
+-                const webgl::PackingInfo& pi,
+-                UniquePtr<webgl::TexUnpackBlob>&& blob);
++  // TexSubImage iff `!respecFormat`
++  void TexImage(GLenum imageTarget, uint32_t level, GLenum respecFormat,
++                const uvec3& offset, const uvec3& size,
++                const webgl::PackingInfo& pi, const TexImageSource& src,
++                const dom::HTMLCanvasElement& canvas);
+ 
+-  void TexSubImage(TexImageTarget target, GLint level, GLint xOffset,
+-                   GLint yOffset, GLint zOffset, const webgl::PackingInfo& pi,
+-                   UniquePtr<webgl::TexUnpackBlob>&& blob);
++  // CompressedTexSubImage iff `sub`
++  void CompressedTexImage(bool sub, GLenum imageTarget, uint32_t level,
++                          GLenum formatEnum, const uvec3& offset,
++                          const uvec3& size, const Range<const uint8_t>& src,
++                          const uint32_t pboImageSize,
++                          const Maybe<uint64_t> pboOffset);
+ 
+- public:
+-  void CompressedTexImage(TexImageTarget target, GLint level,
+-                          GLenum internalFormat, GLsizei width, GLsizei height,
+-                          GLsizei depth, GLint border,
+-                          UniquePtr<webgl::TexUnpackBytes>&& src,
+-                          const Maybe<GLsizei>& expectedImageSize);
+-  void CompressedTexSubImage(TexImageTarget target, GLint level, GLint xOffset,
+-                             GLint yOffset, GLint zOffset, GLsizei width,
+-                             GLsizei height, GLsizei depth,
+-                             GLenum sizedUnpackFormat,
+-                             UniquePtr<webgl::TexUnpackBytes>&& src,
+-                             const Maybe<GLsizei>& expectedImageSize);
+-
+-  void CopyTexImage2D(TexImageTarget target, GLint level, GLenum internalFormat,
+-                      GLint x, GLint y, uint32_t width, uint32_t height,
+-                      uint32_t depth);
+-  void CopyTexSubImage(TexImageTarget target, GLint level, GLint xOffset,
+-                       GLint yOffset, GLint zOffset, GLint x, GLint y,
+-                       uint32_t width, uint32_t height, uint32_t depth);
++  // CopyTexSubImage iff `!respecFormat`
++  void CopyTexImage(GLenum imageTarget, uint32_t level, GLenum respecFormat,
++                    const uvec3& dstOffset, const ivec2& srcOffset,
++                    const uvec2& size2);
+ 
+   ////////////////////////////////////
+ 

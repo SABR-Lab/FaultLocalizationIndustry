@@ -1,0 +1,83 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/atk/AccessibleWrap.cpp
+# Commit: 86da8f2a28ea
+# Full Hash: 86da8f2a28ea1992671d08dfb56c881a1a82daa5
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2022-08-04 04:34:13
+# Regressor Bug: 1781536
+# File Overlap Count: 1
+# Description:
+#   Bug 1781536 part 3: Move RelationByType to base Accessible. r=morgan
+#   
+#   This required changing the RemoteAccessible implementations to return Relation instead of an array of RemoteAccessible.
+#   Platform implementations have been updated to use the unified method where appropriate.
+#   
+# ==============================================================================
+
+diff -r 95ae96802dbe -r 86da8f2a28ea accessible/atk/AccessibleWrap.cpp
+--- a/accessible/atk/AccessibleWrap.cpp	Wed Aug 03 23:58:51 2022 +0000
++++ b/accessible/atk/AccessibleWrap.cpp	Wed Aug 03 23:58:51 2022 +0000
+@@ -30,6 +30,7 @@
+ 
+ #include "mozilla/ArrayUtils.h"
+ #include "mozilla/Sprintf.h"
++#include "mozilla/StaticPrefs_accessibility.h"
+ #include "nsComponentManagerUtils.h"
+ 
+ using namespace mozilla;
+@@ -806,7 +807,7 @@
+   return state_set;
+ }
+ 
+-static void UpdateAtkRelation(RelationType aType, LocalAccessible* aAcc,
++static void UpdateAtkRelation(RelationType aType, Accessible* aAcc,
+                               AtkRelationType aAtkType,
+                               AtkRelationSet* aAtkSet) {
+   if (aAtkType == ATK_RELATION_NULL) return;
+@@ -824,7 +825,7 @@
+ 
+   if (aType == RelationType::EMBEDS && aAcc->IsRoot()) {
+     if (RemoteAccessible* proxyDoc =
+-            aAcc->AsRoot()->GetPrimaryRemoteTopLevelContentDoc()) {
++            aAcc->AsLocal()->AsRoot()->GetPrimaryRemoteTopLevelContentDoc()) {
+       targets.AppendElement(GetWrapperFor(proxyDoc));
+     }
+   }
+@@ -841,13 +842,15 @@
+   AtkRelationSet* relation_set =
+       ATK_OBJECT_CLASS(parent_class)->ref_relation_set(aAtkObj);
+ 
+-  const AtkRelationType typeMap[] = {
++  Accessible* acc = GetInternalObj(aAtkObj);
++  if (!StaticPrefs::accessibility_cache_enabled_AtStartup() &&
++      acc->IsRemote()) {
++    RemoteAccessible* proxy = acc->AsRemote();
++    const AtkRelationType typeMap[] = {
+ #define RELATIONTYPE(gecko, s, atk, m, i) atk,
+ #include "RelationTypeMap.h"
+ #undef RELATIONTYPE
+-  };
+-
+-  if (RemoteAccessible* proxy = GetProxy(aAtkObj)) {
++    };
+     nsTArray<RelationType> types;
+     nsTArray<nsTArray<RemoteAccessible*>> targetSets;
+     proxy->Relations(&types, &targetSets);
+@@ -874,13 +877,11 @@
+       atk_relation_set_add(relation_set, atkRelation);
+       g_object_unref(atkRelation);
+     }
++    return relation_set;
+   }
+ 
+-  AccessibleWrap* accWrap = GetAccessibleWrap(aAtkObj);
+-  if (!accWrap) return relation_set;
+-
+ #define RELATIONTYPE(geckoType, geckoTypeName, atkType, msaaType, ia2Type) \
+-  UpdateAtkRelation(RelationType::geckoType, accWrap, atkType, relation_set);
++  UpdateAtkRelation(RelationType::geckoType, acc, atkType, relation_set);
+ 
+ #include "RelationTypeMap.h"
+ 

@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/Http2Session.cpp
+# Commit: b45bd4ea0000
+# Full Hash: b45bd4ea0000e64e4b159cac01d09519d73166f7
+# Author: Dana Keeler <dkeeler@mozilla.com>
+# Date: 2022-11-17 09:39:01
+# Regressor Bug: 1791633
+# File Overlap Count: 1
+# Description:
+#   Bug 1791633 - separate nsITLSSocketControl from nsITransportSecurityInfo r=necko-reviewers,kershaw,jschanck
+#   
+#   Depends on D160311
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D160313
+# ==============================================================================
+
+diff -r 705439f1d269 -r b45bd4ea0000 netwerk/protocol/http/Http2Session.cpp
+--- a/netwerk/protocol/http/Http2Session.cpp	Wed Nov 16 16:37:29 2022 +0000
++++ b/netwerk/protocol/http/Http2Session.cpp	Wed Nov 16 16:37:29 2022 +0000
+@@ -2398,12 +2398,11 @@
+ class UpdateAltSvcEvent : public Runnable {
+  public:
+   UpdateAltSvcEvent(const nsCString& header, const nsCString& aOrigin,
+-                    nsHttpConnectionInfo* aCI, nsIInterfaceRequestor* callbacks)
++                    nsHttpConnectionInfo* aCI)
+       : Runnable("net::UpdateAltSvcEvent"),
+         mHeader(header),
+         mOrigin(aOrigin),
+-        mCI(aCI),
+-        mCallbacks(callbacks) {}
++        mCI(aCI) {}
+ 
+   NS_IMETHOD Run() override {
+     MOZ_ASSERT(NS_IsMainThread());
+@@ -2424,7 +2423,7 @@
+     if (XRE_IsSocketProcess()) {
+       AltServiceChild::ProcessHeader(
+           mHeader, originScheme, originHost, originPort, mCI->GetUsername(),
+-          mCI->GetPrivate(), mCallbacks, mCI->ProxyInfo(), 0,
++          mCI->GetPrivate(), nullptr, mCI->ProxyInfo(), 0,
+           mCI->GetOriginAttributes());
+       return NS_OK;
+     }
+@@ -2593,15 +2592,8 @@
+     }
+   }
+ 
+-  nsCOMPtr<nsITLSSocketControl> tlsSocketControl;
+-  self->mConnection->GetTLSSocketControl(getter_AddRefs(tlsSocketControl));
+-  nsCOMPtr<nsIInterfaceRequestor> callbacks;
+-  if (tlsSocketControl) {
+-    tlsSocketControl->GetNotificationCallbacks(getter_AddRefs(callbacks));
+-  }
+-
+   RefPtr<UpdateAltSvcEvent> event =
+-      new UpdateAltSvcEvent(altSvcFieldValue, origin, ci, callbacks);
++      new UpdateAltSvcEvent(altSvcFieldValue, origin, ci);
+   NS_DispatchToMainThread(event);
+   self->ResetDownstreamState();
+   return NS_OK;

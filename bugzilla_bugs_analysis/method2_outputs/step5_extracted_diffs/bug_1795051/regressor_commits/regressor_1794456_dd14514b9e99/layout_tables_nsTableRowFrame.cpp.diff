@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/tables/nsTableRowFrame.cpp
+# Commit: dd14514b9e99
+# Full Hash: dd14514b9e992d986c6802c434e59d67a172f828
+# Author: Ting-Yu Lin <tlin@mozilla.com>
+# Date: 2022-10-12 09:45:09
+# Regressor Bug: 1794456
+# File Overlap Count: 1
+# Description:
+#   Bug 1794456 Part 3 - Support range-based for loop for nsFrameList::Slice. r=emilio
+#   
+#   Since Slice::mEnd is the first frame that is NOT in the slice, so we only
+#   support forward iteration, and it's sufficient to replace existing usages of
+#   nsFrameList::Enumerator.
+# ==============================================================================
+
+diff -r 58733fee05e0 -r dd14514b9e99 layout/tables/nsTableRowFrame.cpp
+--- a/layout/tables/nsTableRowFrame.cpp	Tue Oct 11 21:01:27 2022 +0000
++++ b/layout/tables/nsTableRowFrame.cpp	Tue Oct 11 21:01:28 2022 +0000
+@@ -215,8 +215,7 @@
+ 
+   // Add the new cell frames to the table
+   nsTableFrame* tableFrame = GetTableFrame();
+-  for (nsFrameList::Enumerator e(newCells); !e.AtEnd(); e.Next()) {
+-    nsIFrame* childFrame = e.get();
++  for (nsIFrame* childFrame : newCells) {
+     NS_ASSERTION(childFrame->IsTableCellFrame(),
+                  "Not a table cell frame/pseudo frame construction failure");
+     tableFrame->AppendCell(static_cast<nsTableCellFrame&>(*childFrame),
+@@ -251,8 +250,7 @@
+       static_cast<nsTableCellFrame*>(nsTableFrame::GetFrameAtOrBefore(
+           this, aPrevFrame, LayoutFrameType::TableCell));
+   nsTArray<nsTableCellFrame*> cellChildren;
+-  for (nsFrameList::Enumerator e(newCells); !e.AtEnd(); e.Next()) {
+-    nsIFrame* childFrame = e.get();
++  for (nsIFrame* childFrame : newCells) {
+     NS_ASSERTION(childFrame->IsTableCellFrame(),
+                  "Not a table cell frame/pseudo frame construction failure");
+     cellChildren.AppendElement(static_cast<nsTableCellFrame*>(childFrame));

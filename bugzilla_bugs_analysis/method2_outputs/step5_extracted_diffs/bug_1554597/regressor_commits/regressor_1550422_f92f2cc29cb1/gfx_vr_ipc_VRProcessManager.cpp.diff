@@ -1,0 +1,93 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/vr/ipc/VRProcessManager.cpp
+# Commit: f92f2cc29cb1
+# Full Hash: f92f2cc29cb1e91274550f642affab21783ecfd5
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2019-05-25 09:39:13
+# Regressor Bug: 1550422
+# File Overlap Count: 2
+# Description:
+#   Bug 1550422 - P9. Sync preferences in VR process when they change. r=daoshengmu
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D31017
+# ==============================================================================
+
+diff -r 6dc82f88333d -r f92f2cc29cb1 gfx/vr/ipc/VRProcessManager.cpp
+--- a/gfx/vr/ipc/VRProcessManager.cpp	Thu May 23 04:13:07 2019 +0000
++++ b/gfx/vr/ipc/VRProcessManager.cpp	Thu May 23 04:13:07 2019 +0000
+@@ -10,7 +10,9 @@
+ #include "VRChild.h"
+ #include "VRGPUChild.h"
+ #include "VRGPUParent.h"
++#include "mozilla/dom/ContentParent.h"
+ #include "mozilla/MemoryReportingProcess.h"
++#include "mozilla/Preferences.h"
+ 
+ namespace mozilla {
+ namespace gfx {
+@@ -36,6 +38,7 @@
+ 
+   mObserver = new Observer(this);
+   nsContentUtils::RegisterShutdownObserver(mObserver);
++  Preferences::AddStrongObserver(mObserver, "");
+ }
+ 
+ VRProcessManager::~VRProcessManager() {
+@@ -122,6 +125,13 @@
+     return;
+   }
+ 
++  // Flush any pref updates that happened during launch and weren't
++  // included in the blobs set up in LaunchGPUProcess.
++  for (const mozilla::dom::Pref& pref : mQueuedPrefs) {
++    Unused << NS_WARN_IF(!mVRChild->SendPreferenceUpdate(pref));
++  }
++  mQueuedPrefs.Clear();
++
+   CrashReporter::AnnotateCrashReport(CrashReporter::Annotation::VRProcessStatus,
+                                      NS_LITERAL_CSTRING("Running"));
+ }
+@@ -177,6 +187,8 @@
+                                     const char16_t* aData) {
+   if (!strcmp(aTopic, NS_XPCOM_SHUTDOWN_OBSERVER_ID)) {
+     mManager->OnXPCOMShutdown();
++  } else if (!strcmp(aTopic, "nsPref:changed")) {
++    mManager->OnPreferenceChange(aData);
+   }
+   return NS_OK;
+ }
+@@ -188,12 +200,32 @@
+ void VRProcessManager::OnXPCOMShutdown() {
+   if (mObserver) {
+     nsContentUtils::UnregisterShutdownObserver(mObserver);
++    Preferences::RemoveObserver(mObserver, "");
+     mObserver = nullptr;
+   }
+ 
+   CleanShutdown();
+ }
+ 
++void VRProcessManager::OnPreferenceChange(const char16_t* aData) {
++  // A pref changed. If it's not on the blacklist, inform child processes.
++  if (!dom::ContentParent::ShouldSyncPreference(aData)) {
++    return;
++  }
++
++  // We know prefs are ASCII here.
++  NS_LossyConvertUTF16toASCII strData(aData);
++
++  mozilla::dom::Pref pref(strData, /* isLocked */ false, Nothing(), Nothing());
++  Preferences::GetPreference(&pref);
++  if (!!mVRChild) {
++    MOZ_ASSERT(mQueuedPrefs.IsEmpty());
++    mVRChild->SendPreferenceUpdate(pref);
++  } else {
++    mQueuedPrefs.AppendElement(pref);
++  }
++}
++
+ VRChild* VRProcessManager::GetVRChild() { return mProcess->GetActor(); }
+ 
+ class VRMemoryReporter : public MemoryReportingProcess {

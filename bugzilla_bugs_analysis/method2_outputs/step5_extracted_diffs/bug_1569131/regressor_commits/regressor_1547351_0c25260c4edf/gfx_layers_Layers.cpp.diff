@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/Layers.cpp
+# Commit: 0c25260c4edf
+# Full Hash: 0c25260c4edf97fdfef11320c2a91bc0698b4c11
+# Author: Alexis Beingessner <a.beingessner@gmail.com>
+# Date: 2019-07-25 03:53:31
+# Regressor Bug: 1547351
+# File Overlap Count: 2
+# Description:
+#   Bug 1547351 - Automatically set content process render root r=kats
+#   
+#   This implements the idea of automatically setting a content proc's
+#   render root based on the render root enclosing the iframe that
+#   points to it. There was a bit of cleanup in here that was a bit
+# ==============================================================================
+
+diff -r f96bd2aae39c -r 0c25260c4edf gfx/layers/Layers.cpp
+--- a/gfx/layers/Layers.cpp	Wed Jul 24 14:10:56 2019 +0000
++++ b/gfx/layers/Layers.cpp	Wed Jul 24 14:10:56 2019 +0000
+@@ -2241,7 +2241,7 @@
+   wr::RenderRoot renderRoot = (GetBackendType() == LayersBackend::LAYERS_WR)
+                                   ? aRenderRoot
+                                   : wr::RenderRoot::Default;
+-  mPendingScrollUpdates[renderRoot][aScrollId] = aUpdateInfo;
++  mPendingScrollUpdates[renderRoot].Put(aScrollId, aUpdateInfo);
+   return true;
+ }
+ 
+@@ -2250,11 +2250,8 @@
+   // This never gets called for WebRenderLayerManager, so we assume that all
+   // pending scroll info updates are stored under the default RenderRoot.
+   MOZ_ASSERT(GetBackendType() != LayersBackend::LAYERS_WR);
+-  auto it = mPendingScrollUpdates[wr::RenderRoot::Default].find(aScrollId);
+-  if (it != mPendingScrollUpdates[wr::RenderRoot::Default].end()) {
+-    return Some(it->second);
+-  }
+-  return Nothing();
++  auto p = mPendingScrollUpdates[wr::RenderRoot::Default].Lookup(aScrollId);
++  return p ? Some(p.Data()) : Nothing();
+ }
+ 
+ std::unordered_set<ScrollableLayerGuid::ViewID>
+@@ -2262,10 +2259,10 @@
+   std::unordered_set<ScrollableLayerGuid::ViewID> scrollIds;
+   for (auto renderRoot : wr::kRenderRoots) {
+     auto& updates = mPendingScrollUpdates[renderRoot];
+-    for (const auto& update : updates) {
+-      scrollIds.insert(update.first);
++    for (auto it = updates.Iter(); !it.Done(); it.Next()) {
++      scrollIds.insert(it.Key());
+     }
+-    updates.clear();
++    updates.Clear();
+   }
+   return scrollIds;
+ }

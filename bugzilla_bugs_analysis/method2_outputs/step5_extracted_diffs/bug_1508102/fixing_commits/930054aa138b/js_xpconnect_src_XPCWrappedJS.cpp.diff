@@ -1,0 +1,35 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/xpconnect/src/XPCWrappedJS.cpp
+# Commit: 930054aa138b
+# Full Hash: 930054aa138bd32f51bbe2ec84e07267859afa6e
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2018-11-29 04:28:09
+# Description:
+#   Bug 1508102 - Take account of XPCWrappedJS::mJSObjGlobal in cycle collector methods r=mccr8 a=abillings
+# ==============================================================================
+
+diff -r 037b1d961ac5 -r 930054aa138b js/xpconnect/src/XPCWrappedJS.cpp
+--- a/js/xpconnect/src/XPCWrappedJS.cpp	Wed Nov 28 19:23:08 2018 +0200
++++ b/js/xpconnect/src/XPCWrappedJS.cpp	Wed Nov 28 17:29:19 2018 +0000
+@@ -71,6 +71,10 @@
+     if (obj && JS::ObjectIsMarkedGray(obj)) {
+         return false;
+     }
++    JSObject* global = GetJSObjectGlobalPreserveColor();
++    if (global && JS::ObjectIsMarkedGray(global)) {
++        return false;
++    }
+ 
+     // For non-root wrappers, check if the root wrapper will be
+     // added to the CC graph.
+@@ -130,6 +134,8 @@
+         MOZ_ASSERT(refcnt > 1);
+         NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(cb, "mJSObj");
+         cb.NoteJSChild(JS::GCCellPtr(tmp->GetJSObjectPreserveColor()));
++        NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(cb, "mJSObjGlobal");
++        cb.NoteJSChild(JS::GCCellPtr(tmp->GetJSObjectGlobalPreserveColor()));
+     }
+ 
+     if (tmp->IsRootWrapper()) {

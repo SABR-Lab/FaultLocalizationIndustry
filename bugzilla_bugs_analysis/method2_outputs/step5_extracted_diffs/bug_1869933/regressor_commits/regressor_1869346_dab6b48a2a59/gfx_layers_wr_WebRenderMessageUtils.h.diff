@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/wr/WebRenderMessageUtils.h
+# Commit: dab6b48a2a59
+# Full Hash: dab6b48a2a592a441229e88c88b1aa2570f2171d
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2023-12-12 04:37:49
+# Regressor Bug: 1869346
+# File Overlap Count: 5
+# Description:
+#   Bug 1869346 - Rework how canvas accesses shared surfaces in the compositor process. r=gfx-reviewers,lsalzman
+#   
+#   This patch adds plumbing to allow sharing ExternalImageId via
+#   SurfaceDescriptor. This will be used in a future patch by WebGL and
+#   WebGPU to avoid extra copies. It also refactors how CanvasTranslator
+# ==============================================================================
+
+diff -r af13afc7d44f -r dab6b48a2a59 gfx/layers/wr/WebRenderMessageUtils.h
+--- a/gfx/layers/wr/WebRenderMessageUtils.h	Mon Dec 11 20:19:47 2023 +0000
++++ b/gfx/layers/wr/WebRenderMessageUtils.h	Mon Dec 11 20:44:44 2023 +0000
+@@ -218,6 +218,13 @@
+ struct ParamTraits<mozilla::wr::RenderReasons>
+     : public PlainOldDataSerializer<mozilla::wr::RenderReasons> {};
+ 
++template <>
++struct ParamTraits<mozilla::wr::ExternalImageSource>
++    : public ContiguousEnumSerializer<mozilla::wr::ExternalImageSource,
++                                      mozilla::wr::ExternalImageSource::Unknown,
++                                      mozilla::wr::ExternalImageSource::Last> {
++};
++
+ }  // namespace IPC
+ 
+ #endif  // GFX_WEBRENDERMESSAGEUTILS_H

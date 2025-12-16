@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentParent.cpp
+# Commit: a008d3cebfdb
+# Full Hash: a008d3cebfdb9d96ab32530b90180141575316a8
+# Author: alwu <alwu@mozilla.com>
+# Date: 2020-03-17 09:36:40
+# Regressor Bug: 1582508
+# File Overlap Count: 1
+# Description:
+#   Bug 1582508 - part4 : propagate declared playback state to media session controller. r=chunmin
+#   
+#   This patch includes the implementation of propagating declared playback state from the media session in the content process to the media session controller in the chrome process.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D66341
+# ==============================================================================
+
+diff -r a73415e9c006 -r a008d3cebfdb dom/ipc/ContentParent.cpp
+--- a/dom/ipc/ContentParent.cpp	Tue Mar 17 00:03:44 2020 +0000
++++ b/dom/ipc/ContentParent.cpp	Tue Mar 17 00:17:36 2020 +0000
+@@ -5876,6 +5876,20 @@
+   return IPC_OK();
+ }
+ 
++mozilla::ipc::IPCResult
++ContentParent::RecvNotifyMediaSessionPlaybackStateChanged(
++    const MaybeDiscarded<BrowsingContext>& aContext,
++    MediaSessionPlaybackState aPlaybackState) {
++  if (aContext.IsNullOrDiscarded()) {
++    return IPC_OK();
++  }
++  if (RefPtr<MediaController> controller =
++          aContext.get_canonical()->GetMediaController()) {
++    controller->SetDeclaredPlaybackState(aContext.ContextId(), aPlaybackState);
++  }
++  return IPC_OK();
++}
++
+ mozilla::ipc::IPCResult ContentParent::RecvGetModulesTrust(
+     ModulePaths&& aModPaths, bool aRunAtNormalPriority,
+     GetModulesTrustResolver&& aResolver) {

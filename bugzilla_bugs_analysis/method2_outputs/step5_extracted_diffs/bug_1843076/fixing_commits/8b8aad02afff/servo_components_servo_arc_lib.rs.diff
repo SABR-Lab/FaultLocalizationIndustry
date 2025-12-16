@@ -1,0 +1,28 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: servo/components/servo_arc/lib.rs
+# Commit: 8b8aad02afff
+# Full Hash: 8b8aad02afff4af4a1af8c56a4020f063b1c44a1
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-07-15 09:36:53
+# Description:
+#   Bug 1843076 - Use data_mut in HeaderSlice::drop().
+#   
+#   Tentative, but it is more correct and made miri happier.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D183625
+# ==============================================================================
+
+diff -r 0f31967cea44 -r 8b8aad02afff servo/components/servo_arc/lib.rs
+--- a/servo/components/servo_arc/lib.rs	Fri Jul 14 22:28:14 2023 +0000
++++ b/servo/components/servo_arc/lib.rs	Fri Jul 14 22:51:06 2023 +0000
+@@ -672,7 +672,7 @@
+ impl<H, T> Drop for HeaderSlice<H, T> {
+     fn drop(&mut self) {
+         unsafe {
+-            let mut ptr = self.data.as_mut_ptr();
++            let mut ptr = self.data_mut();
+             for _ in 0..self.len {
+                 std::ptr::drop_in_place(ptr);
+                 ptr = ptr.offset(1);

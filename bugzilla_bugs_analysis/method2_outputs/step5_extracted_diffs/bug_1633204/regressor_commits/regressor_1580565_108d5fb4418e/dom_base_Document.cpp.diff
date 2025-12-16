@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/Document.cpp
+# Commit: 108d5fb4418e
+# Full Hash: 108d5fb4418e78e4dca0a746863e5784c6d80371
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-04-23 09:52:48
+# Regressor Bug: 1580565
+# File Overlap Count: 3
+# Description:
+#   Bug 1580565 - Part 4: Use WindowContext to manage BrowsingContext cached status, r=farre
+#   
+#   The existing infrastructure which stored cached BrowsingContexts on the
+#   BrowsingContextGroup was added before WindowContexts were added, and can cause
+#   racing issues with partially discarded trees during process switches.
+# ==============================================================================
+
+diff -r d8dea951a032 -r 108d5fb4418e dom/base/Document.cpp
+--- a/dom/base/Document.cpp	Wed Apr 22 15:48:20 2020 +0000
++++ b/dom/base/Document.cpp	Wed Apr 22 15:48:17 2020 +0000
+@@ -10459,7 +10459,7 @@
+ 
+   // BFCache is currently not compatible with remote subframes (bug 1609324)
+   if (RefPtr<BrowsingContext> browsingContext = GetBrowsingContext()) {
+-    for (auto& child : browsingContext->GetChildren()) {
++    for (auto& child : browsingContext->Children()) {
+       if (!child->IsInProcess()) {
+         aBFCacheCombo |= BFCacheStatus::CONTAINS_REMOTE_SUBFRAMES;
+         ret = false;
+@@ -11158,7 +11158,7 @@
+       // readystates of the subdocument.  In the child process it will call
+       // NotifyLoading() to notify the innerwindow/TimeoutManager, and then
+       // iterate it's children
+-      for (auto& child : context->GetChildren()) {
++      for (auto& child : context->Children()) {
+         MOZ_LOG(gTimeoutDeferralLog, mozilla::LogLevel::Debug,
+                 ("bc: %p SetAncestorLoading(%d)", (void*)child, is_loading));
+         child->SetAncestorLoading(is_loading);

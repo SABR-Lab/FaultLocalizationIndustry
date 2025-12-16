@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/OffThreadScriptCompilation.cpp
+# Commit: 2bc5949902ac
+# Full Hash: 2bc5949902acc042205fc7e85260bbbc37dbedc7
+# Author: Matthew Gaudet <mgaudet@mozilla.com>
+# Date: 2021-09-18 09:46:57
+# Regressor Bug: 1688788
+# File Overlap Count: 1
+# Description:
+#   Bug 1688788 - Convert ScriptPreloader to manage Stencils, not Scripts. r=kmag,tcampbell
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D113013
+# ==============================================================================
+
+diff -r e660e2c3c3d1 -r 2bc5949902ac js/src/vm/OffThreadScriptCompilation.cpp
+--- a/js/src/vm/OffThreadScriptCompilation.cpp	Sat Sep 18 01:29:45 2021 +0000
++++ b/js/src/vm/OffThreadScriptCompilation.cpp	Sat Sep 18 01:29:45 2021 +0000
+@@ -214,7 +214,7 @@
+                                       ParseTaskKind::ScriptDecode, token);
+ }
+ 
+-JS_PUBLIC_API JS::OffThreadToken* JS::DecodeMultiOffThreadScripts(
++JS_PUBLIC_API JS::OffThreadToken* JS::DecodeMultiOffThreadStencils(
+     JSContext* cx, const ReadOnlyCompileOptions& options,
+     TranscodeSources& sources, OffThreadCompileCallback callback,
+     void* callbackData) {
+@@ -225,24 +225,24 @@
+   }
+   MOZ_ASSERT(CanCompileOffThread(cx, options, length));
+ #endif
+-  return StartOffThreadDecodeMultiScripts(cx, options, sources, callback,
+-                                          callbackData);
++  return StartOffThreadDecodeMultiStencils(cx, options, sources, callback,
++                                           callbackData);
+ }
+ 
+-JS_PUBLIC_API bool JS::FinishMultiOffThreadScriptsDecoder(
++JS_PUBLIC_API bool JS::FinishMultiOffThreadStencilDecoder(
+     JSContext* cx, JS::OffThreadToken* token,
+-    MutableHandle<ScriptVector> scripts) {
++    mozilla::Vector<RefPtr<JS::Stencil>>* stencils) {
+   MOZ_ASSERT(cx);
+   MOZ_ASSERT(CurrentThreadCanAccessRuntime(cx->runtime()));
+-  return HelperThreadState().finishMultiScriptsDecodeTask(cx, token, scripts);
++  return HelperThreadState().finishMultiStencilsDecodeTask(cx, token, stencils);
+ }
+ 
+ JS_PUBLIC_API void JS::CancelMultiOffThreadScriptsDecoder(
+     JSContext* cx, JS::OffThreadToken* token) {
+   MOZ_ASSERT(cx);
+   MOZ_ASSERT(CurrentThreadCanAccessRuntime(cx->runtime()));
+-  HelperThreadState().cancelParseTask(cx->runtime(),
+-                                      ParseTaskKind::MultiScriptsDecode, token);
++  HelperThreadState().cancelParseTask(
++      cx->runtime(), ParseTaskKind::MultiStencilsDecode, token);
+ }
+ 
+ namespace js {

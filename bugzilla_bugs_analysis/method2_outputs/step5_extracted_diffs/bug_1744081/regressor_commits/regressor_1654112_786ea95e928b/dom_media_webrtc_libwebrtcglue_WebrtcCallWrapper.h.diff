@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/WebrtcCallWrapper.h
+# Commit: 786ea95e928b
+# Full Hash: 786ea95e928b7bcec53a56b50f1d0ff136c76a62
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 1
+# Description:
+#   Bug 1654112 - Move NoTrialsConfig into SharedWebrtcState and make WebrtcCallWrapper keep a ref to it. r=ng
+#   
+#   SharedWebrtcState when managed by PeerConnectionCtx is destroyed on main thread.
+#   With interactions with call instances being async, there is no guarantee that
+#   the objects owned by SharedWebrtcState (and referenced through raw pointers by
+# ==============================================================================
+
+diff -r 2a373d864092 -r 786ea95e928b dom/media/webrtc/libwebrtcglue/WebrtcCallWrapper.h
+--- a/dom/media/webrtc/libwebrtcglue/WebrtcCallWrapper.h	Wed Apr 14 17:40:24 2021 +0200
++++ b/dom/media/webrtc/libwebrtcglue/WebrtcCallWrapper.h	Fri Apr 16 14:44:09 2021 +0200
+@@ -27,17 +27,7 @@
+   static RefPtr<WebrtcCallWrapper> Create(
+       const dom::RTCStatsTimestampMaker& aTimestampMaker,
+       UniquePtr<media::ShutdownBlockingTicket> aShutdownTicket,
+-      const RefPtr<SharedWebrtcState>& aSharedState,
+-      webrtc::WebRtcKeyValueConfig* aTrials);
+-
+-  static RefPtr<WebrtcCallWrapper> Create(
+-      const dom::RTCStatsTimestampMaker& aTimestampMaker,
+-      UniquePtr<media::ShutdownBlockingTicket> aShutdownTicket,
+-      RefPtr<AbstractThread> aCallThread,
+-      std::function<webrtc::SharedModuleThread*()> aModuleThreadGetter,
+-      const webrtc::AudioState::Config& aAudioStateConfig,
+-      webrtc::AudioDecoderFactory* aAudioDecoderFactory,
+-      webrtc::WebRtcKeyValueConfig* aTrials);
++      const RefPtr<SharedWebrtcState>& aSharedState);
+ 
+   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(WebrtcCallWrapper)
+ 
+@@ -83,8 +73,7 @@
+  protected:
+   virtual ~WebrtcCallWrapper();
+ 
+-  WebrtcCallWrapper(RefPtr<AbstractThread> aCallThread,
+-                    RefPtr<webrtc::AudioDecoderFactory> aAudioDecoderFactory,
++  WebrtcCallWrapper(RefPtr<SharedWebrtcState> aSharedState,
+                     UniquePtr<webrtc::VideoBitrateAllocatorFactory>
+                         aVideoBitrateAllocatorFactory,
+                     UniquePtr<webrtc::RtcEventLog> aEventLog,
+@@ -94,6 +83,8 @@
+ 
+   explicit WebrtcCallWrapper(UniquePtr<webrtc::Call> aCall);
+ 
++  const RefPtr<SharedWebrtcState> mSharedState;
++
+   // Allows conduits to know about one another, to avoid remote SSRC
+   // collisions.
+   std::set<MediaSessionConduit*> mConduits;

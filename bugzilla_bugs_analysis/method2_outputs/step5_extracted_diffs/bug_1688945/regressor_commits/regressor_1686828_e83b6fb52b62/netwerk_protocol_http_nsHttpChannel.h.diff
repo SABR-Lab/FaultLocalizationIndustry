@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/nsHttpChannel.h
+# Commit: e83b6fb52b62
+# Full Hash: e83b6fb52b626763fee7ae628fe6cb2b1676a9ef
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2021-01-22 10:17:55
+# Regressor Bug: 1686828
+# File Overlap Count: 2
+# Description:
+#   Bug 1686828 - Handle the case that we have an empty https rr before deciding whether to do https upgrade r=necko-reviewers,dragana
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D102144
+# ==============================================================================
+
+diff -r 91c9ac223f94 -r e83b6fb52b62 netwerk/protocol/http/nsHttpChannel.h
+--- a/netwerk/protocol/http/nsHttpChannel.h	Thu Jan 21 21:57:41 2021 +0000
++++ b/netwerk/protocol/http/nsHttpChannel.h	Thu Jan 21 22:08:27 2021 +0000
+@@ -824,7 +824,7 @@
+   nsresult TriggerNetwork();
+   void CancelNetworkRequest(nsresult aStatus);
+ 
+-  void SetHTTPSSVCRecord(nsIDNSHTTPSSVCRecord* aRecord);
++  void SetHTTPSSVCRecord(already_AddRefed<nsIDNSHTTPSSVCRecord>&& aRecord);
+ 
+   // Timer used to delay the network request, or to trigger the network
+   // request if retrieving the cache entry takes too long.
+@@ -859,9 +859,10 @@
+   // called and reset the value when we switch to another failover proxy.
+   int32_t mProxyConnectResponseCode;
+ 
+-  // If this is not null, this will be used to update the connection info in
+-  // nsHttpChannel::BeginConnect().
+-  nsCOMPtr<nsIDNSHTTPSSVCRecord> mHTTPSSVCRecord;
++  // If mHTTPSSVCRecord has value, it means OnHTTPSRRAvailable() is called and
++  // we got the result of HTTPS RR query. Otherwise, it means we are still
++  // waiting for the result or the query is not performed.
++  Maybe<nsCOMPtr<nsIDNSHTTPSSVCRecord>> mHTTPSSVCRecord;
+ 
+  protected:
+   virtual void DoNotifyListenerCleanup() override;

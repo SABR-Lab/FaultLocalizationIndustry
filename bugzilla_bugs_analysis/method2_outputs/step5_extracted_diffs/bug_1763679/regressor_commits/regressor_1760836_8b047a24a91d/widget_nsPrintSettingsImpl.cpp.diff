@@ -1,0 +1,97 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/nsPrintSettingsImpl.cpp
+# Commit: 8b047a24a91d
+# Full Hash: 8b047a24a91df99818fd01165b6b00d05258a3d4
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2022-03-31 09:35:41
+# Regressor Bug: 1760836
+# File Overlap Count: 1
+# Description:
+#   Bug 1760836 - Support printing to an nsIOutputStream. r=jfkthame,jrmuizel,webdriver-reviewers,geckoview-reviewers,agi
+#   
+#   The trickiest bits are the PrintTargetCG ones, the rest is just plumbing
+#   and cleanups and tests, but let me know if you want those to be split
+#   out, can do.
+# ==============================================================================
+
+diff -r a04583558158 -r 8b047a24a91d widget/nsPrintSettingsImpl.cpp
+--- a/widget/nsPrintSettingsImpl.cpp	Wed Mar 30 18:46:53 2022 +0000
++++ b/widget/nsPrintSettingsImpl.cpp	Wed Mar 30 18:51:58 2022 +0000
+@@ -20,33 +20,7 @@
+ 
+ NS_IMPL_ISUPPORTS(nsPrintSettings, nsIPrintSettings)
+ 
+-nsPrintSettings::nsPrintSettings()
+-    : mScaling(1.0),
+-      mPrintBGColors(false),
+-      mPrintBGImages(false),
+-      mIsCancelled(false),
+-      mSaveOnCancel(true),
+-      mPrintSilent(false),
+-      mShrinkToFit(true),
+-      mShowMarginGuides(false),
+-      mHonorPageRuleMargins(true),
+-      mIsPrintSelectionRBEnabled(false),
+-      mPrintSelectionOnly(false),
+-      mPrintPageDelay(50),
+-      mPaperWidth(8.5),
+-      mPaperHeight(11.0),
+-      mPaperSizeUnit(kPaperSizeInches),
+-      mPrintReversed(false),
+-      mPrintInColor(true),
+-      mOrientation(kPortraitOrientation),
+-      mResolution(0),
+-      mDuplex(0),
+-      mNumCopies(1),
+-      mNumPagesPerSheet(1),
+-      mPrintToFile(false),
+-      mOutputFormat(kOutputFormatNative),
+-      mIsInitedFromPrinter(false),
+-      mIsInitedFromPrefs(false) {
++nsPrintSettings::nsPrintSettings() {
+   /* member initializers and constructor code */
+   int32_t marginWidth = NS_INCHES_TO_INT_TWIPS(DEFAULT_MARGIN_WIDTH);
+   mMargin.SizeTo(marginWidth, marginWidth, marginWidth, marginWidth);
+@@ -219,13 +193,25 @@
+   return NS_OK;
+ }
+ 
+-NS_IMETHODIMP nsPrintSettings::GetPrintToFile(bool* aPrintToFile) {
+-  NS_ENSURE_ARG_POINTER(aPrintToFile);
+-  *aPrintToFile = mPrintToFile;
++NS_IMETHODIMP nsPrintSettings::GetOutputDestination(
++    OutputDestinationType* aDestination) {
++  *aDestination = mOutputDestination;
+   return NS_OK;
+ }
+-NS_IMETHODIMP nsPrintSettings::SetPrintToFile(bool aPrintToFile) {
+-  mPrintToFile = aPrintToFile;
++
++NS_IMETHODIMP nsPrintSettings::SetOutputDestination(
++    OutputDestinationType aDestination) {
++  mOutputDestination = aDestination;
++  return NS_OK;
++}
++
++NS_IMETHODIMP nsPrintSettings::SetOutputStream(nsIOutputStream* aStream) {
++  mOutputStream = aStream;
++  return NS_OK;
++}
++
++NS_IMETHODIMP nsPrintSettings::GetOutputStream(nsIOutputStream** aStream) {
++  NS_IF_ADDREF(*aStream = mOutputStream.get());
+   return NS_OK;
+ }
+ 
+@@ -946,7 +932,8 @@
+   mNumCopies = rhs.mNumCopies;
+   mNumPagesPerSheet = rhs.mNumPagesPerSheet;
+   mPrinter = rhs.mPrinter;
+-  mPrintToFile = rhs.mPrintToFile;
++  mOutputDestination = rhs.mOutputDestination;
++  mOutputStream = rhs.mOutputStream;
+   mToFileName = rhs.mToFileName;
+   mOutputFormat = rhs.mOutputFormat;
+   mIsInitedFromPrinter = rhs.mIsInitedFromPrinter;

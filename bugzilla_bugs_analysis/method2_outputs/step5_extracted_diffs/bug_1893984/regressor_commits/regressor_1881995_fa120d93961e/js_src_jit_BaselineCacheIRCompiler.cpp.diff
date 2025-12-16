@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/BaselineCacheIRCompiler.cpp
+# Commit: fa120d93961e
+# Full Hash: fa120d93961efddd63d50135f03c55e75dac875a
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2024-04-26 04:18:06
+# Regressor Bug: 1881995
+# File Overlap Count: 1
+# Description:
+#   Bug 1881995 - Implement ForwardedAtoms and create them during atomization r=iain,sfink
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D202690
+# ==============================================================================
+
+diff -r f24ffc487097 -r fa120d93961e js/src/jit/BaselineCacheIRCompiler.cpp
+--- a/js/src/jit/BaselineCacheIRCompiler.cpp	Thu Apr 25 21:30:10 2024 +0300
++++ b/js/src/jit/BaselineCacheIRCompiler.cpp	Thu Apr 25 18:29:15 2024 +0000
+@@ -427,7 +427,7 @@
+ 
+   Address atomAddr(stubAddress(expectedOffset));
+ 
+-  Label done;
++  Label done, notCachedAtom;
+   masm.branchPtr(Assembler::Equal, atomAddr, str, &done);
+ 
+   // The pointers are not equal, so if the input string is also an atom it
+@@ -435,6 +435,11 @@
+   masm.branchTest32(Assembler::NonZero, Address(str, JSString::offsetOfFlags()),
+                     Imm32(JSString::ATOM_BIT), failure->label());
+ 
++  masm.tryFastAtomize(str, scratch, scratch, &notCachedAtom);
++  masm.branchPtr(Assembler::Equal, atomAddr, scratch, &done);
++  masm.jump(failure->label());
++  masm.bind(&notCachedAtom);
++
+   // Check the length.
+   masm.loadPtr(atomAddr, scratch);
+   masm.loadStringLength(scratch, scratch);
+@@ -1464,9 +1469,13 @@
+ 
+ void BaselineCacheIRCompiler::emitAtomizeString(Register str, Register temp,
+                                                 Label* failure) {
+-  Label isAtom;
++  Label isAtom, notCachedAtom;
+   masm.branchTest32(Assembler::NonZero, Address(str, JSString::offsetOfFlags()),
+                     Imm32(JSString::ATOM_BIT), &isAtom);
++  masm.tryFastAtomize(str, temp, str, &notCachedAtom);
++  masm.jump(&isAtom);
++  masm.bind(&notCachedAtom);
++
+   {
+     LiveRegisterSet save(GeneralRegisterSet::Volatile(),
+                          liveVolatileFloatRegs());

@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/certverifier/CertVerifier.cpp
+# Commit: dc509eab3ed7
+# Full Hash: dc509eab3ed7a513258723eb46b25f33a610e720
+# Author: Dana Keeler <dkeeler@mozilla.com>
+# Date: 2025-07-11 16:36:21
+# Regressor Bug: 1953221
+# File Overlap Count: 3
+# Description:
+#   Bug 1953221 - don't accept SCTs with a timestamp after the distrustAfter date for the root r=jschanck
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D256720
+# ==============================================================================
+
+diff -r 5b86ae2c81f9 -r dc509eab3ed7 security/certverifier/CertVerifier.cpp
+--- a/security/certverifier/CertVerifier.cpp	Thu Jul 10 18:37:49 2025 +0000
++++ b/security/certverifier/CertVerifier.cpp	Thu Jul 10 19:04:10 2025 +0000
+@@ -404,7 +404,8 @@
+ 
+   CTVerifyResult result;
+   rv = mCTVerifier->Verify(endEntityInput, issuerPublicKeyInput, embeddedSCTs,
+-                           sctsFromOCSP, sctsFromTLS, time, result);
++                           sctsFromOCSP, sctsFromTLS, time,
++                           trustDomain.GetDistrustAfterTime(), result);
+   if (rv != Success) {
+     MOZ_LOG(gCertVerifierLog, LogLevel::Debug,
+             ("SCT verification failed with fatal error %" PRId32 "\n",
+@@ -429,10 +430,10 @@
+             ("SCT verification result: "
+              "valid=%zu unknownLog=%zu retiredLog=%zu "
+              "invalidSignature=%zu invalidTimestamp=%zu "
+-             "decodingErrors=%zu\n",
++             "distrustedTimestamp=%zu decodingErrors=%zu\n",
+              validCount, result.sctsFromUnknownLogs, retiredLogCount,
+              result.sctsWithInvalidSignatures, result.sctsWithInvalidTimestamps,
+-             result.decodingErrors));
++             result.sctsWithDistrustedTimestamps, result.decodingErrors));
+   }
+ 
+   BackCert endEntityBackCert(endEntityInput, EndEntityOrCA::MustBeEndEntity,

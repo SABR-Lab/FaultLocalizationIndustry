@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/APZCTreeManagerChild.cpp
+# Commit: da8c34fec36e
+# Full Hash: da8c34fec36e933ccfe93e458ccdbe9328132897
+# Author: Mike Conley <mconley@mozilla.com>
+# Date: 2022-06-22 03:32:25
+# Regressor Bug: 1773865
+# File Overlap Count: 1
+# Description:
+#   Bug 1773865 - Dispatch an event on the window document when a pinch zoom gesture ends. r=botond,smaug,NeilDeakin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D149283
+# ==============================================================================
+
+diff -r 2510b654e8f2 -r da8c34fec36e gfx/layers/ipc/APZCTreeManagerChild.cpp
+--- a/gfx/layers/ipc/APZCTreeManagerChild.cpp	Tue Jun 21 13:56:53 2022 +0000
++++ b/gfx/layers/ipc/APZCTreeManagerChild.cpp	Tue Jun 21 14:02:19 2022 +0000
+@@ -201,5 +201,19 @@
+   return IPC_OK();
+ }
+ 
++mozilla::ipc::IPCResult APZCTreeManagerChild::RecvNotifyScaleGestureComplete(
++    const ScrollableLayerGuid::ViewID& aScrollId, float aScale) {
++  // This will only get sent from the GPU process to the parent process, so
++  // this function should never get called in the content process.
++  MOZ_ASSERT(XRE_IsParentProcess());
++  MOZ_ASSERT(NS_IsMainThread());
++
++  if (mCompositorSession && mCompositorSession->GetWidget()) {
++    APZCCallbackHelper::NotifyScaleGestureComplete(
++        mCompositorSession->GetWidget(), aScale);
++  }
++  return IPC_OK();
++}
++
+ }  // namespace layers
+ }  // namespace mozilla

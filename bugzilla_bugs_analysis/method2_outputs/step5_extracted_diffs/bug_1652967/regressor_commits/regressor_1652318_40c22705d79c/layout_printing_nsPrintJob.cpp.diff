@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/printing/nsPrintJob.cpp
+# Commit: 40c22705d79c
+# Full Hash: 40c22705d79c395db470de2958469096feae826b
+# Author: Jonathan Watt <jwatt@jwatt.org>
+# Date: 2020-07-13 09:51:22
+# Regressor Bug: 1652318
+# File Overlap Count: 1
+# Description:
+#   Bug 1652318. Freeze docshell tree navigation at the same time for both print and print preview. r=bobowen
+#   
+#   I specifically want to move this to happen before the static clone is made, in
+#   preparation for splitting out the static clone logic from DoCommonPrint.
+#   
+# ==============================================================================
+
+diff -r 22f5f7e91444 -r 40c22705d79c layout/printing/nsPrintJob.cpp
+--- a/layout/printing/nsPrintJob.cpp	Sun Jul 12 19:30:47 2020 +0300
++++ b/layout/printing/nsPrintJob.cpp	Sun Jul 12 16:34:03 2020 +0000
+@@ -578,8 +578,16 @@
+     nsCOMPtr<nsIPrintingPromptService> pps(
+         do_QueryInterface(aWebProgressListener));
+     mProgressDialogIsShown = pps != nullptr;
++
++    mIsCreatingPrintPreview = true;
++
++    // ensures docShell tree navigation in frozen
++    SetIsPrintPreview(true);
+   } else {
+     mProgressDialogIsShown = false;
++
++    // ensures docShell tree navigation in frozen
++    SetIsPrinting(true);
+   }
+ 
+   // Grab the new instance with local variable to guarantee that it won't be
+@@ -606,9 +614,6 @@
+     // to mPrtPreview once we've finish creating the print preview. We must
+     // clear mPtrPreview so that code will use mPtr until that happens.
+     mPrtPreview = nullptr;
+-
+-    mIsCreatingPrintPreview = true;
+-    SetIsPrintPreview(true);
+   }
+ 
+   // Create a print session and let the print settings know about it.
+@@ -687,10 +692,6 @@
+     return NS_ERROR_FAILURE;
+   }
+ 
+-  if (!aIsPrintPreview) {
+-    SetIsPrinting(true);
+-  }
+-
+   // XXX This isn't really correct...
+   if (!printData->mPrintObject->mDocument ||
+       !printData->mPrintObject->mDocument->GetRootElement())

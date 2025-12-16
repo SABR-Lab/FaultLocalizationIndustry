@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/jsapi/TransceiverImpl.cpp
+# Commit: 370586931995
+# Full Hash: 370586931995533143f3b529e66836919cb17eb4
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 1
+# Description:
+#   Bug 1654112 - Fix a shutdown hang. r=ng
+#   
+#   Prior to this patch TransceiverImpl held a ref to the call wrapper until
+#   destruction. The call wrapper has a const ref to the call thread, which sits on
+#   top of a SharedThreadPool.
+# ==============================================================================
+
+diff -r 0552c0b4a079 -r 370586931995 dom/media/webrtc/jsapi/TransceiverImpl.cpp
+--- a/dom/media/webrtc/jsapi/TransceiverImpl.cpp	Thu Aug 19 11:49:29 2021 +0200
++++ b/dom/media/webrtc/jsapi/TransceiverImpl.cpp	Fri Aug 20 11:16:39 2021 +0200
+@@ -1041,12 +1041,15 @@
+     mDtmf->StopPlayout();
+   }
+ 
+-  mCallWrapper->mCallThread->Dispatch(NS_NewRunnableFunction(
+-      __func__, [conduit = std::move(mConduit)]() mutable {
+-        if (conduit) {
+-          conduit->Shutdown();
+-        }
+-      }));
++  if (mCallWrapper) {
++    mCallWrapper->mCallThread->Dispatch(NS_NewRunnableFunction(
++        __func__, [conduit = std::move(mConduit)]() mutable {
++          if (conduit) {
++            conduit->Shutdown();
++          }
++        }));
++    mCallWrapper = nullptr;
++  }
+ }
+ 
+ bool TransceiverImpl::IsVideo() const {

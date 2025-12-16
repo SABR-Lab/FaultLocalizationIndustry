@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/TypedArrayObject.cpp
+# Commit: 410e13fdf4e5
+# Full Hash: 410e13fdf4e5927cf6ab312e77f00926a5669508
+# Author: Steve Fink <sfink@mozilla.com>
+# Date: 2021-08-13 09:27:46
+# Regressor Bug: 1720422
+# File Overlap Count: 1
+# Description:
+#   Bug 1720422 - Move typed array unwrap API to templatized version r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D119856
+# ==============================================================================
+
+diff -r 677e4aa42b4d -r 410e13fdf4e5 js/src/vm/TypedArrayObject.cpp
+--- a/js/src/vm/TypedArrayObject.cpp	Thu Aug 12 20:44:15 2021 +0000
++++ b/js/src/vm/TypedArrayObject.cpp	Thu Aug 12 20:44:15 2021 +0000
+@@ -2746,6 +2746,31 @@
+ JS_FOR_EACH_TYPED_ARRAY(INSTANTIATE)
+ #undef INSTANTIATE
+ 
++JS::ArrayBufferOrView JS::ArrayBufferOrView::unwrap(JSObject* maybeWrapped) {
++  auto* ab = maybeWrapped->maybeUnwrapIf<ArrayBufferObjectMaybeShared>();
++  if (ab) {
++    return ArrayBufferOrView::fromObject(ab);
++  }
++
++  return ArrayBufferView::unwrap(maybeWrapped);
++}
++
++bool JS::ArrayBufferOrView::isDetached() const {
++  MOZ_ASSERT(obj);
++  if (obj->is<ArrayBufferObject>()) {
++    return obj->as<ArrayBufferObject>().isDetached();
++  } else {
++    return obj->as<ArrayBufferViewObject>().hasDetachedBuffer();
++  }
++}
++
++JS::TypedArray_base JS::TypedArray_base::fromObject(JSObject* unwrapped) {
++  if (unwrapped->is<TypedArrayObject>()) {
++    return TypedArray_base(unwrapped);
++  }
++  return TypedArray_base(nullptr);
++}
++
+ // Template getLengthAndData function for TypedArrays, implemented here because
+ // it requires internal APIs.
+ template <js::Scalar::Type EType>

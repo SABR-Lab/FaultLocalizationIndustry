@@ -1,0 +1,237 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/ActorsParent.cpp
+# Commit: 8380179aa33f
+# Full Hash: 8380179aa33f282702b219de98afa653539edac1
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-10-10 09:22:33
+# Regressor Bug: 1866402
+# File Overlap Count: 1
+# Description:
+#   Bug 1866402 - Implement origin initialization status tracking on the owning thread; r=dom-storage-reviewers,jari
+#   
+#   Origin initialization tracking on the owning thread is needed for covering
+#   origin initialization in QuotaManager::OpenClientDirectory.
+#   
+# ==============================================================================
+
+diff -r e18f8613cd79 -r 8380179aa33f dom/quota/ActorsParent.cpp
+--- a/dom/quota/ActorsParent.cpp	Wed Oct 09 22:16:51 2024 +0000
++++ b/dom/quota/ActorsParent.cpp	Wed Oct 09 22:16:52 2024 +0000
+@@ -5410,7 +5410,15 @@
+ 
+   initializePersistentOriginOp->RunImmediately();
+ 
+-  return initializePersistentOriginOp->OnResults();
++  return Map<BoolPromise>(
++      initializePersistentOriginOp->OnResults(),
++      [self = RefPtr(this),
++       origin = GetOriginFromValidatedPrincipalInfo(aPrincipalInfo)](
++          const BoolPromise::ResolveOrRejectValue& aValue) {
++        self->NoteInitializedOrigin(PERSISTENCE_TYPE_PERSISTENT, origin);
++
++        return aValue.ResolveValue();
++      });
+ }
+ 
+ RefPtr<BoolPromise> QuotaManager::PersistentOriginInitialized(
+@@ -5427,6 +5435,15 @@
+   return persistentOriginInitializedOp->OnResults();
+ }
+ 
++bool QuotaManager::IsPersistentOriginInitialized(
++    const PrincipalInfo& aPrincipalInfo) {
++  AssertIsOnOwningThread();
++
++  auto origin = GetOriginFromValidatedPrincipalInfo(aPrincipalInfo);
++
++  return IsOriginInitialized(PERSISTENCE_TYPE_PERSISTENT, origin);
++}
++
+ bool QuotaManager::IsPersistentOriginInitializedInternal(
+     const OriginMetadata& aOriginMetadata) const {
+   AssertIsOnIOThread();
+@@ -5541,7 +5558,15 @@
+ 
+   initializeTemporaryOriginOp->RunImmediately();
+ 
+-  return initializeTemporaryOriginOp->OnResults();
++  return Map<BoolPromise>(
++      initializeTemporaryOriginOp->OnResults(),
++      [self = RefPtr(this), aPersistenceType,
++       origin = GetOriginFromValidatedPrincipalInfo(aPrincipalInfo)](
++          const BoolPromise::ResolveOrRejectValue& aValue) {
++        self->NoteInitializedOrigin(aPersistenceType, origin);
++
++        return aValue.ResolveValue();
++      });
+ }
+ 
+ RefPtr<BoolPromise> QuotaManager::TemporaryOriginInitialized(
+@@ -5558,6 +5583,15 @@
+   return temporaryOriginInitializedOp->OnResults();
+ }
+ 
++bool QuotaManager::IsTemporaryOriginInitialized(
++    PersistenceType aPersistenceType, const PrincipalInfo& aPrincipalInfo) {
++  AssertIsOnOwningThread();
++
++  auto origin = GetOriginFromValidatedPrincipalInfo(aPrincipalInfo);
++
++  return IsOriginInitialized(aPersistenceType, origin);
++}
++
+ bool QuotaManager::IsTemporaryOriginInitializedInternal(
+     const OriginMetadata& aOriginMetadata) const {
+   AssertIsOnIOThread();
+@@ -5883,7 +5917,10 @@
+ 
+   return Map<BoolPromise>(
+       clearOriginOp->OnResults(),
+-      [](OriginMetadataArrayPromise::ResolveOrRejectValue&& aValue) {
++      [self = RefPtr(this)](
++          OriginMetadataArrayPromise::ResolveOrRejectValue&& aValue) {
++        self->NoteUninitializedOrigins(aValue.ResolveValue());
++
+         return true;
+       });
+ }
+@@ -5918,7 +5955,10 @@
+ 
+   return Map<BoolPromise>(
+       clearStoragesForOriginPrefixOp->OnResults(),
+-      [](OriginMetadataArrayPromise::ResolveOrRejectValue&& aValue) {
++      [self = RefPtr(this)](
++          OriginMetadataArrayPromise::ResolveOrRejectValue&& aValue) {
++        self->NoteUninitializedOrigins(aValue.ResolveValue());
++
+         return true;
+       });
+ }
+@@ -5936,7 +5976,10 @@
+ 
+   return Map<BoolPromise>(
+       clearDataOp->OnResults(),
+-      [](OriginMetadataArrayPromise::ResolveOrRejectValue&& aValue) {
++      [self = RefPtr(this)](
++          OriginMetadataArrayPromise::ResolveOrRejectValue&& aValue) {
++        self->NoteUninitializedOrigins(aValue.ResolveValue());
++
+         return true;
+       });
+ }
+@@ -5951,7 +5994,13 @@
+ 
+   clearPrivateRepositoryOp->RunImmediately();
+ 
+-  return clearPrivateRepositoryOp->OnResults();
++  return Map<BoolPromise>(
++      clearPrivateRepositoryOp->OnResults(),
++      [self = RefPtr(this)](const BoolPromise::ResolveOrRejectValue& aValue) {
++        self->NoteUninitializedRepository(PERSISTENCE_TYPE_PRIVATE);
++
++        return aValue.ResolveValue();
++      });
+ }
+ 
+ RefPtr<BoolPromise> QuotaManager::ClearStorage() {
+@@ -5970,6 +6019,7 @@
+           return BoolPromise::CreateAndReject(aValue.RejectValue(), __func__);
+         }
+ 
++        self->mInitializedOrigins.Clear();
+         self->mTemporaryStorageInitialized = false;
+         self->mStorageInitialized = false;
+ 
+@@ -5991,7 +6041,10 @@
+ 
+   return Map<BoolPromise>(
+       shutdownOriginOp->OnResults(),
+-      [](OriginMetadataArrayPromise::ResolveOrRejectValue&& aValue) {
++      [self = RefPtr(this)](
++          OriginMetadataArrayPromise::ResolveOrRejectValue&& aValue) {
++        self->NoteUninitializedOrigins(aValue.ResolveValue());
++
+         return true;
+       });
+ }
+@@ -6035,6 +6088,7 @@
+           return BoolPromise::CreateAndReject(aValue.RejectValue(), __func__);
+         }
+ 
++        self->mInitializedOrigins.Clear();
+         self->mTemporaryStorageInitialized = false;
+         self->mStorageInitialized = false;
+ 
+@@ -7069,6 +7123,70 @@
+       });
+ }
+ 
++void QuotaManager::NoteInitializedOrigin(PersistenceType aPersistenceType,
++                                         const nsACString& aOrigin) {
++  AssertIsOnOwningThread();
++
++  auto& boolArray = mInitializedOrigins.LookupOrInsertWith(aOrigin, []() {
++    BoolArray boolArray;
++    boolArray.AppendElements(PERSISTENCE_TYPE_INVALID);
++    std::fill(boolArray.begin(), boolArray.end(), false);
++    return boolArray;
++  });
++
++  boolArray[aPersistenceType] = true;
++}
++
++void QuotaManager::NoteUninitializedOrigins(
++    const OriginMetadataArray& aOriginMetadataArray) {
++  AssertIsOnOwningThread();
++
++  for (const auto& originMetadata : aOriginMetadataArray) {
++    auto entry = mInitializedOrigins.Lookup(originMetadata.mOrigin);
++    if (!entry) {
++      return;
++    }
++
++    auto& boolArray = *entry;
++
++    if (boolArray[originMetadata.mPersistenceType]) {
++      boolArray[originMetadata.mPersistenceType] = false;
++
++      if (std::all_of(boolArray.begin(), boolArray.end(),
++                      [](bool entry) { return !entry; })) {
++        entry.Remove();
++      }
++    }
++  }
++}
++
++void QuotaManager::NoteUninitializedRepository(
++    PersistenceType aPersistenceType) {
++  AssertIsOnOwningThread();
++
++  for (auto iter = mInitializedOrigins.Iter(); !iter.Done(); iter.Next()) {
++    auto& boolArray = iter.Data();
++
++    if (boolArray[aPersistenceType]) {
++      boolArray[aPersistenceType] = false;
++
++      if (std::all_of(boolArray.begin(), boolArray.end(),
++                      [](bool entry) { return !entry; })) {
++        iter.Remove();
++      }
++    }
++  }
++}
++
++bool QuotaManager::IsOriginInitialized(PersistenceType aPersistenceType,
++                                       const nsACString& aOrigin) const {
++  AssertIsOnOwningThread();
++
++  const auto entry = mInitializedOrigins.Lookup(aOrigin);
++
++  return entry && (*entry)[aPersistenceType];
++}
++
+ Result<nsCString, nsresult> QuotaManager::EnsureStorageOriginFromOrigin(
+     const nsACString& aOrigin) {
+   MutexAutoLock lock(mQuotaMutex);

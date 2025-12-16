@@ -1,0 +1,36 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit-test/tests/basic/bug1700525.js
+# Commit: 3be60f42358a
+# Full Hash: 3be60f42358afa252f4e8fba01baba156dbd7ffe
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2021-03-24 08:48:48
+# Regressor Bug: 1696178
+# File Overlap Count: 2
+# Description:
+#   Bug 1700525 - Set object flags on the last property's shape instead of on the property's shape. r=iain
+#   
+#   This fixes a regression from bug 1696178 part 5 with dictionary objects.
+#   
+#   Object flags on non-last-properties aren't used anywhere, we need to set them on the
+# ==============================================================================
+
+diff -r 75b000d18d03 -r 3be60f42358a js/src/jit-test/tests/basic/bug1700525.js
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/js/src/jit-test/tests/basic/bug1700525.js	Wed Mar 24 05:51:01 2021 +0000
+@@ -0,0 +1,14 @@
++// Get a dictionary object.
++var o = {x: 1, y: 2, z: 3};
++delete o.x;
++
++// Redefine |y| as an accessor.
++var val = 0;
++Object.defineProperty(o, "y", {get: () => val, set: v => { val = v; }});
++
++// Optimized Object.assign path should fail.
++Object.assign(o, {x: 3, y: 4, z: 5});
++assertEq(val, 4);
++assertEq(o.x, 3);
++assertEq(o.y, 4);
++assertEq(o.z, 5);

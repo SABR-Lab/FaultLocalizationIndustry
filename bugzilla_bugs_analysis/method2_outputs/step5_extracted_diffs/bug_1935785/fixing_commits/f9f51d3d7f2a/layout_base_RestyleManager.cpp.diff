@@ -1,0 +1,43 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: layout/base/RestyleManager.cpp
+# Commit: f9f51d3d7f2a
+# Full Hash: f9f51d3d7f2a3853eac05e7c05d16b8820eaca63
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2025-02-18 20:54:41
+# Description:
+#   Bug 1935785 - Don't invalidate for nth-of without style data. r=jwatt
+#   
+#   We don't need to, and it trips assertions down the line when we try to
+#   mark stuff as dirty.
+#   
+# ==============================================================================
+
+diff -r b3706da01ca0 -r f9f51d3d7f2a layout/base/RestyleManager.cpp
+--- a/layout/base/RestyleManager.cpp	Tue Feb 18 13:23:21 2025 +0000
++++ b/layout/base/RestyleManager.cpp	Tue Feb 18 13:24:10 2025 +0000
+@@ -3475,7 +3475,8 @@
+   // undisplayed elements, since we don't know if it is needed.
+   IncrementUndisplayedRestyleGeneration();
+ 
+-  if (!aElement->HasServoData() &&
++  const bool hasData = aElement->HasServoData();
++  if (!hasData &&
+       !(aElement->GetSelectorFlags() &
+         NodeSelectorFlags::RelativeSelectorSearchDirectionAncestorSibling)) {
+     return;
+@@ -3486,7 +3487,12 @@
+   snapshot.AddState(previousState);
+ 
+   ServoStyleSet& styleSet = *StyleSet();
+-  MaybeRestyleForNthOfState(styleSet, aElement, aChangedBits);
++  if (hasData) {
++    // If the element has no style data, the siblings don't need to be
++    // invalidated, we're inside a display: none subtree anyways. We still need
++    // to invalidate for :has() tho, because that might go upwards.
++    MaybeRestyleForNthOfState(styleSet, aElement, aChangedBits);
++  }
+   MaybeRestyleForRelativeSelectorState(styleSet, aElement, aChangedBits);
+ }
+ 

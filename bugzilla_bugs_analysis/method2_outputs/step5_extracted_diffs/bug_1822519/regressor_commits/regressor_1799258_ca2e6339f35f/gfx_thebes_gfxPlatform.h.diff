@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxPlatform.h
+# Commit: ca2e6339f35f
+# Full Hash: ca2e6339f35f38cc26a203f29c8dbfeb38f96afc
+# Author: Kelsey Gilbert <kelsey.gilbert@mozilla.com>
+# Date: 2023-03-14 09:41:39
+# Regressor Bug: 1799258
+# File Overlap Count: 1
+# Description:
+#   Bug 1799258 - Do color-management on Windows+DComp via IDCompositionFilterEffects. r=sotaro
+#   
+#   + Add gfx.color_management.rec709_gamma_as_srgb:true. :'(
+#   
+#   In particular, rec709(16/255) -> srgb(31/255). Even though it's
+# ==============================================================================
+
+diff -r aa4e010199c6 -r ca2e6339f35f gfx/thebes/gfxPlatform.h
+--- a/gfx/thebes/gfxPlatform.h	Mon Mar 13 21:04:10 2023 +0000
++++ b/gfx/thebes/gfxPlatform.h	Mon Mar 13 21:04:10 2023 +0000
+@@ -753,7 +753,9 @@
+    * Returns a buffer containing the CMS output profile data. The way this
+    * is obtained is platform-specific.
+    */
+-  virtual nsTArray<uint8_t> GetPlatformCMSOutputProfileData();
++  virtual nsTArray<uint8_t> GetPlatformCMSOutputProfileData() {
++    return GetPrefCMSOutputProfileData();
++  }
+ 
+   /**
+    * Return information on how child processes should initialize graphics
+@@ -865,13 +867,15 @@
+   virtual void ImportContentDeviceData(
+       const mozilla::gfx::ContentDeviceData& aData);
+ 
++ public:
+   /**
+    * Returns the contents of the file pointed to by the
+    * gfx.color_management.display_profile pref, if set.
+    * Returns an empty array if not set, or if an error occurs
+    */
+-  nsTArray<uint8_t> GetPrefCMSOutputProfileData();
++  static nsTArray<uint8_t> GetPrefCMSOutputProfileData();
+ 
++ protected:
+   /**
+    * If inside a child process and currently being initialized by the
+    * SetXPCOMProcessAttributes message, this can be used by subclasses to

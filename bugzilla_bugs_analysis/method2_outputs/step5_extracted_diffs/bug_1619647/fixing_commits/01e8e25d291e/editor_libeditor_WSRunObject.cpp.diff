@@ -1,0 +1,56 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/WSRunObject.cpp
+# Commit: 01e8e25d291e
+# Full Hash: 01e8e25d291ef2a49244951b5a277a69c406bfdc
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2020-03-04 16:19:40
+# Description:
+#   Bug 1619647 - Make `WSRunObject::ReplacePreviousNBSPIfUnnecessary()` check `IsEndOfContainer()` before calling `IsCharNBSP()` r=m_kato
+#   
+#   I forgot to add this check only here. (I also checked again for all similar
+#   methods' callers.)  So, if the point is end of a text node (i.e., offset equals
+#   its length), `IsCharNBSP()` refers wrong address.
+# ==============================================================================
+
+diff -r 9057fcd5c67d -r 01e8e25d291e editor/libeditor/WSRunObject.cpp
+--- a/editor/libeditor/WSRunObject.cpp	Wed Mar 04 10:46:31 2020 +0200
++++ b/editor/libeditor/WSRunObject.cpp	Wed Mar 04 08:15:15 2020 +0000
+@@ -232,7 +232,7 @@
+       }
+     } else if (beforeRun->mType == WSType::normalWS) {
+       // Try to change an nbsp to a space, just to prevent nbsp proliferation
+-      nsresult rv = ReplacePreviousNBSPIfUnncessary(beforeRun, pointToInsert);
++      nsresult rv = ReplacePreviousNBSPIfUnnecessary(beforeRun, pointToInsert);
+       if (NS_WARN_IF(NS_FAILED(rv))) {
+         return nullptr;
+       }
+@@ -314,7 +314,7 @@
+     } else if (beforeRun->mType == WSType::normalWS) {
+       // Try to change an nbsp to a space, if possible, just to prevent nbsp
+       // proliferation
+-      nsresult rv = ReplacePreviousNBSPIfUnncessary(beforeRun, pointToInsert);
++      nsresult rv = ReplacePreviousNBSPIfUnnecessary(beforeRun, pointToInsert);
+       if (NS_WARN_IF(NS_FAILED(rv))) {
+         return rv;
+       }
+@@ -1901,7 +1901,7 @@
+   return NS_OK;
+ }
+ 
+-nsresult WSRunObject::ReplacePreviousNBSPIfUnncessary(
++nsresult WSRunObject::ReplacePreviousNBSPIfUnnecessary(
+     WSFragment* aRun, const EditorDOMPoint& aPoint) {
+   if (NS_WARN_IF(!aRun) || NS_WARN_IF(!aPoint.IsSet())) {
+     return NS_ERROR_INVALID_ARG;
+@@ -1915,7 +1915,8 @@
+   // inserted object.
+   bool canConvert = false;
+   EditorDOMPointInText atPreviousChar = GetPreviousCharPoint(aPoint);
+-  if (atPreviousChar.IsSet() && atPreviousChar.IsCharNBSP()) {
++  if (atPreviousChar.IsSet() && !atPreviousChar.IsEndOfContainer() &&
++      atPreviousChar.IsCharNBSP()) {
+     EditorDOMPointInText atPreviousCharOfPreviousChar =
+         GetPreviousCharPointFromPointInText(atPreviousChar);
+     if (atPreviousCharOfPreviousChar.IsSet()) {

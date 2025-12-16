@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/BufferAllocator.cpp
+# Commit: f5d3e5da3f01
+# Full Hash: f5d3e5da3f0137b00bfa65cd868cc0189fdcc90e
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2025-01-08 04:42:02
+# Regressor Bug: 1934856
+# File Overlap Count: 1
+# Description:
+#   Bug 1934856 - Part 0: Don't recommit pages that contain previous allocations r=sfink
+#   
+#   Currently BufferAllocator::recommitRegion recommits memory from the start of
+#   the free region rounded down to the page size, but this may extend before the
+#   start of the region and overlap other live allocations. This is a problem
+# ==============================================================================
+
+diff -r c13c4a846c0d -r f5d3e5da3f01 js/src/gc/BufferAllocator.cpp
+--- a/js/src/gc/BufferAllocator.cpp	Tue Jan 07 18:11:00 2025 +0000
++++ b/js/src/gc/BufferAllocator.cpp	Tue Jan 07 18:13:33 2025 +0000
+@@ -1658,13 +1658,19 @@
+   MOZ_ASSERT(region->hasDecommittedPages);
+ 
+   BufferChunk* chunk = BufferChunk::from(region);
+-  uintptr_t startAddr = RoundDown(region->startAddr, PageSize);
++  uintptr_t startAddr = RoundUp(region->startAddr, PageSize);
+   uintptr_t endAddr = RoundDown(uintptr_t(region), PageSize);
+ 
+   size_t startPage = (startAddr - uintptr_t(chunk)) / PageSize;
+   size_t endPage = (endAddr - uintptr_t(chunk)) / PageSize;
+ 
+-  // We shouldn't have decommitted the page holding |region|.
++  // If the start of the region does not lie on a page boundary the page it is
++  // in should be committed as it must either contain the start of the chunk, a
++  // FreeRegion or an allocation.
++  MOZ_ASSERT_IF((region->startAddr % PageSize) != 0,
++                !chunk->decommittedPages.ref()[startPage - 1]);
++
++  // The end of the region should be committed as it holds FreeRegion |region|.
+   MOZ_ASSERT(!chunk->decommittedPages.ref()[endPage]);
+ 
+   MarkPagesInUseSoft(reinterpret_cast<void*>(startAddr), endAddr - startAddr);

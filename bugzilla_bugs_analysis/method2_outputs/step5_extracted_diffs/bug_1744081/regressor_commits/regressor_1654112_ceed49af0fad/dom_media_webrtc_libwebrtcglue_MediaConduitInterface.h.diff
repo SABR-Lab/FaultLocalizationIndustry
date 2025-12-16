@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/MediaConduitInterface.h
+# Commit: ceed49af0fad
+# Full Hash: ceed49af0fad6ee87f64a89adb84c791a74ced14
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 2
+# Description:
+#   Bug 1654112 - Don't register/unregister conduit with the call wrapper in ctor/dtor. r=ng,bwc
+#   
+#   Doing this outside of the dtor, especially, removes the requirement of the
+#   conduit having to be destroyed on the worker thread (main).
+#   
+# ==============================================================================
+
+diff -r a1c16b86d3a7 -r ceed49af0fad dom/media/webrtc/libwebrtcglue/MediaConduitInterface.h
+--- a/dom/media/webrtc/libwebrtcglue/MediaConduitInterface.h	Mon Jan 18 16:41:26 2021 +0100
++++ b/dom/media/webrtc/libwebrtcglue/MediaConduitInterface.h	Mon Jan 18 17:32:49 2021 +0100
+@@ -291,6 +291,7 @@
+   virtual ~WebRtcCallWrapper() = default;
+ 
+   bool UnsetRemoteSSRC(uint32_t ssrc) {
++    MOZ_ASSERT(TaskQueueWrapper::GetMainWorker()->IsCurrent());
+     for (auto conduit : mConduits) {
+       if (!conduit->UnsetRemoteSSRC(ssrc)) {
+         return false;
+@@ -300,11 +301,15 @@
+     return true;
+   }
+ 
++  // Idempotent.
+   void RegisterConduit(MediaSessionConduit* conduit) {
++    MOZ_ASSERT(TaskQueueWrapper::GetMainWorker()->IsCurrent());
+     mConduits.insert(conduit);
+   }
+ 
++  // Idempotent.
+   void UnregisterConduit(MediaSessionConduit* conduit) {
++    MOZ_ASSERT(TaskQueueWrapper::GetMainWorker()->IsCurrent());
+     mConduits.erase(conduit);
+   }
+ 

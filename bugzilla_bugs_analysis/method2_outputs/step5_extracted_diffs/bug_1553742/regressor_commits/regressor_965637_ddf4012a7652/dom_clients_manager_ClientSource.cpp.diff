@@ -1,0 +1,84 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/clients/manager/ClientSource.cpp
+# Commit: ddf4012a7652
+# Full Hash: ddf4012a7652e36d144fc43bc99335276deeafbe
+# Author: Christoph Kerschbaumer <ckerschb@christophkerschbaumer.com>
+# Date: 2019-05-22 03:40:58
+# Regressor Bug: 965637
+# File Overlap Count: 1
+# Description:
+#   Bug 965637: Move CSP from Principal into Client, part 1: backend changes. r=mccr8
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D27654
+# ==============================================================================
+
+diff -r 6c2047bc2f3e -r ddf4012a7652 dom/clients/manager/ClientSource.cpp
+--- a/dom/clients/manager/ClientSource.cpp	Tue May 21 22:51:54 2019 +0000
++++ b/dom/clients/manager/ClientSource.cpp	Tue May 21 23:14:27 2019 +0000
+@@ -23,14 +23,19 @@
+ #include "mozilla/dom/ServiceWorker.h"
+ #include "mozilla/dom/ServiceWorkerContainer.h"
+ #include "mozilla/dom/ServiceWorkerManager.h"
++#include "nsIContentSecurityPolicy.h"
+ #include "nsContentUtils.h"
+ #include "nsIDocShell.h"
+ #include "nsPIDOMWindow.h"
+ 
++#include "mozilla/ipc/BackgroundUtils.h"
++
+ namespace mozilla {
+ namespace dom {
+ 
+ using mozilla::dom::ipc::StructuredCloneData;
++using mozilla::ipc::CSPInfo;
++using mozilla::ipc::CSPToCSPInfo;
+ using mozilla::ipc::PrincipalInfo;
+ using mozilla::ipc::PrincipalInfoToPrincipal;
+ 
+@@ -657,6 +662,44 @@
+ 
+ nsISerialEventTarget* ClientSource::EventTarget() const { return mEventTarget; }
+ 
++void ClientSource::SetCsp(nsIContentSecurityPolicy* aCsp) {
++  NS_ASSERT_OWNINGTHREAD(ClientSource);
++  if (!aCsp) {
++    return;
++  }
++
++  CSPInfo cspInfo;
++  nsresult rv = CSPToCSPInfo(aCsp, &cspInfo);
++  if (NS_WARN_IF(NS_FAILED(rv))) {
++    return;
++  }
++  mClientInfo.SetCspInfo(cspInfo);
++}
++
++void ClientSource::SetPreloadCsp(nsIContentSecurityPolicy* aPreloadCsp) {
++  NS_ASSERT_OWNINGTHREAD(ClientSource);
++  if (!aPreloadCsp) {
++    return;
++  }
++
++  CSPInfo cspPreloadInfo;
++  nsresult rv = CSPToCSPInfo(aPreloadCsp, &cspPreloadInfo);
++  if (NS_WARN_IF(NS_FAILED(rv))) {
++    return;
++  }
++  mClientInfo.SetPreloadCspInfo(cspPreloadInfo);
++}
++
++void ClientSource::SetCspInfo(const CSPInfo& aCSPInfo) {
++  NS_ASSERT_OWNINGTHREAD(ClientSource);
++  mClientInfo.SetCspInfo(aCSPInfo);
++}
++
++const Maybe<mozilla::ipc::CSPInfo>& ClientSource::GetCspInfo() {
++  NS_ASSERT_OWNINGTHREAD(ClientSource);
++  return mClientInfo.GetCspInfo();
++}
++
+ void ClientSource::Traverse(nsCycleCollectionTraversalCallback& aCallback,
+                             const char* aName, uint32_t aFlags) {
+   if (mOwner.is<RefPtr<nsPIDOMWindowInner>>()) {

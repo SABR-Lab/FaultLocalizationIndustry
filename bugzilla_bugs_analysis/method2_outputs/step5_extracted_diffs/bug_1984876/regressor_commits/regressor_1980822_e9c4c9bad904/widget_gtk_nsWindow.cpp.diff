@@ -1,0 +1,81 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/nsWindow.cpp
+# Commit: e9c4c9bad904
+# Full Hash: e9c4c9bad904fbba96c6e69baa347200f49814fc
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2025-08-04 21:33:32
+# Regressor Bug: 1980822
+# File Overlap Count: 1
+# Description:
+#   Bug 1980822 - Modernize GSettings interface. r=stransky
+#   
+#   We don't really need to support scripting except for a single shell
+#   test. Expose a much more reduced API for that instead.
+#   
+# ==============================================================================
+
+diff -r 8323476e4964 -r e9c4c9bad904 widget/gtk/nsWindow.cpp
+--- a/widget/gtk/nsWindow.cpp	Mon Aug 04 09:36:44 2025 +0000
++++ b/widget/gtk/nsWindow.cpp	Mon Aug 04 09:37:04 2025 +0000
+@@ -24,6 +24,7 @@
+ #include "gfxUtils.h"
+ #include "GLContextProvider.h"
+ #include "GLContext.h"
++#include "GSettings.h"
+ #include "GtkCompositorWidget.h"
+ #include "imgIContainer.h"
+ #include "InputData.h"
+@@ -83,7 +84,6 @@
+ #include "nsGfxCIID.h"
+ #include "nsGtkUtils.h"
+ #include "nsIFile.h"
+-#include "nsIGSettingsService.h"
+ #include "nsIInterfaceRequestorUtils.h"
+ #include "nsImageToPixbuf.h"
+ #include "nsINode.h"
+@@ -2872,10 +2872,7 @@
+   mLastSizeModeRequest = aMode;
+ }
+ 
+-#define kDesktopMutterSchema "org.gnome.mutter"_ns
+-#define kDesktopDynamicWorkspacesKey "dynamic-workspaces"_ns
+-
+-static bool WorkspaceManagementDisabled(GdkScreen* screen) {
++static bool WorkspaceManagementDisabled() {
+   if (Preferences::GetBool("widget.disable-workspace-management", false)) {
+     return true;
+   }
+@@ -2886,19 +2883,9 @@
+   if (IsGnomeDesktopEnvironment()) {
+     // Gnome uses dynamic workspaces by default so disable workspace management
+     // in that case.
+-    bool usesDynamicWorkspaces = true;
+-    nsCOMPtr<nsIGSettingsService> gsettings =
+-        do_GetService(NS_GSETTINGSSERVICE_CONTRACTID);
+-    if (gsettings) {
+-      nsCOMPtr<nsIGSettingsCollection> mutterSettings;
+-      gsettings->GetCollectionForSchema(kDesktopMutterSchema,
+-                                        getter_AddRefs(mutterSettings));
+-      if (mutterSettings) {
+-        mutterSettings->GetBoolean(kDesktopDynamicWorkspacesKey,
+-                                   &usesDynamicWorkspaces);
+-      }
+-    }
+-    return usesDynamicWorkspaces;
++    return widget::GSettings::GetBoolean("org.gnome.mutter"_ns,
++                                         "dynamic-workspaces"_ns)
++        .valueOr(false);
+   }
+ 
+   const auto& desktop = GetDesktopEnvironmentIdentifier();
+@@ -2922,7 +2909,7 @@
+     return;
+   }
+ 
+-  if (WorkspaceManagementDisabled(gdk_window_get_screen(gdk_window))) {
++  if (WorkspaceManagementDisabled()) {
+     LOG("  WorkspaceManagementDisabled, quit.");
+     return;
+   }

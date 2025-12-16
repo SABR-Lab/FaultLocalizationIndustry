@@ -1,0 +1,141 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/BodyStream.cpp
+# Commit: dbc816fbc0d1
+# Full Hash: dbc816fbc0d1a17cfdbb9d3ec97d3d31188323b3
+# Author: Kagami Sascha Rosylight <krosylight@mozilla.com>
+# Date: 2023-02-18 04:50:51
+# Regressor Bug: 1813011
+# File Overlap Count: 1
+# Description:
+#   Bug 1813011 - Part 3: Remove BodyStream::mState r=smaug
+#   
+#   1. eInitializing is only used to call MarkAsRead, but it can just be called unconditionally since it's just a boolean setter.
+#   2. eClosed is aliased to `!mStreamHolder`, since it becomes null when being closed.
+#   
+# ==============================================================================
+
+diff -r 7a10fc19c41c -r dbc816fbc0d1 dom/base/BodyStream.cpp
+--- a/dom/base/BodyStream.cpp	Fri Feb 17 18:32:25 2023 +0000
++++ b/dom/base/BodyStream.cpp	Fri Feb 17 18:32:25 2023 +0000
+@@ -191,16 +191,12 @@
+ 
+   MOZ_DIAGNOSTIC_ASSERT(mOwningEventTarget->IsOnCurrentThread());
+ 
+-  MOZ_DIAGNOSTIC_ASSERT(mState == eInitializing || mState == eInitialized);
++  MOZ_DIAGNOSTIC_ASSERT(!IsClosed());
+   MOZ_ASSERT(!mPullPromise);
+   mPullPromise = Promise::CreateInfallible(aController.GetParentObject());
+ 
+-  if (mState == eInitializing) {
+-    // The stream has been used for the first time.
+-    mStreamHolder->MarkAsRead();
+-  }
+-
+-  mState = eInitialized;
++  // Reading the stream, let's mark it as such
++  mStreamHolder->MarkAsRead();
+ 
+   if (!mInputStream) {
+     // This is the first use of the stream. Let's convert the
+@@ -244,7 +240,7 @@
+   MOZ_DIAGNOSTIC_ASSERT(mOwningEventTarget->IsOnCurrentThread());
+ 
+   MOZ_DIAGNOSTIC_ASSERT(mInputStream);
+-  MOZ_DIAGNOSTIC_ASSERT(mState == eInitialized);
++  MOZ_DIAGNOSTIC_ASSERT(!IsClosed());
+   MOZ_DIAGNOSTIC_ASSERT(mPullPromise->State() ==
+                         Promise::PromiseState::Pending);
+ 
+@@ -285,8 +281,8 @@
+ void BodyStream::CloseInputAndReleaseObjects() {
+   MOZ_DIAGNOSTIC_ASSERT(mOwningEventTarget->IsOnCurrentThread());
+ 
+-  if (mState == eInitializing) {
+-    // The stream has been used for the first time.
++  if (mStreamHolder) {
++    // Being closed means someone touched the stream, let's mark it as read.
+     mStreamHolder->MarkAsRead();
+   }
+ 
+@@ -307,8 +303,7 @@
+ BodyStream::BodyStream(nsIGlobalObject* aGlobal,
+                        BodyStreamHolder* aStreamHolder,
+                        nsIInputStream* aInputStream)
+-    : mState(eInitializing),
+-      mGlobal(aGlobal),
++    : mGlobal(aGlobal),
+       mStreamHolder(aStreamHolder),
+       mOwningEventTarget(aGlobal->EventTargetFor(TaskCategory::Other)),
+       mOriginalInputStream(aInputStream) {
+@@ -325,7 +320,7 @@
+   MOZ_DIAGNOSTIC_ASSERT(mOwningEventTarget->IsOnCurrentThread());
+ 
+   // Nothing to do.
+-  if (mState == eClosed) {
++  if (IsClosed()) {
+     return;
+   }
+ 
+@@ -352,8 +347,8 @@
+     NS_WARNING_ASSERTION(!rv.Failed(), "Failed to error BodyStream");
+   }
+ 
+-  if (mState == eInitializing) {
+-    // The stream has been used for the first time.
++  if (mStreamHolder) {
++    // Being errored means someone touched the stream, let's mark it as read.
+     mStreamHolder->MarkAsRead();
+   }
+ 
+@@ -416,7 +411,7 @@
+   mAsyncWaitWorkerRef = nullptr;
+ 
+   // Already closed. We have nothing else to do here.
+-  if (mState == eClosed) {
++  if (IsClosed()) {
+     return NS_OK;
+   }
+ 
+@@ -429,7 +424,6 @@
+   AutoEntryScript aes(mGlobal, "fetch body data available");
+ 
+   MOZ_DIAGNOSTIC_ASSERT(mInputStream);
+-  MOZ_DIAGNOSTIC_ASSERT(mState == eInitialized);
+   MOZ_DIAGNOSTIC_ASSERT(mPullPromise->State() ==
+                         Promise::PromiseState::Pending);
+ 
+@@ -493,7 +487,7 @@
+ void BodyStream::Close() {
+   MOZ_DIAGNOSTIC_ASSERT(mOwningEventTarget->IsOnCurrentThread());
+ 
+-  if (mState == eClosed) {
++  if (IsClosed()) {
+     return;
+   }
+ 
+@@ -514,7 +508,7 @@
+ void BodyStream::CloseAndReleaseObjects(JSContext* aCx,
+                                         ReadableStream* aStream) {
+   MOZ_DIAGNOSTIC_ASSERT(mOwningEventTarget->IsOnCurrentThread());
+-  MOZ_DIAGNOSTIC_ASSERT(mState != eClosed);
++  MOZ_DIAGNOSTIC_ASSERT(!IsClosed());
+ 
+   ReleaseObjects();
+ 
+@@ -528,13 +522,11 @@
+ void BodyStream::ReleaseObjects() {
+   MOZ_DIAGNOSTIC_ASSERT(mOwningEventTarget->IsOnCurrentThread());
+ 
+-  if (mState == eClosed) {
++  if (IsClosed()) {
+     // Already gone. Nothing to do.
+     return;
+   }
+ 
+-  mState = eClosed;
+-
+   if (NS_IsMainThread()) {
+     nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
+     if (obs) {

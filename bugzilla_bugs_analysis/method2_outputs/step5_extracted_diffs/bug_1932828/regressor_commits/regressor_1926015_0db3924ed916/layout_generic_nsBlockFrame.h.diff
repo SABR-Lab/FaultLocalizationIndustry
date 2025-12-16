@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/nsBlockFrame.h
+# Commit: 0db3924ed916
+# Full Hash: 0db3924ed9160b5d0ae0693c24082a11c43d49c2
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2024-11-22 09:28:00
+# Regressor Bug: 1926015
+# File Overlap Count: 1
+# Description:
+#   Bug 1926015 - Percentage-basis aware intrinsic cache. r=TYLin,dholbert
+#   
+#   This avoids returning wrong intrinsic values with different calls into
+#   intrinsic size computation, which is wrong by definition.
+#   
+# ==============================================================================
+
+diff -r 8a1a1450e750 -r 0db3924ed916 layout/generic/nsBlockFrame.h
+--- a/layout/generic/nsBlockFrame.h	Thu Nov 21 19:17:26 2024 +0000
++++ b/layout/generic/nsBlockFrame.h	Thu Nov 21 19:55:31 2024 +0000
+@@ -17,6 +17,7 @@
+ #include "nsLineBox.h"
+ #include "nsCSSPseudoElements.h"
+ #include "nsFloatManager.h"
++#include "mozilla/IntrinsicISizesCache.h"
+ 
+ enum class LineReflowStatus {
+   // The line was completely reflowed and fit in available width, and we should
+@@ -273,6 +274,7 @@
+                                     BaselineSharingGroup aBaselineGroup,
+                                     BaselineExportContext aExportContext) const;
+ 
++ protected:
+   // MinISize() and PrefISize() are helpers to implement IntrinsicISize().
+   nscoord MinISize(const mozilla::IntrinsicSizeInput& aInput);
+   nscoord PrefISize(const mozilla::IntrinsicSizeInput& aInput);
+@@ -1034,8 +1036,7 @@
+   int32_t GetDepth() const;
+ #endif
+ 
+-  nscoord mCachedMinISize = NS_INTRINSIC_ISIZE_UNKNOWN;
+-  nscoord mCachedPrefISize = NS_INTRINSIC_ISIZE_UNKNOWN;
++  mozilla::IntrinsicISizesCache mCachedIntrinsics;
+ 
+   nsLineList mLines;
+ 

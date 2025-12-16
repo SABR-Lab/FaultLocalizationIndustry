@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/client/TextureRecorded.cpp
+# Commit: 71b6060b6015
+# Full Hash: 71b6060b60151e157e94110d28fb51d76bb6415a
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2023-12-08 04:18:28
+# Regressor Bug: 1863914
+# File Overlap Count: 2
+# Description:
+#   Bug 1863914: Use multiple shmem buffers for remote canvas recording. r=aosmond
+#   
+#   This replaces the use of a single large ring buffer.
+#   The buffers are still processed in parallel and are recycled to reduce
+#   allocation. Events that do not fit in the default sized buffer have a separate
+# ==============================================================================
+
+diff -r bf28b3c066e6 -r 71b6060b6015 gfx/layers/client/TextureRecorded.cpp
+--- a/gfx/layers/client/TextureRecorded.cpp	Thu Dec 07 17:10:06 2023 +0000
++++ b/gfx/layers/client/TextureRecorded.cpp	Thu Dec 07 17:27:24 2023 +0000
+@@ -23,7 +23,7 @@
+     already_AddRefed<CanvasChild> aCanvasChild, gfx::IntSize aSize,
+     gfx::SurfaceFormat aFormat, TextureType aTextureType)
+     : mCanvasChild(aCanvasChild), mSize(aSize), mFormat(aFormat) {
+-  mCanvasChild->EnsureRecorder(aTextureType);
++  mCanvasChild->EnsureRecorder(aSize, aFormat, aTextureType);
+ }
+ 
+ RecordedTextureData::~RecordedTextureData() {

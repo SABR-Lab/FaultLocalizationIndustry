@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/HttpBaseChannel.cpp
+# Commit: 99e71b905661
+# Full Hash: 99e71b9056618a081f8bc2fb7803ba208db3a5b0
+# Author: Randell Jesup <rjesup@mozilla.com>
+# Date: 2024-04-10 09:45:41
+# Regressor Bug: 1871963
+# File Overlap Count: 1
+# Description:
+#   Bug 1871963: Implement zstd content-encoding support r=necko-reviewers,valentin,devtools-reviewers
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D205109
+# ==============================================================================
+
+diff -r 68f119112940 -r 99e71b905661 netwerk/protocol/http/HttpBaseChannel.cpp
+--- a/netwerk/protocol/http/HttpBaseChannel.cpp	Tue Apr 09 15:26:45 2024 +0000
++++ b/netwerk/protocol/http/HttpBaseChannel.cpp	Tue Apr 09 15:26:46 2024 +0000
+@@ -1539,6 +1539,8 @@
+           mode = 2;
+         } else if (from.EqualsLiteral("br")) {
+           mode = 3;
++        } else if (from.EqualsLiteral("zstd")) {
++          mode = 4;
+         }
+         Telemetry::Accumulate(Telemetry::HTTP_CONTENT_ENCODING, mode);
+       }
+@@ -1643,6 +1645,14 @@
+     }
+   }
+ 
++  if (!haveType) {
++    encoding.BeginReading(start);
++    if (CaseInsensitiveFindInReadable("zstd"_ns, start, end)) {
++      aNextEncoding.AssignLiteral(APPLICATION_ZSTD);
++      haveType = true;
++    }
++  }
++
+   // Prepare to fetch the next encoding
+   mCurEnd = mCurStart;
+   mReady = false;

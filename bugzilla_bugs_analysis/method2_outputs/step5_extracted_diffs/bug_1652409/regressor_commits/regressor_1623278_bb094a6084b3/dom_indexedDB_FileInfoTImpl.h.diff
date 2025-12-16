@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/FileInfoTImpl.h
+# Commit: bb094a6084b3
+# Full Hash: bb094a6084b3b127c090827ee8ede4b06cdbdea6
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2020-03-19 17:04:52
+# Regressor Bug: 1623278
+# File Overlap Count: 1
+# Description:
+#   Bug 1623278 - Use SafeRefPtr for FileManager. r=dom-workers-and-storage-reviewers,asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D65549
+# ==============================================================================
+
+diff -r 7fdf38a403bb -r bb094a6084b3 dom/indexedDB/FileInfoTImpl.h
+--- a/dom/indexedDB/FileInfoTImpl.h	Thu Mar 19 09:32:02 2020 +0000
++++ b/dom/indexedDB/FileInfoTImpl.h	Thu Mar 19 09:32:53 2020 +0000
+@@ -19,7 +19,7 @@
+ template <typename FileManager>
+ FileInfoT<FileManager>::FileInfoT(
+     const typename FileManager::FileManagerGuard& aGuard,
+-    RefPtr<FileManager> aFileManager, const int64_t aFileId,
++    SafeRefPtr<FileManager> aFileManager, const int64_t aFileId,
+     const nsrefcnt aInitialDBRefCnt)
+     : mFileId(aFileId),
+       mDBRefCnt(aInitialDBRefCnt),
+@@ -58,8 +58,8 @@
+ }
+ 
+ template <typename FileManager>
+-FileManager* FileInfoT<FileManager>::Manager() const {
+-  return mFileManager;
++FileManager& FileInfoT<FileManager>::Manager() const {
++  return *mFileManager;
+ }
+ 
+ template <typename FileManager>
+@@ -136,7 +136,7 @@
+ 
+ template <typename FileManager>
+ nsCOMPtr<nsIFile> FileInfoT<FileManager>::GetFileForFileInfo() const {
+-  const nsCOMPtr<nsIFile> directory = Manager()->GetDirectory();
++  const nsCOMPtr<nsIFile> directory = Manager().GetDirectory();
+   if (NS_WARN_IF(!directory)) {
+     return nullptr;
+   }

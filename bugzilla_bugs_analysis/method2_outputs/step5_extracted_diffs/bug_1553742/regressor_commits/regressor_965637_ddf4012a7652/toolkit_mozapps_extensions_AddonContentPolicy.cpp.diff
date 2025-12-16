@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/mozapps/extensions/AddonContentPolicy.cpp
+# Commit: ddf4012a7652
+# Full Hash: ddf4012a7652e36d144fc43bc99335276deeafbe
+# Author: Christoph Kerschbaumer <ckerschb@christophkerschbaumer.com>
+# Date: 2019-05-22 03:40:58
+# Regressor Bug: 965637
+# File Overlap Count: 1
+# Description:
+#   Bug 965637: Move CSP from Principal into Client, part 1: backend changes. r=mccr8
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D27654
+# ==============================================================================
+
+diff -r 6c2047bc2f3e -r ddf4012a7652 toolkit/mozapps/extensions/AddonContentPolicy.cpp
+--- a/toolkit/mozapps/extensions/AddonContentPolicy.cpp	Tue May 21 22:51:54 2019 +0000
++++ b/toolkit/mozapps/extensions/AddonContentPolicy.cpp	Tue May 21 23:14:27 2019 +0000
+@@ -6,7 +6,7 @@
+ 
+ #include "AddonContentPolicy.h"
+ 
+-#include "mozilla/dom/nsCSPUtils.h"
++#include "mozilla/dom/nsCSPContext.h"
+ #include "nsCOMPtr.h"
+ #include "nsContentPolicyUtils.h"
+ #include "nsContentTypeParser.h"
+@@ -397,10 +397,12 @@
+   RefPtr<BasePrincipal> principal =
+       BasePrincipal::CreateCodebasePrincipal(NS_ConvertUTF16toUTF8(url));
+ 
+-  nsCOMPtr<nsIContentSecurityPolicy> csp;
+-  rv = principal->EnsureCSP(nullptr, getter_AddRefs(csp));
++  nsCOMPtr<nsIURI> selfURI;
++  principal->GetURI(getter_AddRefs(selfURI));
++  RefPtr<nsCSPContext> csp = new nsCSPContext();
++  rv =
++      csp->SetRequestContextWithPrincipal(principal, selfURI, EmptyString(), 0);
+   NS_ENSURE_SUCCESS(rv, rv);
+-
+   csp->AppendPolicy(aPolicyString, false, false);
+ 
+   const nsCSPPolicy* policy = csp->GetPolicy(0);

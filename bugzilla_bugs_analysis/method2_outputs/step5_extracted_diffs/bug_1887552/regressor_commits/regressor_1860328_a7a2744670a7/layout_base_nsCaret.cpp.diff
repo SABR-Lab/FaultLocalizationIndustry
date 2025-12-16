@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/base/nsCaret.cpp
+# Commit: a7a2744670a7
+# Full Hash: a7a2744670a7ce15ccafd8c59b909d90b8e2837a
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2024-01-11 09:52:49
+# Regressor Bug: 1860328
+# File Overlap Count: 2
+# Description:
+#   Bug 1860328 - Fix a bug where caret misses when dragging and dropping r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D192377
+# ==============================================================================
+
+diff -r 62230fd018f6 -r a7a2744670a7 layout/base/nsCaret.cpp
+--- a/layout/base/nsCaret.cpp	Wed Jan 10 16:50:49 2024 +0000
++++ b/layout/base/nsCaret.cpp	Wed Jan 10 17:03:38 2024 +0000
+@@ -398,6 +398,10 @@
+ }
+ 
+ void nsCaret::SchedulePaint(Selection* aSelection) {
++  if (mLastCaretFrame) {
++    mLastCaretFrame->MarkNeedsDisplayItemRebuild();
++  }
++
+   Selection* selection;
+   if (aSelection) {
+     selection = aSelection;
+@@ -409,14 +413,15 @@
+   nsIFrame* frame = GetFrameAndOffset(selection, mOverrideContent,
+                                       mOverrideOffset, &frameOffset);
+   if (!frame) {
++    mLastCaretFrame = nullptr;
+     return;
+   }
+ 
+   if (nsIFrame* cb = GetContainingBlockIfNeeded(frame)) {
+-    cb->SchedulePaint();
+-  } else {
+-    frame->SchedulePaint();
++    frame = cb;
+   }
++
++  frame->SchedulePaint();
+ }
+ 
+ void nsCaret::SetVisibilityDuringSelection(bool aVisibility) {
+@@ -555,6 +560,9 @@
+ NS_IMETHODIMP
+ nsCaret::NotifySelectionChanged(Document*, Selection* aDomSel, int16_t aReason,
+                                 int32_t aAmount) {
++  if (mLastCaretFrame) {
++    mLastCaretFrame->MarkNeedsDisplayItemRebuild();
++  }
+   // Note that aDomSel, per the comment below may not be the same as our
+   // selection, but that's OK since if that is the case, it wouldn't have
+   // mattered what IsVisible() returns here, so we just opt for checking

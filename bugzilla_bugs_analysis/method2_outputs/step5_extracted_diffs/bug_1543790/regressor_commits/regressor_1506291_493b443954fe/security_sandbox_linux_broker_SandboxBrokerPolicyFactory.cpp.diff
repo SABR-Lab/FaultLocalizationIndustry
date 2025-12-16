@@ -1,0 +1,65 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/linux/broker/SandboxBrokerPolicyFactory.cpp
+# Commit: 493b443954fe
+# Full Hash: 493b443954fe15f7b542ba14671f25e5f8531dff
+# Author: Jed Davis <jld@mozilla.com>
+# Date: 2019-02-28 10:55:23
+# Regressor Bug: 1506291
+# File Overlap Count: 1
+# Description:
+#   Bug 1506291 - Add Linux sandboxing for the RDD (media decoder) process. r=gcp,mjf,flod
+#   
+#   The seccomp-bpf policy is currently just the "common" policy with no
+#   additions (but with the fixes in bug 1511560 to enable shared memory
+#   creation).  The file broker policy allows shared memory creation and
+# ==============================================================================
+
+diff -r bf58d8320f5a -r 493b443954fe security/sandbox/linux/broker/SandboxBrokerPolicyFactory.cpp
+--- a/security/sandbox/linux/broker/SandboxBrokerPolicyFactory.cpp	Mon Feb 25 16:20:50 2019 +0000
++++ b/security/sandbox/linux/broker/SandboxBrokerPolicyFactory.cpp	Wed Feb 27 20:14:54 2019 +0000
+@@ -193,6 +193,13 @@
+   AddPathsFromFile(aPolicy, ldconfigPath);
+ }
+ 
++static void AddSharedMemoryPaths(SandboxBroker::Policy* aPolicy, pid_t aPid) {
++  std::string shmPath("/dev/shm");
++  if (base::SharedMemory::AppendPosixShmPrefix(&shmPath, aPid)) {
++    aPolicy->AddPrefix(rdwrcr, shmPath.c_str());
++  }
++}
++
+ SandboxBrokerPolicyFactory::SandboxBrokerPolicyFactory() {
+   // Policy entries that are the same in every process go here, and
+   // are cached over the lifetime of the factory.
+@@ -524,10 +531,7 @@
+   if (allowPulse) {
+     policy->AddDir(rdwrcr, "/dev/shm");
+   } else {
+-    std::string shmPath("/dev/shm");
+-    if (base::SharedMemory::AppendPosixShmPrefix(&shmPath, aPid)) {
+-      policy->AddPrefix(rdwrcr, shmPath.c_str());
+-    }
++    AddSharedMemoryPaths(policy.get(), aPid);
+   }
+ 
+ #  ifdef MOZ_WIDGET_GTK
+@@ -581,5 +585,17 @@
+   }
+ }
+ 
++/* static */ UniquePtr<SandboxBroker::Policy>
++SandboxBrokerPolicyFactory::GetUtilityPolicy(int aPid) {
++  auto policy = MakeUnique<SandboxBroker::Policy>();
++
++  AddSharedMemoryPaths(policy.get(), aPid);
++
++  if (policy->IsEmpty()) {
++    policy = nullptr;
++  }
++  return policy;
++}
++
+ #endif  // MOZ_CONTENT_SANDBOX
+ }  // namespace mozilla

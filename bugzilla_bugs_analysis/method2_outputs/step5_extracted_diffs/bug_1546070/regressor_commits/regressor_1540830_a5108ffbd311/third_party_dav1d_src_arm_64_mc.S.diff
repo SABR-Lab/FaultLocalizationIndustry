@@ -1,0 +1,119 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/dav1d/src/arm/64/mc.S
+# Commit: a5108ffbd311
+# Full Hash: a5108ffbd31101e7cb72dabc271d92027f953c3c
+# Author: Alex Chronopoulos <achronop@gmail.com>
+# Date: 2019-04-20 09:35:22
+# Regressor Bug: 1540830
+# File Overlap Count: 3
+# Description:
+#   Bug 1540830 - Update dav1d from upstream to 1f7a7e8. r=TD-Linux
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D28200
+# ==============================================================================
+
+diff -r 98adabf295d0 -r a5108ffbd311 third_party/dav1d/src/arm/64/mc.S
+--- a/third_party/dav1d/src/arm/64/mc.S	Fri Apr 19 20:49:36 2019 +0000
++++ b/third_party/dav1d/src/arm/64/mc.S	Fri Apr 19 20:36:10 2019 +0000
+@@ -235,8 +235,8 @@
+ 
+ 
+ // This has got the same signature as the put_8tap functions,
+-// and assumes that x8 is set to (24-clz(w)).
+-function put
++// and assumes that x8 is set to (clz(w)-24).
++function put_neon
+         adr             x9,  L(put_tbl)
+         ldrh            w8,  [x9, x8, lsl #1]
+         sub             x9,  x9,  w8, uxtw
+@@ -330,8 +330,8 @@
+ 
+ 
+ // This has got the same signature as the prep_8tap functions,
+-// and assumes that x8 is set to (24-clz(w)), and x7 to w*2.
+-function prep
++// and assumes that x8 is set to (clz(w)-24), and x7 to w*2.
++function prep_neon
+         adr             x9,  L(prep_tbl)
+         ldrh            w8,  [x9, x8, lsl #1]
+         sub             x9,  x9,  w8, uxtw
+@@ -703,7 +703,7 @@
+ function \op\()_8tap_\type\()_8bpc_neon, export=1
+         mov             x8,  \type_h
+         mov             x9,  \type_v
+-        b               \op\()_8tap
++        b               \op\()_8tap\()_neon
+ endfunc
+ .endm
+ 
+@@ -723,7 +723,7 @@
+ make_8tap_fn \type, sharp_regular,  SHARP,   REGULAR
+ make_8tap_fn \type, sharp_smooth,   SHARP,   SMOOTH
+ 
+-function \type\()_8tap
++function \type\()_8tap_neon
+         mov             w10,  #0x4081  // (1 << 14) | (1 << 7) | (1 << 0)
+         mul             \mx,  \mx, w10
+         mul             \my,  \my, w10
+@@ -741,7 +741,7 @@
+         b.ne            L(\type\()_8tap_h)
+         tst             \my, #(0x7f << 14)
+         b.ne            L(\type\()_8tap_v)
+-        b               \type
++        b               \type\()_neon
+ 
+ L(\type\()_8tap_h):
+         cmp             \w,  #4
+@@ -1826,7 +1826,7 @@
+         sub             w8,  w8,  #24
+         cbnz            \mx, L(\type\()_bilin_h)
+         cbnz            \my, L(\type\()_bilin_v)
+-        b               \type
++        b               \type\()_neon
+ 
+ L(\type\()_bilin_h):
+         cbnz            \my, L(\type\()_bilin_hv)
+@@ -2335,7 +2335,7 @@
+         add             \src, \src, \inc
+ .endm
+ 
+-function warp_filter_horz
++function warp_filter_horz_neon
+         add             w12, w5,  #512
+ 
+         ld1             {v16.8b, v17.8b}, [x2], x3
+@@ -2431,24 +2431,24 @@
+         lsl             x1,  x1,  #1
+ .endif
+ 
+-        bl              warp_filter_horz
++        bl              warp_filter_horz_neon
+         mov             v24.16b, v16.16b
+-        bl              warp_filter_horz
++        bl              warp_filter_horz_neon
+         mov             v25.16b, v16.16b
+-        bl              warp_filter_horz
++        bl              warp_filter_horz_neon
+         mov             v26.16b, v16.16b
+-        bl              warp_filter_horz
++        bl              warp_filter_horz_neon
+         mov             v27.16b, v16.16b
+-        bl              warp_filter_horz
++        bl              warp_filter_horz_neon
+         mov             v28.16b, v16.16b
+-        bl              warp_filter_horz
++        bl              warp_filter_horz_neon
+         mov             v29.16b, v16.16b
+-        bl              warp_filter_horz
++        bl              warp_filter_horz_neon
+         mov             v30.16b, v16.16b
+ 
+ 1:
+         add             w14, w6,  #512
+-        bl              warp_filter_horz
++        bl              warp_filter_horz_neon
+         mov             v31.16b, v16.16b
+ 
+         load_filter_row d0, w14, w9

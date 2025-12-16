@@ -1,0 +1,77 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/manager/ssl/nsNSSCallbacks.cpp
+# Commit: 11e5baee978e
+# Full Hash: 11e5baee978e8f98fa3795e430dd60c7600c9e8c
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2019-10-22 09:46:06
+# Regressor Bug: 1580315
+# File Overlap Count: 2
+# Description:
+#   Bug 1580315 - Convert certList to raw array for nsITransportSecurityInfo r=keeler,Ehsan,kershaw
+#   
+#   This patch converts the certList attribute of nsITransportSecurityInfo
+#   from nsIX509CertList to Array<nsIx509Cert>
+#   
+# ==============================================================================
+
+diff -r 341d72ef4bf5 -r 11e5baee978e security/manager/ssl/nsNSSCallbacks.cpp
+--- a/security/manager/ssl/nsNSSCallbacks.cpp	Mon Oct 21 19:33:02 2019 +0000
++++ b/security/manager/ssl/nsNSSCallbacks.cpp	Mon Oct 21 19:49:01 2019 +0000
+@@ -1113,9 +1113,17 @@
+   }
+ }
+ 
+-nsresult IsCertificateDistrustImminent(nsIX509CertList* aCertList,
+-                                       /* out */ bool& isDistrusted) {
+-  if (!aCertList) {
++nsresult IsCertificateDistrustImminent(
++    const nsTArray<RefPtr<nsIX509Cert>>& aCertArray,
++    /* out */ bool& isDistrusted) {
++  nsCOMPtr<nsIX509CertList> tmpCertList;
++  nsresult rv = TransportSecurityInfo::ConvertCertArrayToCertList(
++      aCertArray, getter_AddRefs(tmpCertList));
++
++  if (NS_FAILED(rv)) {
++    return rv;
++  }
++  if (!tmpCertList) {
+     return NS_ERROR_INVALID_POINTER;
+   }
+ 
+@@ -1123,8 +1131,8 @@
+   nsCOMPtr<nsIX509CertList> intCerts;
+   nsCOMPtr<nsIX509Cert> eeCert;
+ 
+-  RefPtr<nsNSSCertList> certList = aCertList->GetCertList();
+-  nsresult rv = certList->SegmentCertificateChain(rootCert, intCerts, eeCert);
++  RefPtr<nsNSSCertList> certList = tmpCertList->GetCertList();
++  rv = certList->SegmentCertificateChain(rootCert, intCerts, eeCert);
+   if (NS_FAILED(rv)) {
+     return rv;
+   }
+@@ -1383,15 +1391,16 @@
+     }
+   }
+ 
+-  nsCOMPtr<nsIX509CertList> succeededCertChain;
+-  // This always returns NS_OK, but the list could be empty. This is a
+-  // best-effort check for now. Bug 731478 will reduce the incidence of empty
++  nsTArray<RefPtr<nsIX509Cert>> succeededCertArray;
++  // The list could be empty. Bug 731478 will reduce the incidence of empty
+   // succeeded cert chains through better caching.
+-  Unused << infoObject->GetSucceededCertChain(
+-      getter_AddRefs(succeededCertChain));
++  nsresult srv = infoObject->GetSucceededCertChain(succeededCertArray);
++
+   bool distrustImminent;
+-  nsresult srv =
+-      IsCertificateDistrustImminent(succeededCertChain, distrustImminent);
++  if (NS_SUCCEEDED(srv)) {
++    srv = IsCertificateDistrustImminent(succeededCertArray, distrustImminent);
++  }
++
+   if (NS_SUCCEEDED(srv) && distrustImminent) {
+     state |= nsIWebProgressListener::STATE_CERT_DISTRUST_IMMINENT;
+   }

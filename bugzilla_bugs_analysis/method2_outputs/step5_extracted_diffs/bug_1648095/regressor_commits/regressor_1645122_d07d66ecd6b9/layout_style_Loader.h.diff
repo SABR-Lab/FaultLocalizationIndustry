@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/style/Loader.h
+# Commit: d07d66ecd6b9
+# Full Hash: d07d66ecd6b9ca685444912826f25e9751ef13b5
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2020-06-23 21:38:40
+# Regressor Bug: 1645122
+# File Overlap Count: 3
+# Description:
+#   Bug 1645122 - Properly block onload when coalescing loads with other documents. r=heycam
+#   
+#   If two loading documents hit the sheet cache and we coalesce the
+#   resource load, there's nothing that prevents the load event on the
+#   second document from firing right now, and there should be.
+# ==============================================================================
+
+diff -r ce1a126dcf10 -r d07d66ecd6b9 layout/style/Loader.h
+--- a/layout/style/Loader.h	Mon Jun 22 13:24:19 2020 +0000
++++ b/layout/style/Loader.h	Tue Jun 23 08:27:54 2020 +0000
+@@ -449,6 +449,20 @@
+   friend class StreamLoader;
+ 
+   // Helpers to conditionally block onload if mDocument is non-null.
++  void IncrementOngoingLoadCount() {
++    if (!mOngoingLoadCount++) {
++      BlockOnload();
++    }
++  }
++
++  void DecrementOngoingLoadCount() {
++    MOZ_DIAGNOSTIC_ASSERT(mOngoingLoadCount);
++    MOZ_DIAGNOSTIC_ASSERT(mOngoingLoadCount > mPendingLoadCount);
++    if (!--mOngoingLoadCount) {
++      UnblockOnload(false);
++    }
++  }
++
+   void BlockOnload();
+   void UnblockOnload(bool aFireSync);
+ 
+@@ -516,7 +530,8 @@
+ 
+   // Note: LoadSheet is responsible for setting the sheet to complete on
+   // failure.
+-  nsresult LoadSheet(SheetLoadData&, SheetState);
++  enum class PendingLoad { No, Yes };
++  nsresult LoadSheet(SheetLoadData&, SheetState, PendingLoad = PendingLoad::No);
+ 
+   enum class AllowAsyncParse {
+     Yes,

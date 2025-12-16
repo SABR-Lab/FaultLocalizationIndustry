@@ -1,0 +1,79 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/HttpChannelParent.h
+# Commit: 7cdf3cef2773
+# Full Hash: 7cdf3cef27736a14fd8f9db58522da37e103d984
+# Author: Manuel Bucher <manuel@mozilla.com>
+# Date: 2022-12-02 21:26:33
+# Regressor Bug: 1771867
+# File Overlap Count: 1
+# Description:
+#   Bug 1771867 - Early Hints Phase 2 - Part 3: Add mechanism to notify EarlyHintPreloader that HttpChannelParent is ready to complete the redirect r=necko-reviewers,kershaw,valentin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D161178
+# ==============================================================================
+
+diff -r 5090eae24a5c -r 7cdf3cef2773 netwerk/protocol/http/HttpChannelParent.h
+--- a/netwerk/protocol/http/HttpChannelParent.h	Fri Dec 02 09:45:24 2022 +0000
++++ b/netwerk/protocol/http/HttpChannelParent.h	Fri Dec 02 09:45:24 2022 +0000
+@@ -8,6 +8,7 @@
+ #ifndef mozilla_net_HttpChannelParent_h
+ #define mozilla_net_HttpChannelParent_h
+ 
++#include "HttpBaseChannel.h"
+ #include "nsHttp.h"
+ #include "mozilla/net/PHttpChannelParent.h"
+ #include "mozilla/net/NeckoCommon.h"
+@@ -94,6 +95,9 @@
+ 
+   void InvokeAsyncOpen(nsresult rv);
+ 
++  void InvokeEarlyHintPreloader(nsresult rv, uint64_t aEarlyHintPreloaderId,
++                                uint64_t aChannelId);
++
+   // Calls SendSetPriority if mIPCClosed is false.
+   void DoSendSetPriority(int16_t aValue);
+ 
+@@ -124,6 +128,12 @@
+       Endpoint<extensions::PStreamFilterChild>&& aChildEndpoint);
+   [[nodiscard]] RefPtr<GenericPromise> DetachStreamFilters();
+ 
++  // Should only be called from EarlyHintPreloader. mChannel should be null at
++  // the point of calling. Sets mChannel to aChannel. Used by the
++  // EarlyHintPreloader to redirect the channel to this parent as soon as the
++  // final channel becomes available after all http redirects.
++  void SetHttpChannelFromEarlyHintPreloader(HttpBaseChannel* aChannel);
++
+  protected:
+   // used to connect redirected-to channel in parent with just created
+   // ChildChannel.  Used during redirects.
+@@ -160,7 +170,8 @@
+       const TimeStamp& aHandleFetchEventStart,
+       const TimeStamp& aHandleFetchEventEnd,
+       const bool& aForceMainDocumentChannel,
+-      const TimeStamp& aNavigationStartTimeStamp);
++      const TimeStamp& aNavigationStartTimeStamp,
++      const uint64_t& aEarlyHintPreloaderId);
+ 
+   virtual mozilla::ipc::IPCResult RecvSetPriority(
+       const int16_t& priority) override;
+@@ -220,7 +231,8 @@
+   // id, a promise will be returned so the caller can append callbacks on it.
+   // If called multiple times before mBgParent is available, the same promise
+   // will be returned and the callbacks will be invoked in order.
+-  [[nodiscard]] RefPtr<GenericNonExclusivePromise> WaitForBgParent();
++  [[nodiscard]] RefPtr<GenericNonExclusivePromise> WaitForBgParent(
++      uint64_t aChannelId);
+ 
+   // Remove the association with background channel after main-thread IPC
+   // is about to be destroyed or no further event is going to be sent, i.e.,
+@@ -235,6 +247,8 @@
+ 
+   friend class HttpBackgroundChannelParent;
+ 
++  uint64_t mEarlyHintPreloaderId;
++
+   RefPtr<HttpBaseChannel> mChannel;
+   nsCOMPtr<nsICacheEntry> mCacheEntry;
+ 

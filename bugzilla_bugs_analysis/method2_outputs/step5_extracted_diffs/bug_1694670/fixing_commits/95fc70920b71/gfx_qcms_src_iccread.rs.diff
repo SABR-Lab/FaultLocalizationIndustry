@@ -1,0 +1,35 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/qcms/src/iccread.rs
+# Commit: 95fc70920b71
+# Full Hash: 95fc70920b71afdd5ea6a411cbb3519064ed3cbc
+# Author: Jeff Muizelaar <jmuizelaar@mozilla.com>
+# Date: 2021-02-25 21:52:15
+# Description:
+#   Bug 1694670. Fix the OOB check in write_u32/u16. r=aosmond
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D106362
+# ==============================================================================
+
+diff -r 4bfa17997433 -r 95fc70920b71 gfx/qcms/src/iccread.rs
+--- a/gfx/qcms/src/iccread.rs	Thu Feb 25 13:07:04 2021 +0000
++++ b/gfx/qcms/src/iccread.rs	Thu Feb 25 13:18:47 2021 +0000
+@@ -229,7 +229,7 @@
+     read_u16(mem, offset)
+ }
+ pub fn write_u32(mem: &mut [u8], offset: usize, value: u32) {
+-    if offset <= mem.len() - std::mem::size_of_val(&value) {
++    if offset > mem.len() - std::mem::size_of_val(&value) {
+         panic!("OOB");
+     }
+     let mem = mem.as_mut_ptr();
+@@ -238,7 +238,7 @@
+     }
+ }
+ pub fn write_u16(mem: &mut [u8], offset: usize, value: u16) {
+-    if offset <= mem.len() - std::mem::size_of_val(&value) {
++    if offset > mem.len() - std::mem::size_of_val(&value) {
+         panic!("OOB");
+     }
+     let mem = mem.as_mut_ptr();

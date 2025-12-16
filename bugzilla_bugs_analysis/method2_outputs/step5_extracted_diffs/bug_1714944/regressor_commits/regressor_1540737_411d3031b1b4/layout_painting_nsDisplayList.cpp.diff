@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/painting/nsDisplayList.cpp
+# Commit: 411d3031b1b4
+# Full Hash: 411d3031b1b4c0f8b9ff3009ceb21ba4cfdc601e
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2021-05-19 08:32:22
+# Regressor Bug: 1540737
+# File Overlap Count: 1
+# Description:
+#   Bug 1540737 - Don't use PushLayerWithBlend since it's not implemented by all backend. r=jrmuizel
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D115432
+# ==============================================================================
+
+diff -r 445bc0de5112 -r 411d3031b1b4 layout/painting/nsDisplayList.cpp
+--- a/layout/painting/nsDisplayList.cpp	Wed May 19 01:11:33 2021 +0000
++++ b/layout/painting/nsDisplayList.cpp	Wed May 19 01:11:33 2021 +0000
+@@ -6208,12 +6208,26 @@
+ 
+ void nsDisplayBlendMode::Paint(nsDisplayListBuilder* aBuilder,
+                                gfxContext* aCtx) {
+-  aCtx->GetDrawTarget()->PushLayerWithBlend(false, 1.0, nullptr,
+-                                            mozilla::gfx::Matrix(), IntRect(),
+-                                            false, BlendMode());
+-  GetChildren()->Paint(aBuilder, aCtx,
++  // This should be switched to use PushLayerWithBlend, once it's
++  // been implemented for all DrawTarget backends.
++  int32_t appUnitsPerDevPixel = mFrame->PresContext()->AppUnitsPerDevPixel();
++  IntRect rect =
++      IntRect::RoundOut(NSRectToRect(GetPaintRect(), appUnitsPerDevPixel));
++
++  RefPtr<DrawTarget> dt = aCtx->GetDrawTarget()->CreateSimilarDrawTarget(
++      rect.Size(), SurfaceFormat::B8G8R8A8);
++  dt->SetTransform(Matrix::Translation(-rect.x, -rect.y));
++  RefPtr<gfxContext> ctx = gfxContext::CreatePreservingTransformOrNull(dt);
++
++  GetChildren()->Paint(aBuilder, ctx,
+                        mFrame->PresContext()->AppUnitsPerDevPixel());
+-  aCtx->GetDrawTarget()->PopLayer();
++
++  dt->Flush();
++  RefPtr<SourceSurface> surface = dt->Snapshot();
++  aCtx->GetDrawTarget()->DrawSurface(
++      surface, Rect(rect.x, rect.y, rect.width, rect.height),
++      Rect(0, 0, rect.width, rect.height), DrawSurfaceOptions(),
++      DrawOptions(1.0f, nsCSSRendering::GetGFXBlendMode(mBlendMode)));
+ }
+ 
+ mozilla::gfx::CompositionOp nsDisplayBlendMode::BlendMode() {

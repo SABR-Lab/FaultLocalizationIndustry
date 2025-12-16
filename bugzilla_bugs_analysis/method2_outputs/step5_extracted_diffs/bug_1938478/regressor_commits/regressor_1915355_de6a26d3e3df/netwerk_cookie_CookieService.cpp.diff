@@ -1,0 +1,126 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/cookie/CookieService.cpp
+# Commit: de6a26d3e3df
+# Full Hash: de6a26d3e3dfd5d09121f11ae2b09903c780179b
+# Author: Tim Huang <tihuang@mozilla.com>
+# Date: 2024-12-17 17:00:49
+# Regressor Bug: 1915355
+# File Overlap Count: 1
+# Description:
+#   Bug 1915355 - Part 4: Implement the third-party cookie blocking excpetion in CookieService. r=cookie-reviewers,baku,valentin
+#   
+#   The patch integrates the third-party cookie blocking excpetion in
+#   CookieService.
+#   
+# ==============================================================================
+
+diff -r b2934cae3c23 -r de6a26d3e3df netwerk/cookie/CookieService.cpp
+--- a/netwerk/cookie/CookieService.cpp	Tue Dec 17 08:57:30 2024 +0000
++++ b/netwerk/cookie/CookieService.cpp	Tue Dec 17 08:57:31 2024 +0000
+@@ -7,6 +7,7 @@
+ #include "CookieCommons.h"
+ #include "CookieLogging.h"
+ #include "CookieParser.h"
++#include "CookieService.h"
+ #include "mozilla/AppShutdown.h"
+ #include "mozilla/ClearOnShutdown.h"
+ #include "mozilla/Components.h"
+@@ -16,6 +17,7 @@
+ #include "mozilla/dom/Document.h"
+ #include "mozilla/dom/nsMixedContentBlocker.h"
+ #include "mozilla/dom/Promise.h"
++#include "mozilla/dom/Promise-inl.h"
+ #include "mozilla/net/CookieJarSettings.h"
+ #include "mozilla/net/CookiePersistentStorage.h"
+ #include "mozilla/net/CookiePrivateStorage.h"
+@@ -259,6 +261,10 @@
+   os->AddObserver(this, "profile-do-change", true);
+   os->AddObserver(this, "last-pb-context-exited", true);
+ 
++  RunOnShutdown([self = RefPtr{this}] {
++    self->mThirdPartyCookieBlockingExceptions.Shutdown();
++  });
++
+   return NS_OK;
+ }
+ 
+@@ -1729,5 +1735,77 @@
+                   aThirdParty, aDocument->GetBrowsingContext());
+ }
+ 
++/* static */
++void CookieService::Update3PCBExceptionInfo(nsIChannel* aChannel) {
++  MOZ_ASSERT(aChannel);
++  MOZ_ASSERT(XRE_IsParentProcess());
++
++  nsCOMPtr<nsILoadInfo> loadInfo = aChannel->LoadInfo();
++  RefPtr<CookieService> csSingleton = CookieService::GetSingleton();
++
++  // If the channel is a top-level loading, we start initiating the exception
++  // list service.
++  if (loadInfo->GetExternalContentPolicyType() ==
++      ExtContentPolicy::TYPE_DOCUMENT) {
++    Unused
++        << csSingleton->mThirdPartyCookieBlockingExceptions.EnsureInitialized();
++    return;
++  }
++
++  // If the channel is triggered by a system principal, we don't need to do
++  // anything because the channel is for loading system resources.
++  if (loadInfo->TriggeringPrincipal()->IsSystemPrincipal()) {
++    return;
++  }
++
++  // Suspend the channel here. We will resume it after we check the exception
++  // list.
++  aChannel->Suspend();
++
++  // It would be better to do this check with other checks that also suspend
++  // the channel, such as the URLClassifier.
++  csSingleton->mThirdPartyCookieBlockingExceptions.EnsureInitialized()->Then(
++      GetMainThreadSerialEventTarget(), __func__,
++      [channel = nsCOMPtr{aChannel}, csSingleton, loadInfo](
++          const GenericNonExclusivePromise::ResolveOrRejectValue& aValue) {
++        // We check the 3PCB exception list here. We will check both the
++        // wildcard exception and the specific exception. If any of them is in
++        // the exception list, we will set the channel's isOn3PCBExceptionList
++        // to true.
++        bool isInExceptionList =
++            csSingleton->mThirdPartyCookieBlockingExceptions
++                .CheckExceptionForChannel(channel);
++
++        Unused << loadInfo->SetIsOn3PCBExceptionList(isInExceptionList);
++
++        channel->Resume();
++        return NS_OK;
++      });
++}
++
++NS_IMETHODIMP
++CookieService::AddThirdPartyCookieBlockingExceptions(
++    const nsTArray<RefPtr<nsIThirdPartyCookieExceptionEntry>>& aExceptions) {
++  for (const auto& ex : aExceptions) {
++    nsAutoCString exception;
++    MOZ_ALWAYS_SUCCEEDS(ex->Serialize(exception));
++    mThirdPartyCookieBlockingExceptions.Insert(exception);
++  }
++
++  return NS_OK;
++}
++
++NS_IMETHODIMP
++CookieService::RemoveThirdPartyCookieBlockingExceptions(
++    const nsTArray<RefPtr<nsIThirdPartyCookieExceptionEntry>>& aExceptions) {
++  for (const auto& ex : aExceptions) {
++    nsAutoCString exception;
++    MOZ_ALWAYS_SUCCEEDS(ex->Serialize(exception));
++    mThirdPartyCookieBlockingExceptions.Remove(exception);
++  }
++
++  return NS_OK;
++}
++
+ }  // namespace net
+ }  // namespace mozilla

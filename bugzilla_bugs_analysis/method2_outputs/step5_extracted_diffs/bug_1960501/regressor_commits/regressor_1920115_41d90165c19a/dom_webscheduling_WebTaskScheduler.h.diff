@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/webscheduling/WebTaskScheduler.h
+# Commit: 41d90165c19a
+# Full Hash: 41d90165c19adfa61486484b7ffb5ccab599461c
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2025-04-01 09:40:15
+# Regressor Bug: 1920115
+# File Overlap Count: 2
+# Description:
+#   Bug 1920115 - Allow selecting tasks from all existing web schedulers for main thread r=jjaschke,smaug
+#   
+#   This is a missing step in the current implementation. When we about
+#   to select a task, it should pick one from all scheduled tasks, including
+#   the ones scheduled by different schedulers.
+# ==============================================================================
+
+diff -r 2b4f7ebdb0b7 -r 41d90165c19a dom/webscheduling/WebTaskScheduler.h
+--- a/dom/webscheduling/WebTaskScheduler.h	Mon Mar 31 19:49:02 2025 +0000
++++ b/dom/webscheduling/WebTaskScheduler.h	Mon Mar 31 19:49:03 2025 +0000
+@@ -243,7 +243,9 @@
+ class WebTaskSchedulerMainThread;
+ class WebTaskSchedulerWorker;
+ 
+-class WebTaskScheduler : public nsWrapperCache, public SupportsWeakPtr {
++class WebTaskScheduler : public nsWrapperCache,
++                         public SupportsWeakPtr,
++                         public LinkedListElement<WebTaskScheduler> {
+   friend class DelayedWebTaskHandler;
+ 
+  public:
+@@ -268,7 +270,7 @@
+   virtual JSObject* WrapObject(JSContext* cx,
+                                JS::Handle<JSObject*> aGivenProto) override;
+ 
+-  WebTask* GetNextTask();
++  WebTask* GetNextTask(bool aIsMainThread);
+ 
+   virtual void Disconnect();
+ 
+@@ -285,8 +287,6 @@
+   virtual ~WebTaskScheduler() = default;
+   nsCOMPtr<nsIGlobalObject> mParent;
+ 
+-  uint32_t mNextEnqueueOrder;
+-
+  private:
+   struct SelectedTaskQueueData {
+     WebTaskQueueHashKey mSelectedQueueHashKey;
+@@ -311,6 +311,10 @@
+ 
+   EventQueuePriority GetEventQueuePriority(const TaskPriority& aPriority) const;
+ 
++  nsTHashMap<WebTaskQueueHashKey, WebTaskQueue>& GetWebTaskQueues() {
++    return mWebTaskQueues;
++  }
++
+   nsTHashMap<WebTaskQueueHashKey, WebTaskQueue> mWebTaskQueues;
+ };
+ 

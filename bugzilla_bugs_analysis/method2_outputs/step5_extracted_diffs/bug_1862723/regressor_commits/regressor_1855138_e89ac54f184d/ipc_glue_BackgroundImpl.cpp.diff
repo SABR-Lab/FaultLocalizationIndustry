@@ -1,0 +1,82 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: ipc/glue/BackgroundImpl.cpp
+# Commit: e89ac54f184d
+# Full Hash: e89ac54f184df504337b7394428ab6307578eec1
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2023-10-04 03:53:37
+# Regressor Bug: 1855138
+# File Overlap Count: 3
+# Description:
+#   Bug 1855138 - Add BackgroundParent::KillHardAsync method; r=nika,ipc-reviewers
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D189482
+# ==============================================================================
+
+diff -r 23e1dfcc8598 -r e89ac54f184d ipc/glue/BackgroundImpl.cpp
+--- a/ipc/glue/BackgroundImpl.cpp	Tue Oct 03 18:25:15 2023 +0000
++++ b/ipc/glue/BackgroundImpl.cpp	Tue Oct 03 18:40:30 2023 +0000
+@@ -185,6 +185,10 @@
+   static uint64_t GetChildID(PBackgroundParent* aBackgroundActor);
+ 
+   // Forwarded from BackgroundParent.
++  static void KillHardAsync(PBackgroundParent* aBackgroundActor,
++                            const char* aReason);
++
++  // Forwarded from BackgroundParent.
+   static bool AllocStarter(ContentParent* aContent,
+                            Endpoint<PBackgroundStarterParent>&& aEndpoint,
+                            bool aCrossProcess = true);
+@@ -654,6 +658,12 @@
+ }
+ 
+ // static
++void BackgroundParent::KillHardAsync(PBackgroundParent* aBackgroundActor,
++                                     const char* aReason) {
++  ParentImpl::KillHardAsync(aBackgroundActor, aReason);
++}
++
++// static
+ bool BackgroundParent::AllocStarter(
+     ContentParent* aContent, Endpoint<PBackgroundStarterParent>&& aEndpoint) {
+   return ParentImpl::AllocStarter(aContent, std::move(aEndpoint));
+@@ -757,6 +767,38 @@
+ }
+ 
+ // static
++void ParentImpl::KillHardAsync(PBackgroundParent* aBackgroundActor,
++                               const char* aReason) {
++  AssertIsInMainProcess();
++  AssertIsOnBackgroundThread();
++  MOZ_ASSERT(aBackgroundActor);
++  MOZ_ASSERT(BackgroundParent::IsOtherProcessActor(aBackgroundActor));
++
++  RefPtr<ThreadsafeContentParentHandle> handle =
++      GetContentParentHandle(aBackgroundActor);
++  MOZ_ASSERT(handle);
++
++  MOZ_ALWAYS_SUCCEEDS(NS_DispatchToMainThread(
++      NS_NewRunnableFunction("ParentImpl::KillHardAsync",
++                             [handle = std::move(handle), aReason]() {
++                               mozilla::AssertIsOnMainThread();
++
++                               if (RefPtr<ContentParent> contentParent =
++                                       handle->GetContentParent()) {
++                                 contentParent->KillHard(aReason);
++                               }
++                             }),
++      NS_DISPATCH_NORMAL));
++
++  // After we've scheduled killing of the remote process, also ensure we induce
++  // a connection error in the IPC channel to immediately stop all IPC
++  // communication on this channel.
++  if (aBackgroundActor->CanSend()) {
++    aBackgroundActor->GetIPCChannel()->InduceConnectionError();
++  }
++}
++
++// static
+ bool ParentImpl::AllocStarter(ContentParent* aContent,
+                               Endpoint<PBackgroundStarterParent>&& aEndpoint,
+                               bool aCrossProcess) {

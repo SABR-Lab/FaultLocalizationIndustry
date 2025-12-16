@@ -1,0 +1,28 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/MacroAssembler.cpp
+# Commit: 2550e7f176e4
+# Full Hash: 2550e7f176e49dc7f44fbe449a7e7c75e0b2c1bd
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-09-21 21:36:12
+# Description:
+#   Bug 1664979 - Fix tls offset in case of widenFloatToDouble is true [fast fix]. r=lth
+#   
+#   When we do Push(srcSingle) inside outOfLineTruncateSlow but we don't adjust tlsOffset.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D90537
+# ==============================================================================
+
+diff -r 65444a87c9a4 -r 2550e7f176e4 js/src/jit/MacroAssembler.cpp
+--- a/js/src/jit/MacroAssembler.cpp	Mon Sep 21 07:35:08 2020 +0300
++++ b/js/src/jit/MacroAssembler.cpp	Mon Sep 21 05:18:59 2020 +0000
+@@ -2448,6 +2448,8 @@
+     srcSingle = src;
+     src = src.asDouble();
+     Push(srcSingle);
++    // Because we pushed FloatRegister we should adjust offset to tls.
++    *tlsOffset += sizeof(double);
+     convertFloat32ToDouble(srcSingle, src);
+   }
+ #else

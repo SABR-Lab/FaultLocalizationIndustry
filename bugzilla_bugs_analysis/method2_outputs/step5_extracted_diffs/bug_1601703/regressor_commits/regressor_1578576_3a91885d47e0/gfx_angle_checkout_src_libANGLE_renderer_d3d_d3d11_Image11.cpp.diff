@@ -1,0 +1,80 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/angle/checkout/src/libANGLE/renderer/d3d/d3d11/Image11.cpp
+# Commit: 3a91885d47e0
+# Full Hash: 3a91885d47e0ef7fba9749562d52300eea67c651
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2019-11-11 21:52:52
+# Regressor Bug: 1578576
+# File Overlap Count: 4
+# Description:
+#   Bug 1578576 - Part 2: Update to ANGLE 3865 r=jgilbert
+#   
+#   Depends on D44561
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44579
+# ==============================================================================
+
+diff -r 77cee77c0307 -r 3a91885d47e0 gfx/angle/checkout/src/libANGLE/renderer/d3d/d3d11/Image11.cpp
+--- a/gfx/angle/checkout/src/libANGLE/renderer/d3d/d3d11/Image11.cpp	Fri Nov 08 16:41:42 2019 +0000
++++ b/gfx/angle/checkout/src/libANGLE/renderer/d3d/d3d11/Image11.cpp	Fri Nov 08 17:06:00 2019 +0000
+@@ -373,7 +373,7 @@
+                                            const gl::Rectangle &sourceArea,
+                                            const gl::Framebuffer *sourceFBO)
+ {
+-    const gl::FramebufferAttachment *srcAttachment = sourceFBO->getReadColorbuffer();
++    const gl::FramebufferAttachment *srcAttachment = sourceFBO->getReadColorAttachment();
+     ASSERT(srcAttachment);
+ 
+     GLenum sourceInternalFormat = srcAttachment->getFormat().info->sizedInternalFormat;
+@@ -520,6 +520,7 @@
+ void Image11::releaseStagingTexture()
+ {
+     mStagingTexture.reset();
++    mStagingTextureSubresourceVerifier.reset();
+ }
+ 
+ angle::Result Image11::createStagingTexture(const gl::Context *context)
+@@ -577,6 +578,7 @@
+ 
+             mStagingTexture.setDebugName("Image11::StagingTexture3D");
+             mStagingSubresource = D3D11CalcSubresource(lodOffset, 0, lodOffset + 1);
++            mStagingTextureSubresourceVerifier.setDesc(desc);
+         }
+         break;
+ 
+@@ -615,6 +617,7 @@
+ 
+             mStagingTexture.setDebugName("Image11::StagingTexture2D");
+             mStagingSubresource = D3D11CalcSubresource(lodOffset, 0, lodOffset + 1);
++            mStagingTextureSubresourceVerifier.setDesc(desc);
+         }
+         break;
+ 
+@@ -642,6 +645,17 @@
+     ANGLE_TRY(
+         mRenderer->mapResource(context, stagingTexture->get(), subresourceIndex, mapType, 0, map));
+ 
++    if (!mStagingTextureSubresourceVerifier.wrap(mapType, map))
++    {
++        ID3D11DeviceContext *deviceContext = mRenderer->getDeviceContext();
++        deviceContext->Unmap(mStagingTexture.get(), mStagingSubresource);
++        Context11 *context11 = GetImplAs<Context11>(context);
++        context11->handleError(GL_OUT_OF_MEMORY,
++                               "Failed to allocate staging texture mapping verifier buffer.",
++                               __FILE__, ANGLE_FUNCTION, __LINE__);
++        return angle::Result::Stop;
++    }
++
+     mDirty = true;
+ 
+     return angle::Result::Continue;
+@@ -651,6 +665,7 @@
+ {
+     if (mStagingTexture.valid())
+     {
++        mStagingTextureSubresourceVerifier.unwrap();
+         ID3D11DeviceContext *deviceContext = mRenderer->getDeviceContext();
+         deviceContext->Unmap(mStagingTexture.get(), mStagingSubresource);
+     }

@@ -1,0 +1,149 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/forms/nsListControlFrame.cpp
+# Commit: 06263018f1f7
+# Full Hash: 06263018f1f70ceb780dff123c581c58c64d24e7
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2021-11-10 09:24:53
+# Regressor Bug: 1733263
+# File Overlap Count: 1
+# Description:
+#   Bug 1733263 - P5: Rely on DOMMenuItem events for ACTIVE state changes in select elements. r=Jamie
+#   
+#   1. Use dom events in RootAccessible to fire ACTIVE state changes.
+#   2. Add DOMMenuItemInactive events to nsListControlFrame and fire it on
+#      the previously active option.
+# ==============================================================================
+
+diff -r c8f226476a30 -r 06263018f1f7 layout/forms/nsListControlFrame.cpp
+--- a/layout/forms/nsListControlFrame.cpp	Tue Nov 09 23:17:17 2021 +0000
++++ b/layout/forms/nsListControlFrame.cpp	Tue Nov 09 23:17:17 2021 +0000
+@@ -620,6 +620,9 @@
+     mComboboxFrame->UpdateRecentIndex(GetSelectedIndex());
+   }
+ 
++#ifdef ACCESSIBILITY
++  nsCOMPtr<nsIContent> prevOption = GetCurrentOption();
++#endif
+   bool wasChanged = false;
+   // Get Current selection
+   if (aDoToggle) {
+@@ -634,17 +637,12 @@
+     return wasChanged;
+   }
+ 
+-#ifdef ACCESSIBILITY
+-  bool isCurrentOptionChanged = mEndSelectionIndex != aClickedIndex;
+-#endif
+   mStartSelectionIndex = aClickedIndex;
+   mEndSelectionIndex = aClickedIndex;
+   InvalidateFocus();
+ 
+ #ifdef ACCESSIBILITY
+-  if (isCurrentOptionChanged) {
+-    FireMenuItemActiveEvent();
+-  }
++  FireMenuItemActiveEvent(prevOption);
+ #endif
+ 
+   return wasChanged;
+@@ -766,15 +764,13 @@
+         mStartSelectionIndex = aClickedIndex;
+       }
+ #ifdef ACCESSIBILITY
+-      bool isCurrentOptionChanged = mEndSelectionIndex != aClickedIndex;
++      nsCOMPtr<nsIContent> prevOption = GetCurrentOption();
+ #endif
+       mEndSelectionIndex = aClickedIndex;
+       InvalidateFocus();
+ 
+ #ifdef ACCESSIBILITY
+-      if (isCurrentOptionChanged) {
+-        FireMenuItemActiveEvent();
+-      }
++      FireMenuItemActiveEvent(prevOption);
+ #endif
+     } else if (aIsControl) {
+       wasChanged = SingleSelection(aClickedIndex, true);  // might destroy us
+@@ -1289,6 +1285,10 @@
+     mComboboxFrame->UpdateRecentIndex(NS_SKIP_NOTIFY_INDEX);
+   }
+ 
++#ifdef ACCESSIBILITY
++  nsCOMPtr<nsIContent> prevOption = GetCurrentOption();
++#endif
++
+   AutoWeakFrame weakFrame(this);
+   ScrollToIndex(aNewIndex);
+   if (!weakFrame.IsAlive()) {
+@@ -1299,7 +1299,9 @@
+   InvalidateFocus();
+ 
+ #ifdef ACCESSIBILITY
+-  FireMenuItemActiveEvent();
++  if (aOldIndex != aNewIndex) {
++    FireMenuItemActiveEvent(prevOption);
++  }
+ #endif
+ }
+ 
+@@ -1355,7 +1357,7 @@
+       return;
+     }
+ #ifdef ACCESSIBILITY
+-    FireMenuItemActiveEvent();  // Inform assistive tech what got focus
++    FireMenuItemActiveEvent(nullptr);  // Inform assistive tech what got focus
+ #endif
+   }
+   mItemSelectionStarted = false;
+@@ -1579,17 +1581,25 @@
+ }
+ 
+ #ifdef ACCESSIBILITY
+-void nsListControlFrame::FireMenuItemActiveEvent() {
+-  if (mFocused != this && !IsInDropDownMode()) {
++void nsListControlFrame::FireMenuItemActiveEvent(nsIContent* aPreviousOption) {
++  if ((mFocused != this && !IsInDropDownMode()) ||
++      (IsInDropDownMode() && !mComboboxFrame->IsDroppedDown())) {
+     return;
+   }
+ 
+-  nsCOMPtr<nsIContent> optionContent = GetCurrentOption();
+-  if (!optionContent) {
++  nsIContent* optionContent = GetCurrentOption();
++  if (aPreviousOption == optionContent) {
++    // No change
+     return;
+   }
+ 
+-  FireDOMEvent(u"DOMMenuItemActive"_ns, optionContent);
++  if (aPreviousOption) {
++    FireDOMEvent(u"DOMMenuItemInactive"_ns, aPreviousOption);
++  }
++
++  if (optionContent) {
++    FireDOMEvent(u"DOMMenuItemActive"_ns, optionContent);
++  }
+ }
+ #endif
+ 
+@@ -2311,6 +2321,9 @@
+   AutoWeakFrame weakFrame(this);
+   bool wasChanged = false;
+   if (aIsControlOrMeta && !aIsShift && aCharCode != ' ') {
++#ifdef ACCESSIBILITY
++    nsCOMPtr<nsIContent> prevOption = GetCurrentOption();
++#endif
+     mStartSelectionIndex = aNewIndex;
+     mEndSelectionIndex = aNewIndex;
+     InvalidateFocus();
+@@ -2320,7 +2333,7 @@
+     }
+ 
+ #ifdef ACCESSIBILITY
+-    FireMenuItemActiveEvent();
++    FireMenuItemActiveEvent(prevOption);
+ #endif
+   } else if (mControlSelectMode && aCharCode == ' ') {
+     wasChanged = SingleSelection(aNewIndex, true);

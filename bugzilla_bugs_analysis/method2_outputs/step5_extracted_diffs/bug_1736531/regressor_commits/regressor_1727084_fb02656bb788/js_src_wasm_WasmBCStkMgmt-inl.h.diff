@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmBCStkMgmt-inl.h
+# Commit: fb02656bb788
+# Full Hash: fb02656bb788b8111d7159b1691094e429e7fc4f
+# Author: Lars T Hansen <lhansen@mozilla.com>
+# Date: 2021-10-18 16:09:29
+# Regressor Bug: 1727084
+# File Overlap Count: 6
+# Description:
+#   Bug 1727084 - Memory64 - Non-atomic-RMW baseline operations. r=yury
+#   
+#   Implement scalar, SIMD, and atomic loads and stores for the baseline
+#   compiler for x64, x86, arm64, and arm32.  Atomic RMW operations and
+#   wait/notify are in the next patch.
+# ==============================================================================
+
+diff -r 13ee9674ee35 -r fb02656bb788 js/src/wasm/WasmBCStkMgmt-inl.h
+--- a/js/src/wasm/WasmBCStkMgmt-inl.h	Mon Oct 18 09:58:14 2021 +0000
++++ b/js/src/wasm/WasmBCStkMgmt-inl.h	Mon Oct 18 09:58:15 2021 +0000
+@@ -1052,6 +1052,23 @@
+   return specific;
+ }
+ 
++bool BaseCompiler::hasConst() const {
++  const Stk& v = stk_.back();
++  switch (v.kind()) {
++    case Stk::ConstI32:
++    case Stk::ConstI64:
++    case Stk::ConstF32:
++    case Stk::ConstF64:
++#ifdef ENABLE_WASM_SIMD
++    case Stk::ConstV128:
++#endif
++    case Stk::ConstRef:
++      return true;
++    default:
++      return false;
++  }
++}
++
+ bool BaseCompiler::popConst(int32_t* c) {
+   Stk& v = stk_.back();
+   if (v.kind() != Stk::ConstI32) {
+@@ -1196,9 +1213,10 @@
+   return narrowI64(rd);
+ }
+ 
+-bool BaseCompiler::peekLocalI32(uint32_t* local) {
++bool BaseCompiler::peekLocal(uint32_t* local) {
+   Stk& v = stk_.back();
+-  if (v.kind() != Stk::LocalI32) {
++  // See hasLocal() for documentation of this logic.
++  if (v.kind() <= Stk::MemLast || v.kind() > Stk::LocalLast) {
+     return false;
+   }
+   *local = v.slot();

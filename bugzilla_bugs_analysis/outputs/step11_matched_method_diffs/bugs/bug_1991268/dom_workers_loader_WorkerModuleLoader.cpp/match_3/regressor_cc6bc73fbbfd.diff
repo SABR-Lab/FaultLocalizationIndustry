@@ -1,0 +1,39 @@
+diff -r e1c5be04b3a0 -r cc6bc73fbbfd dom/workers/loader/WorkerModuleLoader.cpp
+--- a/dom/workers/loader/WorkerModuleLoader.cpp	Wed Sep 24 23:17:54 2025 +0000
++++ b/dom/workers/loader/WorkerModuleLoader.cpp	Thu Sep 25 05:12:32 2025 +0300
+@@ -220,21 +220,20 @@
+ }
+ 
+ void WorkerModuleLoader::OnModuleLoadComplete(ModuleLoadRequest* aRequest) {
+-  if (aRequest->IsStaticImport()) {
+-    return;
+-  }
+-
+-  AutoJSAPI jsapi;
+-  if (NS_WARN_IF(!jsapi.Init(GetGlobalObject()))) {
+-    return;
+-  }
+-  RefPtr<WorkerScriptLoader> requestScriptLoader = GetScriptLoaderFor(aRequest);
+-  if (aRequest->IsDynamicImport()) {
+-    aRequest->ProcessDynamicImport();
+-    requestScriptLoader->TryShutdown();
+-  } else {
+-    requestScriptLoader->MaybeMoveToLoadedList(aRequest);
+-    requestScriptLoader->ProcessPendingRequests(jsapi.cx());
++  if (aRequest->IsTopLevel()) {
++    AutoJSAPI jsapi;
++    if (NS_WARN_IF(!jsapi.Init(GetGlobalObject()))) {
++      return;
++    }
++    RefPtr<WorkerScriptLoader> requestScriptLoader =
++        GetScriptLoaderFor(aRequest);
++    if (aRequest->IsDynamicImport()) {
++      aRequest->ProcessDynamicImport();
++      requestScriptLoader->TryShutdown();
++    } else {
++      requestScriptLoader->MaybeMoveToLoadedList(aRequest);
++      requestScriptLoader->ProcessPendingRequests(jsapi.cx());
++    }
+   }
+ }
+ 

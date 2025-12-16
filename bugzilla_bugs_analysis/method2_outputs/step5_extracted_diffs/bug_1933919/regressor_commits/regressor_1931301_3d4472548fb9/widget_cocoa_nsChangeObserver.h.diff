@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/cocoa/nsChangeObserver.h
+# Commit: 3d4472548fb9
+# Full Hash: 3d4472548fb9d48cce00f59066690611ee20ffcb
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2024-11-26 09:36:10
+# Regressor Bug: 1931301
+# File Overlap Count: 1
+# Description:
+#   Bug 1931301 - Notify of removals on a stable state, not mid-remove. r=smaug,masayuki,dshin
+#   
+#   This simplifies some observers, and makes others a bit more subtle, but I think
+#   over-all it is an improvement.
+#   
+# ==============================================================================
+
+diff -r 20a0394d798f -r 3d4472548fb9 widget/cocoa/nsChangeObserver.h
+--- a/widget/cocoa/nsChangeObserver.h	Mon Nov 25 17:56:21 2024 +0000
++++ b/widget/cocoa/nsChangeObserver.h	Mon Nov 25 17:58:40 2024 +0000
+@@ -20,8 +20,8 @@
+                                nsIContent* aContent, nsAtom* aAttribute)  \
+       override;                                                           \
+   void ObserveContentRemoved(mozilla::dom::Document* aDocument,           \
+-                             nsIContent* aContainer, nsIContent* aChild,  \
+-                             nsIContent* aPreviousChild) override;        \
++                             nsIContent* aContainer, nsIContent* aChild)  \
++      override;                                                           \
+   void ObserveContentInserted(mozilla::dom::Document* aDocument,          \
+                               nsIContent* aContainer, nsIContent* aChild) \
+       override;
+@@ -54,8 +54,8 @@
+   // if that element's children and grandchildren are removed. NOT if the
+   // observed element itself is removed.
+   virtual void ObserveContentRemoved(mozilla::dom::Document* aDocument,
+-                                     nsIContent* aContainer, nsIContent* aChild,
+-                                     nsIContent* aPreviousSibling) = 0;
++                                     nsIContent* aContainer,
++                                     nsIContent* aChild) = 0;
+ 
+   // Called when aChild has been inserted into its new parent aContainer.
+   // Only called if aContainer or aContainer's parent node are being observed

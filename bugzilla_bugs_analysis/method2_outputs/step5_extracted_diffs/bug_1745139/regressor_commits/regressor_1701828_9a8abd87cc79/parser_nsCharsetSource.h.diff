@@ -1,0 +1,77 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: parser/nsCharsetSource.h
+# Commit: 9a8abd87cc79
+# Full Hash: 9a8abd87cc7935f29b94248c1a6f8203faa14403
+# Author: Henri Sivonen <hsivonen@hsivonen.fi>
+# Date: 2021-12-08 21:43:06
+# Regressor Bug: 1701828
+# File Overlap Count: 1
+# Description:
+#   Bug 1701828 - meta charset rewrite. r=smaug
+#   
+#   Implements https://github.com/whatwg/html/issues/6962 . Improves performance
+#   when <meta charset> occurs in head but after the first kilobyte and aligns
+#   behavior better with WebKit and Blink.
+# ==============================================================================
+
+diff --git a/parser/nsCharsetSource.h b/parser/nsCharsetSource.h
+--- a/parser/nsCharsetSource.h
++++ b/parser/nsCharsetSource.h
+@@ -1,42 +1,43 @@
+ /* This Source Code Form is subject to the terms of the Mozilla Public
+  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+  * You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
+ #ifndef nsCharsetSource_h_
+ #define nsCharsetSource_h_
+ 
+ // note: the value order defines the priority; higher numbers take priority
+-enum {
++enum nsCharsetSource {
+   kCharsetUninitialized,
+   kCharsetFromFallback,
+   kCharsetFromDocTypeDefault,  // This and up confident for XHR
+-  // Start subdividing source for telementry purposes
++  // Start subdividing source for telemetry purposes
+   kCharsetFromInitialAutoDetectionASCII,
+   kCharsetFromInitialAutoDetectionWouldHaveBeenUTF8,
+   kCharsetFromInitialAutoDetectionWouldNotHaveBeenUTF8Generic,
+   kCharsetFromInitialAutoDetectionWouldNotHaveBeenUTF8Content,
+   kCharsetFromInitialAutoDetectionWouldNotHaveBeenUTF8DependedOnTLD,
++  // End subdividing source for telemetry purposes
++  kCharsetFromParentFrame,  // Same-origin parent takes precedence over detector
++                            // to avoid breaking tests. (Also, the HTML spec
++                            // says so.)
++  kCharsetFromXmlDeclaration,
++  kCharsetFromMetaTag,
++  kCharsetFromChannel,
++  kCharsetFromOtherComponent,
++  kCharsetFromInitialUserForcedAutoDetection,
++  // Start subdividing source for telemetry purposes
+   // Deliberately no Final version of ASCII
+   kCharsetFromFinalAutoDetectionWouldHaveBeenUTF8,
+   kCharsetFromFinalAutoDetectionWouldNotHaveBeenUTF8Generic,
+   kCharsetFromFinalAutoDetectionWouldNotHaveBeenUTF8Content,
+   kCharsetFromFinalAutoDetectionWouldNotHaveBeenUTF8DependedOnTLD,
+   kCharsetFromFinalAutoDetectionFile,
+-  // End subdividing source for telementry purposes
+-  kCharsetFromParentFrame,  // Same-origin parent takes precedence over detector
+-                            // to avoid breaking tests. (Also, the HTML spec
+-                            // says so.)
+-  kCharsetFromXmlDeclaration,
+-  kCharsetFromMetaPrescan,  // this one and smaller: HTML5 Tentative
+-  kCharsetFromMetaTag,      // this one and greater: HTML5 Confident
+-  kCharsetFromChannel,
+-  kCharsetFromOtherComponent,
+-  kCharsetFromInitialUserForcedAutoDetection,
++  // End subdividing source for telemetry purposes
+   kCharsetFromFinalUserForcedAutoDetection,
+   kCharsetFromXmlDeclarationUtf16,  // This one is overridden by
+                                     // kCharsetFromChannel
+   kCharsetFromByteOrderMark,
+   kCharsetFromUtf8OnlyMime,  // For JSON, WebVTT and such
+   kCharsetFromBuiltIn,       // resource: URLs
+ };
+ 

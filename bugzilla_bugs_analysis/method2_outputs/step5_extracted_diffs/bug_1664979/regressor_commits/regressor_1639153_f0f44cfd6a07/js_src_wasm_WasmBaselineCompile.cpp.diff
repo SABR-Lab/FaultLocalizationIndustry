@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmBaselineCompile.cpp
+# Commit: f0f44cfd6a07
+# Full Hash: f0f44cfd6a07c787846c8c84388f503adce349aa
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-10-02 04:10:47
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 6.1: Untie callWithAbi from Frame::tls for Baseline. r=lth
+#   
+#   We have a tls dependency in callWithABI for wasm because we call builtins via BuiltinThunk.
+#   Last one requires that tls to be loaded. In this patch I gradually extend callWithABI interface to
+#   pass offset to tls. This allows us to preserve tls and load it by offset in callWithABI and frees us from
+# ==============================================================================
+
+diff -r 0e268b8d01fe -r f0f44cfd6a07 js/src/wasm/WasmBaselineCompile.cpp
+--- a/js/src/wasm/WasmBaselineCompile.cpp	Thu Oct 01 04:54:42 2020 +0000
++++ b/js/src/wasm/WasmBaselineCompile.cpp	Thu Oct 01 07:52:07 2020 +0000
+@@ -1886,6 +1886,8 @@
+     masm.storePtr(tls, Address(sp_, stackOffset(tlsPointerOffset_)));
+   }
+ 
++  int32_t getTlsPtrOffset() { return stackOffset(tlsPointerOffset_); }
++
+   // An outgoing stack result area pointer is for stack results of callees of
+   // the function being compiled.
+   void computeOutgoingStackResultAreaPtr(const StackResultsLoc& results,
+@@ -10356,7 +10358,8 @@
+   masm.passABIArg(srcDest.low);
+   masm.passABIArg(rhs.high);
+   masm.passABIArg(rhs.low);
+-  CodeOffset raOffset = masm.callWithABI(bytecodeOffset(), callee);
++  CodeOffset raOffset = masm.callWithABI(bytecodeOffset(), callee,
++                                         mozilla::Some(fr.getTlsPtrOffset()));
+   if (!createStackMap("emitDivOrModI64Bui[..]", raOffset)) {
+     return false;
+   }
+@@ -10387,7 +10390,7 @@
+   masm.passABIArg(input.low);
+ #  endif
+   CodeOffset raOffset = masm.callWithABI(
+-      bytecodeOffset(), callee,
++      bytecodeOffset(), callee, mozilla::Some(fr.getTlsPtrOffset()),
+       resultType == ValType::F32 ? MoveOp::FLOAT32 : MoveOp::DOUBLE);
+   if (!createStackMap("emitConvertInt64To[..]", raOffset)) {
+     return false;
+@@ -10431,7 +10434,8 @@
+ 
+   masm.setupWasmABICall();
+   masm.passABIArg(doubleInput, MoveOp::DOUBLE);
+-  CodeOffset raOffset = masm.callWithABI(bytecodeOffset(), callee);
++  CodeOffset raOffset = masm.callWithABI(bytecodeOffset(), callee,
++                                         mozilla::Some(fr.getTlsPtrOffset()));
+   if (!createStackMap("emitConvertFloatin[..]", raOffset)) {
+     return false;
+   }

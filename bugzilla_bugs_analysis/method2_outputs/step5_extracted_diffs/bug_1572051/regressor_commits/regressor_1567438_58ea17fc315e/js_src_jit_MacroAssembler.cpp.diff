@@ -1,0 +1,139 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/MacroAssembler.cpp
+# Commit: 58ea17fc315e
+# Full Hash: 58ea17fc315ef8bc3a325a958953a50e047f4499
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2019-07-30 21:50:30
+# Regressor Bug: 1567438
+# File Overlap Count: 2
+# Description:
+#   Bug 1567438 part 1 - Replace the enter-monitor-chain bailout code with type monitoring in C++. r=tcampbell,iain
+#   
+#   When we resumeAfter a JOF_TYPESET op, we had code to enter the type monitor
+#   chain for the bailing op, passing it the top stack value. It's simpler to do
+#   this monitoring in C++ in FinishBailoutToBaseline and then treat it as a regular
+# ==============================================================================
+
+diff -r cd58aae7d47b -r 58ea17fc315e js/src/jit/MacroAssembler.cpp
+--- a/js/src/jit/MacroAssembler.cpp	Tue Jul 30 15:12:39 2019 +0000
++++ b/js/src/jit/MacroAssembler.cpp	Tue Jul 30 12:08:48 2019 +0000
+@@ -1570,88 +1570,35 @@
+     loadJSContext(scratch);
+     enterFakeExitFrame(scratch, scratch, ExitFrameType::Bare);
+ 
+-    // If monitorStub is non-null, handle resumeAddr appropriately.
+-    Label noMonitor;
+-    Label done;
+-    branchPtr(Assembler::Equal,
+-              Address(bailoutInfo, offsetof(BaselineBailoutInfo, monitorStub)),
+-              ImmPtr(nullptr), &noMonitor);
+-
+-    //
+-    // Resuming into a monitoring stub chain.
+-    //
+-    {
+-      // Save needed values onto stack temporarily.
+-      pushValue(Address(bailoutInfo, offsetof(BaselineBailoutInfo, valueR0)));
+-      push(Address(bailoutInfo, offsetof(BaselineBailoutInfo, resumeFramePtr)));
+-      push(Address(bailoutInfo, offsetof(BaselineBailoutInfo, resumeAddr)));
+-      push(Address(bailoutInfo, offsetof(BaselineBailoutInfo, monitorStub)));
+-
+-      // Call a stub to free allocated memory and create arguments objects.
+-      setupUnalignedABICall(temp);
+-      passABIArg(bailoutInfo);
+-      callWithABI(JS_FUNC_TO_DATA_PTR(void*, FinishBailoutToBaseline),
+-                  MoveOp::GENERAL,
+-                  CheckUnsafeCallWithABI::DontCheckHasExitFrame);
+-      branchIfFalseBool(ReturnReg, exceptionLabel());
+-
+-      // Restore values where they need to be and resume execution.
+-      AllocatableGeneralRegisterSet enterMonRegs(GeneralRegisterSet::All());
+-      enterMonRegs.take(R0);
+-      enterMonRegs.take(ICStubReg);
+-      enterMonRegs.take(BaselineFrameReg);
+-      enterMonRegs.takeUnchecked(ICTailCallReg);
+-
+-      pop(ICStubReg);
+-      pop(ICTailCallReg);
+-      pop(BaselineFrameReg);
+-      popValue(R0);
+-
+-      // Discard exit frame.
+-      addToStackPtr(Imm32(ExitFrameLayout::SizeWithFooter()));
+-
+-#if defined(JS_CODEGEN_X86) || defined(JS_CODEGEN_X64)
+-      push(ICTailCallReg);
+-#endif
+-      jump(Address(ICStubReg, ICStub::offsetOfStubCode()));
+-    }
+-
+-    //
+-    // Resuming into main jitcode.
+-    //
+-    bind(&noMonitor);
+-    {
+-      // Save needed values onto stack temporarily.
+-      pushValue(Address(bailoutInfo, offsetof(BaselineBailoutInfo, valueR0)));
+-      pushValue(Address(bailoutInfo, offsetof(BaselineBailoutInfo, valueR1)));
+-      push(Address(bailoutInfo, offsetof(BaselineBailoutInfo, resumeFramePtr)));
+-      push(Address(bailoutInfo, offsetof(BaselineBailoutInfo, resumeAddr)));
+-
+-      // Call a stub to free allocated memory and create arguments objects.
+-      setupUnalignedABICall(temp);
+-      passABIArg(bailoutInfo);
+-      callWithABI(JS_FUNC_TO_DATA_PTR(void*, FinishBailoutToBaseline),
+-                  MoveOp::GENERAL,
+-                  CheckUnsafeCallWithABI::DontCheckHasExitFrame);
+-      branchIfFalseBool(ReturnReg, exceptionLabel());
+-
+-      // Restore values where they need to be and resume execution.
+-      AllocatableGeneralRegisterSet enterRegs(GeneralRegisterSet::All());
+-      enterRegs.take(R0);
+-      enterRegs.take(R1);
+-      enterRegs.take(BaselineFrameReg);
+-      Register jitcodeReg = enterRegs.takeAny();
+-
+-      pop(jitcodeReg);
+-      pop(BaselineFrameReg);
+-      popValue(R1);
+-      popValue(R0);
+-
+-      // Discard exit frame.
+-      addToStackPtr(Imm32(ExitFrameLayout::SizeWithFooter()));
+-
+-      jump(jitcodeReg);
+-    }
++    // Save needed values onto stack temporarily.
++    pushValue(Address(bailoutInfo, offsetof(BaselineBailoutInfo, valueR0)));
++    pushValue(Address(bailoutInfo, offsetof(BaselineBailoutInfo, valueR1)));
++    push(Address(bailoutInfo, offsetof(BaselineBailoutInfo, resumeFramePtr)));
++    push(Address(bailoutInfo, offsetof(BaselineBailoutInfo, resumeAddr)));
++
++    // Call a stub to free allocated memory and create arguments objects.
++    setupUnalignedABICall(temp);
++    passABIArg(bailoutInfo);
++    callWithABI(JS_FUNC_TO_DATA_PTR(void*, FinishBailoutToBaseline),
++                MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckHasExitFrame);
++    branchIfFalseBool(ReturnReg, exceptionLabel());
++
++    // Restore values where they need to be and resume execution.
++    AllocatableGeneralRegisterSet enterRegs(GeneralRegisterSet::All());
++    enterRegs.take(R0);
++    enterRegs.take(R1);
++    enterRegs.take(BaselineFrameReg);
++    Register jitcodeReg = enterRegs.takeAny();
++
++    pop(jitcodeReg);
++    pop(BaselineFrameReg);
++    popValue(R1);
++    popValue(R0);
++
++    // Discard exit frame.
++    addToStackPtr(Imm32(ExitFrameLayout::SizeWithFooter()));
++
++    jump(jitcodeReg);
+   }
+ }
+ 

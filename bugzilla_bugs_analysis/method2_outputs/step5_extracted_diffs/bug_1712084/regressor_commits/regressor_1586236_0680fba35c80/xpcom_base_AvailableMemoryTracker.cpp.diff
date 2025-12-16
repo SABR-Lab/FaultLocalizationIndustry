@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: xpcom/base/AvailableMemoryTracker.cpp
+# Commit: 0680fba35c80
+# Full Hash: 0680fba35c80dd7fda2017df2d7b4a01545bdfca
+# Author: Toshihito Kikuchi <tkikuchi@mozilla.com>
+# Date: 2021-05-26 21:17:56
+# Regressor Bug: 1586236
+# File Overlap Count: 1
+# Description:
+#   Bug 1712693 - Generate a memory report when we detect a low-memory situation.  r=gsvelto
+#   
+#   This patch reinstate the code to call `SaveMemoryReport` when we enter a low-memory
+#   situation from a normal state, which was removed by bug 1586236.
+#   
+# ==============================================================================
+
+diff -r 3907d3f0c3f2 -r 0680fba35c80 xpcom/base/AvailableMemoryTracker.cpp
+--- a/xpcom/base/AvailableMemoryTracker.cpp	Wed May 26 17:11:33 2021 +0000
++++ b/xpcom/base/AvailableMemoryTracker.cpp	Wed May 26 17:12:25 2021 +0000
+@@ -10,6 +10,7 @@
+ #  include "mozilla/StaticPrefs_browser.h"
+ #  include "mozilla/WindowsVersion.h"
+ #  include "nsExceptionHandler.h"
++#  include "nsICrashReporter.h"
+ #  include "nsIMemoryReporter.h"
+ #  include "nsMemoryPressure.h"
+ #  include "memoryapi.h"
+@@ -108,6 +109,7 @@
+   bool mPolling;
+   bool mInteracting;
+   bool mUnderMemoryPressure;
++  bool mSavedReport;
+ };
+ 
+ const char* const nsAvailableMemoryWatcher::kObserverTopics[] = {
+@@ -125,7 +127,8 @@
+       mWaitHandle(nullptr),
+       mPolling(false),
+       mInteracting(false),
+-      mUnderMemoryPressure(false) {}
++      mUnderMemoryPressure(false),
++      mSavedReport(false) {}
+ 
+ nsresult nsAvailableMemoryWatcher::Init() {
+   mTimer = NS_NewTimer();
+@@ -240,6 +243,20 @@
+   // pressure event.  So we trigger the event only when the available commit
+   // space is low.
+   if (IsCommitSpaceLow()) {
++    if (!mSavedReport) {
++      // SaveMemoryReport needs to be run in the main thread
++      // (See nsMemoryReporterManager::GetReportsForThisProcessExtended)
++      NS_DispatchToMainThread(NS_NewRunnableFunction(
++          "nsAvailableMemoryWatcher::SaveMemoryReport",
++          [self = RefPtr{this}]() {
++            if (nsCOMPtr<nsICrashReporter> cr =
++                    do_GetService("@mozilla.org/toolkit/crash-reporter;1")) {
++              MutexAutoLock lock(self->mMutex);
++              self->mSavedReport = NS_SUCCEEDED(cr->SaveMemoryReport());
++            }
++          }));
++    }
++
+     RecordLowMemoryEvent();
+     NS_DispatchEventualMemoryPressure(MemPressure_New);
+   }
+@@ -249,6 +266,7 @@
+ 
+ void nsAvailableMemoryWatcher::OnHighMemory(const MutexAutoLock&) {
+   mUnderMemoryPressure = false;
++  mSavedReport = false;  // Will save a new report if memory gets low again
+   NS_DispatchEventualMemoryPressure(MemPressure_Stopping);
+   StopPolling();
+   ListenForLowMemory();

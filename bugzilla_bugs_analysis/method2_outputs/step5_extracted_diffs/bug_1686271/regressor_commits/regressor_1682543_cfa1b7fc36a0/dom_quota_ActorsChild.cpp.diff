@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/ActorsChild.cpp
+# Commit: cfa1b7fc36a0
+# Full Hash: cfa1b7fc36a0b11682952b19d614d0818f317974
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2021-01-12 21:59:31
+# Regressor Bug: 1682543
+# File Overlap Count: 1
+# Description:
+#   Bug 1682543 - Make use of standard algorithms in dom/quota. r=dom-workers-and-storage-reviewers,janv
+#   
+#   Specifically, instead of using custom loops
+#   - use range-based for in QuotaManager::CreateDirectoryLock,
+#     QuotaManager::CollectOriginsForEviction,
+# ==============================================================================
+
+diff -r 80920b3bf4b8 -r cfa1b7fc36a0 dom/quota/ActorsChild.cpp
+--- a/dom/quota/ActorsChild.cpp	Tue Jan 12 15:04:35 2021 +0000
++++ b/dom/quota/ActorsChild.cpp	Tue Jan 12 14:45:50 2021 +0000
+@@ -302,10 +302,9 @@
+     variant->SetAsEmptyArray();
+   } else {
+     nsTArray<const char*> stringPointers(aResponse.Length());
+-
+-    for (const auto& string : aResponse) {
+-      stringPointers.AppendElement(string.get());
+-    }
++    std::transform(aResponse.cbegin(), aResponse.cend(),
++                   MakeBackInserter(stringPointers),
++                   std::mem_fn(&nsCString::get));
+ 
+     variant->SetAsArray(nsIDataType::VTYPE_CHAR_STR, nullptr,
+                         stringPointers.Length(), stringPointers.Elements());

@@ -1,0 +1,70 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/cookie/Cookie.cpp
+# Commit: d01a1a055fec
+# Full Hash: d01a1a055fece12b906b938954f984bd69278ef7
+# Author: Andrea Marchesini <amarchesini@mozilla.com>
+# Date: 2025-04-30 20:49:53
+# Regressor Bug: 1960824
+# File Overlap Count: 1
+# Description:
+#   Bug 1960824 - Introduce nsICookie::SAMESITE_UNSET, r=edgul,webdriver-reviewers,extension-reviewers,cookie-reviewers,valentin,Sasha,robwu
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D246638
+# ==============================================================================
+
+diff -r 307ff391dd02 -r d01a1a055fec netwerk/cookie/Cookie.cpp
+--- a/netwerk/cookie/Cookie.cpp	Wed Apr 30 08:53:12 2025 +0000
++++ b/netwerk/cookie/Cookie.cpp	Wed Apr 30 08:59:18 2025 +0000
+@@ -68,11 +68,13 @@
+   UTF_8_ENCODING->DecodeWithoutBOMHandling(aCookieData.value(),
+                                            cookie->mData.value());
+ 
+-  // If sameSite/rawSameSite values aren't sensible reset to Default
++  // If sameSite value is not sensible reset to Default
+   // cf. 5.4.7 in draft-ietf-httpbis-rfc6265bis-09
+-  if (!Cookie::ValidateSameSite(cookie->mData)) {
+-    cookie->mData.sameSite() = nsICookie::SAMESITE_LAX;
+-    cookie->mData.rawSameSite() = nsICookie::SAMESITE_NONE;
++  if (cookie->mData.sameSite() != nsICookie::SAMESITE_NONE &&
++      cookie->mData.sameSite() != nsICookie::SAMESITE_LAX &&
++      cookie->mData.sameSite() != nsICookie::SAMESITE_STRICT &&
++      cookie->mData.sameSite() != nsICookie::SAMESITE_UNSET) {
++    cookie->mData.sameSite() = nsICookie::SAMESITE_UNSET;
+   }
+ 
+   // Enforce session cookie if the partition is session-only.
+@@ -204,11 +206,7 @@
+   return NS_OK;
+ }
+ NS_IMETHODIMP Cookie::GetSameSite(int32_t* aSameSite) {
+-  if (StaticPrefs::network_cookie_sameSite_laxByDefault()) {
+-    *aSameSite = SameSite();
+-  } else {
+-    *aSameSite = RawSameSite();
+-  }
++  *aSameSite = SameSite();
+   return NS_OK;
+ }
+ NS_IMETHODIMP Cookie::GetSchemeMap(nsICookie::schemeType* aSchemeMap) {
+@@ -242,19 +240,6 @@
+   return NS_OK;
+ }
+ 
+-// static
+-bool Cookie::ValidateSameSite(const CookieStruct& aCookieData) {
+-  // For proper migration towards a laxByDefault world,
+-  // sameSite is initialized to LAX even though the server
+-  // has never sent it.
+-  if (aCookieData.rawSameSite() == aCookieData.sameSite()) {
+-    return aCookieData.rawSameSite() >= nsICookie::SAMESITE_NONE &&
+-           aCookieData.rawSameSite() <= nsICookie::SAMESITE_STRICT;
+-  }
+-  return aCookieData.rawSameSite() == nsICookie::SAMESITE_NONE &&
+-         aCookieData.sameSite() == nsICookie::SAMESITE_LAX;
+-}
+-
+ already_AddRefed<Cookie> Cookie::Clone() const {
+   return Create(mData, OriginAttributesRef());
+ }

@@ -1,0 +1,79 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/base/nsSocketTransport2.cpp
+# Commit: 521c9e019678
+# Full Hash: 521c9e019678f584590f63473416d40e03f33342
+# Author: Valentin Gosu <valentin.gosu@gmail.com>
+# Date: 2023-03-15 04:10:55
+# Regressor Bug: 1805372
+# File Overlap Count: 1
+# Description:
+#   Bug 1805372 - Pass effectiveTRRMode to nsHttpChannel from socketTransport/DnsAndConnectSocket r=necko-reviewers,kershaw
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D164539
+# ==============================================================================
+
+diff -r dfb39ca05529 -r 521c9e019678 netwerk/base/nsSocketTransport2.cpp
+--- a/netwerk/base/nsSocketTransport2.cpp	Tue Mar 14 15:29:49 2023 +0200
++++ b/netwerk/base/nsSocketTransport2.cpp	Tue Mar 14 12:59:40 2023 +0000
+@@ -700,6 +700,9 @@
+   if (dnsRecord) {
+     mExternalDNSResolution = true;
+     mDNSRecord = do_QueryInterface(dnsRecord);
++    mDNSRecord->IsTRR(&mResolvedByTRR);
++    mDNSRecord->GetEffectiveTRRMode(&mEffectiveTRRMode);
++    mDNSRecord->GetTrrSkipReason(&mTRRSkipReason);
+   }
+ 
+   // init socket type info
+@@ -1684,6 +1687,8 @@
+   if (mState == STATE_CONNECTING && mDNSRecord) {
+     nsresult rv = mDNSRecord->GetNextAddr(SocketPort(), &mNetAddr);
+     mDNSRecord->IsTRR(&mResolvedByTRR);
++    mDNSRecord->GetEffectiveTRRMode(&mEffectiveTRRMode);
++    mDNSRecord->GetTrrSkipReason(&mTRRSkipReason);
+     if (NS_SUCCEEDED(rv)) {
+       SOCKET_LOG(("  trying again with next ip address\n"));
+       tryAgain = true;
+@@ -1988,6 +1993,8 @@
+       if (mDNSRecord) {
+         mDNSRecord->GetNextAddr(SocketPort(), &mNetAddr);
+         mDNSRecord->IsTRR(&mResolvedByTRR);
++        mDNSRecord->GetEffectiveTRRMode(&mEffectiveTRRMode);
++        mDNSRecord->GetTrrSkipReason(&mTRRSkipReason);
+       }
+       // status contains DNS lookup status
+       if (NS_FAILED(status)) {
+@@ -2717,6 +2724,12 @@
+     MOZ_ASSERT(mDNSRecord);
+   }
+ 
++  if (nsCOMPtr<nsIDNSAddrRecord> addrRecord = do_QueryInterface(rec)) {
++    addrRecord->IsTRR(&mResolvedByTRR);
++    addrRecord->GetEffectiveTRRMode(&mEffectiveTRRMode);
++    addrRecord->GetTrrSkipReason(&mTRRSkipReason);
++  }
++
+   // flag host lookup complete for the benefit of the ResolveHost method.
+   mResolving = false;
+   nsresult rv = PostEvent(MSG_DNS_LOOKUP_COMPLETE, status, nullptr);
+@@ -3313,6 +3326,18 @@
+   return NS_OK;
+ }
+ 
++NS_IMETHODIMP nsSocketTransport::GetEffectiveTRRMode(
++    nsIRequest::TRRMode* aEffectiveTRRMode) {
++  *aEffectiveTRRMode = mEffectiveTRRMode;
++  return NS_OK;
++}
++
++NS_IMETHODIMP nsSocketTransport::GetTrrSkipReason(
++    nsITRRSkipReason::value* aSkipReason) {
++  *aSkipReason = mTRRSkipReason;
++  return NS_OK;
++}
++
+ NS_IMETHODIMP
+ nsSocketTransport::GetRetryDnsIfPossible(bool* aRetryDns) {
+   *aRetryDns = mRetryDnsIfPossible;

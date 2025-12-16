@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmJS.cpp
+# Commit: d6506b5ee07b
+# Full Hash: d6506b5ee07b5c65f889ce7c2214b0172f205898
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2021-09-16 09:43:03
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Introduce indirect stubs to optimize call_indirect. r=lth
+#   
+#   This patch introduces indirect stubs.
+#   An indirect stub is a stub that takes care of any switching activities needed for call_indirect.
+#   Before this patch, we have to conservatively assume that any call_indirect's target can be from a foreign instance,
+# ==============================================================================
+
+diff -r 80a164c1054e -r d6506b5ee07b js/src/wasm/WasmJS.cpp
+--- a/js/src/wasm/WasmJS.cpp	Wed Sep 15 11:02:57 2021 +0000
++++ b/js/src/wasm/WasmJS.cpp	Wed Sep 15 11:10:15 2021 +0000
+@@ -3277,7 +3277,10 @@
+   switch (tab.repr()) {
+     case TableRepr::Func:
+       MOZ_RELEASE_ASSERT(!tab.isAsmJS());
+-      tab.fillFuncRef(index, length, FuncRef::fromJSFunction(fun), cx);
++      if (!tab.fillFuncRef(index, length, FuncRef::fromJSFunction(fun), cx)) {
++        ReportOutOfMemory(cx);
++        return false;
++      }
+       break;
+     case TableRepr::Ref:
+       tab.fillAnyRef(index, length, any);

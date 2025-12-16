@@ -1,0 +1,112 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/webrtc/trunk/webrtc/modules/desktop_capture/BUILD.gn
+# Commit: f9a9da6129c0
+# Full Hash: f9a9da6129c01b5cefdc2ba2871d5bfe9fd0f0ab
+# Author: Dan Minor <dminor@mozilla.com>
+# Date: 2019-04-17 21:47:29
+# Regressor Bug: 1496359
+# File Overlap Count: 1
+# Description:
+#   Bug 1496359 - Conflict resolutions for Pipewire support patch; r=ng
+#   
+#   Depends on D27368
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D27369
+# ==============================================================================
+
+diff -r 3f0981f37c1c -r f9a9da6129c0 media/webrtc/trunk/webrtc/modules/desktop_capture/BUILD.gn
+--- a/media/webrtc/trunk/webrtc/modules/desktop_capture/BUILD.gn	Mon Apr 15 17:26:27 2019 +0000
++++ b/media/webrtc/trunk/webrtc/modules/desktop_capture/BUILD.gn	Mon Apr 15 17:31:02 2019 +0000
+@@ -332,39 +332,68 @@
+     ]
+   }
+ 
++  if (use_x11 || rtc_use_pipewire) {
++    sources += [
++      "mouse_cursor_monitor_linux.cc",
++      "screen_capturer_linux.cc",
++      "window_capturer_linux.cc",
++    ]
++
++    if (build_with_mozilla) {
++      sources += [ "app_capturer_linux.cc" ]
++    }
++  }
++
+   if (use_x11) {
+     sources += [
+-      "mouse_cursor_monitor_x11.cc",
+-      "screen_capturer_x11.cc",
+-      "window_capturer_x11.cc",
+-      "window_finder_x11.cc",
+-      "window_finder_x11.h",
+-      "x11/shared_x_display.cc",
+-      "x11/shared_x_display.h",
+-      "x11/window_list_utils.cc",
+-      "x11/window_list_utils.h",
+-      "x11/x_atom_cache.cc",
+-      "x11/x_atom_cache.h",
+-      "x11/x_error_trap.cc",
+-      "x11/x_error_trap.h",
+-      "x11/x_server_pixel_buffer.cc",
+-      "x11/x_server_pixel_buffer.h",
++      "linux/mouse_cursor_monitor_x11.cc",
++      "linux/mouse_cursor_monitor_x11.h",
++      "linux/screen_capturer_x11.cc",
++      "linux/screen_capturer_x11.h",
++      "linux/shared_x_display.cc",
++      "linux/shared_x_display.h",
++      "linux/window_capturer_x11.cc",
++      "linux/window_capturer_x11.h",
++      "linux/window_finder_x11.cc",
++      "linux/window_finder_x11.h",
++      "linux/window_list_utils.cc",
++      "linux/window_list_utils.h",
++      "linux/x_atom_cache.cc",
++      "linux/x_atom_cache.h",
++      "linux/x_error_trap.cc",
++      "linux/x_error_trap.h",
++      "linux/x_server_pixel_buffer.cc",
++      "linux/x_server_pixel_buffer.h",
+     ]
+     configs += [ "//build/config/linux:x11" ]
+ 
+     if (build_with_mozilla) {
+       sources += [
+-        "app_capturer_x11.cc",
+-        "app_capturer_x11.h",
+-        "x11/desktop_device_info_x11.cc",
+-        "x11/desktop_device_info_x11.h",
+-        "x11/shared_x_util.cc",
+-        "x11/shared_x_util.h",
++        "linux/desktop_device_info_x11.cc",
++        "linux/desktop_device_info_x11.h",
++        "linux/shared_x_util.cc",
++        "linux/shared_x_util.h",
+       ]
+     }
+   }
+ 
+-  if (!is_win && !is_mac && !use_x11) {
++  if (rtc_use_pipewire) {
++    sources += [
++      "linux/base_capturer_pipewire.cc",
++      "linux/base_capturer_pipewire.h",
++      "linux/screen_capturer_pipewire.cc",
++      "linux/screen_capturer_pipewire.h",
++      "linux/window_capturer_pipewire.cc",
++      "linux/window_capturer_pipewire.h",
++    ]
++
++    configs += [
++      ":gio",
++      ":pipewire",
++    ]
++  }
++
++  if (!is_win && !is_mac && !use_x11 && !rtc_use_pipewire) {
+     sources += [
+       "mouse_cursor_monitor_null.cc",
+       "screen_capturer_null.cc",

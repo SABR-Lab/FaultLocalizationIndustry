@@ -1,0 +1,72 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/gtest/TestKeyValueStorage.cpp
+# Commit: 48eaa84c206d
+# Full Hash: 48eaa84c206dbdda637c57b55ddbd07e975ba103
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2020-06-23 16:15:06
+# Regressor Bug: 1637500
+# File Overlap Count: 2
+# Description:
+#   Bug 1637500 - P2. Rename methods as they are not always dealing with "threads". r=froydnj
+#   
+#   Before P1, GetCurrentThreadSerialEventTarget would have always returned the same data as NS_GetCurrentThread, making the comment incorrect Now it will properly return the running TaskQueue if any.
+#   
+#   This change of name more clearly exposes what they are doing, as we aren't always dealing with threads directly; but a nsISerialEventTarget
+# ==============================================================================
+
+diff -r 00687d06a8a6 -r 48eaa84c206d dom/media/gtest/TestKeyValueStorage.cpp
+--- a/dom/media/gtest/TestKeyValueStorage.cpp	Tue Jun 23 05:02:39 2020 +0000
++++ b/dom/media/gtest/TestKeyValueStorage.cpp	Tue Jun 23 05:05:36 2020 +0000
+@@ -26,14 +26,14 @@
+ 
+   kvs->Put(name, key, value)
+       ->Then(
+-          GetCurrentThreadSerialEventTarget(), __func__,
++          GetCurrentSerialEventTarget(), __func__,
+           [&](bool) { return kvs->Get(name, key); },
+           [](nsresult rv) {
+             EXPECT_TRUE(false) << "Put promise has been rejected";
+             return KeyValueStorage::GetPromise::CreateAndReject(rv, __func__);
+           })
+       ->Then(
+-          GetCurrentThreadSerialEventTarget(), __func__,
++          GetCurrentSerialEventTarget(), __func__,
+           [&](int32_t aValue) {
+             EXPECT_EQ(aValue, value) << "Values are the same";
+             mon.SetFinished();
+@@ -56,7 +56,7 @@
+   GMPTestMonitor mon;
+ 
+   kvs->Get(name, key)->Then(
+-      GetCurrentThreadSerialEventTarget(), __func__,
++      GetCurrentSerialEventTarget(), __func__,
+       [&mon](int32_t aValue) {
+         EXPECT_EQ(aValue, -1) << "When key does not exist return -1";
+         mon.SetFinished();
+@@ -81,21 +81,21 @@
+ 
+   kvs->Put(name, key, value)
+       ->Then(
+-          GetCurrentThreadSerialEventTarget(), __func__,
++          GetCurrentSerialEventTarget(), __func__,
+           [&](bool) { return kvs->Clear(name); },
+           [](nsresult rv) {
+             EXPECT_TRUE(false) << "Put promise has been rejected";
+             return GenericPromise::CreateAndReject(rv, __func__);
+           })
+       ->Then(
+-          GetCurrentThreadSerialEventTarget(), __func__,
++          GetCurrentSerialEventTarget(), __func__,
+           [&](bool) { return kvs->Get(name, key); },
+           [](nsresult rv) {
+             EXPECT_TRUE(false) << "Clear promise has been rejected";
+             return KeyValueStorage::GetPromise::CreateAndReject(rv, __func__);
+           })
+       ->Then(
+-          GetCurrentThreadSerialEventTarget(), __func__,
++          GetCurrentSerialEventTarget(), __func__,
+           [&](int32_t aValue) {
+             EXPECT_EQ(aValue, -1) << "After clear the key does not exist";
+             mon.SetFinished();

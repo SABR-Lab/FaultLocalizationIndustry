@@ -1,0 +1,43 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/BaselineFrame.h
+# Commit: 8c9daa76d87a
+# Full Hash: 8c9daa76d87aef8bf071bef81d9990ccd211983b
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2019-10-17 21:54:25
+# Description:
+#   Bug 1586762 - Set BaselineFrame::interpreterICEntry correctly for BaselineDebugModeOSR at debug prologue. r=iain
+#   
+#   We were using the first pc, but that skips the prologue's type monitor ICs.
+#   
+#   This bug is pretty hard to trigger in practice (I was unable to write a test
+# ==============================================================================
+
+diff -r e641756cd54f -r 8c9daa76d87a js/src/jit/BaselineFrame.h
+--- a/js/src/jit/BaselineFrame.h	Thu Oct 17 15:29:05 2019 +0000
++++ b/js/src/jit/BaselineFrame.h	Thu Oct 17 15:33:48 2019 +0000
+@@ -242,6 +242,12 @@
+     flags_ |= RUNNING_IN_INTERPRETER;
+     setInterpreterFields(pc);
+   }
++  void switchFromJitToInterpreterAtPrologue(JSContext* cx) {
++    MOZ_ASSERT(!cx->isProfilerSamplingEnabled());
++    MOZ_ASSERT(!runningInInterpreter());
++    flags_ |= RUNNING_IN_INTERPRETER;
++    setInterpreterFieldsForPrologue(script());
++  }
+ 
+   // Like switchFromJitToInterpreter, but set the interpreterICEntry_ field to
+   // nullptr. Initializing this field requires a binary search on the
+@@ -275,7 +281,9 @@
+     setInterpreterFields(script(), pc);
+   }
+ 
+-  void setInterpreterFieldsForPrologueBailout(JSScript* script);
++  // Initialize interpreter fields for resuming in the prologue (before the
++  // argument type check ICs).
++  void setInterpreterFieldsForPrologue(JSScript* script);
+ 
+   bool hasReturnValue() const { return flags_ & HAS_RVAL; }
+   MutableHandleValue returnValue() {

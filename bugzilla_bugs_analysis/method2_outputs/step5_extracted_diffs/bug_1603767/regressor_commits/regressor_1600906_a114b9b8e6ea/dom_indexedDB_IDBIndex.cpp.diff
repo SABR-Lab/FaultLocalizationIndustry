@@ -1,0 +1,71 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/IDBIndex.cpp
+# Commit: a114b9b8e6ea
+# Full Hash: a114b9b8e6eaa23a445a31efc436f4e367f7874f
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2020-01-10 21:49:10
+# Regressor Bug: 1600906
+# File Overlap Count: 1
+# Description:
+#   Bug 1600906 - Convert IDBCursor and BackgroundCursorChild to templates to increase type safety and reduce state. r=dom-workers-and-storage-reviewers,ytausky
+#   
+#   This also simplifies delegating calls that are dependent on the cursor type.
+#   
+#   Also reduce dependency on IDBCursor.h by moving enums and type traits to IDBCursorType.h
+# ==============================================================================
+
+diff -r cc3cfee4a014 -r a114b9b8e6ea dom/indexedDB/IDBIndex.cpp
+--- a/dom/indexedDB/IDBIndex.cpp	Fri Jan 10 11:07:59 2020 +0000
++++ b/dom/indexedDB/IDBIndex.cpp	Fri Jan 10 14:21:18 2020 +0000
+@@ -7,7 +7,7 @@
+ #include "IDBIndex.h"
+ 
+ #include "FileInfo.h"
+-#include "IDBCursor.h"
++#include "IDBCursorType.h"
+ #include "IDBEvents.h"
+ #include "IDBKeyRange.h"
+ #include "IDBObjectStore.h"
+@@ -489,11 +489,8 @@
+     optionalKeyRange.emplace(std::move(serializedKeyRange));
+   }
+ 
+-  const IDBCursor::Direction direction =
+-      IDBCursor::ConvertDirection(aDirection);
+-
+   const CommonIndexOpenCursorParams commonIndexParams = {
+-      {objectStoreId, std::move(optionalKeyRange), direction}, indexId};
++      {objectStoreId, std::move(optionalKeyRange), aDirection}, indexId};
+ 
+   const auto params =
+       aKeysOnly ? OpenCursorParams{IndexOpenKeyCursorParams{commonIndexParams}}
+@@ -511,7 +508,7 @@
+         IDB_LOG_STRINGIFY(transaction->Database()),
+         IDB_LOG_STRINGIFY(transaction), IDB_LOG_STRINGIFY(mObjectStore),
+         IDB_LOG_STRINGIFY(this), IDB_LOG_STRINGIFY(keyRange),
+-        IDB_LOG_STRINGIFY(direction));
++        IDB_LOG_STRINGIFY(aDirection));
+   } else {
+     IDB_LOG_MARK_CHILD_TRANSACTION_REQUEST(
+         "database(%s).transaction(%s).objectStore(%s).index(%s)."
+@@ -521,11 +518,15 @@
+         IDB_LOG_STRINGIFY(transaction->Database()),
+         IDB_LOG_STRINGIFY(transaction), IDB_LOG_STRINGIFY(mObjectStore),
+         IDB_LOG_STRINGIFY(this), IDB_LOG_STRINGIFY(keyRange),
+-        IDB_LOG_STRINGIFY(direction));
++        IDB_LOG_STRINGIFY(aDirection));
+   }
+ 
+-  BackgroundCursorChild* const actor =
+-      new BackgroundCursorChild(request, this, direction);
++  BackgroundCursorChildBase* const actor =
++      aKeysOnly ? static_cast<BackgroundCursorChildBase*>(
++                      new BackgroundCursorChild<IDBCursorType::IndexKey>(
++                          request, this, aDirection))
++                : new BackgroundCursorChild<IDBCursorType::Index>(request, this,
++                                                                  aDirection);
+ 
+   // TODO: This is necessary to preserve request ordering only. Proper
+   // sequencing of requests should be done in a more sophisticated manner that

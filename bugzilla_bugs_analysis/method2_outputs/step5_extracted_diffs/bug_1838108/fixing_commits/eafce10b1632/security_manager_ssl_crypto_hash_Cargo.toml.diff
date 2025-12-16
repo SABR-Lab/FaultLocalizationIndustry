@@ -1,0 +1,34 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: security/manager/ssl/crypto_hash/Cargo.toml
+# Commit: eafce10b1632
+# Full Hash: eafce10b1632c73750e254e838387d1ea12de820
+# Author: Dana Keeler <dkeeler@mozilla.com>
+# Date: 2023-06-16 04:06:43
+# Description:
+#   Bug 1838108 - nsICryptoHash: use non-assembly hashing implementation on Windows r=jschanck
+#   
+#   On Windows 7 pre-SP1, AVX instructions are disabled, even though they might be
+#   supported by the processor. The cpufeatures crate doesn't take this into
+#   account, so the assembly implementation of sha-512 causes illegal instruction
+# ==============================================================================
+
+diff -r 3b0228cca008 -r eafce10b1632 security/manager/ssl/crypto_hash/Cargo.toml
+--- a/security/manager/ssl/crypto_hash/Cargo.toml	Thu Jun 15 21:51:51 2023 +0000
++++ b/security/manager/ssl/crypto_hash/Cargo.toml	Thu Jun 15 22:27:55 2023 +0000
+@@ -11,5 +11,13 @@
+ nserror = { path = "../../../../xpcom/rust/nserror" }
+ nsstring = { path = "../../../../xpcom/rust/nsstring" }
+ sha1 = "0.10.2"
++xpcom = { path = "../../../../xpcom/rust/xpcom" }
++
++# bug 1838108: on Windows 7 pre-SP1, AVX instructions are disabled, even though
++# they might be supported by the processor. cpufeatures doesn't take this into
++# account, so the assembly implementation causes illegal instruction crashes.
++# As a workaround for now, use the non-assembly implementation.
++[target.'cfg(windows)'.dependencies]
++sha2 = { version = "0.10.2", features = ["force-soft"]}
++[target.'cfg(not(windows))'.dependencies]
+ sha2 = "0.10.2"
+-xpcom = { path = "../../../../xpcom/rust/xpcom" }

@@ -1,0 +1,39 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: ipc/glue/MessageChannel.cpp
+# Commit: f32859378512
+# Full Hash: f32859378512460cb549cefd4aefaf4481467b5f
+# Author: Markus Stange <mstange.moz@gmail.com>
+# Date: 2020-11-10 09:57:49
+# Description:
+#   Bug 1675828 - Call OtherPidMaybeInvalid for the IPC marker because this code can run at times when the other pid is not known. r=jld
+#   
+#   This avoids a crash from the MOZ_RELEASE_ASSERT in OtherPid() on Android.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D96262
+# ==============================================================================
+
+diff -r 20964901b728 -r f32859378512 ipc/glue/MessageChannel.cpp
+--- a/ipc/glue/MessageChannel.cpp	Tue Nov 10 01:28:24 2020 +0000
++++ b/ipc/glue/MessageChannel.cpp	Tue Nov 10 01:45:51 2020 +0000
+@@ -2787,11 +2787,14 @@
+   mMonitor->AssertCurrentThreadOwns();
+ #ifdef MOZ_GECKO_PROFILER
+   if (profiler_feature_active(ProfilerFeature::IPCMessages)) {
+-    int32_t pid = mListener->OtherPid();
+-    PROFILER_ADD_MARKER_WITH_PAYLOAD(
+-        "IPC", IPC, IPCMarkerPayload,
+-        (pid, aMessage.seqno(), aMessage.type(), mSide, aDirection,
+-         MessagePhase::Endpoint, aMessage.is_sync(), TimeStamp::NowUnfuzzed()));
++    int32_t pid = mListener->OtherPidMaybeInvalid();
++    if (pid != kInvalidProcessId) {
++      PROFILER_ADD_MARKER_WITH_PAYLOAD(
++          "IPC", IPC, IPCMarkerPayload,
++          (pid, aMessage.seqno(), aMessage.type(), mSide, aDirection,
++           MessagePhase::Endpoint, aMessage.is_sync(),
++           TimeStamp::NowUnfuzzed()));
++    }
+   }
+ #endif
+ }

@@ -1,0 +1,28 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: netwerk/dns/nsHostResolver.cpp
+# Commit: f778b37ce90f
+# Full Hash: f778b37ce90fcc2171a280cd56d6472e7aa62177
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2024-07-03 16:15:19
+# Description:
+#   Bug 1903719 - Make InitMockHTTPSRecord return null when type is not RESOLVE_TYPE_HTTPSSVC, r=sunil
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D214548
+# ==============================================================================
+
+diff -r 6733585b9ee6 -r f778b37ce90f netwerk/dns/nsHostResolver.cpp
+--- a/netwerk/dns/nsHostResolver.cpp	Wed Jul 03 09:16:26 2024 +0000
++++ b/netwerk/dns/nsHostResolver.cpp	Wed Jul 03 09:32:28 2024 +0000
+@@ -474,6 +474,10 @@
+ already_AddRefed<nsHostRecord> nsHostResolver::InitMockHTTPSRecord(
+     const nsHostKey& key) {
+   MOZ_ASSERT(IS_OTHER_TYPE(key.type));
++  if (key.type != nsIDNSService::RESOLVE_TYPE_HTTPSSVC) {
++    return nullptr;
++  }
++
+   RefPtr<nsHostRecord> rec = InitRecord(key);
+   LOG(("InitMockHTTPSRecord host=%s\n", rec->host.get()));
+ 

@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/webscheduling/WebTaskScheduler.h
+# Commit: 2d0905a92f2c
+# Full Hash: 2d0905a92f2c0e079a705f4da62c69a9063da6df
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2025-02-27 21:52:52
+# Regressor Bug: 1920115
+# File Overlap Count: 2
+# Description:
+#   Bug 1920115 - Fix a bug where AbortController doesn't abort scheduler.yield r=smaug
+#   
+#   Instead of passing a single `AbortSignal` argument to `CreateTask`,
+#   we now separate it into a `AbortSignal` and a `TaskSignal`. They
+#   could be the same when `TaskController` is used, and if its
+# ==============================================================================
+
+diff -r 67bf260fe59b -r 2d0905a92f2c dom/webscheduling/WebTaskScheduler.h
+--- a/dom/webscheduling/WebTaskScheduler.h	Thu Feb 27 16:17:37 2025 +0000
++++ b/dom/webscheduling/WebTaskScheduler.h	Thu Feb 27 16:17:37 2025 +0000
+@@ -43,9 +43,9 @@
+   }
+ 
+   AbortSignal* GetAbortSource() { return mAbortSource; }
+-  AbortSignal* GetPrioritySource() { return mPrioritySource; }
++  TaskSignal* GetPrioritySource() { return mPrioritySource; }
+ 
+-  void SetPrioritySource(AbortSignal* aPrioritySource) {
++  void SetPrioritySource(TaskSignal* aPrioritySource) {
+     MOZ_ASSERT(aPrioritySource->IsTaskSignal());
+     mPrioritySource = aPrioritySource;
+   }
+@@ -54,7 +54,7 @@
+   ~WebTaskSchedulingState() = default;
+ 
+   RefPtr<AbortSignal> mAbortSource;
+-  RefPtr<AbortSignal> mPrioritySource;
++  RefPtr<TaskSignal> mPrioritySource;
+ };
+ 
+ class WebTaskQueueHashKey : public PLDHashEntryHdr {
+@@ -309,16 +309,16 @@
+   };
+ 
+   already_AddRefed<WebTask> CreateTask(
+-      const Optional<OwningNonNull<AbortSignal>>& aSignal,
++      AbortSignal* aAbortSignal, TaskSignal* aTaskSignal,
+       const Optional<TaskPriority>& aPriority, const bool aIsContinuation,
+       const Maybe<SchedulerPostTaskCallback&>& aCallback,
+       WebTaskSchedulingState* aSchedulingState, Promise* aPromise);
+ 
+   bool DispatchTask(WebTask* aTask, EventQueuePriority aPriority);
+ 
+-  SelectedTaskQueueData SelectTaskQueue(
+-      const Optional<OwningNonNull<AbortSignal>>& aSignal,
+-      const Optional<TaskPriority>& aPriority, const bool aIsContinuation);
++  SelectedTaskQueueData SelectTaskQueue(TaskSignal* aSignal,
++                                        const Optional<TaskPriority>& aPriority,
++                                        const bool aIsContinuation);
+ 
+   virtual nsresult SetTimeoutForDelayedTask(WebTask* aTask, uint64_t aDelay,
+                                             EventQueuePriority aPriority) = 0;

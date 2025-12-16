@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/l10n/DOMLocalization.h
+# Commit: 595529cd906f
+# Full Hash: 595529cd906f94cdb2bc12a7a40072db0c07198e
+# Author: Zibi Braniecki <zbraniecki@mozilla.com>
+# Date: 2021-08-03 22:01:19
+# Regressor Bug: 1613705
+# File Overlap Count: 1
+# Description:
+#   Bug 1613705 - [localization] part9: Update DOMLocalization to match Localization constructor. r=nika,emilio
+#   
+#   Depends on D113691
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D113692
+# ==============================================================================
+
+diff -r 9f3e2963d925 -r 595529cd906f dom/l10n/DOMLocalization.h
+--- a/dom/l10n/DOMLocalization.h	Tue Aug 03 05:52:03 2021 +0000
++++ b/dom/l10n/DOMLocalization.h	Tue Aug 03 05:52:03 2021 +0000
+@@ -15,6 +15,7 @@
+ #include "mozilla/dom/L10nOverlaysBinding.h"
+ #include "mozilla/dom/LocalizationBinding.h"
+ #include "mozilla/dom/PromiseNativeHandler.h"
++#include "mozilla/intl/L10nRegistry.h"
+ 
+ // XXX Avoid including this here by moving function bodies to the cpp file
+ #include "nsINode.h"
+@@ -30,15 +31,13 @@
+   NS_DECL_ISUPPORTS_INHERITED
+   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(DOMLocalization, Localization)
+ 
+-  static already_AddRefed<DOMLocalization> Create(
+-      nsIGlobalObject* aGlobal, const bool aSync,
+-      const BundleGenerator& aBundleGenerator);
+-
+   void Destroy();
+ 
+   static already_AddRefed<DOMLocalization> Constructor(
+-      const GlobalObject& aGlobal, const Sequence<nsString>& aResourceIds,
+-      const bool aSync, const BundleGenerator& aBundleGenerator,
++      const dom::GlobalObject& aGlobal,
++      const dom::Sequence<nsCString>& aResourceIds, bool aIsSync,
++      const dom::Optional<dom::NonNull<intl::L10nRegistry>>& aRegistry,
++      const dom::Optional<dom::Sequence<nsCString>>& aLocales,
+       ErrorResult& aRv);
+ 
+   virtual JSObject* WrapObject(JSContext* aCx,
+@@ -112,9 +111,11 @@
+     return false;
+   }
+ 
++  DOMLocalization(nsIGlobalObject* aGlobal, bool aSync);
++  DOMLocalization(nsIGlobalObject* aGlobal, bool aIsSync,
++                  const intl::ffi::LocalizationRc* aRaw);
++
+  protected:
+-  explicit DOMLocalization(nsIGlobalObject* aGlobal, const bool aSync,
+-                           const BundleGenerator& aBundleGenerator);
+   virtual ~DOMLocalization();
+   void OnChange() override;
+   void DisconnectMutations();

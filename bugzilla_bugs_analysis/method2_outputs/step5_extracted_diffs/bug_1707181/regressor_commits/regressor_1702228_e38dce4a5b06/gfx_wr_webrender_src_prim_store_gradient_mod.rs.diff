@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/prim_store/gradient/mod.rs
+# Commit: e38dce4a5b06
+# Full Hash: e38dce4a5b06869dd4a4d753f41f7594a8cddfb6
+# Author: Nicolas Silva <nsilva@mozilla.com>
+# Date: 2021-04-22 21:31:57
+# Regressor Bug: 1702228
+# File Overlap Count: 2
+# Description:
+#   Bug 1702228 - Cache linear gradients by default. r=gw
+#   
+#   This patch breaks linear gradients into two primitives:
+#    - LinearGradient is always rendered via the brush shader. It is only used with SWGL.
+#    - CachedLinearGradient is always rendered via a cached render task and the brush image shader. Its implementation is very similar to conic and radial gradients, with the addition of a fast-path for axis aligned gradients with two stops.
+# ==============================================================================
+
+diff -r b3f8befa510f -r e38dce4a5b06 gfx/wr/webrender/src/prim_store/gradient/mod.rs
+--- a/gfx/wr/webrender/src/prim_store/gradient/mod.rs	Thu Apr 22 10:34:54 2021 +0000
++++ b/gfx/wr/webrender/src/prim_store/gradient/mod.rs	Thu Apr 22 10:34:54 2021 +0000
+@@ -5,7 +5,6 @@
+ use api::{ColorF, ColorU, GradientStop, PremultipliedColorF};
+ use api::units::{LayoutRect, LayoutSize, LayoutVector2D};
+ use crate::gpu_cache::GpuDataRequest;
+-use crate::prim_store::PrimitiveOpacity;
+ use std::hash;
+ 
+ mod linear;
+@@ -70,25 +69,6 @@
+     }
+ }
+ 
+-pub fn get_gradient_opacity(
+-    prim_rect: LayoutRect,
+-    stretch_size: LayoutSize,
+-    tile_spacing: LayoutSize,
+-    stops_opacity: PrimitiveOpacity,
+-) -> PrimitiveOpacity {
+-    // If the coverage of the gradient extends to or beyond
+-    // the primitive rect, then the opacity can be determined
+-    // by the colors of the stops. If we have tiling / spacing
+-    // then we just assume the gradient is translucent for now.
+-    // (In the future we could consider segmenting in some cases).
+-    let stride = stretch_size + tile_spacing;
+-    if stride.width >= prim_rect.size.width && stride.height >= prim_rect.size.height {
+-        stops_opacity
+-    } else {
+-        PrimitiveOpacity::translucent()
+-    }
+-}
+-
+ // The gradient entry index for the first color stop
+ pub const GRADIENT_DATA_FIRST_STOP: usize = 0;
+ // The gradient entry index for the last color stop
+@@ -393,7 +373,7 @@
+     // (b) You made a structure larger. This is not necessarily a problem, but should only
+     //     be done with care, and after checking if talos performance regresses badly.
+     assert_eq!(mem::size_of::<LinearGradient>(), 72, "LinearGradient size changed");
+-    assert_eq!(mem::size_of::<LinearGradientTemplate>(), 120, "LinearGradientTemplate size changed");
++    assert_eq!(mem::size_of::<LinearGradientTemplate>(), 144, "LinearGradientTemplate size changed");
+     assert_eq!(mem::size_of::<LinearGradientKey>(), 88, "LinearGradientKey size changed");
+ 
+     assert_eq!(mem::size_of::<RadialGradient>(), 72, "RadialGradient size changed");

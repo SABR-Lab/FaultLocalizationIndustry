@@ -1,0 +1,70 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: mobile/android/geckoview/src/main/java/org/mozilla/gecko/media/FormatParam.java
+# Commit: 290917deea87
+# Full Hash: 290917deea879f965f6f1ad441df945c41c01c14
+# Author: Jamie Nicol <jnicol@mozilla.com>
+# Date: 2023-12-13 21:42:49
+# Regressor Bug: 1866020
+# File Overlap Count: 1
+# Description:
+#   Bug 1866020 - Override buggy colorspace conversion on Pixel devices. r=gw,padenot,geckoview-reviewers,owlish
+#   
+#   Pixel 6, 7, and 8 devices running Android 14 are affected by a bug
+#   where video frames with SMPTE 432 color primaries are rendered
+#   incorrectly when sampled from an external texture in GLES. To work
+# ==============================================================================
+
+diff -r 12e266e296c1 -r 290917deea87 mobile/android/geckoview/src/main/java/org/mozilla/gecko/media/FormatParam.java
+--- a/mobile/android/geckoview/src/main/java/org/mozilla/gecko/media/FormatParam.java	Wed Dec 13 08:29:00 2023 +0000
++++ b/mobile/android/geckoview/src/main/java/org/mozilla/gecko/media/FormatParam.java	Wed Dec 13 09:06:29 2023 +0000
+@@ -5,6 +5,7 @@
+ package org.mozilla.gecko.media;
+ 
+ import android.media.MediaFormat;
++import android.os.Build;
+ import android.os.Bundle;
+ import android.os.Parcel;
+ import android.os.Parcelable;
+@@ -26,6 +27,8 @@
+  *   <li>{@link MediaFormat#KEY_I_FRAME_INTERVAL}
+  *   <li>{@link MediaFormat#KEY_STRIDE}
+  *   <li>{@link MediaFormat#KEY_SLICE_HEIGHT}
++ *   <li>{@link MediaFormat#KEY_COLOR_RANGE
++ *   <li>{@link MediaFormat#KEY_COLOR_STANDARD}
+  *   <li>"csd-0"
+  *   <li>"csd-1"
+  * </ul>
+@@ -118,6 +121,15 @@
+     if (bundle.containsKey(MediaFormat.KEY_SLICE_HEIGHT)) {
+       mFormat.setInteger(MediaFormat.KEY_SLICE_HEIGHT, bundle.getInt(MediaFormat.KEY_SLICE_HEIGHT));
+     }
++    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
++      if (bundle.containsKey(MediaFormat.KEY_COLOR_RANGE)) {
++        mFormat.setInteger(MediaFormat.KEY_COLOR_RANGE, bundle.getInt(MediaFormat.KEY_COLOR_RANGE));
++      }
++      if (bundle.containsKey(MediaFormat.KEY_COLOR_STANDARD)) {
++        mFormat.setInteger(
++            MediaFormat.KEY_COLOR_STANDARD, bundle.getInt(MediaFormat.KEY_COLOR_STANDARD));
++      }
++    }
+   }
+ 
+   @Override
+@@ -173,6 +185,15 @@
+     if (mFormat.containsKey(MediaFormat.KEY_SLICE_HEIGHT)) {
+       bundle.putInt(MediaFormat.KEY_SLICE_HEIGHT, mFormat.getInteger(MediaFormat.KEY_SLICE_HEIGHT));
+     }
++    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
++      if (mFormat.containsKey(MediaFormat.KEY_COLOR_RANGE)) {
++        bundle.putInt(MediaFormat.KEY_COLOR_RANGE, mFormat.getInteger(MediaFormat.KEY_COLOR_RANGE));
++      }
++      if (mFormat.containsKey(MediaFormat.KEY_COLOR_STANDARD)) {
++        bundle.putInt(
++            MediaFormat.KEY_COLOR_STANDARD, mFormat.getInteger(MediaFormat.KEY_COLOR_STANDARD));
++      }
++    }
+     return bundle;
+   }
+ }

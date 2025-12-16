@@ -1,0 +1,128 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/base/nsSocketTransportService2.h
+# Commit: dc84799cb093
+# Full Hash: dc84799cb093c1d8668e7fbb3b3db085135d0c2e
+# Author: Randell Jesup <rjesup@wgate.com>
+# Date: 2023-03-22 09:41:36
+# Regressor Bug: 1818998
+# File Overlap Count: 1
+# Description:
+#   Bug 1818998: Convert nsSocketTransportService polling arrays to nsTArrays r=valentin,necko-reviewers,kershaw
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D171043
+# ==============================================================================
+
+diff -r b26f6387c979 -r dc84799cb093 netwerk/base/nsSocketTransportService2.h
+--- a/netwerk/base/nsSocketTransportService2.h	Tue Mar 21 15:18:34 2023 +0000
++++ b/netwerk/base/nsSocketTransportService2.h	Tue Mar 21 15:22:17 2023 +0000
+@@ -17,6 +17,7 @@
+ #include "mozilla/UniquePtr.h"
+ #include "mozilla/net/DashboardTypes.h"
+ #include "nsCOMPtr.h"
++#include "nsASocketHandler.h"
+ #include "nsIDirectTaskDispatcher.h"
+ #include "nsIObserver.h"
+ #include "nsIRunnable.h"
+@@ -26,7 +27,6 @@
+ #include "prinit.h"
+ #include "prinrval.h"
+ 
+-class nsASocketHandler;
+ struct PRPollDesc;
+ class nsIPrefBranch;
+ 
+@@ -160,6 +160,10 @@
+   Atomic<bool> mInitialized{false};
+   // indicates whether we are currently in the process of shutting down
+   Atomic<bool> mShuttingDown{false};
++  Atomic<bool> mSocketThreadShutDown{false};
++  // Effectively owned by the SocketThread
++  RefPtr<nsSocketTransportService> mSelf;
++
+   Mutex mLock MOZ_UNANNOTATED{"nsSocketTransportService::mLock"};
+   // Variables in the next section protected by mLock
+ 
+@@ -191,12 +195,17 @@
+   // where k=0,1,2,...
+   //-------------------------------------------------------------------------
+ 
+-  struct SocketContext {
+-    PRFileDesc* mFD;
+-    nsASocketHandler* mHandler;
+-    PRIntervalTime mPollStartEpoch;  // time we started to poll this socket
++  class SocketContext {
++   public:
++    SocketContext(PRFileDesc* aFD,
++                  already_AddRefed<nsASocketHandler>&& aHandler,
++                  PRIntervalTime aPollStartEpoch)
++        : mFD(aFD), mHandler(aHandler), mPollStartEpoch(aPollStartEpoch) {}
++    SocketContext(PRFileDesc* aFD, nsASocketHandler* aHandler,
++                  PRIntervalTime aPollStartEpoch)
++        : mFD(aFD), mHandler(aHandler), mPollStartEpoch(aPollStartEpoch) {}
++    ~SocketContext() = default;
+ 
+-   public:
+     // Returns true iff the socket has not been signalled longer than
+     // the desired timeout (mHandler->mPollTimeout).
+     bool IsTimedOut(PRIntervalTime now) const;
+@@ -215,26 +224,26 @@
+     // that mPollStartEpoch is not reset in between.  We have to manually
+     // call this on every iteration over sockets to ensure the epoch reset.
+     void MaybeResetEpoch();
++
++    PRFileDesc* mFD;
++    RefPtr<nsASocketHandler> mHandler;
++    PRIntervalTime mPollStartEpoch;  // time we started to poll this socket
+   };
+ 
+-  SocketContext* mActiveList; /* mListSize entries */
+-  SocketContext* mIdleList;   /* mListSize entries */
++  using SocketContextList = AutoTArray<SocketContext, SOCKET_LIMIT_MIN>;
++  int64_t SockIndex(SocketContextList& aList, SocketContext* aSock);
++
++  SocketContextList mActiveList;
++  SocketContextList mIdleList;
+ 
+-  uint32_t mActiveListSize{SOCKET_LIMIT_MIN};
+-  uint32_t mIdleListSize{SOCKET_LIMIT_MIN};
+-  uint32_t mActiveCount{0};
+-  uint32_t mIdleCount{0};
+-
+-  nsresult DetachSocket(SocketContext*, SocketContext*);
+-  nsresult AddToIdleList(SocketContext*);
+-  nsresult AddToPollList(SocketContext*);
+-  void RemoveFromIdleList(SocketContext*);
+-  void RemoveFromPollList(SocketContext*);
++  nsresult DetachSocket(SocketContextList& listHead, SocketContext*);
++  void AddToIdleList(SocketContext* sock);
++  void AddToPollList(SocketContext* sock);
++  void RemoveFromIdleList(SocketContext* sock);
++  void RemoveFromPollList(SocketContext* sock);
+   void MoveToIdleList(SocketContext* sock);
+   void MoveToPollList(SocketContext* sock);
+ 
+-  bool GrowActiveList();
+-  bool GrowIdleList();
+   void InitMaxCount();
+ 
+   // Total bytes number transfered through all the sockets except active ones
+@@ -247,7 +256,7 @@
+   // event cannot be created).
+   //-------------------------------------------------------------------------
+ 
+-  PRPollDesc* mPollList; /* mListSize + 1 entries */
++  nsTArray<PRPollDesc> mPollList;
+ 
+   PRIntervalTime PollTimeout(
+       PRIntervalTime now);  // computes ideal poll timeout
+@@ -326,7 +335,7 @@
+                          bool aActive);
+ 
+   void ClosePrivateConnections();
+-  void DetachSocketWithGuard(bool aGuardLocals, SocketContext* socketList,
++  void DetachSocketWithGuard(bool aGuardLocals, SocketContextList& socketList,
+                              int32_t index);
+ 
+   void MarkTheLastElementOfPendingQueue();

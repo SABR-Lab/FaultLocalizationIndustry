@@ -1,0 +1,65 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/WorkerPrivate.h
+# Commit: 59207e959b7c
+# Full Hash: 59207e959b7c3476cc21409d61c8dd03d22a816b
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-12-21 21:21:23
+# Regressor Bug: 1247687
+# File Overlap Count: 1
+# Description:
+#   Bug 1247687 - Implement requestCredentials for Module Workers; r=jonco
+#   
+#   This weaves credentials through from the private to script creation.
+#   
+#   Depends on D155567
+# ==============================================================================
+
+diff -r 49f18430c465 -r 59207e959b7c dom/workers/WorkerPrivate.h
+--- a/dom/workers/WorkerPrivate.h	Tue Dec 20 20:56:13 2022 +0000
++++ b/dom/workers/WorkerPrivate.h	Tue Dec 20 20:56:13 2022 +0000
+@@ -145,9 +145,10 @@
+ 
+   static already_AddRefed<WorkerPrivate> Constructor(
+       JSContext* aCx, const nsAString& aScriptURL, bool aIsChromeWorker,
+-      WorkerKind aWorkerKind, const WorkerType aWorkerType,
+-      const nsAString& aWorkerName, const nsACString& aServiceWorkerScope,
+-      WorkerLoadInfo* aLoadInfo, ErrorResult& aRv, nsString aId = u""_ns);
++      WorkerKind aWorkerKind, RequestCredentials aRequestCredentials,
++      const WorkerType aWorkerType, const nsAString& aWorkerName,
++      const nsACString& aServiceWorkerScope, WorkerLoadInfo* aLoadInfo,
++      ErrorResult& aRv, nsString aId = u""_ns);
+ 
+   static already_AddRefed<WorkerPrivate> Constructor(
+       JSContext* aCx, const nsAString& aScriptURL, bool aIsChromeWorker,
+@@ -646,6 +647,7 @@
+   const nsString& ScriptURL() const { return mScriptURL; }
+ 
+   const nsString& WorkerName() const { return mWorkerName; }
++  RequestCredentials WorkerCredentials() const { return mCredentialsMode; }
+   enum WorkerType WorkerType() const { return mWorkerType; }
+ 
+   WorkerKind Kind() const { return mWorkerKind; }
+@@ -1058,9 +1060,10 @@
+  private:
+   WorkerPrivate(
+       WorkerPrivate* aParent, const nsAString& aScriptURL, bool aIsChromeWorker,
+-      WorkerKind aWorkerKind, enum WorkerType aWorkerType,
+-      const nsAString& aWorkerName, const nsACString& aServiceWorkerScope,
+-      WorkerLoadInfo& aLoadInfo, nsString&& aId, const nsID& aAgentClusterId,
++      WorkerKind aWorkerKind, RequestCredentials aRequestCredentials,
++      enum WorkerType aWorkerType, const nsAString& aWorkerName,
++      const nsACString& aServiceWorkerScope, WorkerLoadInfo& aLoadInfo,
++      nsString&& aId, const nsID& aAgentClusterId,
+       const nsILoadInfo::CrossOriginOpenerPolicy aAgentClusterOpenerPolicy);
+ 
+   ~WorkerPrivate();
+@@ -1202,6 +1205,7 @@
+ 
+   // This is the worker name for shared workers and dedicated workers.
+   const nsString mWorkerName;
++  const RequestCredentials mCredentialsMode;
+   enum WorkerType mWorkerType;
+ 
+   const WorkerKind mWorkerKind;

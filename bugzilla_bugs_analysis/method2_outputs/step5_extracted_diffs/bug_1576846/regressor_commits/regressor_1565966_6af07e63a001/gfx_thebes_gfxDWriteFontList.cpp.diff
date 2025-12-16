@@ -1,0 +1,31 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxDWriteFontList.cpp
+# Commit: 6af07e63a001
+# Full Hash: 6af07e63a001dfc667a952727551a80b16797339
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2019-08-13 09:54:32
+# Regressor Bug: 1565966
+# File Overlap Count: 1
+# Description:
+#   Bug 1565966 - part 2 - Include Family attributes in mAliasTable when collecting font-name aliases, so that fontEntry instantiation on Windows can work correctly for the Aliases eventually stored in the font-list. r=jwatt
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D41243
+# ==============================================================================
+
+diff -r 277876c31869 -r 6af07e63a001 gfx/thebes/gfxDWriteFontList.cpp
+--- a/gfx/thebes/gfxDWriteFontList.cpp	Mon Aug 12 17:49:09 2019 +0000
++++ b/gfx/thebes/gfxDWriteFontList.cpp	Mon Aug 12 17:49:28 2019 +0000
+@@ -1165,8 +1165,9 @@
+     for (const auto& alias : otherFamilyNames) {
+       nsAutoCString key(alias);
+       ToLowerCase(key);
+-      auto af = mAliasTable.LookupOrAdd(key);
+-      af->AppendElement(facePtrs[i]);
++      auto aliasData = mAliasTable.LookupOrAdd(key);
++      aliasData->InitFromFamily(aFamily);
++      aliasData->mFaces.AppendElement(facePtrs[i]);
+     }
+ 
+     nsAutoCString psname, fullname;

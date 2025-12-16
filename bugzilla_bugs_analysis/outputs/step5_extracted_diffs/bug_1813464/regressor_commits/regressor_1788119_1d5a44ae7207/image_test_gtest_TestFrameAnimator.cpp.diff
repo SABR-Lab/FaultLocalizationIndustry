@@ -1,0 +1,77 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: image/test/gtest/TestFrameAnimator.cpp
+# Commit: 1d5a44ae7207
+# Full Hash: 1d5a44ae72071f079dcb00b62419c2ddd3c9f12c
+# Author: Norisz Fay <nfay@mozilla.com>
+# Date: 2023-01-27 21:11 +0200
+# Regressor Bug: 1788119
+# File Overlap Count: 1
+# Overlapping Files: Cargo.lock
+# Description:
+#   Backed out 5 changesets (bug 1788119) for causing build bustages on DecoderData.cpp CLOSED TREE
+# ==============================================================================
+
+diff -r 83609f9575ac -r 1d5a44ae7207 image/test/gtest/TestFrameAnimator.cpp
+--- a/image/test/gtest/TestFrameAnimator.cpp	Fri Jan 27 19:06:16 2023 +0000
++++ b/image/test/gtest/TestFrameAnimator.cpp	Fri Jan 27 21:11:42 2023 +0200
+@@ -16,14 +16,13 @@
+ using namespace mozilla::image;
+ 
+ static void CheckFrameAnimatorBlendResults(const ImageTestCase& aTestCase,
+-                                           RasterImage* aImage, uint8_t aFuzz) {
++                                           RasterImage* aImage) {
+   // Allow the animation to actually begin.
+   aImage->IncrementAnimationConsumers();
+ 
+   // Initialize for the first frame so we can advance.
+   TimeStamp now = TimeStamp::Now();
+   aImage->RequestRefresh(now);
+-  EXPECT_EQ(aImage->GetFrameIndex(imgIContainer::FRAME_CURRENT), 0);
+ 
+   RefPtr<SourceSurface> surface =
+       aImage->GetFrame(imgIContainer::FRAME_CURRENT, imgIContainer::FLAG_NONE);
+@@ -31,19 +30,18 @@
+ 
+   CheckGeneratedSurface(surface, IntRect(0, 0, 50, 50),
+                         BGRAColor::Transparent(),
+-                        aTestCase.ChooseColor(BGRAColor::Red()), aFuzz);
++                        aTestCase.ChooseColor(BGRAColor::Red()));
+ 
+   // Advance to the next/final frame.
+   now = TimeStamp::Now() + TimeDuration::FromMilliseconds(500);
+   aImage->RequestRefresh(now);
+-  EXPECT_EQ(aImage->GetFrameIndex(imgIContainer::FRAME_CURRENT), 1);
+ 
+   surface =
+       aImage->GetFrame(imgIContainer::FRAME_CURRENT, imgIContainer::FLAG_NONE);
+   ASSERT_TRUE(surface != nullptr);
+   CheckGeneratedSurface(surface, IntRect(0, 0, 50, 50),
+                         aTestCase.ChooseColor(BGRAColor::Green()),
+-                        aTestCase.ChooseColor(BGRAColor::Red()), aFuzz);
++                        aTestCase.ChooseColor(BGRAColor::Red()));
+ }
+ 
+ template <typename Func>
+@@ -100,10 +98,9 @@
+   aResultChecker(rasterImage.get());
+ }
+ 
+-static void CheckFrameAnimatorBlend(const ImageTestCase& aTestCase,
+-                                    uint8_t aFuzz = 0) {
++static void CheckFrameAnimatorBlend(const ImageTestCase& aTestCase) {
+   WithFrameAnimatorDecode(aTestCase, [&](RasterImage* aImage) {
+-    CheckFrameAnimatorBlendResults(aTestCase, aImage, aFuzz);
++    CheckFrameAnimatorBlendResults(aTestCase, aImage);
+   });
+ }
+ 
+@@ -123,7 +120,3 @@
+ TEST_F(ImageFrameAnimator, BlendWebPWithFilter) {
+   CheckFrameAnimatorBlend(BlendAnimatedWebPTestCase());
+ }
+-
+-TEST_F(ImageFrameAnimator, BlendAVIFWithFilter) {
+-  CheckFrameAnimatorBlend(BlendAnimatedAVIFTestCase(), 1);
+-}

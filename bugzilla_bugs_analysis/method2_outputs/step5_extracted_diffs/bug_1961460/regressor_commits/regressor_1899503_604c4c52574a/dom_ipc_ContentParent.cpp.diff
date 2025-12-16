@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentParent.cpp
+# Commit: 604c4c52574a
+# Full Hash: 604c4c52574ae48f4f168eb999bc0af15dd5e0d6
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2025-04-15 21:21:06
+# Regressor Bug: 1899503
+# File Overlap Count: 2
+# Description:
+#   Bug 1899503 - P2 PRemoteWorkerDebuggerMangaer binding implementation. r=asuth
+#   
+#   This patch implements the PRemoteWorkerDebuggerManager binding.
+#   
+#   PRemoteWorkerDebuggerManager is the IPC that handles the registration/unregistration of remote debuggers.
+# ==============================================================================
+
+diff -r 77eda17d0795 -r 604c4c52574a dom/ipc/ContentParent.cpp
+--- a/dom/ipc/ContentParent.cpp	Tue Apr 15 09:47:38 2025 +0000
++++ b/dom/ipc/ContentParent.cpp	Tue Apr 15 09:47:39 2025 +0000
+@@ -123,6 +123,7 @@
+ #include "mozilla/dom/Permissions.h"
+ #include "mozilla/dom/ProcessMessageManager.h"
+ #include "mozilla/dom/PushNotifier.h"
++#include "mozilla/dom/RemoteWorkerDebuggerManagerParent.h"
+ #include "mozilla/dom/RemoteWorkerServiceParent.h"
+ #include "mozilla/dom/ServiceWorkerManager.h"
+ #include "mozilla/dom/ServiceWorkerRegistrar.h"
+@@ -7737,8 +7738,14 @@
+   Endpoint<PRemoteWorkerServiceChild> childEp;
+   mRemoteWorkerServiceActor =
+       RemoteWorkerServiceParent::CreateForProcess(this, &childEp);
++
++  Endpoint<PRemoteWorkerDebuggerManagerChild> remoteDebuggerChildEp;
++  mRemoteWorkerDebuggerManagerActor =
++      RemoteWorkerDebuggerManagerParent::CreateForProcess(
++          &remoteDebuggerChildEp);
+   if (mRemoteWorkerServiceActor) {
+-    Unused << SendInitRemoteWorkerService(std::move(childEp));
++    Unused << SendInitRemoteWorkerService(std::move(childEp),
++                                          std::move(remoteDebuggerChildEp));
+   }
+ }
+ 

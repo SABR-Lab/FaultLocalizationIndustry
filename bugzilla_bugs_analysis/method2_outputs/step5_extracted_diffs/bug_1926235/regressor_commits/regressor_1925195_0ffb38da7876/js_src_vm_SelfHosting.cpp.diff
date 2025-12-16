@@ -1,0 +1,31 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/SelfHosting.cpp
+# Commit: 0ffb38da7876
+# Full Hash: 0ffb38da787659de3a222a7fef0b4890023d0aee
+# Author: André Bargull <andre.bargull@gmail.com>
+# Date: 2024-10-17 20:50:15
+# Regressor Bug: 1925195
+# File Overlap Count: 1
+# Description:
+#   Bug 1925195 - Part 1: Inline Date.prototype.{getTime,valueOf}. r=jandem
+#   
+#   Inline for `getTime` for parity with V8 and JSC. Also enables inlining `valueOf`
+#   and `ThisTimeValue` for free, because they return the same result as `getTime`.
+#   
+# ==============================================================================
+
+diff -r ba249529f7cc -r 0ffb38da7876 js/src/vm/SelfHosting.cpp
+--- a/js/src/vm/SelfHosting.cpp	Thu Oct 17 12:37:00 2024 +0000
++++ b/js/src/vm/SelfHosting.cpp	Thu Oct 17 12:37:00 2024 +0000
+@@ -2184,7 +2184,8 @@
+                     IntrinsicSubstringKernel),
+     JS_FN("ThisNumberValueForToLocaleString", ThisNumberValueForToLocaleString,
+           0, 0),
+-    JS_FN("ThisTimeValue", intrinsic_ThisTimeValue, 1, 0),
++    JS_INLINABLE_FN("ThisTimeValue", intrinsic_ThisTimeValue, 1, 0,
++                    IntrinsicThisTimeValue),
+ #ifdef ENABLE_RECORD_TUPLE
+     JS_FN("ThisTupleValue", intrinsic_ThisTupleValue, 1, 0),
+ #endif

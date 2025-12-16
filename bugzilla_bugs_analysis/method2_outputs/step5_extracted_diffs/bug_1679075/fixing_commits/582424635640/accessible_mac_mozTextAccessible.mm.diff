@@ -1,0 +1,43 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: accessible/mac/mozTextAccessible.mm
+# Commit: 582424635640
+# Full Hash: 5824246356401f8bc1f978dc1bc1bfa4b11586ae
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2020-12-01 04:19:24
+# Description:
+#   Bug 1679075 - Don't go past empty input field in HyperTextIterator::Next. r=morgan
+#   
+#   The normalize function was putting the current container/offset past the end boundary. This caused overruns with getting the text for the range of the input object, and some unexpected invalid ranges.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D98236
+# ==============================================================================
+
+diff -r b12f5962b9d2 -r 582424635640 accessible/mac/mozTextAccessible.mm
+--- a/accessible/mac/mozTextAccessible.mm	Mon Nov 30 19:47:32 2020 +0000
++++ b/accessible/mac/mozTextAccessible.mm	Mon Nov 30 20:46:15 2020 +0000
+@@ -171,10 +171,8 @@
+     return nil;
+   }
+ 
+-  GeckoTextMarker startMarker =
+-      GeckoTextMarker::MarkerFromIndex(mGeckoAccessible, 0);
+-
+-  GeckoTextMarkerRange fromStartToSelection(startMarker, selection.mStart);
++  GeckoTextMarkerRange fromStartToSelection(
++      GeckoTextMarker(mGeckoAccessible, 0), selection.mStart);
+ 
+   return [NSValue valueWithRange:NSMakeRange(fromStartToSelection.Length(),
+                                              selection.Length())];
+@@ -268,6 +266,10 @@
+ - (NSString*)moxStringForRange:(NSValue*)range {
+   GeckoTextMarkerRange markerRange = [self textMarkerRangeFromRange:range];
+ 
++  if (!markerRange.IsValid()) {
++    return nil;
++  }
++
+   return markerRange.Text();
+ }
+ 

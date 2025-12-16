@@ -1,0 +1,148 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/angle/checkout/src/libANGLE/Program.h
+# Commit: 13282d7a47a5
+# Full Hash: 13282d7a47a57a73be8d060efd9645b4d642f03e
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2019-09-08 09:46:52
+# Regressor Bug: 1578576
+# File Overlap Count: 4
+# Description:
+#   Bug 1578576 - Part 2: Update to ANGLE 3865 r=jgilbert
+#   
+#   Depends on D44561
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44579
+# ==============================================================================
+
+diff -r 3064469c073d -r 13282d7a47a5 gfx/angle/checkout/src/libANGLE/Program.h
+--- a/gfx/angle/checkout/src/libANGLE/Program.h	Sat Sep 07 13:36:46 2019 +0000
++++ b/gfx/angle/checkout/src/libANGLE/Program.h	Sat Sep 07 13:38:36 2019 +0000
+@@ -43,6 +43,7 @@
+ {
+ class Buffer;
+ class BinaryInputStream;
++class BinaryOutputStream;
+ struct Caps;
+ class Context;
+ struct Extensions;
+@@ -75,6 +76,7 @@
+     BINDING_MISMATCH,
+     LOCATION_MISMATCH,
+     OFFSET_MISMATCH,
++    INSTANCE_NAME_MISMATCH,
+ 
+     // Interface block specific
+     LAYOUT_QUALIFIER_MISMATCH,
+@@ -164,6 +166,9 @@
+ 
+ bool IsActiveInterfaceBlock(const sh::InterfaceBlock &interfaceBlock);
+ 
++void WriteBlockMemberInfo(BinaryOutputStream *stream, const sh::BlockMemberInfo &var);
++void LoadBlockMemberInfo(BinaryInputStream *stream, sh::BlockMemberInfo *var);
++
+ // Struct used for correlating uniforms/elements of uniform arrays to handles
+ struct VariableLocation
+ {
+@@ -253,6 +258,7 @@
+         interpolation               = parent.interpolation;
+         isInvariant                 = parent.isInvariant;
+         name                        = parent.name + "." + name;
++        mappedName                  = parent.mappedName + "." + mappedName;
+     }
+ 
+     std::string nameWithArrayIndex() const
+@@ -320,6 +326,7 @@
+     {
+         return mActiveAttribLocationsMask;
+     }
++    const AttributesMask &getNonBuiltinAttribLocationsMask() const { return mAttributesMask; }
+     unsigned int getMaxActiveAttribLocation() const { return mMaxActiveAttribLocation; }
+     DrawBufferMask getActiveOutputVariables() const { return mActiveOutputVariables; }
+     const std::vector<sh::OutputVariable> &getOutputVariables() const { return mOutputVariables; }
+@@ -342,23 +349,35 @@
+     const RangeUI &getSamplerUniformRange() const { return mSamplerUniformRange; }
+     const RangeUI &getImageUniformRange() const { return mImageUniformRange; }
+     const RangeUI &getAtomicCounterUniformRange() const { return mAtomicCounterUniformRange; }
++    const ComponentTypeMask &getAttributesTypeMask() const { return mAttributesTypeMask; }
+ 
+     const std::vector<TransformFeedbackVarying> &getLinkedTransformFeedbackVaryings() const
+     {
+         return mLinkedTransformFeedbackVaryings;
+     }
++    const std::vector<GLsizei> &getTransformFeedbackStrides() const
++    {
++        return mTransformFeedbackStrides;
++    }
++    size_t getTransformFeedbackBufferCount() const { return mTransformFeedbackStrides.size(); }
+     const std::vector<AtomicCounterBuffer> &getAtomicCounterBuffers() const
+     {
+         return mAtomicCounterBuffers;
+     }
+ 
++    // Count the number of uniform and storage buffer declarations, counting arrays as one.
++    size_t getUniqueUniformBlockCount() const;
++    size_t getUniqueStorageBlockCount() const;
++
+     GLuint getUniformIndexFromName(const std::string &name) const;
+     GLuint getUniformIndexFromLocation(GLint location) const;
+     Optional<GLuint> getSamplerIndex(GLint location) const;
+     bool isSamplerUniformIndex(GLuint index) const;
+     GLuint getSamplerIndexFromUniformIndex(GLuint uniformIndex) const;
++    GLuint getUniformIndexFromSamplerIndex(GLuint samplerIndex) const;
+     bool isImageUniformIndex(GLuint index) const;
+     GLuint getImageIndexFromUniformIndex(GLuint uniformIndex) const;
++    GLuint getUniformIndexFromImageIndex(GLuint imageIndex) const;
+     GLuint getAttributeLocation(const std::string &name) const;
+ 
+     GLuint getBufferVariableIndexFromName(const std::string &name) const;
+@@ -367,6 +386,12 @@
+     bool usesMultiview() const { return mNumViews != -1; }
+ 
+     const ShaderBitSet &getLinkedShaderStages() const { return mLinkedShaderStages; }
++    bool hasLinkedShaderStage(ShaderType shaderType) const
++    {
++        return mLinkedShaderStages[shaderType];
++    }
++    size_t getLinkedShaderStageCount() const { return mLinkedShaderStages.count(); }
++    bool isCompute() const { return hasLinkedShaderStage(ShaderType::Compute); }
+ 
+     bool hasAttachedShader() const;
+ 
+@@ -568,8 +593,9 @@
+     bool hasLinkedShaderStage(ShaderType shaderType) const
+     {
+         ASSERT(shaderType != ShaderType::InvalidEnum);
+-        return mState.mLinkedShaderStages[shaderType];
++        return mState.hasLinkedShaderStage(shaderType);
+     }
++    bool isCompute() const { return mState.isCompute(); }
+ 
+     angle::Result loadBinary(const Context *context,
+                              GLenum binaryFormat,
+@@ -799,7 +825,6 @@
+     }
+ 
+     bool isValidated() const;
+-    bool samplesFromTexture(const State &state, GLuint textureID) const;
+ 
+     const AttributesMask &getActiveAttribLocationsMask() const
+     {
+@@ -898,7 +923,6 @@
+     // Writes a program's binary to the output memory buffer.
+     void serialize(const Context *context, angle::MemoryBuffer *binaryOut) const;
+ 
+-
+   private:
+     struct LinkingState;
+ 
+@@ -911,7 +935,7 @@
+     void deleteSelf(const Context *context);
+ 
+     bool linkValidateShaders(InfoLog &infoLog);
+-    bool linkAttributes(const Caps &caps, InfoLog &infoLog);
++    bool linkAttributes(const Context *context, InfoLog &infoLog);
+     bool linkInterfaceBlocks(const Caps &caps,
+                              const Version &version,
+                              bool webglCompatibility,

@@ -1,0 +1,163 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/StructuredCloneHolder.cpp
+# Commit: 94c203600f2c
+# Full Hash: 94c203600f2c7090fb8d279bd12417f4f2f8d7af
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2024-03-06 21:16:27
+# Regressor Bug: 1858958
+# File Overlap Count: 1
+# Description:
+#   Bug 1858958 - AudioData: structured cloning. r=chunmin,smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D190948
+# ==============================================================================
+
+diff -r 8f0d8d45d132 -r 94c203600f2c dom/base/StructuredCloneHolder.cpp
+--- a/dom/base/StructuredCloneHolder.cpp	Wed Mar 06 11:14:17 2024 +0000
++++ b/dom/base/StructuredCloneHolder.cpp	Wed Mar 06 11:14:17 2024 +0000
+@@ -58,6 +58,7 @@
+ #include "mozilla/dom/TransformStream.h"
+ #include "mozilla/dom/TransformStreamBinding.h"
+ #include "mozilla/dom/VideoFrame.h"
++#include "mozilla/dom/AudioData.h"
+ #include "mozilla/dom/VideoFrameBinding.h"
+ #include "mozilla/dom/WebIDLSerializable.h"
+ #include "mozilla/dom/WritableStream.h"
+@@ -1127,6 +1128,17 @@
+     }
+   }
+ 
++  if (StaticPrefs::dom_media_webcodecs_enabled() &&
++      aTag == SCTAG_DOM_AUDIODATA &&
++      CloneScope() == StructuredCloneScope::SameProcess &&
++      aCloneDataPolicy.areIntraClusterClonableSharedObjectsAllowed()) {
++    JS::Rooted<JSObject*> global(aCx, mGlobal->GetGlobalJSObject());
++    if (AudioData_Binding::ConstructorEnabled(aCx, global)) {
++      return AudioData::ReadStructuredClone(aCx, mGlobal, aReader,
++                                            AudioData()[aIndex]);
++    }
++  }
++
+   return ReadFullySerializableObjects(aCx, aReader, aTag, false);
+ }
+ 
+@@ -1246,6 +1258,17 @@
+     }
+   }
+ 
++  // See if this is an AudioData object.
++  if (StaticPrefs::dom_media_webcodecs_enabled()) {
++    mozilla::dom::AudioData* audioData = nullptr;
++    if (NS_SUCCEEDED(UNWRAP_OBJECT(AudioData, &obj, audioData))) {
++      SameProcessScopeRequired(aSameProcessScopeRequired);
++      return CloneScope() == StructuredCloneScope::SameProcess
++                 ? audioData->WriteStructuredClone(aWriter, this)
++                 : false;
++    }
++  }
++
+   {
+     // We only care about streams, so ReflectorToISupportsStatic is fine.
+     nsCOMPtr<nsISupports> base = xpc::ReflectorToISupportsStatic(aObj);
+@@ -1429,6 +1452,39 @@
+     return true;
+   }
+ 
++  if (StaticPrefs::dom_media_webcodecs_enabled() &&
++      aTag == SCTAG_DOM_AUDIODATA &&
++      CloneScope() == StructuredCloneScope::SameProcess &&
++      aCloneDataPolicy.areIntraClusterClonableSharedObjectsAllowed()) {
++    MOZ_ASSERT(aContent);
++
++    JS::Rooted<JSObject*> globalObj(aCx, mGlobal->GetGlobalJSObject());
++    // aContent will be released in CustomFreeTransferHandler.
++    if (!AudioData_Binding::ConstructorEnabled(aCx, globalObj)) {
++      return false;
++    }
++
++    AudioData::TransferredData* data =
++        static_cast<AudioData::TransferredData*>(aContent);
++    nsCOMPtr<nsIGlobalObject> global = mGlobal;
++    RefPtr<mozilla::dom::AudioData> audioData =
++        AudioData::FromTransferred(global.get(), data);
++    // aContent will be released in CustomFreeTransferHandler if frame is null.
++    if (!audioData) {
++      return false;
++    }
++    delete data;
++    aContent = nullptr;
++
++    JS::Rooted<JS::Value> value(aCx);
++    if (!GetOrCreateDOMReflector(aCx, audioData, &value)) {
++      JS_ClearPendingException(aCx);
++      return false;
++    }
++    aReturnObject.set(&value.toObject());
++    return true;
++  }
++
+   return false;
+ }
+ 
+@@ -1530,6 +1586,26 @@
+           return true;
+         }
+       }
++      if (StaticPrefs::dom_media_webcodecs_enabled()) {
++        mozilla::dom::AudioData* audioData = nullptr;
++        rv = UNWRAP_OBJECT(AudioData, &obj, audioData);
++        if (NS_SUCCEEDED(rv)) {
++          MOZ_ASSERT(audioData);
++
++          *aExtraData = 0;
++          *aTag = SCTAG_DOM_AUDIODATA;
++          *aContent = nullptr;
++
++          UniquePtr<AudioData::TransferredData> data = audioData->Transfer();
++          if (!data) {
++            return false;
++          }
++          *aContent = data.release();
++          MOZ_ASSERT(*aContent);
++          *aOwnership = JS::SCTAG_TMO_CUSTOM;
++          return true;
++        }
++      }
+     }
+ 
+     {
+@@ -1667,6 +1743,16 @@
+     }
+     return;
+   }
++  if (StaticPrefs::dom_media_webcodecs_enabled() &&
++      aTag == SCTAG_DOM_AUDIODATA &&
++      CloneScope() == StructuredCloneScope::SameProcess) {
++    if (aContent) {
++      AudioData::TransferredData* data =
++          static_cast<AudioData::TransferredData*>(aContent);
++      delete data;
++    }
++    return;
++  }
+ }
+ 
+ bool StructuredCloneHolder::CustomCanTransferHandler(
+@@ -1750,6 +1836,15 @@
+     }
+   }
+ 
++  if (StaticPrefs::dom_media_webcodecs_enabled()) {
++    mozilla::dom::AudioData* audioData = nullptr;
++    nsresult rv = UNWRAP_OBJECT(AudioData, &obj, audioData);
++    if (NS_SUCCEEDED(rv)) {
++      SameProcessScopeRequired(aSameProcessScopeRequired);
++      return CloneScope() == StructuredCloneScope::SameProcess;
++    }
++  }
++
+   return false;
+ }
+ 

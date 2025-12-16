@@ -1,0 +1,70 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/HTMLEditor.h
+# Commit: bb54603e50c7
+# Full Hash: bb54603e50c7ab95d798eaf37987d9b60752ca08
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-08-04 04:34:13
+# Regressor Bug: 1774704
+# File Overlap Count: 1
+# Description:
+#   Bug 1774704 - part 2: Make `CreateOrChangeBlockContainerElement`, `FormatBlockContainerWithTransaction` and `WrapContentsInBlockquoteElementsWithTransaction` stop setting `TopLevelEditSubActionData::mNewBlockElement` r=m_kato
+#   
+#   They set `TopLevelEditSubActionData::mNewBlockElement` and their root callers
+#   in edit sub-action level are only `InsertParagraphSeparatorAsSubAction` and
+#   `FormatBlockContainerAsSubAction`, and they are called each other.  Therefore,
+# ==============================================================================
+
+diff -r b9a3b6f27a8d -r bb54603e50c7 editor/libeditor/HTMLEditor.h
+--- a/editor/libeditor/HTMLEditor.h	Thu Aug 04 00:21:53 2022 +0000
++++ b/editor/libeditor/HTMLEditor.h	Thu Aug 04 00:39:13 2022 +0000
+@@ -1396,10 +1396,12 @@
+    * @param aArrayOfContents    Nodes which will be moved into created
+    *                            <blockquote> elements.
+    * @param aEditingHost        The editing host.
+-   * @return                    A suggest of caret position if succeeded.  It
+-   *                            may be unset if there is no suggestion.
+-   */
+-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT Result<EditorDOMPoint, nsresult>
++   * @return                    A blockquote element which is created at last
++   *                            and a suggest of caret position if succeeded.
++   *                            The caret suggestion may be unset if there is
++   *                            no suggestion.
++   */
++  [[nodiscard]] MOZ_CAN_RUN_SCRIPT CreateElementResult
+   WrapContentsInBlockquoteElementsWithTransaction(
+       const nsTArray<OwningNonNull<nsIContent>>& aArrayOfContents,
+       const Element& aEditingHost);
+@@ -1435,9 +1437,10 @@
+    * @param aArrayOfContents    Must be descendants of a node.
+    * @param aBlockTag           The element name of new block elements.
+    * @param aEditingHost        The editing host.
+-   * @return                    May suggest a point to put caret if succeeded.
+-   */
+-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT Result<EditorDOMPoint, nsresult>
++   * @return                    The latest created new block element and a
++   *                            suggest point to put caret.
++   */
++  [[nodiscard]] MOZ_CAN_RUN_SCRIPT CreateElementResult
+   CreateOrChangeBlockContainerElement(
+       nsTArray<OwningNonNull<nsIContent>>& aArrayOfContents, nsAtom& aBlockTag,
+       const Element& aEditingHost);
+@@ -1460,10 +1463,13 @@
+    *                    Otherwise, CreateOrChangeBlockContainerElement() will be
+    *                    called.
+    * @param aEditingHost        The editing host.
+-   */
+-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult FormatBlockContainerWithTransaction(
+-      AutoRangeArray& aSelectionRanges, nsAtom& aBlockType,
+-      const Element& aEditingHost);
++   * @return                    If selection should be finally collapsed in a
++   *                            created block element, this returns the element.
++   */
++  [[nodiscard]] MOZ_CAN_RUN_SCRIPT Result<RefPtr<Element>, nsresult>
++  FormatBlockContainerWithTransaction(AutoRangeArray& aSelectionRanges,
++                                      nsAtom& aBlockType,
++                                      const Element& aEditingHost);
+ 
+   /**
+    * InsertBRElementIfHardLineIsEmptyAndEndsWithBlockBoundary() determines if

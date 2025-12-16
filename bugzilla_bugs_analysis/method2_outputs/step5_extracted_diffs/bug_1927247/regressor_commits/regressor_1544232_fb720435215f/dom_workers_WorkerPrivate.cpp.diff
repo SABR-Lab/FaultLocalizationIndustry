@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/WorkerPrivate.cpp
+# Commit: fb720435215f
+# Full Hash: fb720435215fa5be3b2bd2101f3a54382954b70c
+# Author: Andrew Sutherland <asutherland@asutherland.org>
+# Date: 2024-10-24 09:44:34
+# Regressor Bug: 1544232
+# File Overlap Count: 4
+# Description:
+#   Bug 1544232 - Limit lifetime extension of SWs by SWs to the sender's lifetime. r=edenchuang
+#   
+#   This patch introduces an explicit concept of lifetimes with mechanisms
+#   in place so that actions taken by Clients (windows or non-ServiceWorker
+#   orkers) will extend the lifetime of a ServiceWorker, but a ServiceWorker
+# ==============================================================================
+
+diff -r 25452f6623a0 -r fb720435215f dom/workers/WorkerPrivate.cpp
+--- a/dom/workers/WorkerPrivate.cpp	Thu Oct 24 03:02:41 2024 +0000
++++ b/dom/workers/WorkerPrivate.cpp	Thu Oct 24 03:02:42 2024 +0000
+@@ -3750,11 +3750,18 @@
+   auto data = mWorkerThreadAccessible.Access();
+   MOZ_ASSERT(!data->mScope, "Client should be created before the global");
+ 
+-  auto clientSource = ClientManager::CreateSource(
+-      GetClientType(), mWorkerHybridEventTarget,
+-      StoragePrincipalHelper::ShouldUsePartitionPrincipalForServiceWorker(this)
+-          ? GetPartitionedPrincipalInfo()
+-          : GetPrincipalInfo());
++  UniquePtr<ClientSource> clientSource;
++  if (IsServiceWorker()) {
++    clientSource = ClientManager::CreateSourceFromInfo(
++        GetSourceInfo(), mWorkerHybridEventTarget);
++  } else {
++    clientSource = ClientManager::CreateSource(
++        GetClientType(), mWorkerHybridEventTarget,
++        StoragePrincipalHelper::ShouldUsePartitionPrincipalForServiceWorker(
++            this)
++            ? GetPartitionedPrincipalInfo()
++            : GetPrincipalInfo());
++  }
+   MOZ_DIAGNOSTIC_ASSERT(clientSource);
+ 
+   clientSource->SetAgentClusterId(mAgentClusterId);

@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/opengl/TextureClientOGL.h
+# Commit: da24abf34123
+# Full Hash: da24abf341236e00fa47e9e55dc72c82ae8a8c84
+# Author: Jamie Nicol <jnicol@mozilla.com>
+# Date: 2023-12-14 17:20:20
+# Regressor Bug: 1866020
+# File Overlap Count: 1
+# Description:
+#   Bug 1866020 - Override buggy colorspace conversion on Pixel devices. r=gw,padenot,geckoview-reviewers,owlish
+#   
+#   Pixel 6, 7, and 8 devices running Android 14 are affected by a bug
+#   where video frames with SMPTE 432 color primaries are rendered
+#   incorrectly when sampled from an external texture in GLES. To work
+# ==============================================================================
+
+diff -r 3a34e7a424e0 -r da24abf34123 gfx/layers/opengl/TextureClientOGL.h
+--- a/gfx/layers/opengl/TextureClientOGL.h	Thu Dec 14 10:08:52 2023 +0000
++++ b/gfx/layers/opengl/TextureClientOGL.h	Thu Dec 14 10:45:08 2023 +0000
+@@ -41,7 +41,7 @@
+  public:
+   static already_AddRefed<TextureClient> CreateTextureClient(
+       AndroidSurfaceTextureHandle aHandle, gfx::IntSize aSize, bool aContinuous,
+-      gl::OriginPos aOriginPos, bool aHasAlpha,
++      gl::OriginPos aOriginPos, bool aHasAlpha, bool aForceBT709ColorSpace,
+       Maybe<gfx::Matrix4x4> aTransformOverride, LayersIPCChannel* aAllocator,
+       TextureFlags aFlags);
+ 
+@@ -62,13 +62,14 @@
+  protected:
+   AndroidSurfaceTextureData(AndroidSurfaceTextureHandle aHandle,
+                             gfx::IntSize aSize, bool aContinuous,
+-                            bool aHasAlpha,
++                            bool aHasAlpha, bool aForceBT709ColorSpace,
+                             Maybe<gfx::Matrix4x4> aTransformOverride);
+ 
+   const AndroidSurfaceTextureHandle mHandle;
+   const gfx::IntSize mSize;
+   const bool mContinuous;
+   const bool mHasAlpha;
++  const bool mForceBT709ColorSpace;
+   const Maybe<gfx::Matrix4x4> mTransformOverride;
+ };
+ 

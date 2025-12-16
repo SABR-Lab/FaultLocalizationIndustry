@@ -1,0 +1,39 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLContext.h
+# Commit: c32962d08e6c
+# Full Hash: c32962d08e6c36fa350f2a24f184fff65cf0524a
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2022-08-05 21:30:02
+# Description:
+#   Bug 1781064 - Get buffer size directly from BufferTextureData. r=aosmond,gfx-reviewers
+#   
+#   Since the BufferTextureData is getting created based on ImageDataSerialize::ComputeRGBBufferSize,
+#   the stride may be padded for alignment which doesn't agree with the simple calculation duplicated
+#   here. In general, it is less error-prone to just ask the BufferTextureData itself for its buffer
+# ==============================================================================
+
+diff -r ae21d9a82aad -r c32962d08e6c dom/canvas/WebGLContext.h
+--- a/dom/canvas/WebGLContext.h	Fri Aug 05 17:24:05 2022 +0000
++++ b/dom/canvas/WebGLContext.h	Fri Aug 05 18:48:48 2022 +0000
+@@ -513,12 +513,16 @@
+   // appropriately.
+   void EndOfFrame();
+   RefPtr<gfx::DataSourceSurface> GetFrontBufferSnapshot();
+-  Maybe<uvec2> FrontBufferSnapshotInto(const Maybe<Range<uint8_t>>);
++  Maybe<uvec2> FrontBufferSnapshotInto(
++      const Maybe<Range<uint8_t>> dest,
++      const Maybe<size_t> destStride = Nothing());
+   Maybe<uvec2> FrontBufferSnapshotInto(
+       const std::shared_ptr<gl::SharedSurface>& front,
+-      const Maybe<Range<uint8_t>>);
++      const Maybe<Range<uint8_t>> dest,
++      const Maybe<size_t> destStride = Nothing());
+   Maybe<uvec2> SnapshotInto(GLuint srcFb, const gfx::IntSize& size,
+-                            const Range<uint8_t>& dest);
++                            const Range<uint8_t>& dest,
++                            const Maybe<size_t> destStride = Nothing());
+   gl::SwapChain* GetSwapChain(WebGLFramebuffer*, const bool webvr);
+   Maybe<layers::SurfaceDescriptor> GetFrontBuffer(WebGLFramebuffer*,
+                                                   const bool webvr);

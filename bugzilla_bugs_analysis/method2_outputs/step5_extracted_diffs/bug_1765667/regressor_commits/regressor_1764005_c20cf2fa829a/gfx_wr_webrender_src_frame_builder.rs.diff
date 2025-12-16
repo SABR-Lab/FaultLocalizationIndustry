@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/frame_builder.rs
+# Commit: c20cf2fa829a
+# Full Hash: c20cf2fa829a19cb6b60909d05abcda40e77dd70
+# Author: Glenn Watson <git@intuitionlibrary.com>
+# Date: 2022-04-20 09:42:47
+# Regressor Bug: 1764005
+# File Overlap Count: 1
+# Description:
+#   Bug 1764005 - Add backdrop-filter primitive support r=gfx-reviewers,lsalzman,nical
+#   
+#   Add support for backdrop-filter primitive in WR. Each backdrop
+#   filter primitive establishes a render task sub-graph. The primitive
+#   instance registers itself as a resolve source to receive the
+# ==============================================================================
+
+diff -r d5b01209cf78 -r c20cf2fa829a gfx/wr/webrender/src/frame_builder.rs
+--- a/gfx/wr/webrender/src/frame_builder.rs	Wed Apr 20 01:08:52 2022 +0000
++++ b/gfx/wr/webrender/src/frame_builder.rs	Wed Apr 20 01:09:09 2022 +0000
+@@ -21,7 +21,7 @@
+ use crate::prim_store::{DeferredResolve, PrimitiveInstance};
+ use crate::profiler::{self, TransactionProfile};
+ use crate::render_backend::{DataStores, ScratchBuffer};
+-use crate::render_target::{RenderTarget, PictureCacheTarget, TextureCacheRenderTarget};
++use crate::render_target::{RenderTarget, PictureCacheTarget, TextureCacheRenderTarget, PictureCacheTargetKind};
+ use crate::render_target::{RenderTargetContext, RenderTargetKind, AlphaRenderTarget, ColorRenderTarget};
+ use crate::render_task_graph::{RenderTaskGraph, Pass, SubPassSurface};
+ use crate::render_task_graph::{RenderPass, RenderTaskGraphBuilder};
+@@ -843,14 +843,28 @@
+                         let target = PictureCacheTarget {
+                             surface: surface.clone(),
+                             clear_color: pic_task.clear_color,
+-                            alpha_batch_container,
++                            kind: PictureCacheTargetKind::Draw {
++                                alpha_batch_container,
++                            },
+                             dirty_rect: scissor_rect,
+                             valid_rect,
+-                            resolve_op: pic_task.resolve_op,
+                         };
+ 
+                         pass.picture_cache.push(target);
++                    }
++                    RenderTaskKind::TileComposite(ref tile_task) => {
++                        let target = PictureCacheTarget {
++                            surface: surface.clone(),
++                            clear_color: Some(tile_task.clear_color),
++                            kind: PictureCacheTargetKind::Blit {
++                                task_id: tile_task.task_id.expect("bug: no source task_id set"),
++                                sub_rect_offset: tile_task.sub_rect_offset,
++                            },
++                            dirty_rect: tile_task.scissor_rect,
++                            valid_rect: tile_task.valid_rect,
++                        };
+ 
++                        pass.picture_cache.push(target);
+                     }
+                     _ => {
+                         unreachable!();

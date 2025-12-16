@@ -1,0 +1,38 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/ipc/CrossProcessPaint.h
+# Commit: b8c5fc82d21d
+# Full Hash: b8c5fc82d21ddb485d6565dd49f31f98e95a684f
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2019-08-14 21:57:52
+# Description:
+#   Bug 1569930 - Handle races in CrossProcessPaint without crashing, and instead report it back to the caller. r=rhunt
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D41727
+# ==============================================================================
+
+diff -r 8fc581cf9ff8 -r b8c5fc82d21d gfx/ipc/CrossProcessPaint.h
+--- a/gfx/ipc/CrossProcessPaint.h	Wed Aug 14 10:25:33 2019 +0000
++++ b/gfx/ipc/CrossProcessPaint.h	Wed Aug 14 10:23:34 2019 +0000
+@@ -116,9 +116,7 @@
+ 
+  private:
+   typedef nsRefPtrHashtable<nsUint64HashKey, SourceSurface> ResolvedSurfaceMap;
+-  typedef nsDataHashtable<nsRefPtrHashKey<dom::WindowGlobalParent>,
+-                          PaintFragment>
+-      ReceivedFragmentMap;
++  typedef nsDataHashtable<nsUint64HashKey, PaintFragment> ReceivedFragmentMap;
+ 
+   CrossProcessPaint(dom::Promise* aPromise, float aScale,
+                     dom::WindowGlobalParent* aRoot);
+@@ -137,8 +135,7 @@
+   /// Resolves the paint fragments if we have none pending and resolves the
+   /// promise.
+   void MaybeResolve();
+-  bool ResolveInternal(dom::WindowGlobalParent* aWGP,
+-                       ResolvedSurfaceMap* aResolved);
++  nsresult ResolveInternal(dom::TabId aTabId, ResolvedSurfaceMap* aResolved);
+ 
+   RefPtr<dom::Promise> mPromise;
+   RefPtr<dom::WindowGlobalParent> mRoot;

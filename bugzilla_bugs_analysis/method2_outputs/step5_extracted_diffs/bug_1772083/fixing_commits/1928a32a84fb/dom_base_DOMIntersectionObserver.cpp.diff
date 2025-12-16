@@ -1,0 +1,35 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/base/DOMIntersectionObserver.cpp
+# Commit: 1928a32a84fb
+# Full Hash: 1928a32a84fbfbdc6253ff5a5a05f5e481e10277
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2022-06-01 21:31:38
+# Description:
+#   Bug 1772083 - Downgrade an assertion for now while we try to find STR. r=smaug
+#   
+#   The only URLs in the crash reports are internal networks, so it's not
+#   clear to me how it can happen. But given it can, handle it gracefully.
+#   
+# ==============================================================================
+
+diff -r dc0540200c1c -r 1928a32a84fb dom/base/DOMIntersectionObserver.cpp
+--- a/dom/base/DOMIntersectionObserver.cpp	Wed Jun 01 13:49:38 2022 +0000
++++ b/dom/base/DOMIntersectionObserver.cpp	Wed Jun 01 14:03:04 2022 +0000
+@@ -499,7 +499,14 @@
+   if (!browserChild) {
+     return Some(OopIframeMetrics{});
+   }
+-  MOZ_DIAGNOSTIC_ASSERT(!browserChild->IsTopLevel());
++
++  if (MOZ_UNLIKELY(browserChild->IsTopLevel())) {
++    // FIXME(bug 1772083): This can be hit, but it's unclear how... When can we
++    // have a top-level BrowserChild for a document that isn't a top-level
++    // content document?
++    MOZ_ASSERT_UNREACHABLE("Top level BrowserChild w/ non-top level Document?");
++    return Nothing();
++  }
+ 
+   nsRect inProcessRootRect;
+   if (nsIScrollableFrame* scrollFrame =

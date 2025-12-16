@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/StructuredClone.cpp
+# Commit: 0f9f2acf6e13
+# Full Hash: 0f9f2acf6e136933da9a105df64ca4cc20bcb15c
+# Author: Kagami Sascha Rosylight <krosylight@mozilla.com>
+# Date: 2022-04-20 03:39:48
+# Regressor Bug: 1561357
+# File Overlap Count: 1
+# Description:
+#   Bug 1561357 - Implement [Serializable] for DOMException r=smaug,sfink
+#   
+#   Skipping stack serialization here as
+#   
+#   * it's optional per the spec
+# ==============================================================================
+
+diff -r 6e296387dc26 -r 0f9f2acf6e13 js/src/vm/StructuredClone.cpp
+--- a/js/src/vm/StructuredClone.cpp	Tue Apr 19 19:13:08 2022 +0000
++++ b/js/src/vm/StructuredClone.cpp	Tue Apr 19 19:31:27 2022 +0000
+@@ -477,6 +477,8 @@
+   // Any value passed to JS_ReadStructuredClone.
+   void* closure;
+ 
++  friend bool JS_ReadString(JSStructuredCloneReader* r,
++                            JS::MutableHandleString str);
+   friend bool JS_ReadTypedArray(JSStructuredCloneReader* r,
+                                 MutableHandleValue vp);
+ };
+@@ -3561,6 +3563,23 @@
+   return r->input().readBytes(p, len);
+ }
+ 
++JS_PUBLIC_API bool JS_ReadString(JSStructuredCloneReader* r,
++                                 MutableHandleString str) {
++  uint32_t tag, data;
++  if (!r->input().readPair(&tag, &data)) {
++    return false;
++  }
++
++  if (tag == SCTAG_STRING) {
++    str.set(r->readString(data));
++    return true;
++  }
++
++  JS_ReportErrorNumberASCII(r->context(), GetErrorMessage, nullptr,
++                            JSMSG_SC_BAD_SERIALIZED_DATA, "expected string");
++  return false;
++}
++
+ JS_PUBLIC_API bool JS_ReadDouble(JSStructuredCloneReader* r, double* v) {
+   return r->input().readDouble(v);
+ }

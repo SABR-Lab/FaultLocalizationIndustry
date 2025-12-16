@@ -1,0 +1,37 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/nsSubDocumentFrame.cpp
+# Commit: a261bb633790
+# Full Hash: a261bb633790ddca9cc8ce83adca0a1bb36114a6
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2022-02-23 09:38:00
+# Regressor Bug: 1714584
+# File Overlap Count: 2
+# Description:
+#   Bug 1714584 - Part 1: Decouple nsDisplayList internal list from nsDisplayItems r=mstange
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D138152
+# ==============================================================================
+
+diff -r 635f402efb1b -r a261bb633790 layout/generic/nsSubDocumentFrame.cpp
+--- a/layout/generic/nsSubDocumentFrame.cpp	Tue Feb 22 23:42:08 2022 +0000
++++ b/layout/generic/nsSubDocumentFrame.cpp	Tue Feb 22 23:42:18 2022 +0000
+@@ -310,7 +310,7 @@
+   nsDisplayItem* item;
+   while ((item = aList->RemoveBottom()) != nullptr) {
+     if (item->GetType() == DisplayItemType::TYPE_BACKGROUND_COLOR) {
+-      nsDisplayList tmpList;
++      nsDisplayList tmpList(aBuilder);
+       tmpList.AppendToTop(item);
+       item = MakeDisplayItemWithIndex<nsDisplayOwnLayer>(
+           aBuilder, aFrame, /* aIndex = */ nsDisplayOwnLayer::OwnLayerForSubdoc,
+@@ -438,7 +438,7 @@
+     needsOwnLayer = true;
+   }
+ 
+-  nsDisplayList childItems;
++  nsDisplayList childItems(aBuilder);
+ 
+   {
+     DisplayListClipState::AutoSaveRestore nestedClipState(aBuilder);

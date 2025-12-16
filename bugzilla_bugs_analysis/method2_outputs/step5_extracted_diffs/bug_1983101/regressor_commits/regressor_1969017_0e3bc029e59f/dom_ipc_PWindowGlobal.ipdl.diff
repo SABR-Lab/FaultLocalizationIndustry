@@ -1,0 +1,69 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/PWindowGlobal.ipdl
+# Commit: 0e3bc029e59f
+# Full Hash: 0e3bc029e59f5f0319a57c469d7c0991081379ff
+# Author: Benjamin VanderSloot <bvandersloot@mozilla.com>
+# Date: 2025-06-10 21:43:01
+# Regressor Bug: 1969017
+# File Overlap Count: 2
+# Description:
+#   Bug 1969017 - Refactor FedCM to use a managed actor rather than tagging onto WindowGlobalParent - r=anti-tracking-reviewers,emz
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D251617
+# ==============================================================================
+
+diff -r 8b2ffdf05455 -r 0e3bc029e59f dom/ipc/PWindowGlobal.ipdl
+--- a/dom/ipc/PWindowGlobal.ipdl	Tue Jun 10 11:49:57 2025 +0000
++++ b/dom/ipc/PWindowGlobal.ipdl	Tue Jun 10 11:49:57 2025 +0000
+@@ -15,10 +15,10 @@
+ include protocol PInProcess;
+ include protocol PBrowserBridge;
+ include protocol PWebAuthnTransaction;
++include protocol PWebIdentity;
+ 
+ include DOMTypes;
+ include ClientIPCTypes;
+-include IPCIdentityCredential;
+ include NeckoChannelParams;
+ include SessionStoreTypes;
+ 
+@@ -67,6 +67,7 @@
+ {
+   manager PBrowser or PInProcess;
+   manages PWebAuthnTransaction;
++  manages PWebIdentity;
+ 
+ child:
+   async __delete__();
+@@ -203,21 +204,6 @@
+ 
+   async ReloadWithHttpsOnlyException();
+ 
+-  // Used by the Credential Manager API and FedCM to keep the discovery of
+-  // a credential abstracted from the content process. This is required because
+-  // credentialed requests that are specifically not partitioned are made and
+-  // the results must not enter the child process until the user consents via
+-  // purpose built UI.
+-  async GetIdentityCredential(IdentityCredentialRequestOptions aOptions,
+-                              CredentialMediationRequirement aMediationRequirement,
+-                              bool aHasUserActivation)
+-    returns (IPCIdentityCredential? identityCredential, nsresult rv);
+-  async DisconnectIdentityCredential(IdentityCredentialDisconnectOptions aOptions) returns (nsresult rv);
+-  async PreventSilentAccess() returns (nsresult rv);
+-
+-  // Indicate that the page has reported itself as logged in
+-  async SetLoginStatus(LoginStatus foo) returns (nsresult rv);
+-
+   async GetStorageAccessPermission(bool aIncludeIdentityCredential) returns(uint32_t permission_action);
+ 
+ 
+@@ -236,6 +222,7 @@
+   async RecordUserActivationForBTP();
+ 
+   async PWebAuthnTransaction();
++  async PWebIdentity();
+ 
+ child:
+   async NotifyPermissionChange(nsCString type, uint32_t permission);

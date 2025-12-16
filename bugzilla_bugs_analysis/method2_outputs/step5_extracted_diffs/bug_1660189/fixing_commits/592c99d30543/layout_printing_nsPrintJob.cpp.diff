@@ -1,0 +1,35 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: layout/printing/nsPrintJob.cpp
+# Commit: 592c99d30543
+# Full Hash: 592c99d3054399d45a4bb9afb95946058afb6d12
+# Author: Hiroyuki Ikezoe <hikezoe.birchill@mozilla.com>
+# Date: 2020-08-21 15:43:14
+# Description:
+#   Bug 1660189 - Bail out from nsPrintJob::DoCommonPrint if the docshell was destroyed in beforeprint event handlers. r=dholbert
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D87827
+# ==============================================================================
+
+diff -r 4b66bbac751a -r 592c99d30543 layout/printing/nsPrintJob.cpp
+--- a/layout/printing/nsPrintJob.cpp	Fri Aug 21 04:44:36 2020 +0000
++++ b/layout/printing/nsPrintJob.cpp	Fri Aug 21 04:58:49 2020 +0000
+@@ -183,6 +183,7 @@
+   return CallState::Continue;
+ }
+ 
++MOZ_CAN_RUN_SCRIPT
+ static void DispatchEventToWindowTree(Document& aDoc, const nsAString& aEvent) {
+   nsTArray<nsCOMPtr<Document>> targets;
+   CollectDocuments(aDoc, targets);
+@@ -655,6 +656,9 @@
+     // for print output.  (Obviously if `aSourceDoc` is a clone, it already
+     // has these changes.)
+     DispatchEventToWindowTree(*aSourceDoc, u"beforeprint"_ns);
++    if (mIsDestroying) {
++      return NS_ERROR_FAILURE;
++    }
+   }
+ 
+   {

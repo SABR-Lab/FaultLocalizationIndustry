@@ -1,0 +1,42 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: accessible/tests/browser/e10s/browser_text_paragraph_boundary.js
+# Commit: 41d5f7688395
+# Full Hash: 41d5f76883953154d9a53e09f805e1ce15cb57c9
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2020-10-29 15:52:12
+# Description:
+#   Bug 1673919: Make ParagraphBoundaryRule skip over OuterDocAccessibles. r=MarcoZ
+#   
+#   The browser test is really a crash test, but it's really difficult to test a11y APIs properly using the crashtest framework.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D95107
+# ==============================================================================
+
+diff -r ff7124e703ef -r 41d5f7688395 accessible/tests/browser/e10s/browser_text_paragraph_boundary.js
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/accessible/tests/browser/e10s/browser_text_paragraph_boundary.js	Thu Oct 29 06:04:33 2020 +0000
+@@ -0,0 +1,22 @@
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++"use strict";
++
++// Test that we don't crash the parent process when querying the paragraph
++// boundary on an Accessible which has remote ProxyAccessible descendants.
++addAccessibleTask(
++  `test`,
++  async function testParagraphBoundaryWithRemoteDescendants(browser, accDoc) {
++    const root = getRootAccessible(document).QueryInterface(
++      Ci.nsIAccessibleText
++    );
++    let start = {};
++    let end = {};
++    // The offsets will change as the Firefox UI changes. We don't really care
++    // what they are, just that we don't crash.
++    root.getTextAtOffset(0, nsIAccessibleText.BOUNDARY_PARAGRAPH, start, end);
++    ok(true, "Getting paragraph boundary succeeded");
++  }
++);

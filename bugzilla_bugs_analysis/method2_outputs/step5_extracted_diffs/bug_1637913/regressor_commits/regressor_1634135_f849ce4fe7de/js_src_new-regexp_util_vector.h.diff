@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/new-regexp/util/vector.h
+# Commit: f849ce4fe7de
+# Full Hash: f849ce4fe7ded64c3e88b91aed10ae1696a16004
+# Author: Iain Ireland <iireland@mozilla.com>
+# Date: 2020-05-06 21:51:14
+# Regressor Bug: 1634135
+# File Overlap Count: 1
+# Description:
+#   Bug 1634135: Update shim code r=mgaudet
+#   
+#   There are a few changes here:
+#   
+#   1. The code that used to be in wrapBody was moved to RegExpCompiler::PreprocessRegExp.
+# ==============================================================================
+
+diff -r 4560a77cbe7b -r f849ce4fe7de js/src/new-regexp/util/vector.h
+--- a/js/src/new-regexp/util/vector.h	Tue May 05 12:49:54 2020 +0000
++++ b/js/src/new-regexp/util/vector.h	Tue May 05 12:49:54 2020 +0000
+@@ -173,6 +173,11 @@
+ template <typename T, size_t kSize>
+ class SmallVector {
+ public:
++  SmallVector() = default;
++  SmallVector(size_t size) {
++    resize_no_init(size);
++  }
++
+   inline bool empty() const { return inner_.empty(); }
+   inline const T& back() const { return inner_.back(); }
+   inline void pop_back() { inner_.popBack(); };
+@@ -185,6 +190,11 @@
+   };
+   inline size_t size() const { return inner_.length(); }
+   inline const T& at(size_t index) const { return inner_[index]; }
++  T* data() { return inner_.begin(); }
++
++  T& operator[](size_t index) { return inner_[index]; }
++  const T& operator[](size_t index) const { return inner_[index]; }
++
+ 
+   void resize_no_init(size_t new_size) {
+     js::AutoEnterOOMUnsafeRegion oomUnsafe;

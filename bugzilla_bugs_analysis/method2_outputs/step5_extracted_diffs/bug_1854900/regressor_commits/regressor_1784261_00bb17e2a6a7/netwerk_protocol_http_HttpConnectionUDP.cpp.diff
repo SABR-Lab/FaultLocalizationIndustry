@@ -1,0 +1,82 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/HttpConnectionUDP.cpp
+# Commit: 00bb17e2a6a7
+# Full Hash: 00bb17e2a6a73f9c66e861adae426818ff4d8caa
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2023-09-21 21:20:56
+# Regressor Bug: 1784261
+# File Overlap Count: 1
+# Description:
+#   Bug 1784261 - Add telemetry to understand the reason of connection closure, r=necko-reviewers,valentin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D188132
+# ==============================================================================
+
+diff -r e98350675c5a -r 00bb17e2a6a7 netwerk/protocol/http/HttpConnectionUDP.cpp
+--- a/netwerk/protocol/http/HttpConnectionUDP.cpp	Thu Sep 21 08:42:26 2023 +0000
++++ b/netwerk/protocol/http/HttpConnectionUDP.cpp	Thu Sep 21 08:59:03 2023 +0000
+@@ -67,6 +67,7 @@
+     // SetSecurityCallbacks.
+     mCallbacks = new nsMainThreadPtrHolder<nsIInterfaceRequestor>(
+         "HttpConnectionUDP::mCallbacks", callbacks, false);
++    SetCloseReason(ToCloseReason(mErrorBeforeConnect));
+     return mErrorBeforeConnect;
+   }
+ 
+@@ -160,6 +161,7 @@
+     return rv;
+   }
+ 
++  ChangeConnectionState(ConnectionState::INITED);
+   // See explanation for non-strictness of this operation in
+   // SetSecurityCallbacks.
+   mCallbacks = new nsMainThreadPtrHolder<nsIInterfaceRequestor>(
+@@ -185,6 +187,7 @@
+         caps));
+ 
+   if (!mExperienced && !trans->IsNullTransaction()) {
++    mHasFirstHttpTransaction = true;
+     // For QUIC we have HttpConnecitonUDP before the actual connection
+     // has been establish so wait for TLS handshake to be finished before
+     // we mark the connection 'experienced'.
+@@ -222,6 +225,11 @@
+     return NS_ERROR_FAILURE;
+   }
+ 
++  if (mHasFirstHttpTransaction && mExperienced) {
++    mHasFirstHttpTransaction = false;
++    mExperienceState |= ConnectionExperienceState::Experienced;
++  }
++
+   Unused << ResumeSend();
+   return NS_OK;
+ }
+@@ -232,6 +240,11 @@
+ 
+   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
+ 
++  if (mConnectionState != ConnectionState::CLOSED) {
++    RecordConnectionCloseTelemetry(reason);
++    ChangeConnectionState(ConnectionState::CLOSED);
++  }
++
+   if (mForceSendTimer) {
+     mForceSendTimer->Cancel();
+     mForceSendTimer = nullptr;
+@@ -537,6 +550,14 @@
+   NS_INTERFACE_MAP_ENTRY_CONCRETE(HttpConnectionUDP)
+ NS_INTERFACE_MAP_END
+ 
++void HttpConnectionUDP::NotifyDataRead() {
++  mExperienceState |= ConnectionExperienceState::First_Response_Received;
++}
++
++void HttpConnectionUDP::NotifyDataWrite() {
++  mExperienceState |= ConnectionExperienceState::First_Request_Sent;
++}
++
+ // called on the socket transport thread
+ nsresult HttpConnectionUDP::RecvData() {
+   MOZ_ASSERT(OnSocketThread(), "not on socket thread");

@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit-test/tests/wasm/multi-value/call-js.js
+# Commit: e71e54d93af8
+# Full Hash: e71e54d93af8baa6ef915c81dc04ac3400f825cd
+# Author: Andy Wingo <wingo@igalia.com>
+# Date: 2020-03-06 20:10:41
+# Regressor Bug: 1620197
+# File Overlap Count: 1
+# Description:
+#   Bug 1620197 - Enable multiple results from WebAssembly functions r=lth
+#   
+#   This patch enables multi-value calls and returns, adding some tests, and
+#   conditionally disabling a couple expect-fail reftests that now pass.
+#   
+# ==============================================================================
+
+diff -r afbf73fb4073 -r e71e54d93af8 js/src/jit-test/tests/wasm/multi-value/call-js.js
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/js/src/jit-test/tests/wasm/multi-value/call-js.js	Fri Mar 06 13:53:07 2020 +0000
+@@ -0,0 +1,23 @@
++
++function expectRunFailure(text, pattern, imports) {
++    let instance = wasmEvalText(text, imports);
++    assertErrorMessage(() => instance.exports.run(),
++		       TypeError,
++                       pattern);
++}
++
++expectRunFailure(`
++  (module
++    (import "env" "f" (func $f (result i32 i32)))
++    (func (export "run") (result i32)
++      (call $f)
++      i32.sub))`,
++                 /calling JavaScript functions with multiple results from WebAssembly not yet implemented/,
++                 { env: { f: () => [52, 10] } });
++
++expectRunFailure(`
++  (module
++    (func (export "run") (result i32 i32)
++      (i32.const 52)
++      (i32.const 10)))`,
++                 /calling WebAssembly functions with multiple results from JavaScript not yet implemented/);

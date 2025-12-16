@@ -1,0 +1,67 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: modules/libpref/Preferences.cpp
+# Commit: 7ae4df10749c
+# Full Hash: 7ae4df10749c176009923591c252c634571c21d1
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2020-07-02 15:21:09
+# Regressor Bug: 1627075
+# File Overlap Count: 1
+# Description:
+#   Bug 1627075 - Route Omnijar requests through StartupCache r=froydnj
+#   
+#   This should be a relatively straightforward patch. Essentially, we implement
+#   a wrapper class (and friends) around nsZipArchive (and friends), which transparently
+#   caches entries from the underlying zip archive in the StartupCache. This will break
+# ==============================================================================
+
+diff -r ece9a4223349 -r 7ae4df10749c modules/libpref/Preferences.cpp
+--- a/modules/libpref/Preferences.cpp	Thu Jul 02 03:39:46 2020 +0000
++++ b/modules/libpref/Preferences.cpp	Thu Jul 02 02:51:41 2020 +0000
+@@ -82,7 +82,6 @@
+ #include "nsXPCOMCID.h"
+ #include "nsXPCOM.h"
+ #include "nsXULAppAPI.h"
+-#include "nsZipArchive.h"
+ #include "plbase64.h"
+ #include "PLDHashTable.h"
+ #include "plstr.h"
+@@ -4312,7 +4311,7 @@
+   return rv;
+ }
+ 
+-static nsresult pref_ReadPrefFromJar(nsZipArchive* aJarReader,
++static nsresult pref_ReadPrefFromJar(CacheAwareZipReader* aJarReader,
+                                      const char* aName) {
+   TimeStamp startTime = TimeStamp::Now();
+ 
+@@ -4329,8 +4328,8 @@
+   return NS_OK;
+ }
+ 
+-static nsresult pref_ReadDefaultPrefs(const RefPtr<nsZipArchive> jarReader,
+-                                      const char* path) {
++static nsresult pref_ReadDefaultPrefs(
++    const RefPtr<CacheAwareZipReader>& jarReader, const char* path) {
+   UniquePtr<nsZipFind> find;
+   nsTArray<nsCString> prefEntries;
+   const char* entryName;
+@@ -4509,7 +4508,7 @@
+   const char* entryName;
+   uint16_t entryNameLen;
+ 
+-  RefPtr<nsZipArchive> jarReader = Omnijar::GetReader(Omnijar::GRE);
++  RefPtr<CacheAwareZipReader> jarReader = Omnijar::GetReader(Omnijar::GRE);
+   if (jarReader) {
+ #ifdef MOZ_WIDGET_ANDROID
+     // Try to load an architecture-specific greprefs.js first. This will be
+@@ -4591,7 +4590,7 @@
+ 
+   // Load jar:$app/omni.jar!/defaults/preferences/*.js
+   // or jar:$gre/omni.jar!/defaults/preferences/*.js.
+-  RefPtr<nsZipArchive> appJarReader = Omnijar::GetReader(Omnijar::APP);
++  RefPtr<CacheAwareZipReader> appJarReader = Omnijar::GetReader(Omnijar::APP);
+ 
+   // GetReader(Omnijar::APP) returns null when `$app == $gre`, in
+   // which case we look for app-specific default preferences in $gre.

@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/picture.rs
+# Commit: 2dc0263436f7
+# Full Hash: 2dc0263436f78b1689d5e23a2b24720181e91ea4
+# Author: Glenn Watson <git@intuitionlibrary.com>
+# Date: 2019-11-01 09:36:21
+# Regressor Bug: 1592891
+# File Overlap Count: 4
+# Description:
+#   Bug 1592891 - Disable picture caching when picture caches have complex transforms. r=kvark,nical
+#   
+#   With the recent changes to compositing in WR, the scene must either
+#   only produce produce cache tiles, or disable picture caching and
+#   rasterize directly.
+# ==============================================================================
+
+diff -r b96cb18aa920 -r 2dc0263436f7 gfx/wr/webrender/src/picture.rs
+--- a/gfx/wr/webrender/src/picture.rs	Thu Oct 31 13:49:53 2019 +0000
++++ b/gfx/wr/webrender/src/picture.rs	Thu Oct 31 19:53:44 2019 +0000
+@@ -66,7 +66,7 @@
+ use crate::box_shadow::{BLUR_SAMPLE_SCALE};
+ use crate::clip::{ClipStore, ClipChainInstance, ClipDataHandle, ClipChainId};
+ use crate::clip_scroll_tree::{ROOT_SPATIAL_NODE_INDEX,
+-    ClipScrollTree, CoordinateSpaceMapping, SpatialNodeIndex, VisibleFace, CoordinateSystemId
++    ClipScrollTree, CoordinateSpaceMapping, SpatialNodeIndex, VisibleFace
+ };
+ use crate::composite::{CompositorKind, CompositeState, NativeSurfaceId};
+ use crate::debug_colors;
+@@ -3662,17 +3662,7 @@
+                 // Only allow picture caching composite mode if global picture caching setting
+                 // is enabled this frame.
+                 if state.composite_state.picture_caching_is_enabled {
+-                    // Disable tile cache if the scroll root has a perspective transform, since
+-                    // this breaks many assumptions (it's a very rare edge case anyway, and
+-                    // is probably (?) going to be moving / animated in this case).
+-                    let spatial_node = &frame_context
+-                        .clip_scroll_tree
+-                        .spatial_nodes[self.spatial_node_index.0 as usize];
+-                    if spatial_node.coordinate_system_id == CoordinateSystemId::root() {
+-                        Some(PictureCompositeMode::TileCache { })
+-                    } else {
+-                        None
+-                    }
++                    Some(PictureCompositeMode::TileCache { })
+                 } else {
+                     None
+                 }

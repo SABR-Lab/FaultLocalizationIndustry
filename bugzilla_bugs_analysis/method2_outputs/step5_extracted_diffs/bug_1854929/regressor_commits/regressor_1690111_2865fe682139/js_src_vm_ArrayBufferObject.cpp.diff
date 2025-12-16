@@ -1,0 +1,83 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/ArrayBufferObject.cpp
+# Commit: 2865fe682139
+# Full Hash: 2865fe682139450ad7574810366f980d771412c2
+# Author: Steve Fink <sfink@mozilla.com>
+# Date: 2023-09-12 04:12:49
+# Regressor Bug: 1690111
+# File Overlap Count: 1
+# Description:
+#   Bug 1690111 - Implement the ability to pin lengths (prevent changes to length, eg via detaching) for ArrayBuffers and their views. r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D131301
+# ==============================================================================
+
+diff -r 9dcd2416f8a5 -r 2865fe682139 js/src/vm/ArrayBufferObject.cpp
+--- a/js/src/vm/ArrayBufferObject.cpp	Mon Sep 11 12:52:18 2023 +0000
++++ b/js/src/vm/ArrayBufferObject.cpp	Mon Sep 11 12:52:19 2023 +0000
+@@ -681,6 +681,7 @@
+                                Handle<ArrayBufferObject*> buffer) {
+   cx->check(buffer);
+   MOZ_ASSERT(!buffer->isPreparedForAsmJS());
++  MOZ_ASSERT(!buffer->isLengthPinned());
+ 
+   // Update all views of the buffer to account for the buffer having been
+   // detached, and clear the buffer's data and list of views.
+@@ -1332,6 +1333,10 @@
+ ArrayBufferObject* ArrayBufferObject::wasmGrowToPagesInPlace(
+     wasm::IndexType t, Pages newPages, Handle<ArrayBufferObject*> oldBuf,
+     JSContext* cx) {
++  if (oldBuf->isLengthPinned()) {
++    return nullptr;
++  }
++
+   CheckStealPreconditions(oldBuf, cx);
+ 
+   MOZ_ASSERT(oldBuf->isWasm());
+@@ -1390,6 +1395,9 @@
+     JSContext* cx) {
+   // On failure, do not throw and ensure that the original buffer is
+   // unmodified and valid.
++  if (oldBuf->isLengthPinned()) {
++    return nullptr;
++  }
+ 
+   // Check that the new pages is within our allowable range. This will
+   // simultaneously check against the maximum specified in source and our
+@@ -1825,6 +1833,9 @@
+ 
+ /* static */ uint8_t* ArrayBufferObject::stealMallocedContents(
+     JSContext* cx, Handle<ArrayBufferObject*> buffer) {
++  if (buffer->isLengthPinned()) {
++    return nullptr;
++  }
+   CheckStealPreconditions(buffer, cx);
+ 
+   switch (buffer->bufferKind()) {
+@@ -1880,6 +1891,12 @@
+ /* static */ ArrayBufferObject::BufferContents
+ ArrayBufferObject::extractStructuredCloneContents(
+     JSContext* cx, Handle<ArrayBufferObject*> buffer) {
++  if (buffer->isLengthPinned()) {
++    JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
++                              JSMSG_ARRAYBUFFER_LENGTH_PINNED);
++    return BufferContents::createFailed();
++  }
++
+   CheckStealPreconditions(buffer, cx);
+ 
+   BufferContents contents = buffer->contents();
+@@ -2192,6 +2209,11 @@
+                               JSMSG_WASM_NO_TRANSFER);
+     return false;
+   }
++  if (unwrappedBuffer->isLengthPinned()) {
++    JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
++                              JSMSG_ARRAYBUFFER_LENGTH_PINNED);
++    return false;
++  }
+ 
+   AutoRealm ar(cx, unwrappedBuffer);
+   ArrayBufferObject::detach(cx, unwrappedBuffer);

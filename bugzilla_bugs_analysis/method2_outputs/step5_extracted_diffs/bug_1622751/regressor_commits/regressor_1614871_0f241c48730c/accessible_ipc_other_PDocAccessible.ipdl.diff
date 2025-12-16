@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/ipc/other/PDocAccessible.ipdl
+# Commit: 0f241c48730c
+# Full Hash: 0f241c48730c6e4cce24bc9970408087045ca2ab
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2020-03-14 10:28:42
+# Regressor Bug: 1614871
+# File Overlap Count: 1
+# Description:
+#   Bug 1614871 part 1: Make non-Windows ProxyAccessible::ChildAtPoint cross into in-process iframes. r=eeejay
+#   
+#   Accessible::ChildAtPoint can return an Accessible in a descendant document.
+#   Thus, we must return the result PDocAccessible via IPC, not just the id.
+#   Previously, we only returned the id, but we'd fail when we tried to look it up if it belonged to a descendant document.
+# ==============================================================================
+
+diff -r 51fa8835f5d8 -r 0f241c48730c accessible/ipc/other/PDocAccessible.ipdl
+--- a/accessible/ipc/other/PDocAccessible.ipdl	Fri Mar 13 01:42:05 2020 +0000
++++ b/accessible/ipc/other/PDocAccessible.ipdl	Fri Mar 13 06:14:30 2020 +0000
+@@ -305,7 +305,7 @@
+   nested(inside_sync) sync URLDocTypeMimeType(uint64_t aID) returns(nsString aURL, nsString aDocType, nsString aMimeType);
+ 
+   nested(inside_sync) sync AccessibleAtPoint(uint64_t aID, int32_t aX, int32_t aY, bool aNeedsScreenCoords, uint32_t aWhich)
+-    returns(uint64_t aResult, bool aOk);
++    returns(PDocAccessible aResultDoc, uint64_t aResultID);
+ 
+   nested(inside_sync) sync Extents(uint64_t aID, bool aNeedsScreenCoords)
+     returns(int32_t aX, int32_t aY, int32_t aWidth, int32_t aHeight);

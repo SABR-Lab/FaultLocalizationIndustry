@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmGcObject.cpp
+# Commit: 662cb63c42d7
+# Full Hash: 662cb63c42d7874a79256a6edf1a03d83e43a014
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2023-08-05 09:19:01
+# Regressor Bug: 1692065
+# File Overlap Count: 2
+# Description:
+#   Bug 1692065 - wasm: Create a unique wasm::AnyRef type. r=yury,jonco
+#   
+#   Right now wasm references area represented as a JSObject*. This is assumed in
+#   many places in SpiderMonkey, most prominently in our GC integration
+#   around tracing, the store buffer, and write barriers. This will cause issues
+# ==============================================================================
+
+diff -r 8b506ab41451 -r 662cb63c42d7 js/src/wasm/WasmGcObject.cpp
+--- a/js/src/wasm/WasmGcObject.cpp	Fri Aug 04 13:54:57 2023 +0000
++++ b/js/src/wasm/WasmGcObject.cpp	Fri Aug 04 14:06:49 2023 +0000
+@@ -506,9 +506,9 @@
+   MOZ_ASSERT(numElements > 0);
+   uint32_t elemSize = arrayType.elementType_.size();
+   for (uint32_t i = 0; i < numElements; i++) {
+-    GCPtr<JSObject*>* objectPtr =
+-        reinterpret_cast<GCPtr<JSObject*>*>(data + i * elemSize);
+-    TraceNullableEdge(trc, objectPtr, "reference-obj");
++    AnyRef* elementPtr =
++        reinterpret_cast<AnyRef*>(data + i * elemSize);
++    TraceManuallyBarrieredEdge(trc, elementPtr, "wasm-array-element");
+   }
+ }
+ 
+@@ -620,14 +620,14 @@
+ 
+   const auto& structType = structObj.typeDef().structType();
+   for (uint32_t offset : structType.inlineTraceOffsets_) {
+-    GCPtr<JSObject*>* objectPtr =
+-        reinterpret_cast<GCPtr<JSObject*>*>(&structObj.inlineData_[0] + offset);
+-    TraceNullableEdge(trc, objectPtr, "reference-obj");
++    AnyRef* fieldPtr =
++        reinterpret_cast<AnyRef*>(&structObj.inlineData_[0] + offset);
++    TraceManuallyBarrieredEdge(trc, fieldPtr, "wasm-struct-field");
+   }
+   for (uint32_t offset : structType.outlineTraceOffsets_) {
+-    GCPtr<JSObject*>* objectPtr =
+-        reinterpret_cast<GCPtr<JSObject*>*>(structObj.outlineData_ + offset);
+-    TraceNullableEdge(trc, objectPtr, "reference-obj");
++    AnyRef* fieldPtr =
++        reinterpret_cast<AnyRef*>(structObj.outlineData_ + offset);
++    TraceManuallyBarrieredEdge(trc, fieldPtr, "wasm-struct-field");
+   }
+ }
+ 

@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/ThirdPartyUtil.cpp
+# Commit: fbf55a44d7fb
+# Full Hash: fbf55a44d7fb72908eeb5d041b70ce2c503a2532
+# Author: Anny Gakhokidze <agakhokidze@mozilla.com>
+# Date: 2020-04-15 04:09:17
+# Regressor Bug: 1594529
+# File Overlap Count: 1
+# Description:
+#   Bug 1594529 - Create LoadInfo for subdocuments directly in parent process with DocumentChannel. r=mattwoodrow,nika
+#   
+#   Currently, with Fission enabled we are not able to create a proper LoadInfo
+#   object when doing a subdocument load because we do not have access to a loading
+#   context if the load is happening inside of an OOP frame. To solve this problem,
+# ==============================================================================
+
+diff -r 4ba9a230586a -r fbf55a44d7fb dom/base/ThirdPartyUtil.cpp
+--- a/dom/base/ThirdPartyUtil.cpp	Mon Apr 13 22:41:37 2020 +0000
++++ b/dom/base/ThirdPartyUtil.cpp	Mon Apr 13 23:00:43 2020 +0000
+@@ -274,6 +274,39 @@
+   return NS_ERROR_UNEXPECTED;
+ }
+ 
++nsresult ThirdPartyUtil::IsThirdPartyGlobal(
++    mozilla::dom::WindowGlobalParent* aWindowGlobal, bool* aResult) {
++  NS_ENSURE_ARG(aWindowGlobal);
++  NS_ASSERTION(aResult, "null outparam pointer");
++
++  auto* currentWGP = aWindowGlobal;
++  do {
++    MOZ_ASSERT(currentWGP->BrowsingContext());
++    if (currentWGP->BrowsingContext()->IsTop()) {
++      *aResult = false;
++      return NS_OK;
++    }
++    nsCOMPtr<nsIPrincipal> currentPrincipal = currentWGP->DocumentPrincipal();
++    RefPtr<WindowGlobalParent> parent =
++        currentWGP->BrowsingContext()->GetEmbedderWindowGlobal();
++    if (!parent) {
++      return NS_ERROR_FAILURE;
++    }
++    nsCOMPtr<nsIPrincipal> parentPrincipal = parent->DocumentPrincipal();
++    nsresult rv =
++        currentPrincipal->IsThirdPartyPrincipal(parentPrincipal, aResult);
++    if (NS_FAILED(rv)) {
++      return rv;
++    }
++
++    if (*aResult) {
++      return NS_OK;
++    }
++
++    currentWGP = parent;
++  } while (true);
++}
++
+ // Determine if the URI associated with aChannel or any URI of the window
+ // hierarchy associated with the channel is foreign with respect to aSecondURI.
+ // See docs for mozIThirdPartyUtil.

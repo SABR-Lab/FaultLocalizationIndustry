@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/spellchecker/TextServicesDocument.cpp
+# Commit: 5a72fb7d3da4
+# Full Hash: 5a72fb7d3da43d78795dbd27466c3feb1bedeaff
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2021-07-13 21:42:32
+# Regressor Bug: 1718924
+# File Overlap Count: 1
+# Description:
+#   Bug 1718924 - part 8: Add `OffsetEntry::OffsetInTextInBlockIsInRangeOrEndOffset()` r=m_kato
+#   
+#   Depends on D119154
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D119155
+# ==============================================================================
+
+diff -r 790a5005cdbe -r 5a72fb7d3da4 editor/spellchecker/TextServicesDocument.cpp
+--- a/editor/spellchecker/TextServicesDocument.cpp	Tue Jul 13 08:49:47 2021 +0000
++++ b/editor/spellchecker/TextServicesDocument.cpp	Tue Jul 13 09:06:04 2021 +0000
+@@ -59,6 +59,11 @@
+   uint32_t EndOffsetInTextInBlock() const {
+     return mOffsetInTextInBlock + mLength;
+   }
++  bool OffsetInTextInBlockIsInRangeOrEndOffset(
++      uint32_t aOffsetInTextInBlock) const {
++    return aOffsetInTextInBlock >= mOffsetInTextInBlock &&
++           aOffsetInTextInBlock <= EndOffsetInTextInBlock();
++  }
+ 
+   OwningNonNull<Text> mTextNode;
+   uint32_t mOffsetInTextNode;
+@@ -1676,8 +1681,7 @@
+           endTextNode = entry->mTextNode;
+           endNodeOffset = entry->EndOffsetInTextNode();
+         }
+-      } else if (endOffset >= entry->mOffsetInTextInBlock &&
+-                 endOffset <= entry->EndOffsetInTextInBlock()) {
++      } else if (entry->OffsetInTextInBlockIsInRangeOrEndOffset(endOffset)) {
+         endTextNode = entry->mTextNode;
+         endNodeOffset =
+             entry->mOffsetInTextNode + endOffset - entry->mOffsetInTextInBlock;

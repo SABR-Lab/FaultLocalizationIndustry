@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/NativeLayerCA.mm
+# Commit: 117961db7b95
+# Full Hash: 117961db7b95e5e979cab956358b79c9a32caa24
+# Author: Brad Werth <bwerth@mozilla.com>
+# Date: 2021-11-17 03:41:08
+# Regressor Bug: 1737682
+# File Overlap Count: 1
+# Description:
+#   Bug 1737682 Part 1: Cache calls to NativeLayerCA::ShouldSpecializeVideo in a state bit. r=gfx-reviewers,mstange
+#   
+#   This guarantees that any time mMutatedSpecializeVideo is set to true, the next
+#   call to ApplyChanges will receive the value that actually triggered the
+#   mutation. This was *probably* already true, but this change makes it explicit
+# ==============================================================================
+
+diff -r e3e65eadcc8f -r 117961db7b95 gfx/layers/NativeLayerCA.mm
+--- a/gfx/layers/NativeLayerCA.mm	Tue Nov 16 20:41:24 2021 +0000
++++ b/gfx/layers/NativeLayerCA.mm	Tue Nov 16 20:55:44 2021 +0000
+@@ -729,15 +729,15 @@
+ void NativeLayerCA::AttachExternalImage(wr::RenderTextureHost* aExternalImage) {
+   MutexAutoLock lock(mMutex);
+ 
+-  bool oldSpecializeVideo = ShouldSpecializeVideo(lock);
+-
+   wr::RenderMacIOSurfaceTextureHost* texture = aExternalImage->AsRenderMacIOSurfaceTextureHost();
+   MOZ_ASSERT(texture);
+   mTextureHost = texture;
+   mSize = texture->GetSize(0);
+   mDisplayRect = IntRect(IntPoint{}, mSize);
+ 
+-  bool changedSpecializeVideo = ShouldSpecializeVideo(lock) != oldSpecializeVideo;
++  bool oldSpecializeVideo = mSpecializeVideo;
++  mSpecializeVideo = ShouldSpecializeVideo(lock);
++  bool changedSpecializeVideo = (mSpecializeVideo != oldSpecializeVideo);
+ 
+   ForAllRepresentations([&](Representation& r) {
+     r.mMutatedFrontSurface = true;
+@@ -766,10 +766,12 @@
+ void NativeLayerCA::SetRootWindowIsFullscreen(bool aFullscreen) {
+   MutexAutoLock lock(mMutex);
+ 
+-  bool oldSpecializeVideo = ShouldSpecializeVideo(lock);
+   mRootWindowIsFullscreen = aFullscreen;
+ 
+-  if (ShouldSpecializeVideo(lock) != oldSpecializeVideo) {
++  bool oldSpecializeVideo = mSpecializeVideo;
++  mSpecializeVideo = ShouldSpecializeVideo(lock);
++
++  if (mSpecializeVideo != oldSpecializeVideo) {
+     ForAllRepresentations([&](Representation& r) { r.mMutatedSpecializeVideo = true; });
+   }
+ }
+@@ -1184,7 +1186,7 @@
+   }
+   GetRepresentation(aRepresentation)
+       .ApplyChanges(mSize, mIsOpaque, mPosition, mTransform, mDisplayRect, mClipRect, mBackingScale,
+-                    mSurfaceIsFlipped, mSamplingFilter, ShouldSpecializeVideo(lock), surface);
++                    mSurfaceIsFlipped, mSamplingFilter, mSpecializeVideo, surface);
+ }
+ 
+ bool NativeLayerCA::HasUpdate(WhichRepresentation aRepresentation) {

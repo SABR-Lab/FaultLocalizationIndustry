@@ -1,0 +1,77 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/base/ContentIterator.cpp
+# Commit: 3aa74b745aa5
+# Full Hash: 3aa74b745aa5ae1f1b460452f223ad0b9633fec0
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2025-05-13 09:26:34
+# Description:
+#   Bug 1965664 - Fix some crashes in ContentSubtreeIterator r=jjaschke,dom-core
+#   
+#   by skipping the shadow hosts that ShadowDOM selection doesn't
+#   support at the moment.
+#   
+# ==============================================================================
+
+diff -r ecccb8942de4 -r 3aa74b745aa5 dom/base/ContentIterator.cpp
+--- a/dom/base/ContentIterator.cpp	Mon May 12 20:34:06 2025 +0000
++++ b/dom/base/ContentIterator.cpp	Mon May 12 20:40:53 2025 +0000
+@@ -664,6 +664,13 @@
+       aAllowCrossShadowBoundary == AllowRangeCrossShadowBoundary::Yes) {
+     // Could have nested slots
+     while (HTMLSlotElement* slot = aNode->AsContent()->GetAssignedSlot()) {
++      if (!ShadowDOMSelectionHelpers::GetShadowRoot(
++              slot->GetContainingShadowHost(), aAllowCrossShadowBoundary)) {
++        // The corresponding shadow host isn't supported
++        // by ContentSubtreeIterator, so let's skip this slot.
++        break;
++      }
++
+       // Next sibling of a slotted node should be the next slotted node
+       auto currentIndex = slot->AssignedNodes().IndexOf(aNode);
+       if (currentIndex < slot->AssignedNodes().Length() - 1) {
+@@ -726,6 +733,12 @@
+       aAllowCrossShadowBoundary == AllowRangeCrossShadowBoundary::Yes) {
+     // Could have nested slots.
+     while (HTMLSlotElement* slot = aNode->AsContent()->GetAssignedSlot()) {
++      if (!ShadowDOMSelectionHelpers::GetShadowRoot(
++              slot->GetContainingShadowHost(), aAllowCrossShadowBoundary)) {
++        // The corresponding shadow host isn't supported
++        // by ContentSubtreeIterator, so let's skip this slot.
++        break;
++      }
+       // prev sibling of a slotted node should be the prev slotted node
+       auto currentIndex = slot->AssignedNodes().IndexOf(aNode);
+       if (currentIndex > 0) {
+@@ -1026,15 +1039,19 @@
+       break;
+     }
+ 
+-    const bool isDescendantInShadowTree =
+-        IterAllowCrossShadowBoundary() && child->IsShadowRoot();
++    // `ShadowDOMSelectionHelpers::GetShadowRoot` would return non-null shadow
++    // root if parent is a shadow host that we support cross boundary selection.
++    const bool isChildAShadowRootForSelection =
++        ShadowDOMSelectionHelpers::GetShadowRoot(
++            parent, mAllowCrossShadowBoundary) == child;
+ 
+     info.mAncestor = parent->AsContent();
+     // mIsDescendantInShadowTree indicates that whether child is in the
+     // shadow tree of parent or in the regular light DOM tree of parent.
+     // So that later, when info.mAncestor is reached, we can decide whether
+     // we should dive into the shadow tree.
+-    info.mIsDescendantInShadowTree = isDescendantInShadowTree;
++    info.mIsDescendantInShadowTree =
++        IterAllowCrossShadowBoundary() && isChildAShadowRootForSelection;
+   }
+ }
+ 
+@@ -1255,6 +1272,7 @@
+     ShadowRoot* root = ShadowDOMSelectionHelpers::GetShadowRoot(
+         nextNode, mAllowCrossShadowBoundary);
+     if (mInclusiveAncestorsOfEndContainer[i].mIsDescendantInShadowTree) {
++      MOZ_ASSERT(root);
+       nextNode = root->GetFirstChild();
+     } else if (auto* slot = HTMLSlotElement::FromNode(nextNode);
+                slot && IterAllowCrossShadowBoundary()) {

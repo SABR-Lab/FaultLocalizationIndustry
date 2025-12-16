@@ -1,0 +1,32 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/base/NotificationController.cpp
+# Commit: 94aa863a913a
+# Full Hash: 94aa863a913a0f935b5e7636e49e5a33727c638a
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2022-06-01 09:46:32
+# Regressor Bug: 1756728
+# File Overlap Count: 1
+# Description:
+#   Bug 1756728 part 1: Make it possible to retrieve a BrowsingContext from a DocAccessibleParent. r=morgan
+#   
+#   Previously, even for remote in-process iframes, it was only possible to retrieve the top level BrowsingContext for the remote process by getting the managing BrowserParent.
+#   This makes it possible to get the correct BrowsingContext even for in-process iframes.
+#   
+# ==============================================================================
+
+diff -r f6b6083e77c9 -r 94aa863a913a accessible/base/NotificationController.cpp
+--- a/accessible/base/NotificationController.cpp	Wed Jun 01 00:01:50 2022 +0000
++++ b/accessible/base/NotificationController.cpp	Wed Jun 01 00:34:17 2022 +0000
+@@ -965,7 +965,9 @@
+           do_GetInterface(mDocument->DocumentNode()->GetDocShell());
+       if (browserChild) {
+         static_cast<BrowserChild*>(browserChild.get())
+-            ->SendPDocAccessibleConstructor(ipcDoc, parentIPCDoc, id, 0, 0);
++            ->SendPDocAccessibleConstructor(
++                ipcDoc, parentIPCDoc, id,
++                childDoc->DocumentNode()->GetBrowsingContext(), 0, 0);
+         ipcDoc->SendPDocAccessiblePlatformExtConstructor();
+       }
+ #endif

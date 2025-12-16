@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fetch/InternalRequest.cpp
+# Commit: db29da0a049a
+# Full Hash: db29da0a049a89c740d85a812c4e7314861468bc
+# Author: Frédéric Wang <fwang@igalia.com>
+# Date: 2024-06-12 04:43:08
+# Regressor Bug: 1351231
+# File Overlap Count: 1
+# Description:
+#   Bug 1881040 - Propagate InterceptedHttpChannel information when using PFetch. r=edenchuang
+#   
+#   This interception information was introduced in bug 1658869 and is used
+#   when calling fetch from the main thread. However, after bug 1351231 we
+#   are not propagating that information when using PFetch, because it is
+# ==============================================================================
+
+diff -r 4f99700fa668 -r db29da0a049a dom/fetch/InternalRequest.cpp
+--- a/dom/fetch/InternalRequest.cpp	Tue Jun 11 09:14:13 2024 +0000
++++ b/dom/fetch/InternalRequest.cpp	Tue Jun 11 09:14:13 2024 +0000
+@@ -231,6 +231,18 @@
+     aIPCRequest->principalInfo() = Some(*mPrincipalInfo);
+   }
+ 
++  if (mInterceptionTriggeringPrincipalInfo) {
++    aIPCRequest->interceptionTriggeringPrincipalInfo() =
++        Some(*mInterceptionTriggeringPrincipalInfo);
++    aIPCRequest->interceptionContentPolicyType() =
++        mInterceptionContentPolicyType;
++    if (!mInterceptionRedirectChain.IsEmpty()) {
++      aIPCRequest->interceptionRedirectChain().Assign(
++          mInterceptionRedirectChain);
++    }
++    aIPCRequest->interceptionFromThirdParty() = mInterceptionFromThirdParty;
++  }
++
+   if (mBodyStream) {
+     nsCOMPtr<nsIInputStream> body = mBodyStream;
+     aIPCRequest->body().emplace(ChildToParentStream());

@@ -1,0 +1,41 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/ClientWebGLContext.cpp
+# Commit: 60f2d834ca69
+# Full Hash: 60f2d834ca692ae2dd7b65d949a5d1ffae8726af
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-01-31 21:33:33
+# Description:
+#   Bug 1608311 - Handle WebGL SetDimensions when context is lost. r=lsalzman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D61376
+# ==============================================================================
+
+diff -r 0fc48050e27a -r 60f2d834ca69 dom/canvas/ClientWebGLContext.cpp
+--- a/dom/canvas/ClientWebGLContext.cpp	Fri Jan 31 16:18:15 2020 +0000
++++ b/dom/canvas/ClientWebGLContext.cpp	Fri Jan 31 16:14:30 2020 +0000
+@@ -649,6 +649,11 @@
+ 
+   MOZ_ASSERT(mInitialOptions);
+ 
++  if (mLossStatus != webgl::LossStatus::Ready) {
++    // Attempted resize of a lost context.
++    return NS_OK;
++  }
++
+   uvec2 size = {static_cast<uint32_t>(signedWidth),
+                 static_cast<uint32_t>(signedHeight)};
+   if (!size.x) {
+@@ -670,11 +675,6 @@
+     return NS_OK;
+   }
+ 
+-  if (mLossStatus != webgl::LossStatus::Ready) {
+-    MOZ_RELEASE_ASSERT(false);
+-    return NS_ERROR_FAILURE;
+-  }
+-
+   // -
+   // Context (re-)creation
+ 

@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/LayerScope.cpp
+# Commit: 48eaa84c206d
+# Full Hash: 48eaa84c206dbdda637c57b55ddbd07e975ba103
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2020-06-23 16:15:06
+# Regressor Bug: 1637500
+# File Overlap Count: 2
+# Description:
+#   Bug 1637500 - P2. Rename methods as they are not always dealing with "threads". r=froydnj
+#   
+#   Before P1, GetCurrentThreadSerialEventTarget would have always returned the same data as NS_GetCurrentThread, making the comment incorrect Now it will properly return the running TaskQueue if any.
+#   
+#   This change of name more clearly exposes what they are doing, as we aren't always dealing with threads directly; but a nsISerialEventTarget
+# ==============================================================================
+
+diff -r 00687d06a8a6 -r 48eaa84c206d gfx/layers/LayerScope.cpp
+--- a/gfx/layers/LayerScope.cpp	Tue Jun 23 05:02:39 2020 +0000
++++ b/gfx/layers/LayerScope.cpp	Tue Jun 23 05:05:36 2020 +0000
+@@ -1020,7 +1020,7 @@
+   nsCOMPtr<nsIInputStream> debugInputStream;
+   mTransport->OpenInputStream(0, 0, 0, getter_AddRefs(debugInputStream));
+   mInputStream = do_QueryInterface(debugInputStream);
+-  mInputStream->AsyncWait(this, 0, 0, GetCurrentThreadEventTarget());
++  mInputStream->AsyncWait(this, 0, 0, GetCurrentEventTarget());
+ }
+ 
+ bool LayerScopeWebSocketManager::SocketHandler::WriteToStream(void* aPtr,
+@@ -1091,7 +1091,7 @@
+     if (WebSocketHandshake(protocolString)) {
+       mState = HandshakeSuccess;
+       mConnected = true;
+-      mInputStream->AsyncWait(this, 0, 0, GetCurrentThreadEventTarget());
++      mInputStream->AsyncWait(this, 0, 0, GetCurrentEventTarget());
+     } else {
+       mState = HandshakeFailed;
+     }
+@@ -1218,7 +1218,7 @@
+     // TODO: combine packets if we have to read more than once
+ 
+     if (rv == NS_BASE_STREAM_WOULD_BLOCK) {
+-      mInputStream->AsyncWait(this, 0, 0, GetCurrentThreadEventTarget());
++      mInputStream->AsyncWait(this, 0, 0, GetCurrentEventTarget());
+       return NS_OK;
+     }
+ 

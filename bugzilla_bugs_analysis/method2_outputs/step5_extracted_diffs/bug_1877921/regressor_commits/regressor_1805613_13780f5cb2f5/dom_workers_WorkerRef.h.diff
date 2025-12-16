@@ -1,0 +1,82 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/WorkerRef.h
+# Commit: 13780f5cb2f5
+# Full Hash: 13780f5cb2f5d698f35a23f2fafa1593ef7affe9
+# Author: Joshua Marshall <jmarshall@mozilla.com>
+# Date: 2024-01-28 21:22:06
+# Regressor Bug: 1805613
+# File Overlap Count: 1
+# Description:
+#   Bug 1805613 - Add a mutable status to WorkerRefs for logging. r=dom-worker-reviewers,asuth
+#   
+#   In DEBUG mode, add a settable string to WorkerRefs.  Record what we're doing in
+#   the XHR request worker, and log the status if we seem to be hanging (see
+#   WorkerPrivate::DumpCrashInformation).
+# ==============================================================================
+
+diff -r 1b609eb33a5f -r 13780f5cb2f5 dom/workers/WorkerRef.h
+--- a/dom/workers/WorkerRef.h	Sun Jan 28 13:43:54 2024 +0100
++++ b/dom/workers/WorkerRef.h	Sun Jan 28 14:28:44 2024 +0000
+@@ -11,6 +11,11 @@
+ #include "mozilla/MoveOnlyFunction.h"
+ #include "mozilla/RefPtr.h"
+ #include "nsISupports.h"
++#include "nsTString.h"
++
++#ifdef DEBUG
++#  include "mozilla/Mutex.h"
++#endif
+ 
+ namespace mozilla::dom {
+ 
+@@ -101,12 +106,37 @@
+ class StrongWorkerRef;
+ class ThreadSafeWorkerRef;
+ 
++#ifdef DEBUG  // In debug mode, provide a way for clients to annotate WorkerRefs
++#  define SET_WORKERREF_DEBUG_STATUS(workerref, str) \
++    ((workerref)->DebugSetWorkerRefStatus(str))
++#  define GET_WORKERREF_DEBUG_STATUS(workerref) \
++    ((workerref)->DebugGetWorkerRefStatus())
++#else
++#  define SET_WORKERREF_DEBUG_STATUS(workerref, str) (void())
++#  define GET_WORKERREF_DEBUG_STATUS(workerref) (EmptyCString())
++#endif
++
+ class WorkerRef {
+   friend class WorkerPrivate;
+ 
+  public:
+   NS_INLINE_DECL_REFCOUNTING(WorkerRef)
+ 
++#ifdef DEBUG
++  mutable Mutex mDebugMutex;
++  nsCString mDebugStatus MOZ_GUARDED_BY(mDebugMutex);
++
++  void DebugSetWorkerRefStatus(const nsCString& aStatus) {
++    MutexAutoLock lock(mDebugMutex);
++    mDebugStatus = aStatus;
++  }
++
++  const nsCString DebugGetWorkerRefStatus() const {
++    MutexAutoLock lock(mDebugMutex);
++    return mDebugStatus;
++  }
++#endif
++
+  protected:
+   WorkerRef(WorkerPrivate* aWorkerPrivate, const char* aName,
+             bool aIsPreventingShutdown);
+@@ -193,6 +223,10 @@
+ 
+   WorkerPrivate* Private() const;
+ 
++#ifdef DEBUG
++  RefPtr<StrongWorkerRef>& Ref() { return mRef; }
++#endif
++
+  private:
+   friend class StrongWorkerRef;
+ 

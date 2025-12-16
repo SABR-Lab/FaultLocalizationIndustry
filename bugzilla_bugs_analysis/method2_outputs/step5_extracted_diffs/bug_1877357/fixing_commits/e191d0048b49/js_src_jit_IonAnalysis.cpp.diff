@@ -1,0 +1,62 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/IonAnalysis.cpp
+# Commit: e191d0048b49
+# Full Hash: e191d0048b4905326fbc8002846517709dfe19be
+# Author: Nicolas B. Pierron <nicolas.b.pierron@mozilla.com>
+# Date: 2024-02-23 03:40:30
+# Description:
+#   Bug 1877357 - Insert coercion instruction in the precedessor. r=iain
+#   
+#   Previously, when resolving Phi's type, we would insert the coercion instruction
+#   at the end of the block in which the instruction is.
+#   
+# ==============================================================================
+
+diff -r 61af32f40777 -r e191d0048b49 js/src/jit/IonAnalysis.cpp
+--- a/js/src/jit/IonAnalysis.cpp	Thu Feb 22 10:13:19 2024 +0000
++++ b/js/src/jit/IonAnalysis.cpp	Thu Feb 22 10:28:14 2024 +0000
+@@ -2228,6 +2228,7 @@
+         phi->replaceOperand(i, in->toBox()->input());
+       } else {
+         MInstruction* replacement;
++        MBasicBlock* predecessor = phi->block()->getPredecessor(i);
+ 
+         if (phiType == MIRType::Double && IsFloatType(in->type())) {
+           // Convert int32 operands to double.
+@@ -2239,14 +2240,14 @@
+             // See comment below
+             if (in->type() != MIRType::Value) {
+               MBox* box = MBox::New(alloc(), in);
+-              in->block()->insertBefore(in->block()->lastIns(), box);
++              predecessor->insertAtEnd(box);
+               in = box;
+             }
+ 
+             MUnbox* unbox =
+                 MUnbox::New(alloc(), in, MIRType::Double, MUnbox::Fallible);
+             unbox->setBailoutKind(BailoutKind::SpeculativePhi);
+-            in->block()->insertBefore(in->block()->lastIns(), unbox);
++            predecessor->insertAtEnd(unbox);
+             replacement = MToFloat32::New(alloc(), in);
+           }
+         } else {
+@@ -2255,7 +2256,7 @@
+           // below.
+           if (in->type() != MIRType::Value) {
+             MBox* box = MBox::New(alloc(), in);
+-            in->block()->insertBefore(in->block()->lastIns(), box);
++            predecessor->insertAtEnd(box);
+             in = box;
+           }
+ 
+@@ -2265,7 +2266,7 @@
+         }
+ 
+         replacement->setBailoutKind(BailoutKind::SpeculativePhi);
+-        in->block()->insertBefore(in->block()->lastIns(), replacement);
++        predecessor->insertAtEnd(replacement);
+         phi->replaceOperand(i, replacement);
+       }
+     }

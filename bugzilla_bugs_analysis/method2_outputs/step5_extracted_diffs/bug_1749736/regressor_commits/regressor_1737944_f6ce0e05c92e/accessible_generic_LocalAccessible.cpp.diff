@@ -1,0 +1,89 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/generic/LocalAccessible.cpp
+# Commit: f6ce0e05c92e
+# Full Hash: f6ce0e05c92e16e33c4bc136228ab4bc6058f358
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2022-01-05 09:33:53
+# Regressor Bug: 1737944
+# File Overlap Count: 2
+# Description:
+#   Bug 1737944 - P4: Cache aria group attributes and introduce Accessible getter. r=Jamie
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D134207
+# ==============================================================================
+
+diff -r afea577be988 -r f6ce0e05c92e accessible/generic/LocalAccessible.cpp
+--- a/accessible/generic/LocalAccessible.cpp	Tue Jan 04 21:01:35 2022 +0000
++++ b/accessible/generic/LocalAccessible.cpp	Tue Jan 04 21:01:35 2022 +0000
+@@ -1445,6 +1445,13 @@
+ 
+     return;
+   }
++
++  if (aAttribute == nsGkAtoms::aria_level ||
++      aAttribute == nsGkAtoms::aria_setsize ||
++      aAttribute == nsGkAtoms::aria_posinset) {
++    SendCache(CacheDomain::GroupInfo, CacheUpdateType::Update);
++    return;
++  }
+ }
+ 
+ GroupPos LocalAccessible::GroupPosition() {
+@@ -1452,11 +1459,7 @@
+   if (!HasOwnContent()) return groupPos;
+ 
+   // Get group position from ARIA attributes.
+-  nsCoreUtils::GetUIntAttr(mContent, nsGkAtoms::aria_level, &groupPos.level);
+-  nsCoreUtils::GetUIntAttr(mContent, nsGkAtoms::aria_setsize,
+-                           &groupPos.setSize);
+-  nsCoreUtils::GetUIntAttr(mContent, nsGkAtoms::aria_posinset,
+-                           &groupPos.posInSet);
++  ARIAGroupPosition(&groupPos.level, &groupPos.setSize, &groupPos.posInSet);
+ 
+   // If ARIA is missed and the accessible is visible then calculate group
+   // position from hierarchy.
+@@ -1489,6 +1492,23 @@
+   return groupPos;
+ }
+ 
++void LocalAccessible::ARIAGroupPosition(int32_t* aLevel, int32_t* aSetSize,
++                                        int32_t* aPosInSet) const {
++  if (!mContent) {
++    return;
++  }
++
++  if (aLevel) {
++    nsCoreUtils::GetUIntAttr(mContent, nsGkAtoms::aria_level, aLevel);
++  }
++  if (aSetSize) {
++    nsCoreUtils::GetUIntAttr(mContent, nsGkAtoms::aria_setsize, aSetSize);
++  }
++  if (aPosInSet) {
++    nsCoreUtils::GetUIntAttr(mContent, nsGkAtoms::aria_posinset, aPosInSet);
++  }
++}
++
+ uint64_t LocalAccessible::State() {
+   if (IsDefunct()) return states::DEFUNCT;
+ 
+@@ -3266,6 +3286,18 @@
+     fields->SetAttribute(nsGkAtoms::state, state);
+   }
+ 
++  if (aCacheDomain & CacheDomain::GroupInfo) {
++    for (nsAtom* attr : {nsGkAtoms::aria_level, nsGkAtoms::aria_setsize,
++                         nsGkAtoms::aria_posinset}) {
++      int32_t value = 0;
++      if (nsCoreUtils::GetUIntAttr(mContent, attr, &value)) {
++        fields->SetAttribute(attr, value);
++      } else if (aUpdateType == CacheUpdateType::Update) {
++        fields->SetAttribute(attr, DeleteEntry());
++      }
++    }
++  }
++
+   if (aUpdateType == CacheUpdateType::Initial) {
+     // Add fields which never change and thus only need to be included in the
+     // initial cache push.

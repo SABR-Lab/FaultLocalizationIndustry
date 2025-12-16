@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/GraphDriver.cpp
+# Commit: 16ac83dc9ac5
+# Full Hash: 16ac83dc9ac50a3fb23ee63d669639deaba7a92b
+# Author: Karl Tomlinson <karlt+@karlt.net>
+# Date: 2023-03-31 09:51:00
+# Regressor Bug: 1801190
+# File Overlap Count: 1
+# Description:
+#   Bug 1801190 reset mAudioStreamState after cubeb_stream_stop() instead of on CUBEB_STATE_STOPPED r=padenot
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D173922
+# ==============================================================================
+
+diff -r 2eea0baf77ab -r 16ac83dc9ac5 dom/media/GraphDriver.cpp
+--- a/dom/media/GraphDriver.cpp	Thu Mar 30 23:18:44 2023 +0000
++++ b/dom/media/GraphDriver.cpp	Thu Mar 30 23:18:44 2023 +0000
+@@ -774,6 +774,8 @@
+   cubeb_stream_register_device_changed_callback(mAudioStream, nullptr);
+   if (cubeb_stream_stop(mAudioStream) != CUBEB_OK) {
+     NS_WARNING("Could not stop cubeb stream for MTG.");
++  } else {
++    mAudioStreamState = AudioStreamState::None;
+   }
+ }
+ 
+@@ -1046,7 +1048,13 @@
+   LOG(LogLevel::Debug,
+       ("AudioCallbackDriver(%p) State: %s", this, StateToString(aState)));
+ 
+-  if (aState == CUBEB_STATE_STARTED) {
++  if (aState == CUBEB_STATE_STARTED || aState == CUBEB_STATE_STOPPED) {
++    // Nothing to do for STARTED.
++    //
++    // For STOPPED, don't reset mAudioStreamState until after
++    // cubeb_stream_stop() returns, as wasapi_stream_stop() dispatches
++    // CUBEB_STATE_STOPPED before ensuring that data callbacks have finished.
++    // https://searchfox.org/mozilla-central/rev/f9beb753a84aa297713d1565dcd0c5e3c66e4174/media/libcubeb/src/cubeb_wasapi.cpp#3009,3012
+     return;
+   }
+ 
+@@ -1058,7 +1066,7 @@
+     return;
+   }
+ 
+-  // Reset for the not running states: stopped, drained, error.
++  // Reset for DRAINED or ERROR.
+   streamState = mAudioStreamState.exchange(AudioStreamState::None);
+ 
+   if (aState == CUBEB_STATE_ERROR) {
+@@ -1082,8 +1090,6 @@
+         FallbackToSystemClockDriver();
+       }
+     }
+-  } else {
+-    MOZ_ASSERT(!(aState == CUBEB_STATE_STOPPED && ThreadRunning()));
+   }
+ }
+ 

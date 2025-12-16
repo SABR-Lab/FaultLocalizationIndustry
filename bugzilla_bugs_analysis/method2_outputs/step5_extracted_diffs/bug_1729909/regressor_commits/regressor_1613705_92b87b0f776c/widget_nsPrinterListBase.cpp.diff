@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/nsPrinterListBase.cpp
+# Commit: 92b87b0f776c
+# Full Hash: 92b87b0f776c3049499038d380190351e2371324
+# Author: Zibi Braniecki <zbraniecki@mozilla.com>
+# Date: 2021-08-04 03:56:33
+# Regressor Bug: 1613705
+# File Overlap Count: 1
+# Description:
+#   Bug 1613705 - [localization] part2: Switch Localization class to use localization-ffi. r=emilio,nika
+#   
+#   Depends on D104788
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D104789
+# ==============================================================================
+
+diff -r 878b052ebeaa -r 92b87b0f776c widget/nsPrinterListBase.cpp
+--- a/widget/nsPrinterListBase.cpp	Tue Aug 03 16:25:10 2021 +0000
++++ b/widget/nsPrinterListBase.cpp	Tue Aug 03 16:25:10 2021 +0000
+@@ -133,9 +133,10 @@
+   // available (otherwise leave them as the internal keys, which are at least
+   // somewhat recognizable).
+   IgnoredErrorResult rv;
+-  nsCOMPtr<nsIGlobalObject> global = xpc::CurrentNativeGlobal(aCx);
+-  RefPtr<Localization> l10n = Localization::Create(global, true, {});
+-  l10n->AddResourceId(u"toolkit/printing/printUI.ftl"_ns);
++  nsTArray<nsCString> resIds = {
++      "toolkit/printing/printUI.ftl"_ns,
++  };
++  RefPtr<Localization> l10n = Localization::Create(resIds, true);
+ 
+   for (auto i : IntegerRange(nsPaper::kNumCommonPaperSizes)) {
+     const CommonPaperSize& size = nsPaper::kCommonPaperSizes[i];
+@@ -144,7 +145,7 @@
+     nsAutoCString key{"printui-paper-"};
+     key.Append(size.mLocalizableNameKey);
+     nsAutoCString name;
+-    l10n->FormatValueSync(aCx, key, {}, name, rv);
++    l10n->FormatValueSync(key, {}, name, rv);
+ 
+     // Fill out the info with our PWG size and the localized name.
+     info.mId = size.mPWGName;

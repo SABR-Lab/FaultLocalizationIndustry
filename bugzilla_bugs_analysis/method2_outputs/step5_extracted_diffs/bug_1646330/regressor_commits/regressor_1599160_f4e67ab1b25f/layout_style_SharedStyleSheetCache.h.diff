@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/style/SharedStyleSheetCache.h
+# Commit: f4e67ab1b25f
+# Full Hash: f4e67ab1b25f03d695505622f66970736f518fdb
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2020-06-15 21:48:38
+# Regressor Bug: 1599160
+# File Overlap Count: 1
+# Description:
+#   Bug 1599160 - Better integration of the shared stylesheet cache with the network cache. r=tnikkel,mayhemer,heycam
+#   
+#   Make the stylesheet cache respect the same headers as the image cache
+#   does. This makes no-cache stylesheets work as they do now, which is
+#   useful for developers that want to develop sites locally, and for
+# ==============================================================================
+
+diff -r a86e9b4f395f -r f4e67ab1b25f layout/style/SharedStyleSheetCache.h
+--- a/layout/style/SharedStyleSheetCache.h	Fri Jun 12 19:05:56 2020 +0000
++++ b/layout/style/SharedStyleSheetCache.h	Fri Jun 12 19:06:04 2020 +0000
+@@ -55,7 +55,7 @@
+ 
+   // A cache hit or miss. It is a miss if the `StyleSheet` is null.
+   using CacheResult = std::tuple<RefPtr<StyleSheet>, css::Loader::SheetState>;
+-  CacheResult Lookup(SheetLoadDataHashKey&, bool aSyncLoad);
++  CacheResult Lookup(css::Loader&, const SheetLoadDataHashKey&, bool aSyncLoad);
+ 
+   // Tries to coalesce with an already existing load. The sheet state must be
+   // the one that Lookup returned, if it returned a sheet.
+@@ -112,7 +112,14 @@
+ 
+   ~SharedStyleSheetCache();
+ 
+-  nsRefPtrHashtable<SheetLoadDataHashKey, StyleSheet> mCompleteSheets;
++  struct CompleteSheet {
++    uint32_t mExpirationTime = 0;
++    RefPtr<StyleSheet> mSheet;
++
++    bool Expired() const;
++  };
++
++  nsDataHashtable<SheetLoadDataHashKey, CompleteSheet> mCompleteSheets;
+   nsRefPtrHashtable<SheetLoadDataHashKey, css::SheetLoadData> mPendingDatas;
+   // The SheetLoadData pointers in mLoadingDatas below are weak references.
+   //

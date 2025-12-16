@@ -1,0 +1,38 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/nsBlockFrame.cpp
+# Commit: ee60a98b1285
+# Full Hash: ee60a98b1285e84f8466d929dd7197b4cb9e3beb
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2023-10-04 15:56:28
+# Description:
+#   Bug 1856629 - More careful null-checking in nsBlockFrame::Reflow. r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D189963
+# ==============================================================================
+
+diff -r 05889275ffc3 -r ee60a98b1285 layout/generic/nsBlockFrame.cpp
+--- a/layout/generic/nsBlockFrame.cpp	Wed Oct 04 07:26:57 2023 +0000
++++ b/layout/generic/nsBlockFrame.cpp	Wed Oct 04 07:28:54 2023 +0000
+@@ -1492,10 +1492,17 @@
+     for (uint32_t i = 0; i < aClampCount; i++) {
+       ++iter;
+     }
+-    nsIContent* content = iter->mFirstChild->GetContent();
++    nsIFrame* firstChild = iter->mFirstChild;
++    if (!firstChild) {
++      return BalanceTarget{};
++    }
++    nsIContent* content = firstChild->GetContent();
++    if (!content) {
++      return BalanceTarget{};
++    }
+     int32_t offset = 0;
+-    if (content && iter->mFirstChild->IsTextFrame()) {
+-      auto* textFrame = static_cast<nsTextFrame*>(iter->mFirstChild);
++    if (firstChild->IsTextFrame()) {
++      auto* textFrame = static_cast<nsTextFrame*>(firstChild);
+       offset = textFrame->GetContentOffset();
+     }
+     return BalanceTarget{content, offset};

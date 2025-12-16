@@ -1,0 +1,26 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/client/TextureClientRecycleAllocator.cpp
+# Commit: a4341527c628
+# Full Hash: a4341527c628b3ba77159a421f70da5adf9f8d54
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2020-10-25 21:41:16
+# Description:
+#   Bug 1672621 - Don't create new texture clients if our forwarder has gone away. r=jya
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D94540
+# ==============================================================================
+
+diff -r f08534dd3713 -r a4341527c628 gfx/layers/client/TextureClientRecycleAllocator.cpp
+--- a/gfx/layers/client/TextureClientRecycleAllocator.cpp	Sun Oct 25 07:46:04 2020 +0000
++++ b/gfx/layers/client/TextureClientRecycleAllocator.cpp	Sun Oct 25 07:50:55 2020 +0000
+@@ -142,7 +142,7 @@
+ 
+   {
+     MutexAutoLock lock(mLock);
+-    if (mIsDestroyed) {
++    if (mIsDestroyed || !mKnowsCompositor->GetTextureForwarder()) {
+       return nullptr;
+     }
+     if (!mPooledClients.empty()) {

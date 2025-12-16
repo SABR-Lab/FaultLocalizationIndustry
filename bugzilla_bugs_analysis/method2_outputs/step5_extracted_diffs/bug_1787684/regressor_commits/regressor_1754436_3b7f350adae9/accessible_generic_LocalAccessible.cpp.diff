@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/generic/LocalAccessible.cpp
+# Commit: 3b7f350adae9
+# Full Hash: 3b7f350adae9812f4f2a571fc070f9f8b1fb55a9
+# Author: Timothy Nikkel <tnikkel@gmail.com>
+# Date: 2022-02-12 09:47:43
+# Regressor Bug: 1754436
+# File Overlap Count: 2
+# Description:
+#   Bug 1754662. Refactor nsLayoutUtils::GetPopupFrameForEventCoordinates. r=emilio
+#   
+#   This lets us re-use code for bug 1754436.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D138392
+# ==============================================================================
+
+diff -r 761755ec9388 -r 3b7f350adae9 accessible/generic/LocalAccessible.cpp
+--- a/accessible/generic/LocalAccessible.cpp	Sat Feb 12 05:52:14 2022 +0000
++++ b/accessible/generic/LocalAccessible.cpp	Sat Feb 12 08:46:47 2022 +0000
+@@ -511,13 +511,10 @@
+ 
+   LayoutDeviceIntRect rootRect = rootWidget->GetScreenBounds();
+ 
+-  WidgetMouseEvent dummyEvent(true, eMouseMove, rootWidget,
+-                              WidgetMouseEvent::eSynthesized);
+-  dummyEvent.mRefPoint =
+-      LayoutDeviceIntPoint(aX - rootRect.X(), aY - rootRect.Y());
+-
+-  nsIFrame* popupFrame = nsLayoutUtils::GetPopupFrameForEventCoordinates(
+-      accDocument->PresContext()->GetRootPresContext(), &dummyEvent);
++  auto point = LayoutDeviceIntPoint(aX - rootRect.X(), aY - rootRect.Y());
++
++  nsIFrame* popupFrame = nsLayoutUtils::GetPopupFrameForPoint(
++      accDocument->PresContext()->GetRootPresContext(), rootWidget, point);
+   if (popupFrame) {
+     // If 'this' accessible is not inside the popup then ignore the popup when
+     // searching an accessible at point.

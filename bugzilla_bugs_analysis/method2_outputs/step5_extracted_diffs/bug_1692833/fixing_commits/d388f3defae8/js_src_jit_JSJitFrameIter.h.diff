@@ -1,0 +1,28 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/JSJitFrameIter.h
+# Commit: d388f3defae8
+# Full Hash: d388f3defae8b4f1bbc50d78875803b05c73f302
+# Author: Iain Ireland <iireland@mozilla.com>
+# Date: 2021-02-18 21:46:37
+# Description:
+#   Bug 1692833: Read argsObj fallibly r=nbp
+#   
+#   I couldn't get the fuzzbug to replicate locally, but based on the backtrace I eventually managed to get a similar failure using `--scalar-replace-arguments`.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D105566
+# ==============================================================================
+
+diff -r 277372ed679b -r d388f3defae8 js/src/jit/JSJitFrameIter.h
+--- a/js/src/jit/JSJitFrameIter.h	Thu Feb 18 18:33:29 2021 +0000
++++ b/js/src/jit/JSJitFrameIter.h	Thu Feb 18 18:33:50 2021 +0000
+@@ -565,7 +565,7 @@
+     // Assumes that the common frame arguments have already been read.
+     if (script->argumentsHasVarBinding()) {
+       if (argsObj) {
+-        Value v = read();
++        Value v = maybeRead(fallback);
+         if (v.isObject()) {
+           *argsObj = &v.toObject().as<ArgumentsObject>();
+         }

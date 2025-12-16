@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fs/parent/datamodel/FileSystemDataManager.h
+# Commit: a2f6102fc8ea
+# Full Hash: a2f6102fc8ea11d4d9b3f2183ef6b8641e0ceeb5
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2022-08-31 21:54:47
+# Regressor Bug: 1786465
+# File Overlap Count: 3
+# Description:
+#   Bug 1786465 - Start using FileSystemDataManager in FileSystemManagerParent; r=dom-storage-reviewers,jesup
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D155552
+# ==============================================================================
+
+diff -r 37b7616c8b42 -r a2f6102fc8ea dom/fs/parent/datamodel/FileSystemDataManager.h
+--- a/dom/fs/parent/datamodel/FileSystemDataManager.h	Wed Aug 31 09:34:54 2022 +0000
++++ b/dom/fs/parent/datamodel/FileSystemDataManager.h	Wed Aug 31 09:34:55 2022 +0000
+@@ -7,7 +7,9 @@
+ #ifndef DOM_FS_PARENT_DATAMODEL_FILESYSTEMDATAMANAGER_H_
+ #define DOM_FS_PARENT_DATAMODEL_FILESYSTEMDATAMANAGER_H_
+ 
++#include "mozilla/NotNull.h"
+ #include "mozilla/dom/FileSystemTypes.h"
++#include "nsCOMPtr.h"
+ #include "nsISupportsUtils.h"
+ 
+ namespace mozilla {
+@@ -19,14 +21,22 @@
+ 
+ class FileSystemDataManager {
+  public:
++  FileSystemDataManager();
++
+   using result_t = Result<RefPtr<FileSystemDataManager>, nsresult>;
+   static FileSystemDataManager::result_t CreateFileSystemDataManager(
+       const fs::Origin& aOrigin);
+ 
+   NS_INLINE_DECL_REFCOUNTING(FileSystemDataManager)
+ 
++  nsISerialEventTarget* MutableBackgroundTargetPtr() const {
++    return mBackgroundTarget.get();
++  }
++
+  protected:
+   ~FileSystemDataManager() = default;
++
++  const NotNull<nsCOMPtr<nsISerialEventTarget>> mBackgroundTarget;
+ };
+ 
+ }  // namespace dom::fs::data

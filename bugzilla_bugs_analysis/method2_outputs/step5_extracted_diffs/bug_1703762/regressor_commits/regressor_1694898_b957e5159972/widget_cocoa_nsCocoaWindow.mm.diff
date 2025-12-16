@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/cocoa/nsCocoaWindow.mm
+# Commit: b957e5159972
+# Full Hash: b957e515997235bbb28185b06d7de09fd6a3c29e
+# Author: Hiroyuki Ikezoe <hikezoe.birchill@mozilla.com>
+# Date: 2021-03-26 04:08:09
+# Regressor Bug: 1694898
+# File Overlap Count: 3
+# Description:
+#   Bug 1694898 - Override AsyncPanZoomEnabled in nsCocoaWindow to delegate it to nsChildView in the case of popups. r=mstange,botond
+#   
+#   The widget for popup window on Mac is nsCocoaWindow which doesn't have
+#   any APZC instances so that nsIWidget::AsyncPanZoomEnabled() always returned
+#   false, we need to delegate the call to the nsChildView.
+# ==============================================================================
+
+diff -r eba1a4970a99 -r b957e5159972 widget/cocoa/nsCocoaWindow.mm
+--- a/widget/cocoa/nsCocoaWindow.mm	Thu Mar 25 23:14:12 2021 +0000
++++ b/widget/cocoa/nsCocoaWindow.mm	Thu Mar 25 23:14:12 2021 +0000
+@@ -2552,6 +2552,13 @@
+   return true;
+ }
+ 
++bool nsCocoaWindow::AsyncPanZoomEnabled() const {
++  if (mPopupContentView) {
++    return mPopupContentView->AsyncPanZoomEnabled();
++  }
++  return nsBaseWidget::AsyncPanZoomEnabled();
++}
++
+ already_AddRefed<nsIWidget> nsIWidget::CreateTopLevelWindow() {
+   nsCOMPtr<nsIWidget> window = new nsCocoaWindow();
+   return window.forget();

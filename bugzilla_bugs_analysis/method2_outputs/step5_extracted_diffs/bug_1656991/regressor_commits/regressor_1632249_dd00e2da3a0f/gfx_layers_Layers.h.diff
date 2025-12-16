@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/Layers.h
+# Commit: dd00e2da3a0f
+# Full Hash: dd00e2da3a0f11a7cc0af9e5ece21a339f4393eb
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-06-11 04:04:33
+# Regressor Bug: 1632249
+# File Overlap Count: 1
+# Description:
+#   Bug 1632249 - Support compositing out-of-process WebGL. r=handyman,lsalzman,nical,geckoview-reviewers,agi,imanol
+#   
+#   * Majorly simplity CanvasRenderer
+#   * Replace GLScreenBuffer with trivial GLSwapChain
+#   * Use descriptor structs so that future SharedSurface changes aren't so painful
+# ==============================================================================
+
+diff -r 69cc1de6f754 -r dd00e2da3a0f gfx/layers/Layers.h
+--- a/gfx/layers/Layers.h	Wed Jun 10 21:57:19 2020 +0000
++++ b/gfx/layers/Layers.h	Wed Jun 10 22:21:02 2020 +0000
+@@ -77,7 +77,6 @@
+ namespace layers {
+ 
+ class Animation;
+-class AsyncCanvasRenderer;
+ class AsyncPanZoomController;
+ class BasicLayerManager;
+ class ClientLayerManager;
+@@ -2540,7 +2539,7 @@
+ 
+   const nsIntRect& GetBounds() const { return mBounds; }
+ 
+-  CanvasRenderer* CreateOrGetCanvasRenderer();
++  RefPtr<CanvasRenderer> CreateOrGetCanvasRenderer();
+ 
+  public:
+   /**
+@@ -2581,9 +2580,9 @@
+   void DumpPacket(layerscope::LayersPacket* aPacket,
+                   const void* aParent) override;
+ 
+-  virtual CanvasRenderer* CreateCanvasRendererInternal() = 0;
++  virtual RefPtr<CanvasRenderer> CreateCanvasRendererInternal() = 0;
+ 
+-  UniquePtr<CanvasRenderer> mCanvasRenderer;
++  RefPtr<CanvasRenderer> mCanvasRenderer;
+   gfx::SamplingFilter mSamplingFilter;
+ 
+   /**

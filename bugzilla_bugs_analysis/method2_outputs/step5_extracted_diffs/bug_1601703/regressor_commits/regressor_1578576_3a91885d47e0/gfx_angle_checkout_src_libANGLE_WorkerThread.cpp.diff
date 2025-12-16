@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/angle/checkout/src/libANGLE/WorkerThread.cpp
+# Commit: 3a91885d47e0
+# Full Hash: 3a91885d47e0ef7fba9749562d52300eea67c651
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2019-11-11 21:52:52
+# Regressor Bug: 1578576
+# File Overlap Count: 4
+# Description:
+#   Bug 1578576 - Part 2: Update to ANGLE 3865 r=jgilbert
+#   
+#   Depends on D44561
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44579
+# ==============================================================================
+
+diff -r 77cee77c0307 -r 3a91885d47e0 gfx/angle/checkout/src/libANGLE/WorkerThread.cpp
+--- a/gfx/angle/checkout/src/libANGLE/WorkerThread.cpp	Fri Nov 08 16:41:42 2019 +0000
++++ b/gfx/angle/checkout/src/libANGLE/WorkerThread.cpp	Fri Nov 08 17:06:00 2019 +0000
+@@ -24,6 +24,13 @@
+ WaitableEvent::WaitableEvent()  = default;
+ WaitableEvent::~WaitableEvent() = default;
+ 
++void WaitableEventDone::wait() {}
++
++bool WaitableEventDone::isReady()
++{
++    return true;
++}
++
+ WorkerThreadPool::WorkerThreadPool()  = default;
+ WorkerThreadPool::~WorkerThreadPool() = default;
+ 
+@@ -219,4 +226,17 @@
+     return pool;
+ }
+ 
++// static
++std::shared_ptr<WaitableEvent> WorkerThreadPool::PostWorkerTask(
++    std::shared_ptr<WorkerThreadPool> pool,
++    std::shared_ptr<Closure> task)
++{
++    std::shared_ptr<WaitableEvent> event = pool->postWorkerTask(task);
++    if (event.get())
++    {
++        event->setWorkerThreadPool(pool);
++    }
++    return event;
++}
++
+ }  // namespace angle

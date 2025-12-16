@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/builtin/Array.cpp
+# Commit: 4531d5c25694
+# Full Hash: 4531d5c256947ff782377ba0143e3f37bd7207c2
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2021-03-06 09:33:16
+# Regressor Bug: 1689413
+# File Overlap Count: 1
+# Description:
+#   Bug 1689413 part 5 - Remove JSClass* from ObjectGroup. r=jonco
+#   
+#   BaseShape stores the JSClass* too so this patch changes the code to get the JSClass*
+#   from there instead of from the ObjectGroup.
+#   
+# ==============================================================================
+
+diff -r f1bb16079c0e -r 4531d5c25694 js/src/builtin/Array.cpp
+--- a/js/src/builtin/Array.cpp	Fri Mar 05 19:10:06 2021 +0000
++++ b/js/src/builtin/Array.cpp	Fri Mar 05 19:10:06 2021 +0000
+@@ -3980,9 +3980,10 @@
+   }
+ 
+   AutoSetNewObjectMetadata metadata(cx);
+-  RootedArrayObject arr(cx, ArrayObject::createArray(
+-                                cx, allocKind, GetInitialHeap(newKind, group),
+-                                shape, group, length, metadata));
++  RootedArrayObject arr(
++      cx, ArrayObject::createArray(
++              cx, allocKind, GetInitialHeap(newKind, &ArrayObject::class_),
++              shape, group, length, metadata));
+   if (!arr) {
+     return nullptr;
+   }
+@@ -4070,7 +4071,7 @@
+   RootedObjectGroup group(cx, templateObject->group());
+   RootedShape shape(cx, templateObject->lastProperty());
+ 
+-  gc::InitialHeap heap = GetInitialHeap(GenericObject, group);
++  gc::InitialHeap heap = GetInitialHeap(GenericObject, &ArrayObject::class_);
+   Rooted<ArrayObject*> arr(
+       cx, ArrayObject::createArray(cx, allocKind, heap, shape, group, length,
+                                    metadata));

@@ -1,0 +1,32 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/sharedworkers/SharedWorkerManager.cpp
+# Commit: 3a8153d6d830
+# Full Hash: 3a8153d6d8304bef116f0f4dbedbabc0cc1a9ab7
+# Author: Jens Stutte <jstutte@mozilla.com>
+# Date: 2023-01-24 17:01:02
+# Regressor Bug: 1811195
+# File Overlap Count: 1
+# Description:
+#   Bug 1811195 - Bail out on AppShutdownConfirmed in SharedWorkerManager::MaybeCreateRemoteWorker and BackgroundParentImpl::AllocPRemoteWorkerControllerParent r=dom-worker-reviewers,smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D167565
+# ==============================================================================
+
+diff -r df20721143f6 -r 3a8153d6d830 dom/workers/sharedworkers/SharedWorkerManager.cpp
+--- a/dom/workers/sharedworkers/SharedWorkerManager.cpp	Tue Jan 24 11:22:52 2023 +0000
++++ b/dom/workers/sharedworkers/SharedWorkerManager.cpp	Tue Jan 24 11:22:53 2023 +0000
+@@ -63,6 +63,12 @@
+     UniqueMessagePortId& aPortIdentifier, base::ProcessId aProcessId) {
+   ::mozilla::ipc::AssertIsOnBackgroundThread();
+ 
++  // Creating remote workers may result in creating new processes, but during
++  // parent shutdown that would add just noise, so better bail out.
++  if (AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdownConfirmed)) {
++    return false;
++  }
++
+   if (!mRemoteWorkerController) {
+     mRemoteWorkerController =
+         RemoteWorkerController::Create(aData, this, aProcessId);

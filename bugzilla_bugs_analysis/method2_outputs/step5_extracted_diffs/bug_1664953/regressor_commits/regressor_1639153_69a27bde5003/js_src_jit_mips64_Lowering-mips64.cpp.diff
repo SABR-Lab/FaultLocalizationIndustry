@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/mips64/Lowering-mips64.cpp
+# Commit: 69a27bde5003
+# Full Hash: 69a27bde5003c70c97e8c31202c1fcf3e13d173e
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-09-11 09:30:56
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 6.4: Add tls dependency for WasmTruncateToInt64 and Int64ToFloatingPoint for arm. r=lth
+#   
+#   In this patch we add a tls dependency for the remaining nodes which use
+#   BuiltinThunk to call c++ runtime. By ABI requirements WasmTlsReg should
+#   be set.
+# ==============================================================================
+
+diff -r 9b42e0b690b6 -r 69a27bde5003 js/src/jit/mips64/Lowering-mips64.cpp
+--- a/js/src/jit/mips64/Lowering-mips64.cpp	Wed Sep 09 09:50:35 2020 +0000
++++ b/js/src/jit/mips64/Lowering-mips64.cpp	Wed Sep 09 10:48:09 2020 +0000
+@@ -161,6 +161,11 @@
+   defineInt64(new (alloc()) LWasmTruncateToInt64(useRegister(opd)), ins);
+ }
+ 
++void LIRGeneratorMIPS64::lowerWasmBuiltinTruncateToInt64(
++    MWasmBuiltinTruncateToInt64* ins) {
++  MOZ_CRASH("We don't use it for this architecture");
++}
++
+ void LIRGenerator::visitInt64ToFloatingPoint(MInt64ToFloatingPoint* ins) {
+   MDefinition* opd = ins->input();
+   MOZ_ASSERT(opd->type() == MIRType::Int64);
+@@ -168,3 +173,8 @@
+ 
+   define(new (alloc()) LInt64ToFloatingPoint(useInt64Register(opd)), ins);
+ }
++
++void LIRGeneratorMIPS64::lowerBuiltinInt64ToFloatingPoint(
++    MBuiltinInt64ToFloatingPoint* ins) {
++  MOZ_CRASH("We don't use it for this architecture");
++}

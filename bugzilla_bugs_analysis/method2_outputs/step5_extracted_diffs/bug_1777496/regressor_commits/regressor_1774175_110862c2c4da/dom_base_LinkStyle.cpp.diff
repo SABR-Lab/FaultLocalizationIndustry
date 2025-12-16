@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/LinkStyle.cpp
+# Commit: 110862c2c4da
+# Full Hash: 110862c2c4da9f9cb2b6ecc64668fac0b6275350
+# Author: Yoshi Cheng-Hao Huang <allstars.chh@gmail.com>
+# Date: 2022-06-28 09:16:40
+# Regressor Bug: 1774175
+# File Overlap Count: 1
+# Description:
+#   Bug 1774175 - Call SetAcquiringImportMaps(false) when processing modulepreload. r=yulia,smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D149371
+# ==============================================================================
+
+diff -r 2841a1ebc685 -r 110862c2c4da dom/base/LinkStyle.cpp
+--- a/dom/base/LinkStyle.cpp	Mon Jun 27 21:19:51 2022 +0000
++++ b/dom/base/LinkStyle.cpp	Mon Jun 27 21:20:48 2022 +0000
+@@ -129,23 +129,27 @@
+ void LinkStyle::GetCharset(nsAString& aCharset) { aCharset.Truncate(); }
+ 
+ static uint32_t ToLinkMask(const nsAString& aLink) {
+-  // Keep this in sync with sRelValues in HTMLLinkElement.cpp
+-  if (aLink.EqualsLiteral("prefetch"))
+-    return LinkStyle::ePREFETCH;
+-  else if (aLink.EqualsLiteral("dns-prefetch"))
+-    return LinkStyle::eDNS_PREFETCH;
+-  else if (aLink.EqualsLiteral("stylesheet"))
+-    return LinkStyle::eSTYLESHEET;
+-  else if (aLink.EqualsLiteral("next"))
+-    return LinkStyle::eNEXT;
+-  else if (aLink.EqualsLiteral("alternate"))
+-    return LinkStyle::eALTERNATE;
+-  else if (aLink.EqualsLiteral("preconnect"))
+-    return LinkStyle::ePRECONNECT;
+-  else if (aLink.EqualsLiteral("preload"))
+-    return LinkStyle::ePRELOAD;
+-  else
+-    return 0;
++  // Keep this in sync with sSupportedRelValues in HTMLLinkElement.cpp
++  uint32_t mask = 0;
++  if (aLink.EqualsLiteral("prefetch")) {
++    mask = LinkStyle::ePREFETCH;
++  } else if (aLink.EqualsLiteral("dns-prefetch")) {
++    mask = LinkStyle::eDNS_PREFETCH;
++  } else if (aLink.EqualsLiteral("stylesheet")) {
++    mask = LinkStyle::eSTYLESHEET;
++  } else if (aLink.EqualsLiteral("next")) {
++    mask = LinkStyle::eNEXT;
++  } else if (aLink.EqualsLiteral("alternate")) {
++    mask = LinkStyle::eALTERNATE;
++  } else if (aLink.EqualsLiteral("preconnect")) {
++    mask = LinkStyle::ePRECONNECT;
++  } else if (aLink.EqualsLiteral("preload")) {
++    mask = LinkStyle::ePRELOAD;
++  } else if (aLink.EqualsLiteral("modulepreload")) {
++    mask = LinkStyle::eMODULE_PRELOAD;
++  }
++
++  return mask;
+ }
+ 
+ uint32_t LinkStyle::ParseLinkTypes(const nsAString& aTypes) {

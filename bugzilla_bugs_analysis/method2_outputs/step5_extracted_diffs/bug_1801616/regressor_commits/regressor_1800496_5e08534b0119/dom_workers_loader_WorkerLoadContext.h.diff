@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/loader/WorkerLoadContext.h
+# Commit: 5e08534b0119
+# Full Hash: 5e08534b01198760e3521c7600504a32870de1c4
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-11-18 15:46:32
+# Regressor Bug: 1800496
+# File Overlap Count: 2
+# Description:
+#   Bug 1800496 - Re-introduce ScriptLoaderRunnable; r=asuth
+#   
+#   The ScriptLoaderRunnable used to do double duty as both the runnable used to load a script, and as the data structure to hold on to loading information (what kind of worker, debugger status, etc, if we failed). The second half of these responsibilities remains with the WorkerScriptLoader. WorkerScriptLoader acts as a persistent data structure. ScriptLoaderRunnable is per batch of requests (such as ImportScripts, or a single module load). It works together with the ThreadSafeRequestHandle to load the script.
+#   
+#   In the future, when we move to a single threaded implementation, ThreadSafeRequestHandle will likely be merged with WorkerLoadContext, but ScriptLoaderRunnable will stay as a datastructure to represent the batched request, and most of the existing fields (mSyncTarget, the request list) will stay. There is still some massaging to do here, but it gets closer to a final vision of how this should look.
+# ==============================================================================
+
+diff -r 3605681ebb5c -r 5e08534b0119 dom/workers/loader/WorkerLoadContext.h
+--- a/dom/workers/loader/WorkerLoadContext.h	Fri Nov 18 10:02:27 2022 +0000
++++ b/dom/workers/loader/WorkerLoadContext.h	Fri Nov 18 10:02:27 2022 +0000
+@@ -26,7 +26,8 @@
+ 
+ namespace workerinternals::loader {
+ class CacheCreator;
+-}
++class ScriptLoaderRunnable;
++}  // namespace workerinternals::loader
+ 
+ /*
+  * WorkerLoadContext (for all workers)
+@@ -179,8 +180,21 @@
+ 
+   bool IsEmpty() { return !mRequest; }
+ 
++  // Runnable controls
++  nsresult OnStreamComplete(nsresult aStatus);
++
++  void LoadingFinished(nsresult aRv);
++
++  void MaybeExecuteFinishedScripts();
++
++  bool IsCancelled();
++
++  nsresult GetCancelResult();
++
+   already_AddRefed<JS::loader::ScriptLoadRequest> ReleaseRequest();
+ 
++  RefPtr<workerinternals::loader::ScriptLoaderRunnable> mRunnable;
++
+  private:
+   ~ThreadSafeRequestHandle();
+ 

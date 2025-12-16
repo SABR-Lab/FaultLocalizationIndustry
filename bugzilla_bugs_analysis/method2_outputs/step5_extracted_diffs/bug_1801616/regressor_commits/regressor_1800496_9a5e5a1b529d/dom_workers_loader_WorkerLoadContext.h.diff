@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/loader/WorkerLoadContext.h
+# Commit: 9a5e5a1b529d
+# Full Hash: 9a5e5a1b529de42db783dc6f8720488c34b28c6e
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-11-18 15:46:32
+# Regressor Bug: 1800496
+# File Overlap Count: 2
+# Description:
+#   Bug 1800496 - Introduce ThreadSafeRequestHandle; r=asuth
+#   
+#   This introduces a new datastructure that wraps the ScriptLoadRequest. Previously, we were using the WorkerLoadContext to access the request, and we made it not cycle collected in order to make it safe across threads. This, of course, broke module behavior, as the cycle needs to be broken in more places, and things get rather complex.
+#   
+#   In the spirit of making everyone's life easier, the ThreadSafeRequestHandle exists as a way to move the request to the main thread, operate on it, and then return it to the worker. We no longer need to track and free the WorkerLoadContext. Once the ThreadSafeRequestHandle is returned to the worker, we release the request, and the handle is empty. There is a possibility that this will cause issues, so we should keep an eye on this. Alternatively, we can never release the ScriptLoadRequest and let the ThreadSafeRequestHandle clean it up on destruction.
+# ==============================================================================
+
+diff -r 879667e24ed7 -r 9a5e5a1b529d dom/workers/loader/WorkerLoadContext.h
+--- a/dom/workers/loader/WorkerLoadContext.h	Fri Nov 18 10:02:25 2022 +0000
++++ b/dom/workers/loader/WorkerLoadContext.h	Fri Nov 18 10:02:25 2022 +0000
+@@ -156,5 +156,27 @@
+   bool IsAwaitingPromise() const { return bool(mCachePromise); }
+ };
+ 
++class ThreadSafeRequestHandle final {
++ public:
++  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(ThreadSafeRequestHandle)
++
++  ThreadSafeRequestHandle(JS::loader::ScriptLoadRequest* aRequest,
++                          nsISerialEventTarget* aSyncTarget);
++
++  JS::loader::ScriptLoadRequest* GetRequest() const { return mRequest; }
++
++  WorkerLoadContext* GetContext() { return mRequest->GetWorkerLoadContext(); }
++
++  bool IsEmpty() { return !mRequest; }
++
++  already_AddRefed<JS::loader::ScriptLoadRequest> ReleaseRequest();
++
++ private:
++  ~ThreadSafeRequestHandle();
++
++  RefPtr<JS::loader::ScriptLoadRequest> mRequest;
++  nsCOMPtr<nsISerialEventTarget> mOwningEventTarget;
++};
++
+ }  // namespace mozilla::dom
+ #endif /* mozilla_dom_workers_WorkerLoadContext_h__ */

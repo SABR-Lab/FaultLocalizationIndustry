@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLContext.h
+# Commit: 7fea32057b92
+# Full Hash: 7fea32057b920eac49960541efa2f3fea9074c19
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2022-02-12 09:47:43
+# Regressor Bug: 1754130
+# File Overlap Count: 2
+# Description:
+#   Bug 1754130 - Support presenting a WebGLFramebuffer to its own swap chain without opaque FB. r=aosmond,jgilbert
+#   
+#   Most of the support for presenting a WebGLFramebuffer to a swap chain existed as part of the
+#   mechanism for opaque WebXR framebuffer support. However, such "opaque" framebuffer are meant
+#   to be opaque in the sense that their attachments can't be inspected or changed, which does
+# ==============================================================================
+
+diff -r 1ac8f10e0025 -r 7fea32057b92 dom/canvas/WebGLContext.h
+--- a/dom/canvas/WebGLContext.h	Fri Feb 11 15:36:30 2022 +0000
++++ b/dom/canvas/WebGLContext.h	Fri Feb 11 15:36:30 2022 +0000
+@@ -479,7 +479,7 @@
+ 
+   // Present to compositor
+  private:
+-  bool PresentInto(gl::SwapChain& swapChain);
++  bool PresentInto(gl::SwapChain& swapChain, WebGLFramebuffer* srcFb = nullptr);
+   bool PresentIntoXR(gl::SwapChain& swapChain, const gl::MozFramebuffer& xrFb);
+ 
+  public:
+@@ -1213,7 +1213,8 @@
+       GLenum incompleteFbError = LOCAL_GL_INVALID_FRAMEBUFFER_OPERATION);
+   void DoColorMask(uint8_t bitmask) const;
+   void BlitBackbufferToCurDriverFB(
+-      const gl::MozFramebuffer* const source = nullptr) const;
++      WebGLFramebuffer* const srcAsWebglFb = nullptr,
++      const gl::MozFramebuffer* const srcAsMozFb = nullptr) const;
+   bool BindDefaultFBForRead();
+ 
+   // --

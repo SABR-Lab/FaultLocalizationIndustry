@@ -1,0 +1,68 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/html/HTMLCanvasElement.h
+# Commit: bc1b6e82d67f
+# Full Hash: bc1b6e82d67fd6018b946c384efa6be9a5a5af16
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2021-12-10 21:58:52
+# Regressor Bug: 1736177
+# File Overlap Count: 2
+# Description:
+#   Bug 1736177 - Part 11. Plumb in OffscreenCanvasDisplayHelper. r=jgilbert
+#   
+#   This patch integrates OffscreenCanvasDisplayHelper with
+#   HTMLCanvasElement, OffscreenCanvas and nsDisplayCanvas to allow
+#   asynchronous display of an OffscreenCanvas.
+# ==============================================================================
+
+diff -r 7b946576bafa -r bc1b6e82d67f dom/html/HTMLCanvasElement.h
+--- a/dom/html/HTMLCanvasElement.h	Fri Dec 10 02:57:55 2021 +0000
++++ b/dom/html/HTMLCanvasElement.h	Fri Dec 10 02:57:55 2021 +0000
+@@ -32,6 +32,7 @@
+ namespace layers {
+ class CanvasRenderer;
+ class Image;
++class ImageContainer;
+ class Layer;
+ class LayerManager;
+ class OOPCanvasRenderer;
+@@ -52,6 +53,7 @@
+ class File;
+ class HTMLCanvasPrintState;
+ class OffscreenCanvas;
++class OffscreenCanvasDisplayHelper;
+ class PrintCallback;
+ class PWebGLChild;
+ class RequestedFrameRefreshObserver;
+@@ -215,6 +217,11 @@
+   void SetWriteOnly(nsIPrincipal* aExpandedReader);
+ 
+   /**
++   * Notify the placeholder offscreen canvas of an updated size.
++   */
++  void InvalidateCanvasPlaceholder(uint32_t aWidth, uint32_t aHeight);
++
++  /**
+    * Notify that some canvas content has changed and the window may
+    * need to be updated. aDamageRect is in canvas coordinates.
+    */
+@@ -356,6 +363,10 @@
+   ClientWebGLContext* GetWebGLContext();
+   webgpu::CanvasContext* GetWebGPUContext();
+ 
++  bool IsOffscreen() const { return !!mOffscreenCanvas; }
++
++  RefPtr<layers::ImageContainer> GetImageContainer();
++
+  protected:
+   bool mResetLayer;
+   bool mMaybeModified;  // we fetched the context, so we may have written to the
+@@ -367,6 +378,7 @@
+   RefPtr<RequestedFrameRefreshObserver> mRequestedFrameRefreshObserver;
+   RefPtr<CanvasRenderer> mCanvasRenderer;
+   RefPtr<OffscreenCanvas> mOffscreenCanvas;
++  RefPtr<OffscreenCanvasDisplayHelper> mOffscreenDisplay;
+   RefPtr<HTMLCanvasElementObserver> mContextObserver;
+ 
+  public:

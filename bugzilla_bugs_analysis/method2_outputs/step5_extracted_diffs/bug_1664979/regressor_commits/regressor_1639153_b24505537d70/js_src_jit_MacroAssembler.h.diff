@@ -1,0 +1,89 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/MacroAssembler.h
+# Commit: b24505537d70
+# Full Hash: b24505537d700cd4e01adee576645a617b6ef935
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-10-30 16:09:44
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 1: Reserve two slots after stack arguments for the future tls preservation. r=lth
+#   
+#   
+#   We are going to remove Frame::tls and support trampolines for indirect calls, so we need to get rid of using Frame::tls.
+#   In this and the followup patches I will iteratively remove all dependencies of Frame::tls and remove it eventually.
+# ==============================================================================
+
+diff -r 653e90061f03 -r b24505537d70 js/src/jit/MacroAssembler.h
+--- a/js/src/jit/MacroAssembler.h	Fri Oct 30 08:31:42 2020 +0000
++++ b/js/src/jit/MacroAssembler.h	Fri Oct 23 18:17:36 2020 +0000
+@@ -667,7 +667,12 @@
+  private:
+   // Reinitialize the variables which have to be cleared before making a call
+   // with callWithABI.
+-  void setupABICall();
++  template <class ABIArgGeneratorT>
++  void setupABICallHelper();
++
++  // Reinitialize the variables which have to be cleared before making a call
++  // with native abi.
++  void setupNativeABICall();
+ 
+   // Reserve the stack and resolve the arguments move.
+   void callWithABIPre(uint32_t* stackAdjust,
+@@ -4335,9 +4340,9 @@
+ // Helper for generatePreBarrier.
+ inline DynFn JitMarkFunction(MIRType type);
+ 
+-template <class VecT>
+-class ABIArgIter {
+-  ABIArgGenerator gen_;
++template <class VecT, class ABIArgGeneratorT>
++class ABIArgIterBase {
++  ABIArgGeneratorT gen_;
+   const VecT& types_;
+   unsigned i_;
+ 
+@@ -4346,7 +4351,9 @@
+   }
+ 
+  public:
+-  explicit ABIArgIter(const VecT& types) : types_(types), i_(0) { settle(); }
++  explicit ABIArgIterBase(const VecT& types) : types_(types), i_(0) {
++    settle();
++  }
+   void operator++(int) {
+     MOZ_ASSERT(!done());
+     i_++;
+@@ -4376,6 +4383,29 @@
+   }
+ };
+ 
++// This is not an alias because we want to allow class template argument
++// deduction.
++template <class VecT>
++class ABIArgIter : public ABIArgIterBase<VecT, ABIArgGenerator> {
++ public:
++  explicit ABIArgIter(const VecT& types)
++      : ABIArgIterBase<VecT, ABIArgGenerator>(types) {}
++};
++
++class WasmABIArgGenerator : public ABIArgGenerator {
++ public:
++  WasmABIArgGenerator() {
++    increaseStackOffset(wasm::FrameWithTls::sizeWithoutFrame());
++  }
++};
++
++template <class VecT>
++class WasmABIArgIter : public ABIArgIterBase<VecT, WasmABIArgGenerator> {
++ public:
++  explicit WasmABIArgIter(const VecT& types)
++      : ABIArgIterBase<VecT, WasmABIArgGenerator>(types) {}
++};
++
+ }  // namespace jit
+ }  // namespace js
+ 

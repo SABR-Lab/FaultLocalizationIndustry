@@ -1,0 +1,82 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/WorkerPrivate.h
+# Commit: 1e774bd7f365
+# Full Hash: 1e774bd7f36525a03b6260b1cd7741bcf4e5f622
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2025-04-09 04:12:49
+# Regressor Bug: 1899503
+# File Overlap Count: 4
+# Description:
+#   Bug 1899503 - P3 PRemoteWorkerDebugger binding implementation. r=asuth
+#   
+#   This patch implements the PRemoteWorkerDebugger binding.
+#   
+#   We are trying to keep the same logic debugger registration/unregistration to minimize the difference between the local debugger(the debugger on the content process main thread)
+# ==============================================================================
+
+diff -r b003e26209cf -r 1e774bd7f365 dom/workers/WorkerPrivate.h
+--- a/dom/workers/WorkerPrivate.h	Tue Apr 08 09:43:33 2025 +0000
++++ b/dom/workers/WorkerPrivate.h	Tue Apr 08 09:43:33 2025 +0000
+@@ -65,7 +65,10 @@
+ class ThrottledEventQueue;
+ namespace dom {
+ 
++class PRemoteWorkerDebuggerChild;
++class PRemoteWorkerDebuggerParent;
+ class RemoteWorkerChild;
++class RemoteWorkerDebuggerChild;
+ class RemoteWorkerNonLifeCycleOpControllerChild;
+ 
+ // If you change this, the corresponding list in nsIWorkerDebugger.idl needs
+@@ -1057,6 +1060,24 @@
+ 
+   void DisableDebugger();
+ 
++  void BindRemoteWorkerDebuggerChild();
++
++  void CreateRemoteDebuggerEndpoints();
++
++  void SetIsRemoteDebuggerRegistered(const bool& aRegistered);
++
++  void SetIsRemoteDebuggerReady(const bool& aReady);
++
++  void EnableRemoteDebugger();
++
++  void DisableRemoteDebugger();
++
++  void DisableRemoteDebuggerOnWorkerThread(const bool& aForShutdown = false);
++
++  void SetIsQueued(const bool& aQueued);
++
++  bool IsQueued() const;
++
+   already_AddRefed<WorkerRunnable> MaybeWrapAsWorkerRunnable(
+       already_AddRefed<nsIRunnable> aRunnable);
+ 
+@@ -1131,7 +1152,7 @@
+ 
+   void StartCancelingTimer();
+ 
+-  const nsAString& Id();
++  const nsString& Id();
+ 
+   const nsID& AgentClusterId() const { return mAgentClusterId; }
+ 
+@@ -1493,6 +1514,15 @@
+ 
+   mozilla::ipc::Endpoint<PRemoteWorkerNonLifeCycleOpControllerChild> mChildEp;
+ 
++  RefPtr<RemoteWorkerDebuggerChild> mRemoteDebugger;
++  mozilla::ipc::Endpoint<PRemoteWorkerDebuggerChild> mDebuggerChildEp;
++  mozilla::ipc::Endpoint<PRemoteWorkerDebuggerParent> mDebuggerParentEp;
++  bool mRemoteDebuggerRegistered MOZ_GUARDED_BY(mMutex);
++  bool mRemoteDebuggerReady MOZ_GUARDED_BY(mMutex);
++  bool mIsQueued;  // Should only touched on parent thread.
++  mozilla::CondVar mDebuggerBindingCondVar MOZ_GUARDED_BY(mMutex);
++  RefPtr<WorkerEventTarget> mWorkerDebuggerEventTarget;
++
+   JS::UniqueChars mDefaultLocale;  // nulled during worker JSContext init
+   TimeStamp mKillTime;
+   WorkerStatus mParentStatus MOZ_GUARDED_BY(mMutex);

@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: xpfe/appshell/nsXULWindow.cpp
+# Commit: a902acfbc868
+# Full Hash: a902acfbc8680811e4538f8d27e78e4fe6ca55f2
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2019-05-23 15:55:11
+# Regressor Bug: 1525720
+# File Overlap Count: 1
+# Description:
+#   Bug 1525720, part 13 - Stop inheriting nsIRemoteTab interface in BrowserParent. r=nika
+#   
+#   This commit removes nsIRemoteTab as a parent class from BrowserParent,
+#   so that BrowserHost is the only concrete implementation of nsIRemoteTab.
+#   
+# ==============================================================================
+
+diff -r 50475885250c -r a902acfbc868 xpfe/appshell/nsXULWindow.cpp
+--- a/xpfe/appshell/nsXULWindow.cpp	Wed May 08 11:45:23 2019 -0500
++++ b/xpfe/appshell/nsXULWindow.cpp	Wed May 08 14:34:47 2019 -0500
+@@ -59,6 +59,7 @@
+ #include "mozilla/dom/Element.h"
+ #include "mozilla/dom/Event.h"
+ #include "mozilla/dom/ScriptSettings.h"
++#include "mozilla/dom/BrowserHost.h"
+ #include "mozilla/dom/BrowserParent.h"
+ 
+ #ifdef MOZ_NEW_XULSTORE
+@@ -352,9 +353,8 @@
+ nsXULWindow::GetLiveResizeListeners() {
+   nsTArray<RefPtr<mozilla::LiveResizeListener>> listeners;
+   if (mPrimaryBrowserParent) {
+-    BrowserParent* parent =
+-        static_cast<BrowserParent*>(mPrimaryBrowserParent.get());
+-    listeners.AppendElement(parent);
++    BrowserHost* host = BrowserHost::GetFrom(mPrimaryBrowserParent.get());
++    listeners.AppendElement(host->GetActor());
+   }
+   return listeners;
+ }
+@@ -1864,9 +1864,9 @@
+ 
+ nsresult nsXULWindow::GetPrimaryRemoteTabSize(int32_t* aWidth,
+                                               int32_t* aHeight) {
+-  BrowserParent* browserParent = BrowserParent::GetFrom(mPrimaryBrowserParent);
++  BrowserHost* host = BrowserHost::GetFrom(mPrimaryBrowserParent.get());
+   // Need strong ref, since Client* can run script.
+-  nsCOMPtr<Element> element = browserParent->GetOwnerElement();
++  nsCOMPtr<Element> element = host->GetOwnerElement();
+   NS_ENSURE_STATE(element);
+ 
+   *aWidth = element->ClientWidth();

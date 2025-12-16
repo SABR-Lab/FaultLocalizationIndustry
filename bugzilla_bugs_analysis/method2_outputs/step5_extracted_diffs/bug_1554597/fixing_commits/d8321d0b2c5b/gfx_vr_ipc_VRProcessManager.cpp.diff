@@ -1,0 +1,38 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/vr/ipc/VRProcessManager.cpp
+# Commit: d8321d0b2c5b
+# Full Hash: d8321d0b2c5b43933c5e9f201934ec7d4c3a65c0
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2019-05-28 17:28:21
+# Description:
+#   Bug 1554597 - Deregister Preferences observer on destructor. r=daoshengmu a=nightly-ifx
+#   
+#   Remove unecessary Unregister method.
+#   
+#   The method is called only once and right prior the parent object gets deleted.
+# ==============================================================================
+
+diff -r 5cc220ddf028 -r d8321d0b2c5b gfx/vr/ipc/VRProcessManager.cpp
+--- a/gfx/vr/ipc/VRProcessManager.cpp	Tue May 28 13:12:23 2019 +0300
++++ b/gfx/vr/ipc/VRProcessManager.cpp	Mon May 27 14:43:10 2019 +0200
+@@ -45,8 +45,8 @@
+   MOZ_COUNT_DTOR(VRProcessManager);
+ 
+   if (mObserver) {
+-    mObserver->Unregister();
+     nsContentUtils::UnregisterShutdownObserver(mObserver);
++    Preferences::RemoveObserver(mObserver, "");
+     mObserver = nullptr;
+   }
+ 
+@@ -193,8 +193,6 @@
+   return NS_OK;
+ }
+ 
+-void VRProcessManager::Observer::Unregister() { mManager = nullptr; }
+-
+ void VRProcessManager::CleanShutdown() { DestroyProcess(); }
+ 
+ void VRProcessManager::OnXPCOMShutdown() {

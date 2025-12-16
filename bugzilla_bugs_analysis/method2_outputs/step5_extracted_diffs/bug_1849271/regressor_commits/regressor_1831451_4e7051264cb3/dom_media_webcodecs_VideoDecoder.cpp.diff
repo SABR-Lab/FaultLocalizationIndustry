@@ -1,0 +1,73 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webcodecs/VideoDecoder.cpp
+# Commit: 4e7051264cb3
+# Full Hash: 4e7051264cb30c7a472f66afe52c7f360273bb30
+# Author: Chun-Min Chang <chun.m.chang@gmail.com>
+# Date: 2023-06-29 15:31:45
+# Regressor Bug: 1831451
+# File Overlap Count: 1
+# Description:
+#   Bug 1831451 - Implement VideoDecoder::Constructor r=padenot
+#   
+#   Depends on D158816
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D161355
+# ==============================================================================
+
+diff -r 8f3c10480da7 -r 4e7051264cb3 dom/media/webcodecs/VideoDecoder.cpp
+--- a/dom/media/webcodecs/VideoDecoder.cpp	Thu Jun 29 04:15:01 2023 +0000
++++ b/dom/media/webcodecs/VideoDecoder.cpp	Thu Jun 29 04:15:01 2023 +0000
+@@ -11,6 +11,7 @@
+ #include "MediaContainerType.h"
+ #include "VideoUtils.h"
+ #include "mozilla/Assertions.h"
++#include "mozilla/Logging.h"
+ #include "mozilla/Maybe.h"
+ #include "mozilla/dom/Promise.h"
+ #include "mozilla/dom/WebCodecsUtils.h"
+@@ -151,17 +152,40 @@
+   return c;
+ }
+ 
++VideoDecoder::VideoDecoder(nsIGlobalObject* aParent,
++                           RefPtr<WebCodecsErrorCallback>&& aErrorCallback,
++                           RefPtr<VideoFrameOutputCallback>&& aOutputCallback)
++    : DOMEventTargetHelper(aParent),
++      mErrorCallback(std::move(aErrorCallback)),
++      mOutputCallback(std::move(aOutputCallback)) {
++  MOZ_ASSERT(mErrorCallback);
++  MOZ_ASSERT(mOutputCallback);
++  LOG("VideoDecoder %p ctor", this);
++}
++
++VideoDecoder::~VideoDecoder() { LOG("VideoDecoder %p dtor", this); }
++
+ JSObject* VideoDecoder::WrapObject(JSContext* aCx,
+                                    JS::Handle<JSObject*> aGivenProto) {
++  AssertIsOnOwningThread();
++
+   return VideoDecoder_Binding::Wrap(aCx, this, aGivenProto);
+ }
+ 
++// https://w3c.github.io/webcodecs/#dom-videodecoder-videodecoder
+ /* static */
+ already_AddRefed<VideoDecoder> VideoDecoder::Constructor(
+-    const GlobalObject& global, const VideoDecoderInit& init,
++    const GlobalObject& aGlobal, const VideoDecoderInit& aInit,
+     ErrorResult& aRv) {
+-  aRv.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
+-  return nullptr;
++  nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
++  if (!global) {
++    aRv.Throw(NS_ERROR_FAILURE);
++    return nullptr;
++  }
++
++  return MakeAndAddRef<VideoDecoder>(
++      global.get(), RefPtr<WebCodecsErrorCallback>(aInit.mError),
++      RefPtr<VideoFrameOutputCallback>(aInit.mOutput));
+ }
+ 
+ CodecState VideoDecoder::State() const { return CodecState::EndGuard_; }

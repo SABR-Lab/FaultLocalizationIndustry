@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/Http2Session.cpp
+# Commit: 373bc48d5325
+# Full Hash: 373bc48d5325e17cb67a11035d4542d221023594
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2023-09-19 09:37:28
+# Regressor Bug: 1784261
+# File Overlap Count: 1
+# Description:
+#   Bug 1784261 - Add telemetry to understand the reason of connection closure, r=necko-reviewers,valentin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D188132
+# ==============================================================================
+
+diff -r f2fee3884997 -r 373bc48d5325 netwerk/protocol/http/Http2Session.cpp
+--- a/netwerk/protocol/http/Http2Session.cpp	Mon Sep 18 14:28:30 2023 +0000
++++ b/netwerk/protocol/http/Http2Session.cpp	Mon Sep 18 14:44:18 2023 +0000
+@@ -368,6 +368,7 @@
+          this, pingTimeout));
+     if ((now - mPingSentEpoch) >= pingTimeout) {
+       LOG3(("Http2Session::ReadTimeoutTick %p Ping Timer Exhaustion\n", this));
++      mConnection->SetCloseReason(ConnectionCloseReason::IDLE_TIMEOUT);
+       mPingSentEpoch = 0;
+       if (isTrr) {
+         // These must be set this way to ensure we gracefully restart all
+@@ -2175,6 +2176,7 @@
+     return self->SessionError(PROTOCOL_ERROR);
+   }
+ 
++  self->mConnection->SetCloseReason(ConnectionCloseReason::GO_AWAY);
+   self->mShouldGoAway = true;
+   self->mGoAwayID = NetworkEndian::readUint32(self->mInputFrameBuffer.get() +
+                                               kFrameHeaderBytes);

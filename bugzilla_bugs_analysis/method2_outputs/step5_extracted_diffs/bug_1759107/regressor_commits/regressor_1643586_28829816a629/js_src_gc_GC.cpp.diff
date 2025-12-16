@@ -1,0 +1,86 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/GC.cpp
+# Commit: 28829816a629
+# Full Hash: 28829816a629b28125db3b4c65c5e22518e167e8
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2022-03-09 21:37:17
+# Regressor Bug: 1643586
+# File Overlap Count: 1
+# Description:
+#   Bug 1643586 - Part 6: Stop using JSContext for GC helper thread tasks r=jandem
+#   
+#   This patch moves the debug-only GC state from JSContext to JSFreeOp. Support
+#   functions for this move to FreeOp.h and most RAII classes move to GCInternals.h.
+#   
+# ==============================================================================
+
+diff -r 410d1b57bb09 -r 28829816a629 js/src/gc/GC.cpp
+--- a/js/src/gc/GC.cpp	Wed Mar 09 10:17:07 2022 +0000
++++ b/js/src/gc/GC.cpp	Wed Mar 09 10:17:08 2022 +0000
+@@ -291,9 +291,11 @@
+ static_assert(std::size(slotsToThingKind) == SLOTS_TO_THING_KIND_LIMIT,
+               "We have defined a slot count for each kind.");
+ 
+-JSFreeOp::JSFreeOp(JSRuntime* maybeRuntime)
+-    : runtime_(maybeRuntime), isCollecting_(false) {
+-  MOZ_ASSERT_IF(maybeRuntime, CurrentThreadCanAccessRuntime(maybeRuntime));
++MOZ_THREAD_LOCAL(JSFreeOp*) js::TlsFreeOp;
++
++JSFreeOp::JSFreeOp(JSRuntime* runtime, bool isMainThread)
++    : runtime_(runtime), isMainThread_(isMainThread) {
++  MOZ_ASSERT_IF(isMainThread, CurrentThreadCanAccessRuntime(runtime));
+ }
+ 
+ JSFreeOp::~JSFreeOp() { MOZ_ASSERT(!hasJitCodeToPoison()); }
+@@ -378,6 +380,7 @@
+     : rt(rt),
+       atomsZone(nullptr),
+       systemZone(nullptr),
++      mainThreadFreeOp(rt, true),
+       heapState_(JS::HeapState::Idle),
+       stats_(this),
+       marker(rt),
+@@ -807,6 +810,11 @@
+   MOZ_ASSERT(SystemPageSize());
+   Arena::checkLookupTables();
+ 
++  if (!TlsFreeOp.init()) {
++    return false;
++  }
++  TlsFreeOp.set(&mainThreadFreeOp.ref());
++
+   {
+     AutoLockGCBgAlloc lock(this);
+ 
+@@ -844,10 +852,9 @@
+     return false;
+   }
+ 
++  updateHelperThreadCount();
++
+   gcprobes::Init(this);
+-
+-  updateHelperThreadCount();
+-
+   return true;
+ }
+ 
+@@ -874,6 +881,7 @@
+ 
+   // Delete all remaining zones.
+   if (rt->gcInitialized) {
++    AutoSetThreadIsPerformingGC performingGC;
+     for (ZonesIter zone(this, WithAtoms); !zone.done(); zone.next()) {
+       AutoSetThreadIsSweeping threadIsSweeping(zone);
+       for (CompartmentsInZoneIter comp(zone); !comp.done(); comp.next()) {
+@@ -894,6 +902,8 @@
+   FreeChunkPool(availableChunks_.ref());
+   FreeChunkPool(emptyChunks_.ref());
+ 
++  TlsFreeOp.set(nullptr);
++
+   gcprobes::Finish(this);
+ 
+   nursery().printTotalProfileTimes();

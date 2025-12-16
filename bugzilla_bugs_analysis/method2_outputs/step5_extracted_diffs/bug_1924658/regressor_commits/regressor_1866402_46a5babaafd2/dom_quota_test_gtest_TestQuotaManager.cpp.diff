@@ -1,0 +1,216 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/test/gtest/TestQuotaManager.cpp
+# Commit: 46a5babaafd2
+# Full Hash: 46a5babaafd2c0f2198f353d62254cf518dab391
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-10-15 04:16:11
+# Regressor Bug: 1866402
+# File Overlap Count: 1
+# Description:
+#   Bug 1866402 - Implement initialization of entire persistent storage; r=dom-storage-reviewers,jari
+#   
+#   IndexedDB still calls QuotaManager::EnsurePersistentOriginIsInitializedInternal
+#   from its idle database maintenance. However, we want to get rid of that so the
+#   method can be made private. The idle database maintenance should only rely on
+# ==============================================================================
+
+diff -r 2ff5f3aaf841 -r 46a5babaafd2 dom/quota/test/gtest/TestQuotaManager.cpp
+--- a/dom/quota/test/gtest/TestQuotaManager.cpp	Mon Oct 14 10:00:26 2024 +0000
++++ b/dom/quota/test/gtest/TestQuotaManager.cpp	Mon Oct 14 10:06:14 2024 +0000
+@@ -1153,6 +1153,194 @@
+ }
+ 
+ TEST_F(TestQuotaManager,
++       InitializePersistentStorage_OtherExclusiveDirectoryLockAcquired) {
++  ASSERT_NO_FATAL_FAILURE(ShutdownStorage());
++
++  ASSERT_NO_FATAL_FAILURE(AssertStorageNotInitialized());
++
++  PerformOnBackgroundThread([]() {
++    QuotaManager* quotaManager = QuotaManager::Get();
++    ASSERT_TRUE(quotaManager);
++
++    {
++      auto value = Await(quotaManager->InitializeStorage());
++      ASSERT_TRUE(value.IsResolve());
++
++      ASSERT_TRUE(quotaManager->IsStorageInitialized());
++    }
++
++    RefPtr<UniversalDirectoryLock> directoryLock =
++        quotaManager->CreateDirectoryLockInternal(
++            PersistenceScope::CreateFromSet(PERSISTENCE_TYPE_TEMPORARY,
++                                            PERSISTENCE_TYPE_DEFAULT),
++            OriginScope::FromNull(), Nullable<Client::Type>(),
++            /* aExclusive */ true);
++
++    {
++      auto value = Await(directoryLock->Acquire());
++      ASSERT_TRUE(value.IsResolve());
++    }
++
++    {
++      auto value = Await(quotaManager->InitializePersistentStorage());
++      ASSERT_TRUE(value.IsResolve());
++
++      ASSERT_TRUE(quotaManager->IsPersistentStorageInitialized());
++    }
++
++    DropDirectoryLock(directoryLock);
++  });
++
++  ASSERT_NO_FATAL_FAILURE(AssertStorageInitialized());
++
++  ASSERT_NO_FATAL_FAILURE(ShutdownStorage());
++}
++
++// Test InitializePersistentStorage when a persistent storage initialization is
++// already ongoing and an exclusive directory lock is requested after that.
++TEST_F(TestQuotaManager,
++       InitializePersistentStorage_OngoingWithExclusiveDirectoryLock) {
++  ASSERT_NO_FATAL_FAILURE(ShutdownStorage());
++
++  ASSERT_NO_FATAL_FAILURE(AssertStorageNotInitialized());
++
++  PerformOnBackgroundThread([]() {
++    QuotaManager* quotaManager = QuotaManager::Get();
++    ASSERT_TRUE(quotaManager);
++
++    RefPtr<UniversalDirectoryLock> directoryLock =
++        quotaManager->CreateDirectoryLockInternal(
++            PersistenceScope::CreateFromNull(), OriginScope::FromNull(),
++            Nullable<Client::Type>(),
++            /* aExclusive */ true);
++
++    nsTArray<RefPtr<BoolPromise>> promises;
++
++    promises.AppendElement(quotaManager->InitializeStorage());
++    promises.AppendElement(quotaManager->InitializePersistentStorage()->Then(
++        GetCurrentSerialEventTarget(), __func__,
++        [&directoryLock](const BoolPromise::ResolveOrRejectValue& aValue) {
++          // The exclusive directory lock must be released when the first
++          // Persistent storage initialization is finished, otherwise it would
++          // endlessly block the second persistent storage initialization.
++          DropDirectoryLock(directoryLock);
++
++          if (aValue.IsReject()) {
++            return BoolPromise::CreateAndReject(aValue.RejectValue(), __func__);
++          }
++
++          return BoolPromise::CreateAndResolve(true, __func__);
++        }));
++    promises.AppendElement(directoryLock->Acquire());
++    promises.AppendElement(quotaManager->InitializeStorage());
++    promises.AppendElement(quotaManager->InitializePersistentStorage());
++
++    {
++      auto value =
++          Await(BoolPromise::All(GetCurrentSerialEventTarget(), promises));
++      ASSERT_TRUE(value.IsResolve());
++
++      ASSERT_TRUE(quotaManager->IsStorageInitialized());
++      ASSERT_TRUE(quotaManager->IsPersistentStorageInitialized());
++    }
++  });
++
++  ASSERT_NO_FATAL_FAILURE(AssertStorageInitialized());
++
++  ASSERT_NO_FATAL_FAILURE(ShutdownStorage());
++}
++
++// Test InitializePersistentStorage when a persistent storage initialization
++// already finished.
++TEST_F(TestQuotaManager, InitializePersistentStorage_Finished) {
++  ASSERT_NO_FATAL_FAILURE(ShutdownStorage());
++
++  ASSERT_NO_FATAL_FAILURE(AssertStorageNotInitialized());
++
++  PerformOnBackgroundThread([]() {
++    nsTArray<RefPtr<BoolPromise>> promises;
++
++    QuotaManager* quotaManager = QuotaManager::Get();
++    ASSERT_TRUE(quotaManager);
++
++    promises.AppendElement(quotaManager->InitializeStorage());
++    promises.AppendElement(quotaManager->InitializePersistentStorage());
++
++    {
++      auto value =
++          Await(BoolPromise::All(GetCurrentSerialEventTarget(), promises));
++      ASSERT_TRUE(value.IsResolve());
++
++      ASSERT_TRUE(quotaManager->IsStorageInitialized());
++      ASSERT_TRUE(quotaManager->IsPersistentStorageInitialized());
++    }
++
++    promises.Clear();
++
++    promises.AppendElement(quotaManager->InitializeStorage());
++    promises.AppendElement(quotaManager->InitializePersistentStorage());
++
++    {
++      auto value =
++          Await(BoolPromise::All(GetCurrentSerialEventTarget(), promises));
++      ASSERT_TRUE(value.IsResolve());
++
++      ASSERT_TRUE(quotaManager->IsStorageInitialized());
++      ASSERT_TRUE(quotaManager->IsPersistentStorageInitialized());
++    }
++  });
++
++  ASSERT_NO_FATAL_FAILURE(AssertStorageInitialized());
++
++  ASSERT_NO_FATAL_FAILURE(ShutdownStorage());
++}
++
++TEST_F(TestQuotaManager,
++       InitializePersistentStorage_FinishedWithScheduledShutdown) {
++  ASSERT_NO_FATAL_FAILURE(ShutdownStorage());
++
++  ASSERT_NO_FATAL_FAILURE(AssertStorageNotInitialized());
++
++  PerformOnBackgroundThread([]() {
++    nsTArray<RefPtr<BoolPromise>> promises;
++
++    QuotaManager* quotaManager = QuotaManager::Get();
++    ASSERT_TRUE(quotaManager);
++
++    promises.AppendElement(quotaManager->InitializeStorage());
++    promises.AppendElement(quotaManager->InitializePersistentStorage());
++
++    {
++      auto value =
++          Await(BoolPromise::All(GetCurrentSerialEventTarget(), promises));
++      ASSERT_TRUE(value.IsResolve());
++
++      ASSERT_TRUE(quotaManager->IsStorageInitialized());
++      ASSERT_TRUE(quotaManager->IsPersistentStorageInitialized());
++    }
++
++    promises.Clear();
++
++    promises.AppendElement(quotaManager->ShutdownStorage());
++    promises.AppendElement(quotaManager->InitializeStorage());
++    promises.AppendElement(quotaManager->InitializePersistentStorage());
++
++    {
++      auto value =
++          Await(BoolPromise::All(GetCurrentSerialEventTarget(), promises));
++      ASSERT_TRUE(value.IsResolve());
++
++      ASSERT_TRUE(quotaManager->IsStorageInitialized());
++      ASSERT_TRUE(quotaManager->IsPersistentStorageInitialized());
++    }
++  });
++
++  ASSERT_NO_FATAL_FAILURE(AssertStorageInitialized());
++
++  ASSERT_NO_FATAL_FAILURE(ShutdownStorage());
++}
++
++TEST_F(TestQuotaManager,
+        InitializeTemporaryStorage_OtherExclusiveDirectoryLockAcquired) {
+   ASSERT_NO_FATAL_FAILURE(ShutdownStorage());
+ 

@@ -1,0 +1,31 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: accessible/base/TextLeafRange.cpp
+# Commit: 766ab507fb74
+# Full Hash: 766ab507fb7435f4601719d3ac4c7da7d7a42b10
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2025-05-13 09:26:34
+# Description:
+#   Bug 1965607: Gracefully handle anonymous children in TextLeafPoint::ToDOMPoint. r=eeejay
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D248723
+# ==============================================================================
+
+diff -r 597548f94a54 -r 766ab507fb74 accessible/base/TextLeafRange.cpp
+--- a/accessible/base/TextLeafRange.cpp	Mon May 12 23:51:44 2025 +0000
++++ b/accessible/base/TextLeafRange.cpp	Tue May 13 00:07:09 2025 +0000
+@@ -586,9 +586,10 @@
+     MOZ_ASSERT(mOffset == 0 || mOffset == 1);
+     nsIContent* parent = content->GetParent();
+     MOZ_ASSERT(parent);
+-    auto childIndex = parent->ComputeIndexOf(content);
+-    MOZ_ASSERT(childIndex);
+-    return {parent, mOffset == 0 ? *childIndex : *childIndex + 1};
++    // ComputeIndexOf() could return Nothing if this is an anonymous child.
++    if (auto childIndex = parent->ComputeIndexOf(content)) {
++      return {parent, mOffset == 0 ? *childIndex : *childIndex + 1};
++    }
+   }
+ 
+   // This could be an empty editable container, whitespace or an empty doc. In

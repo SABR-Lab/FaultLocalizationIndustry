@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/CanonicalBrowsingContext.cpp
+# Commit: 0a44c410b59b
+# Full Hash: 0a44c410b59bbc54bfd80ce598562e4362961d7e
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-04-24 09:51:27
+# Regressor Bug: 1580565
+# File Overlap Count: 3
+# Description:
+#   Bug 1580565 - Part 4: Use WindowContext to manage BrowsingContext cached status, r=farre
+#   
+#   The existing infrastructure which stored cached BrowsingContexts on the
+#   BrowsingContextGroup was added before WindowContexts were added, and can cause
+#   racing issues with partially discarded trees during process switches.
+# ==============================================================================
+
+diff -r 20dbcfc9eacc -r 0a44c410b59b docshell/base/CanonicalBrowsingContext.cpp
+--- a/docshell/base/CanonicalBrowsingContext.cpp	Thu Apr 23 21:52:44 2020 +0000
++++ b/docshell/base/CanonicalBrowsingContext.cpp	Thu Apr 23 21:52:47 2020 +0000
+@@ -33,14 +33,14 @@
+ #define USER_ACTIVATION_LOG(msg, ...) \
+   MOZ_LOG(gUserInteractionPRLog, LogLevel::Debug, (msg, ##__VA_ARGS__))
+ 
+-CanonicalBrowsingContext::CanonicalBrowsingContext(BrowsingContext* aParent,
++CanonicalBrowsingContext::CanonicalBrowsingContext(WindowContext* aParentWindow,
+                                                    BrowsingContextGroup* aGroup,
+                                                    uint64_t aBrowsingContextId,
+                                                    uint64_t aOwnerProcessId,
+                                                    uint64_t aEmbedderProcessId,
+                                                    BrowsingContext::Type aType,
+                                                    FieldTuple&& aFields)
+-    : BrowsingContext(aParent, aGroup, aBrowsingContextId, aType,
++    : BrowsingContext(aParentWindow, aGroup, aBrowsingContextId, aType,
+                       std::move(aFields)),
+       mProcessId(aOwnerProcessId),
+       mEmbedderProcessId(aEmbedderProcessId) {

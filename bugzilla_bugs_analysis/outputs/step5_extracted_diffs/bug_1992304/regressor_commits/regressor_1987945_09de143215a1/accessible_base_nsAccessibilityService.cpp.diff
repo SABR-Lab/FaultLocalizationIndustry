@@ -1,0 +1,67 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/base/nsAccessibilityService.cpp
+# Commit: 09de143215a1
+# Full Hash: 09de143215a13a22dcb2cd53d4ed1dfb60480c82
+# Author: Atila Butkovits <abutkovits@mozilla.com>
+# Date: 2025-09-30 02:48 +0300
+# Regressor Bug: 1987945
+# File Overlap Count: 2
+# Overlapping Files: accessible/base/nsCoreUtils.cpp, accessible/tests/browser/relations/browser_anchor_positioning.js
+# Description:
+#   Revert "Bug 1987945: apply code formatting via Lando" for causing bustages at DocAccessible.cpp.
+# ==============================================================================
+
+diff -r 826eb4ac00dd -r 09de143215a1 accessible/base/nsAccessibilityService.cpp
+--- a/accessible/base/nsAccessibilityService.cpp	Tue Sep 30 02:35:22 2025 +0300
++++ b/accessible/base/nsAccessibilityService.cpp	Tue Sep 30 02:48:50 2025 +0300
+@@ -674,48 +674,6 @@
+   }
+ }
+ 
+-void nsAccessibilityService::NotifyAnchorPositionedRemoved(
+-    mozilla::PresShell* aPresShell, nsIFrame* aFrame) {
+-  DocAccessible* document = aPresShell->GetDocAccessible();
+-  if (!document) {
+-    return;
+-  }
+-
+-  nsIFrame* anchorFrame =
+-      nsCoreUtils::GetAnchorForPositionedFrame(aPresShell, aFrame);
+-  if (!anchorFrame) {
+-    return;
+-  }
+-
+-  if (LocalAccessible* anchorAcc =
+-          document->GetAccessible(anchorFrame->GetContent())) {
+-    document->QueueCacheUpdate(anchorAcc, CacheDomain::Relations);
+-  }
+-}
+-
+-void nsAccessibilityService::NotifyAnchorRemoved(mozilla::PresShell* aPresShell,
+-                                                 nsIFrame* aFrame) {
+-  DocAccessible* document = aPresShell->GetDocAccessible();
+-  if (!document) {
+-    return;
+-  }
+-
+-  nsIFrame* positionedFrame =
+-      nsCoreUtils::GetPositionedFrameForAnchor(aPresShell, aFrame);
+-  if (!positionedFrame) {
+-    return;
+-  }
+-
+-  if (LocalAccessible* positionedAcc =
+-          document->GetAccessible(positionedFrame->GetContent())) {
+-    // If the anchor was removed, its positioned element may now have a 1:1
+-    // relation with another anchor, and they would get a description a11y
+-    // relation. So we need to go one level deeper here and refresh the cache of
+-    // any potential anchors that remain on the positioned element.
+-    document->RefreshAnchorRelationCacheForTarget(positionedAcc);
+-  }
+-}
+-
+ void nsAccessibilityService::NotifyAttrElementWillChange(
+     mozilla::dom::Element* aElement, nsAtom* aAttr) {
+   mozilla::dom::Document* doc = aElement->OwnerDoc();

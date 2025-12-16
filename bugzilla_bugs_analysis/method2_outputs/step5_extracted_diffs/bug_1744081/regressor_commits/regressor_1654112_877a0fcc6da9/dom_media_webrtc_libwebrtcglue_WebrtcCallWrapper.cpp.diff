@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/WebrtcCallWrapper.cpp
+# Commit: 877a0fcc6da9
+# Full Hash: 877a0fcc6da9fde4a783cfe30d0aa0b260427ac3
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 9
+# Description:
+#   Bug 1654112 - Merge conduit controllers into conduits, refactor away setters, and make unittests async. r=bwc,ng
+#   
+#   The main point of this patch is to harden how conduits handle configuration
+#   changes. With conduit controller classes acting in a layer on top of conduits
+#   (and their old sync style APIs), for instance
+# ==============================================================================
+
+diff -r 970ed33359b5 -r 877a0fcc6da9 dom/media/webrtc/libwebrtcglue/WebrtcCallWrapper.cpp
+--- a/dom/media/webrtc/libwebrtcglue/WebrtcCallWrapper.cpp	Tue Aug 10 14:13:49 2021 +0200
++++ b/dom/media/webrtc/libwebrtcglue/WebrtcCallWrapper.cpp	Mon Aug 16 15:57:10 2021 +0200
+@@ -50,15 +50,11 @@
+   return mCall.get();
+ }
+ 
+-bool WebrtcCallWrapper::UnsetRemoteSSRC(uint32_t ssrc) {
++void WebrtcCallWrapper::UnsetRemoteSSRC(uint32_t aSsrc) {
+   MOZ_ASSERT(mCallThread->IsOnCurrentThread());
+   for (auto conduit : mConduits) {
+-    if (!conduit->UnsetRemoteSSRC(ssrc)) {
+-      return false;
+-    }
++    conduit->UnsetRemoteSSRC(aSsrc);
+   }
+-
+-  return true;
+ }
+ 
+ void WebrtcCallWrapper::RegisterConduit(MediaSessionConduit* conduit) {

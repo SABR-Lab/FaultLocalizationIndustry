@@ -1,0 +1,36 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/PlainObject-inl.h
+# Commit: 9bfa6023a553
+# Full Hash: 9bfa6023a5539598e824e3d2a95dec25d099a378
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2021-03-06 09:33:16
+# Regressor Bug: 1689413
+# File Overlap Count: 1
+# Description:
+#   Bug 1689413 part 5 - Remove JSClass* from ObjectGroup. r=jonco
+#   
+#   BaseShape stores the JSClass* too so this patch changes the code to get the JSClass*
+#   from there instead of from the ObjectGroup.
+#   
+# ==============================================================================
+
+diff -r 2186bd51bebd -r 9bfa6023a553 js/src/vm/PlainObject-inl.h
+--- a/js/src/vm/PlainObject-inl.h	Sat Mar 06 01:05:20 2021 +0000
++++ b/js/src/vm/PlainObject-inl.h	Sat Mar 06 01:05:20 2021 +0000
+@@ -28,11 +28,10 @@
+ js::PlainObject::createWithTemplate(JSContext* cx,
+                                     JS::Handle<PlainObject*> templateObject) {
+   JS::Rooted<ObjectGroup*> group(cx, templateObject->group());
+-  MOZ_ASSERT(group->clasp() == &PlainObject::class_);
++  JS::Rooted<Shape*> shape(cx, templateObject->lastProperty());
+ 
+-  gc::InitialHeap heap = GetInitialHeap(GenericObject, group);
+-
+-  JS::Rooted<Shape*> shape(cx, templateObject->lastProperty());
++  MOZ_ASSERT(shape->getObjectClass() == &PlainObject::class_);
++  gc::InitialHeap heap = GetInitialHeap(GenericObject, &PlainObject::class_);
+ 
+   gc::AllocKind kind = gc::GetGCObjectKind(shape->numFixedSlots());
+   MOZ_ASSERT(gc::CanChangeToBackgroundAllocKind(kind, shape->getObjectClass()));

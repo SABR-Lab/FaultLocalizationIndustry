@@ -1,0 +1,35 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ClonedErrorHolder.cpp
+# Commit: 0ded947a2ee5
+# Full Hash: 0ded947a2ee5de9949d426180d66a3f619147435
+# Author: Andrew McCreight <continuation@gmail.com>
+# Date: 2020-01-24 03:50:24
+# Description:
+#   Bug 1608760 - Make ClonedErrorHolder::ToErrorValue() deal with a null filename. r=bzbarsky
+#   
+#   If you serialize and then deserialize a JSErrorReport with a null filename
+#   field, then we end up passing a null filename to JS::CreateError, which ends
+#   up crashing. Perhaps CreateError should be robust against a null filename,
+# ==============================================================================
+
+diff -r 0a38bcc14737 -r 0ded947a2ee5 dom/ipc/ClonedErrorHolder.cpp
+--- a/dom/ipc/ClonedErrorHolder.cpp	Thu Jan 23 23:02:38 2020 +0200
++++ b/dom/ipc/ClonedErrorHolder.cpp	Thu Jan 23 21:03:44 2020 +0000
+@@ -279,6 +279,15 @@
+   if (mType == Type::JSError) {
+     JS::Rooted<JSString*> filename(aCx);
+     JS::Rooted<JSString*> message(aCx);
++
++    // For some unknown reason, we can end up with a void string in mFilename,
++    // which will cause filename to be null, which causes JS::CreateError() to
++    // crash. Make this code against robust against this by treating void
++    // strings as the empty string.
++    if (mFilename.IsVoid()) {
++      mFilename.Assign(EmptyCString());
++    }
++
+     if (!ToJSString(aCx, mFilename, &filename) ||
+         !ToJSString(aCx, mMessage, &message)) {
+       return false;

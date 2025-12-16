@@ -1,0 +1,70 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/debugger/Frame.cpp
+# Commit: fa46d8caefde
+# Full Hash: fa46d8caefdeea83b7a41ba3259114c13dd3b145
+# Author: Logan Smyth <loganfsmyth@gmail.com>
+# Date: 2019-12-09 09:50:39
+# Regressor Bug: 1600204
+# File Overlap Count: 1
+# Description:
+#   Bug 1600204 - Part 6: Support .older on suspended generator frames. r=jimb
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D55236
+# ==============================================================================
+
+diff -r ea1bb2f0fd39 -r fa46d8caefde js/src/debugger/Frame.cpp
+--- a/js/src/debugger/Frame.cpp	Sun Dec 08 23:53:27 2019 +0000
++++ b/js/src/debugger/Frame.cpp	Sun Dec 08 23:54:15 2019 +0000
+@@ -593,23 +593,27 @@
+ /* static */
+ bool DebuggerFrame::getOlder(JSContext* cx, HandleDebuggerFrame frame,
+                              MutableHandleDebuggerFrame result) {
+-  MOZ_ASSERT(frame->isOnStack());
++  if (frame->isOnStack()) {
++    Debugger* dbg = frame->owner();
+ 
+-  Debugger* dbg = frame->owner();
++    Maybe<FrameIter> maybeIter;
++    if (!DebuggerFrame::getFrameIter(cx, frame, maybeIter)) {
++      return false;
++    }
++    FrameIter& iter = *maybeIter;
+ 
+-  Maybe<FrameIter> maybeIter;
+-  if (!DebuggerFrame::getFrameIter(cx, frame, maybeIter)) {
+-    return false;
+-  }
+-  FrameIter& iter = *maybeIter;
++    for (++iter; !iter.done(); ++iter) {
++      if (dbg->observesFrame(iter)) {
++        if (iter.isIon() && !iter.ensureHasRematerializedFrame(cx)) {
++          return false;
++        }
++        return dbg->getFrame(cx, iter, result);
++      }
++    }
++  } else {
++    MOZ_ASSERT(frame->hasGenerator());
+ 
+-  for (++iter; !iter.done(); ++iter) {
+-    if (dbg->observesFrame(iter)) {
+-      if (iter.isIon() && !iter.ensureHasRematerializedFrame(cx)) {
+-        return false;
+-      }
+-      return dbg->getFrame(cx, iter, result);
+-    }
++    // If the frame is suspended, there is no older frame.
+   }
+ 
+   result.set(nullptr);
+@@ -1481,7 +1485,7 @@
+ }
+ 
+ bool DebuggerFrame::CallData::olderGetter() {
+-  if (!ensureOnStack()) {
++  if (!ensureOnStackOrSuspended()) {
+     return false;
+   }
+ 

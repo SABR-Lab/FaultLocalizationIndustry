@@ -1,0 +1,138 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmInstance.cpp
+# Commit: 44b0c0bed8a6
+# Full Hash: 44b0c0bed8a6b4debb950e7e1c69190883c65d60
+# Author: Lars T Hansen <lhansen@mozilla.com>
+# Date: 2021-10-18 16:09:29
+# Regressor Bug: 1727084
+# File Overlap Count: 1
+# Description:
+#   Bug 1727084 - Memory64 - Atomic-rmw baseline operations. r=yury
+#   
+#   Atomic ADD, SUB, AND, OR, XOR, XCHG, CMPXCHG, as well as WAIT and
+#   NOTIFY for the baseline compiler.
+#   
+# ==============================================================================
+
+diff -r fb02656bb788 -r 44b0c0bed8a6 js/src/wasm/WasmInstance.cpp
+--- a/js/src/wasm/WasmInstance.cpp	Mon Oct 18 09:58:15 2021 +0000
++++ b/js/src/wasm/WasmInstance.cpp	Mon Oct 18 09:58:15 2021 +0000
+@@ -326,8 +326,8 @@
+ //
+ // Atomic operations and shared memory.
+ 
+-template <typename T>
+-static int32_t PerformWait(Instance* instance, uint32_t byteOffset, T value,
++template <typename ValT, typename PtrT>
++static int32_t PerformWait(Instance* instance, PtrT byteOffset, ValT value,
+                            int64_t timeout_ns) {
+   JSContext* cx = TlsContext.get();
+ 
+@@ -337,13 +337,13 @@
+     return -1;
+   }
+ 
+-  if (byteOffset & (sizeof(T) - 1)) {
++  if (byteOffset & (sizeof(ValT) - 1)) {
+     JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
+                               JSMSG_WASM_UNALIGNED_ACCESS);
+     return -1;
+   }
+ 
+-  if (byteOffset + sizeof(T) > instance->memory()->volatileMemoryLength()) {
++  if (byteOffset + sizeof(ValT) > instance->memory()->volatileMemoryLength()) {
+     JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
+                               JSMSG_WASM_OUT_OF_BOUNDS);
+     return -1;
+@@ -355,8 +355,9 @@
+         mozilla::TimeDuration::FromMicroseconds(timeout_ns / 1000));
+   }
+ 
+-  switch (atomics_wait_impl(cx, instance->sharedMemoryBuffer(), byteOffset,
+-                            value, timeout)) {
++  MOZ_ASSERT(byteOffset <= SIZE_MAX, "Bounds check is broken");
++  switch (atomics_wait_impl(cx, instance->sharedMemoryBuffer(),
++                            size_t(byteOffset), value, timeout)) {
+     case FutexThread::WaitResult::OK:
+       return 0;
+     case FutexThread::WaitResult::NotEqual:
+@@ -370,22 +371,36 @@
+   }
+ }
+ 
+-/* static */ int32_t Instance::wait_i32(Instance* instance, uint32_t byteOffset,
+-                                        int32_t value, int64_t timeout_ns) {
+-  MOZ_ASSERT(SASigWaitI32.failureMode == FailureMode::FailOnNegI32);
+-  return PerformWait<int32_t>(instance, byteOffset, value, timeout_ns);
++/* static */ int32_t Instance::wait_i32_m32(Instance* instance,
++                                            uint32_t byteOffset, int32_t value,
++                                            int64_t timeout_ns) {
++  MOZ_ASSERT(SASigWaitI32M32.failureMode == FailureMode::FailOnNegI32);
++  return PerformWait(instance, byteOffset, value, timeout_ns);
++}
++
++/* static */ int32_t Instance::wait_i32_m64(Instance* instance,
++                                            uint64_t byteOffset, int32_t value,
++                                            int64_t timeout_ns) {
++  MOZ_ASSERT(SASigWaitI32M64.failureMode == FailureMode::FailOnNegI32);
++  return PerformWait(instance, byteOffset, value, timeout_ns);
+ }
+ 
+-/* static */ int32_t Instance::wait_i64(Instance* instance, uint32_t byteOffset,
+-                                        int64_t value, int64_t timeout_ns) {
+-  MOZ_ASSERT(SASigWaitI64.failureMode == FailureMode::FailOnNegI32);
+-  return PerformWait<int64_t>(instance, byteOffset, value, timeout_ns);
++/* static */ int32_t Instance::wait_i64_m32(Instance* instance,
++                                            uint32_t byteOffset, int64_t value,
++                                            int64_t timeout_ns) {
++  MOZ_ASSERT(SASigWaitI64M32.failureMode == FailureMode::FailOnNegI32);
++  return PerformWait(instance, byteOffset, value, timeout_ns);
+ }
+ 
+-/* static */ int32_t Instance::wake(Instance* instance, uint32_t byteOffset,
+-                                    int32_t count) {
+-  MOZ_ASSERT(SASigWake.failureMode == FailureMode::FailOnNegI32);
++/* static */ int32_t Instance::wait_i64_m64(Instance* instance,
++                                            uint64_t byteOffset, int64_t value,
++                                            int64_t timeout_ns) {
++  MOZ_ASSERT(SASigWaitI64M64.failureMode == FailureMode::FailOnNegI32);
++  return PerformWait(instance, byteOffset, value, timeout_ns);
++}
+ 
++template <typename PtrT>
++static int32_t PerformWake(Instance* instance, PtrT byteOffset, int32_t count) {
+   JSContext* cx = TlsContext.get();
+ 
+   // The alignment guard is not in the wasm spec as of 2017-11-02, but is
+@@ -408,8 +423,9 @@
+     return 0;
+   }
+ 
++  MOZ_ASSERT(byteOffset <= SIZE_MAX, "Bounds check is broken");
+   int64_t woken = atomics_notify_impl(instance->sharedMemoryBuffer(),
+-                                      byteOffset, int64_t(count));
++                                      size_t(byteOffset), int64_t(count));
+ 
+   if (woken > INT32_MAX) {
+     JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
+@@ -420,6 +436,18 @@
+   return int32_t(woken);
+ }
+ 
++/* static */ int32_t Instance::wake_m32(Instance* instance, uint32_t byteOffset,
++                                        int32_t count) {
++  MOZ_ASSERT(SASigWakeM32.failureMode == FailureMode::FailOnNegI32);
++  return PerformWake(instance, byteOffset, count);
++}
++
++/* static */ int32_t Instance::wake_m64(Instance* instance, uint64_t byteOffset,
++                                        int32_t count) {
++  MOZ_ASSERT(SASigWakeM32.failureMode == FailureMode::FailOnNegI32);
++  return PerformWake(instance, byteOffset, count);
++}
++
+ //////////////////////////////////////////////////////////////////////////////
+ //
+ // Bulk memory operations.

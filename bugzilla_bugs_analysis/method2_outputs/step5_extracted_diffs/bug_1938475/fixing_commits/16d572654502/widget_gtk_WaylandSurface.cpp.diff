@@ -1,0 +1,78 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/WaylandSurface.cpp
+# Commit: 16d572654502
+# Full Hash: 16d57265450277b886bc0c6affccb906ff511f14
+# Author: stransky <stransky@redhat.com>
+# Date: 2024-12-27 21:21:05
+# Description:
+#   Bug 1938475 [Wayland] Fallback to monitor screen scale if we're missing wayland surface one r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D232705
+# ==============================================================================
+
+diff -r 33e8d495b853 -r 16d572654502 widget/gtk/WaylandSurface.cpp
+--- a/widget/gtk/WaylandSurface.cpp	Fri Dec 27 12:19:24 2024 +0000
++++ b/widget/gtk/WaylandSurface.cpp	Fri Dec 27 14:16:37 2024 +0000
+@@ -12,6 +12,7 @@
+ #include "mozilla/StaticPrefs_widget.h"
+ #include <dlfcn.h>
+ #include <fcntl.h>
++#include "ScreenHelperGTK.h"
+ 
+ /*
+   TODO:
+@@ -637,7 +638,7 @@
+   }
+   // Region should be in surface-logical coordinates, so we need to divide by
+   // the buffer scale. We use round-in in order to be safe with subpixels.
+-  UnknownScaleFactor scale(GetScale());
++  UnknownScaleFactor scale(GetScaleSafe());
+   wl_region* region =
+       wl_compositor_create_region(WaylandDisplayGet()->GetCompositor());
+   for (auto iter = aRegion.RectIter(); !iter.Done(); iter.Next()) {
+@@ -894,7 +895,7 @@
+     return nullptr;
+   }
+ 
+-  auto scale = GetScale();
++  auto scale = GetScaleSafe();
+   // TODO: Correct size rounding
+   nsIntSize scaledSize((int)floor(aUnscaledSize.width * scale),
+                        (int)floor(aUnscaledSize.height * scale));
+@@ -930,7 +931,7 @@
+     return true;
+   }
+ 
+-  auto scale = GetScale();
++  auto scale = GetScaleSafe();
+   // TODO: Avoid precision lost here? Load coordinates from window?
+   nsIntSize unscaledSize((int)round(aScaledSize.width / scale),
+                          (int)round(aScaledSize.height / scale));
+@@ -1000,9 +1001,7 @@
+     return false;
+   }
+ 
+-  auto scale = GetScale();
+-  MOZ_DIAGNOSTIC_ASSERT(scale != sNoScale);
+-
++  auto scale = GetScaleSafe();
+   LayoutDeviceIntSize bufferSize = aWaylandBuffer->GetSize();
+   // TODO: rounding?
+   SetSizeLocked(aProofOfLock, gfx::IntSize(bufferSize.width, bufferSize.height),
+@@ -1125,6 +1124,14 @@
+   return sNoScale;
+ }
+ 
++double WaylandSurface::GetScaleSafe() {
++  double scale = GetScale();
++  if (scale != sNoScale) {
++    return scale;
++  }
++  return ScreenHelperGTK::GetGTKMonitorScaleFactor();
++}
++
+ void WaylandSurface::SetParentLocked(const WaylandSurfaceLock& aProofOfLock,
+                                      RefPtr<WaylandSurface> aParent) {
+   mParent = aParent;

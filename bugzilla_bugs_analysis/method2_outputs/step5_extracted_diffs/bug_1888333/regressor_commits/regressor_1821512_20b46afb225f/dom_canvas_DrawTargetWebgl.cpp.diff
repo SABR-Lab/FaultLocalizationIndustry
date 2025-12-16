@@ -1,0 +1,87 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/DrawTargetWebgl.cpp
+# Commit: 20b46afb225f
+# Full Hash: 20b46afb225f7b0076e3fc0c000ce609ac79e0ba
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2023-04-11 09:27:51
+# Regressor Bug: 1821512
+# File Overlap Count: 1
+# Description:
+#   Bug 1821512 - Fix Skia usage for API changes. r=jrmuizel
+#   
+#   This just tries to address fairly random changes in the Skia API and correct
+#   our usage of it in Moz2D and some other places.
+#   
+# ==============================================================================
+
+diff -r b531f604ea4c -r 20b46afb225f dom/canvas/DrawTargetWebgl.cpp
+--- a/dom/canvas/DrawTargetWebgl.cpp	Tue Apr 11 05:00:04 2023 +0000
++++ b/dom/canvas/DrawTargetWebgl.cpp	Tue Apr 11 05:00:05 2023 +0000
+@@ -2666,10 +2666,10 @@
+   if (!pb) {
+     return Nothing();
+   }
+-  WGR::wgr_builder_set_fill_mode(
+-      pb, aPath.getFillType() == SkPath::kWinding_FillType
+-              ? WGR::FillMode::Winding
+-              : WGR::FillMode::EvenOdd);
++  WGR::wgr_builder_set_fill_mode(pb,
++                                 aPath.getFillType() == SkPathFillType::kWinding
++                                     ? WGR::FillMode::Winding
++                                     : WGR::FillMode::EvenOdd);
+ 
+   SkPath::RawIter iter(aPath);
+   SkPoint params[4];
+@@ -3077,30 +3077,26 @@
+         //  path will need to be quantized again because it differs from the
+         //  path used for the cache entry, but this allows us to avoid
+         //  generating a fill path on a cache hit.
+-        SkPaint paint;
+-        if (StrokeOptionsToPaint(paint, *aStrokeOptions)) {
+-          Maybe<SkRect> cullRect;
+-          Matrix invTransform = currentTransform;
+-          if (invTransform.Invert()) {
+-            // Transform the stroking clip rect from device space to local
+-            // space.
+-            Rect invRect = invTransform.TransformBounds(Rect(mClipRect));
+-            invRect.RoundOut();
+-            cullRect = Some(RectToSkRect(invRect));
+-          }
+-          SkPath fillPath;
+-          if (paint.getFillPath(pathSkia->GetPath(), &fillPath,
+-                                cullRect.ptrOr(nullptr),
+-                                ComputeResScaleForStroking(currentTransform))) {
+-            // printf_stderr("    stroke fill... verbs %d, points %d\n",
+-            //     int(fillPath.countVerbs()),
+-            //     int(fillPath.countPoints()));
+-            if (Maybe<QuantizedPath> qp = GenerateQuantizedPath(
+-                    fillPath, quantBounds, currentTransform)) {
+-              wgrVB = GeneratePathVertexBuffer(
+-                  *qp, IntRect(-intBounds.TopLeft(), mViewportSize),
+-                  mRasterizationTruncates, outputBuffer, outputBufferCapacity);
+-            }
++        Maybe<Rect> cullRect;
++        Matrix invTransform = currentTransform;
++        if (invTransform.Invert()) {
++          // Transform the stroking clip rect from device space to local
++          // space.
++          Rect invRect = invTransform.TransformBounds(Rect(mClipRect));
++          invRect.RoundOut();
++          cullRect = Some(invRect);
++        }
++        SkPath fillPath;
++        if (pathSkia->GetFillPath(*aStrokeOptions, currentTransform, fillPath,
++                                  cullRect)) {
++          // printf_stderr("    stroke fill... verbs %d, points %d\n",
++          //     int(fillPath.countVerbs()),
++          //     int(fillPath.countPoints()));
++          if (Maybe<QuantizedPath> qp = GenerateQuantizedPath(
++                  fillPath, quantBounds, currentTransform)) {
++            wgrVB = GeneratePathVertexBuffer(
++                *qp, IntRect(-intBounds.TopLeft(), mViewportSize),
++                mRasterizationTruncates, outputBuffer, outputBufferCapacity);
+           }
+         }
+       }

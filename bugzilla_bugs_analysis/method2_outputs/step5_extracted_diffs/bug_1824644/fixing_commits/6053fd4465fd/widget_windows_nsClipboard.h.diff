@@ -1,0 +1,32 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: widget/windows/nsClipboard.h
+# Commit: 6053fd4465fd
+# Full Hash: 6053fd4465fd8a6d06b82f048958b637cb558133
+# Author: Chris Martin <cmartin@mozilla.com>
+# Date: 2023-03-28 04:19:13
+# Description:
+#   Bug 1824644 - Handle IDataObject::GetData returning wrong type r=rkraesig
+#   
+#   It appears that we can ask for TYMED_ISTORAGE from an `IDataObject` and
+#   receive something different than we asked for. Since the return is a tagged
+#   union, problems ahoy if we don't check that tag.
+# ==============================================================================
+
+diff -r de72d720a020 -r 6053fd4465fd widget/windows/nsClipboard.h
+--- a/widget/windows/nsClipboard.h	Mon Mar 27 20:06:57 2023 +0000
++++ b/widget/windows/nsClipboard.h	Mon Mar 27 20:07:37 2023 +0000
+@@ -94,10 +94,8 @@
+   static void ResolveShortcut(nsIFile* inFileName, nsACString& outURL);
+   static nsresult GetTempFilePath(const nsAString& aFileName,
+                                   nsAString& aFilePath);
+-  static nsresult SaveIStorage(IDataObject* aDataObject, UINT aIndex,
+-                               const nsAString& aFileName);
+-  static nsresult SaveIStream(IDataObject* aDataObject, UINT aIndex,
+-                              const nsString& aFileName);
++  static nsresult SaveStorageOrStream(IDataObject* aDataObject, UINT aIndex,
++                                      const nsAString& aFileName);
+ 
+   nsIWidget* mWindow;
+ };

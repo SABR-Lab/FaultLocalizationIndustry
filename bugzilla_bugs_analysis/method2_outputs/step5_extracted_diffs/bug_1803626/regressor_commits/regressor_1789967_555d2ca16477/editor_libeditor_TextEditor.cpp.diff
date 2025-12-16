@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/TextEditor.cpp
+# Commit: 555d2ca16477
+# Full Hash: 555d2ca1647762dfcdb7651a260d133782782ba7
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-09-21 09:52:11
+# Regressor Bug: 1789967
+# File Overlap Count: 1
+# Description:
+#   Bug 1789967 - part 1: Make `TextEditor` and `HTMLEditor` implement `EditorBase::InitEditorContentAndSelection` by themselves r=m_kato CLOSED TREE
+#   
+#   The method is enough simple, and uses bad cast from point of view of OOP.
+#   Therefore, this patch make the sub classes implement the method only for each.
+#   
+# ==============================================================================
+
+diff -r fb7ca98a6881 -r 555d2ca16477 editor/libeditor/TextEditor.cpp
+--- a/editor/libeditor/TextEditor.cpp	Wed Sep 21 04:40:46 2022 +0300
++++ b/editor/libeditor/TextEditor.cpp	Wed Sep 21 00:20:26 2022 +0000
+@@ -138,7 +138,7 @@
+ 
+   rv = InitEditorContentAndSelection();
+   if (NS_FAILED(rv)) {
+-    NS_WARNING("EditorBase::InitEditorContentAndSelection() failed");
++    NS_WARNING("TextEditor::InitEditorContentAndSelection() failed");
+     // XXX Shouldn't we expose `NS_ERROR_EDITOR_DESTROYED` even though this
+     //     is a public method?
+     mInitSucceeded = false;
+@@ -152,6 +152,33 @@
+   return NS_OK;
+ }
+ 
++nsresult TextEditor::InitEditorContentAndSelection() {
++  MOZ_ASSERT(IsEditActionDataAvailable());
++
++  MOZ_TRY(EnsureEmptyTextFirstChild());
++
++  // If the selection hasn't been set up yet, set it up collapsed to the end of
++  // our editable content.
++  if (!SelectionRef().RangeCount()) {
++    nsresult rv = CollapseSelectionToEndOfLastLeafNode();
++    if (NS_FAILED(rv)) {
++      NS_WARNING("EditorBase::CollapseSelectionToEndOfLastLeafNode() failed");
++      return rv;
++    }
++  }
++
++  if (!IsSingleLineEditor()) {
++    nsresult rv = EnsurePaddingBRElementInMultilineEditor();
++    if (NS_FAILED(rv)) {
++      NS_WARNING(
++          "EditorBase::EnsurePaddingBRElementInMultilineEditor() failed");
++      return rv;
++    }
++  }
++
++  return NS_OK;
++}
++
+ nsresult TextEditor::PostCreate() {
+   AutoEditActionDataSetter editActionData(*this, EditAction::eNotEditing);
+   if (NS_WARN_IF(!editActionData.CanHandle())) {

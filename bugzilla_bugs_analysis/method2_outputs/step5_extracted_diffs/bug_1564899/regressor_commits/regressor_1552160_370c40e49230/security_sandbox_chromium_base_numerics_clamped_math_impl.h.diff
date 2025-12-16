@@ -1,0 +1,118 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/base/numerics/clamped_math_impl.h
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 2
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/base/numerics/clamped_math_impl.h
+--- a/security/sandbox/chromium/base/numerics/clamped_math_impl.h	Wed Jun 12 21:55:59 2019 +1200
++++ b/security/sandbox/chromium/base/numerics/clamped_math_impl.h	Wed Jun 12 11:10:48 2019 +0100
+@@ -78,14 +78,16 @@
+                                             std::is_integral<U>::value>::type> {
+   using result_type = typename MaxExponentPromotion<T, U>::type;
+   template <typename V = result_type>
+-  static V Do(T x, U y) {
+-    // TODO(jschuh) Make this "constexpr if" once we're C++17.
++  static constexpr V Do(T x, U y) {
+     if (ClampedAddFastOp<T, U>::is_supported)
+       return ClampedAddFastOp<T, U>::template Do<V>(x, y);
+ 
+-    V result;
+-    // TODO(jschuh) C++14 constexpr allows a compile-time constant optimization.
++    static_assert(std::is_same<V, result_type>::value ||
++                      IsTypeInRangeForNumericType<U, V>::value,
++                  "The saturation result cannot be determined from the "
++                  "provided types.");
+     const V saturated = CommonMaxOrMin<V>(IsValueNegative(y));
++    V result = {};
+     return BASE_NUMERICS_LIKELY((CheckedAddOp<T, U>::Do(x, y, &result)))
+                ? result
+                : saturated;
+@@ -102,14 +104,17 @@
+                                             std::is_integral<U>::value>::type> {
+   using result_type = typename MaxExponentPromotion<T, U>::type;
+   template <typename V = result_type>
+-  static V Do(T x, U y) {
++  static constexpr V Do(T x, U y) {
+     // TODO(jschuh) Make this "constexpr if" once we're C++17.
+     if (ClampedSubFastOp<T, U>::is_supported)
+       return ClampedSubFastOp<T, U>::template Do<V>(x, y);
+ 
+-    V result;
+-    // TODO(jschuh) C++14 constexpr allows a compile-time constant optimization.
++    static_assert(std::is_same<V, result_type>::value ||
++                      IsTypeInRangeForNumericType<U, V>::value,
++                  "The saturation result cannot be determined from the "
++                  "provided types.");
+     const V saturated = CommonMaxOrMin<V>(!IsValueNegative(y));
++    V result = {};
+     return BASE_NUMERICS_LIKELY((CheckedSubOp<T, U>::Do(x, y, &result)))
+                ? result
+                : saturated;
+@@ -126,12 +131,12 @@
+                                             std::is_integral<U>::value>::type> {
+   using result_type = typename MaxExponentPromotion<T, U>::type;
+   template <typename V = result_type>
+-  static V Do(T x, U y) {
++  static constexpr V Do(T x, U y) {
+     // TODO(jschuh) Make this "constexpr if" once we're C++17.
+     if (ClampedMulFastOp<T, U>::is_supported)
+       return ClampedMulFastOp<T, U>::template Do<V>(x, y);
+ 
+-    V result;
++    V result = {};
+     const V saturated =
+         CommonMaxOrMin<V>(IsValueNegative(x) ^ IsValueNegative(y));
+     return BASE_NUMERICS_LIKELY((CheckedMulOp<T, U>::Do(x, y, &result)))
+@@ -150,8 +155,8 @@
+                                             std::is_integral<U>::value>::type> {
+   using result_type = typename MaxExponentPromotion<T, U>::type;
+   template <typename V = result_type>
+-  static V Do(T x, U y) {
+-    V result;
++  static constexpr V Do(T x, U y) {
++    V result = {};
+     if (BASE_NUMERICS_LIKELY((CheckedDivOp<T, U>::Do(x, y, &result))))
+       return result;
+     // Saturation goes to max, min, or NaN (if x is zero).
+@@ -170,8 +175,8 @@
+                                             std::is_integral<U>::value>::type> {
+   using result_type = typename MaxExponentPromotion<T, U>::type;
+   template <typename V = result_type>
+-  static V Do(T x, U y) {
+-    V result;
++  static constexpr V Do(T x, U y) {
++    V result = {};
+     return BASE_NUMERICS_LIKELY((CheckedModOp<T, U>::Do(x, y, &result)))
+                ? result
+                : x;
+@@ -190,7 +195,7 @@
+                                             std::is_integral<U>::value>::type> {
+   using result_type = T;
+   template <typename V = result_type>
+-  static V Do(T x, U shift) {
++  static constexpr V Do(T x, U shift) {
+     static_assert(!std::is_signed<U>::value, "Shift value must be unsigned.");
+     if (BASE_NUMERICS_LIKELY(shift < std::numeric_limits<T>::digits)) {
+       // Shift as unsigned to avoid undefined behavior.
+@@ -214,7 +219,7 @@
+                                             std::is_integral<U>::value>::type> {
+   using result_type = T;
+   template <typename V = result_type>
+-  static V Do(T x, U shift) {
++  static constexpr V Do(T x, U shift) {
+     static_assert(!std::is_signed<U>::value, "Shift value must be unsigned.");
+     // Signed right shift is odd, because it saturates to -1 or 0.
+     const V saturated = as_unsigned(V(0)) - IsValueNegative(x);

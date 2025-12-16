@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/builtin/TestingFunctions.cpp
+# Commit: 40c6d6eed7f8
+# Full Hash: 40c6d6eed7f8ffd79078b778b6ceb8e78b28c2f0
+# Author: Steve Fink <sfink@mozilla.com>
+# Date: 2023-09-12 04:12:49
+# Regressor Bug: 1690111
+# File Overlap Count: 2
+# Description:
+#   Bug 1690111 - Implement JS::EnsureNonInlineArrayBufferOrView. r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D176596
+# ==============================================================================
+
+diff -r 692f2a759573 -r 40c6d6eed7f8 js/src/builtin/TestingFunctions.cpp
+--- a/js/src/builtin/TestingFunctions.cpp	Mon Sep 11 12:52:19 2023 +0000
++++ b/js/src/builtin/TestingFunctions.cpp	Mon Sep 11 12:52:19 2023 +0000
+@@ -5554,6 +5554,28 @@
+   return true;
+ }
+ 
++static bool EnsureNonInline(JSContext* cx, unsigned argc, Value* vp) {
++  CallArgs args = CallArgsFromVp(argc, vp);
++
++  if (args.length() != 1) {
++    JS_ReportErrorASCII(cx, "ensureNonInline() requires a single argument");
++    return false;
++  }
++
++  if (!args[0].isObject()) {
++    JS_ReportErrorASCII(cx, "ensureNonInline must be passed an object");
++    return false;
++  }
++
++  RootedObject obj(cx, &args[0].toObject());
++  if (!JS::EnsureNonInlineArrayBufferOrView(cx, obj)) {
++    return false;
++  }
++
++  args.rval().setUndefined();
++  return true;
++}
++
+ static bool JSONStringify(JSContext* cx, unsigned argc, Value* vp) {
+   CallArgs args = CallArgsFromVp(argc, vp);
+ 
+@@ -9366,6 +9388,11 @@
+ "     2 - fail during read() hook\n"
+ "  Set the log to null to clear it."),
+ 
++    JS_FN_HELP("ensureNonInline", EnsureNonInline, 1, 0,
++"ensureNonInline(view or buffer)",
++"  Ensure that the memory for the given ArrayBuffer or ArrayBufferView\n"
++"  is not inline."),
++
+     JS_FN_HELP("JSONStringify", JSONStringify, 4, 0,
+ "JSONStringify(value, behavior)",
+ "  Same as JSON.stringify(value), but allows setting behavior:\n"

@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/CompilationAndEvaluation.cpp
+# Commit: 554b7637fe60
+# Full Hash: 554b7637fe60e8a57e5180b5daaa1441f1bea31b
+# Author: Denis Palmeiro <dpalmeiro@mozilla.com>
+# Date: 2020-05-13 03:44:05
+# Regressor Bug: 1501608
+# File Overlap Count: 1
+# Description:
+#   Bug 1501608 - Remove the ELEMENT_SLOT in the ScriptSourceObject and instead use a callback function to return the script element based on the value of the privateValue in the SSO. r=jonco,smaug
+#   
+#   We can reduce the size of the SSO by removing the element slot entirely, and instead retrieve the element through a callback function.  The callback will take in the value in the private slot of the SSO, which is either a LoadedScript* (from the browser) or a JSObject* (from the shell).  In addition, this removes the requirement of having a script dom element ready when parsing a JS script which can open up new opportunities for performance.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D70417
+# ==============================================================================
+
+diff -r 3470d926c02a -r 554b7637fe60 js/src/vm/CompilationAndEvaluation.cpp
+--- a/js/src/vm/CompilationAndEvaluation.cpp	Tue May 12 09:40:48 2020 +0000
++++ b/js/src/vm/CompilationAndEvaluation.cpp	Tue May 12 19:28:15 2020 +0000
+@@ -359,19 +359,6 @@
+   return CompileFunction(cx, envChain, options, name, nargs, argnames, srcBuf);
+ }
+ 
+-JS_PUBLIC_API bool JS::InitScriptSourceElement(JSContext* cx,
+-                                               HandleScript script,
+-                                               HandleObject element,
+-                                               HandleString elementAttrName) {
+-  MOZ_ASSERT(cx);
+-  MOZ_ASSERT(CurrentThreadCanAccessRuntime(cx->runtime()));
+-
+-  RootedScriptSourceObject sso(
+-      cx, &script->sourceObject()->as<ScriptSourceObject>());
+-  return ScriptSourceObject::initElementProperties(cx, sso, element,
+-                                                   elementAttrName);
+-}
+-
+ JS_PUBLIC_API void JS::ExposeScriptToDebugger(JSContext* cx,
+                                               HandleScript script) {
+   MOZ_ASSERT(cx);
+@@ -380,6 +367,12 @@
+   DebugAPI::onNewScript(cx, script);
+ }
+ 
++JS_PUBLIC_API void JS::SetGetElementCallback(JSContext* cx,
++                                             JSGetElementCallback callback) {
++  MOZ_ASSERT(cx->runtime());
++  cx->runtime()->setElementCallback(cx->runtime(), callback);
++}
++
+ MOZ_NEVER_INLINE static bool ExecuteScript(JSContext* cx, HandleObject envChain,
+                                            HandleScript script,
+                                            MutableHandleValue rval) {

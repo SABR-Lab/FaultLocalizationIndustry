@@ -1,0 +1,28 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/nsHttpConnection.cpp
+# Commit: c76c679849d7
+# Full Hash: c76c679849d781f1a023d70b418e6e2df01321f8
+# Author: Dragana Damjanovic <dd.mozilla@gmail.com>
+# Date: 2021-09-23 21:45:25
+# Description:
+#   Bug 1732256 - When TLS handshake completion is pending it may happen that nss and necko are out of sync. r=necko-reviewers,kershaw,valentin
+#   
+#   The previous check was incorrect.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D126496
+# ==============================================================================
+
+diff -r 38854fb7f44e -r c76c679849d7 netwerk/protocol/http/nsHttpConnection.cpp
+--- a/netwerk/protocol/http/nsHttpConnection.cpp	Thu Sep 23 13:00:32 2021 +0000
++++ b/netwerk/protocol/http/nsHttpConnection.cpp	Thu Sep 23 13:10:23 2021 +0000
+@@ -1722,7 +1722,7 @@
+   // IsAlive() calls drive the handshake and that may cause nss and necko
+   // to be out of sync.
+   if (EarlyDataAvailable() && !CheckCanWrite0RTTData()) {
+-    MOZ_DIAGNOSTIC_ASSERT(!mTlsHandshakeComplitionPending);
++    MOZ_DIAGNOSTIC_ASSERT(mTlsHandshakeComplitionPending);
+     LOG(
+         ("nsHttpConnection::OnReadSegment Do not write any data, wait"
+          " for EnsureNPNComplete to be called [this=%p]",

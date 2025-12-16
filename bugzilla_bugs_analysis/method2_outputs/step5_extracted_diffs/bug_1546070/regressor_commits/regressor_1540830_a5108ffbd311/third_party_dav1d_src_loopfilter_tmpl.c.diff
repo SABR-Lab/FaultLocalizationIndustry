@@ -1,0 +1,32 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/dav1d/src/loopfilter_tmpl.c
+# Commit: a5108ffbd311
+# Full Hash: a5108ffbd31101e7cb72dabc271d92027f953c3c
+# Author: Alex Chronopoulos <achronop@gmail.com>
+# Date: 2019-04-20 09:35:22
+# Regressor Bug: 1540830
+# File Overlap Count: 3
+# Description:
+#   Bug 1540830 - Update dav1d from upstream to 1f7a7e8. r=TD-Linux
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D28200
+# ==============================================================================
+
+diff -r 98adabf295d0 -r a5108ffbd311 third_party/dav1d/src/loopfilter_tmpl.c
+--- a/third_party/dav1d/src/loopfilter_tmpl.c	Fri Apr 19 20:49:36 2019 +0000
++++ b/third_party/dav1d/src/loopfilter_tmpl.c	Fri Apr 19 20:36:10 2019 +0000
+@@ -250,7 +250,11 @@
+     c->loop_filter_sb[1][0] = loop_filter_h_sb128uv_c;
+     c->loop_filter_sb[1][1] = loop_filter_v_sb128uv_c;
+ 
+-#if HAVE_ASM && ARCH_X86
++#if HAVE_ASM
++#if ARCH_AARCH64 || ARCH_ARM
++    bitfn(dav1d_loop_filter_dsp_init_arm)(c);
++#elif ARCH_X86
+     bitfn(dav1d_loop_filter_dsp_init_x86)(c);
+ #endif
++#endif
+ }

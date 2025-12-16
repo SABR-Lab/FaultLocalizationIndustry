@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/ipc/win/handler/AccessibleHandlerControl.h
+# Commit: 6658e0ae7e35
+# Full Hash: 6658e0ae7e356f7b17896e1ee0316416fec2f2e0
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2020-05-26 15:44:42
+# Regressor Bug: 1640553
+# File Overlap Count: 2
+# Description:
+#   Bug 1640553 part 1: Add the ability for AccessibleHandler to cache accessibles by id. r=eeejay
+#   
+#   This cache is cleared when other AccessibleHandler caches are invalidated; i.e. when an event is fired.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D76665
+# ==============================================================================
+
+diff -r 9ca07f6e0135 -r 6658e0ae7e35 accessible/ipc/win/handler/AccessibleHandlerControl.h
+--- a/accessible/ipc/win/handler/AccessibleHandlerControl.h	Mon May 25 23:50:19 2020 +0000
++++ b/accessible/ipc/win/handler/AccessibleHandlerControl.h	Mon May 25 14:35:09 2020 +0000
+@@ -11,6 +11,7 @@
+ #ifndef mozilla_a11y_AccessibleHandlerControl_h
+ #  define mozilla_a11y_AccessibleHandlerControl_h
+ 
++#  include <unordered_map>
+ #  include "Factory.h"
+ #  include "HandlerData.h"
+ #  include "IUnknownImpl.h"
+@@ -48,6 +49,8 @@
+ 
+ }  // namespace detail
+ 
++class AccessibleHandler;
++
+ class AccessibleHandlerControl final : public IHandlerControl {
+  public:
+   static HRESULT Create(AccessibleHandlerControl** aOutObject);
+@@ -69,6 +72,9 @@
+ 
+   HRESULT Register(NotNull<IGeckoBackChannel*> aGecko);
+ 
++  void CacheAccessible(long aUniqueId, AccessibleHandler* aAccessible);
++  HRESULT GetCachedAccessible(long aUniqueId, AccessibleHandler** aAccessible);
++
+  private:
+   AccessibleHandlerControl();
+   ~AccessibleHandlerControl() = default;
+@@ -78,6 +84,8 @@
+   detail::TextChange mTextChange;
+   UniquePtr<mscom::RegisteredProxy> mIA2Proxy;
+   UniquePtr<mscom::RegisteredProxy> mHandlerProxy;
++  // We can't use Gecko APIs in this dll, hence the use of std::unordered_map.
++  std::unordered_map<long, RefPtr<AccessibleHandler>> mAccessibleCache;
+ };
+ 
+ extern mscom::SingletonFactory<AccessibleHandlerControl> gControlFactory;

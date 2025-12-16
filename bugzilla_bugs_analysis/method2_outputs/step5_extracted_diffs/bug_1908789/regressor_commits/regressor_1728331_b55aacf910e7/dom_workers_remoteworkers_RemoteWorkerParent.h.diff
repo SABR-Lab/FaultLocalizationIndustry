@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/remoteworkers/RemoteWorkerParent.h
+# Commit: b55aacf910e7
+# Full Hash: b55aacf910e704508a5820c09b25411142ccf7cb
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2024-06-25 09:36:02
+# Regressor Bug: 1728331
+# File Overlap Count: 1
+# Description:
+#   Bug 1728331 - Part 4: Make ContentParent KeepAlives explicit with RAII references, r=smaug,dom-worker-reviewers,asuth
+#   
+#   This is a fairly significant patch, however it would be difficult to break it
+#   down into smaller patches:
+#   
+# ==============================================================================
+
+diff -r 3dd07ed49638 -r b55aacf910e7 dom/workers/remoteworkers/RemoteWorkerParent.h
+--- a/dom/workers/remoteworkers/RemoteWorkerParent.h	Mon Jun 24 23:19:28 2024 +0000
++++ b/dom/workers/remoteworkers/RemoteWorkerParent.h	Mon Jun 24 23:19:28 2024 +0000
+@@ -8,6 +8,7 @@
+ #define mozilla_dom_RemoteWorkerParent_h
+ 
+ #include "mozilla/dom/PRemoteWorkerParent.h"
++#include "mozilla/dom/UniqueContentParentKeepAlive.h"
+ 
+ namespace mozilla::dom {
+ 
+@@ -25,9 +26,8 @@
+  public:
+   NS_INLINE_DECL_REFCOUNTING(RemoteWorkerParent, override);
+ 
+-  RemoteWorkerParent();
+-
+-  void Initialize(bool aAlreadyRegistered = false);
++  explicit RemoteWorkerParent(
++      UniqueThreadsafeContentParentKeepAlive aKeepAlive);
+ 
+   void SetController(RemoteWorkerController* aController);
+ 
+@@ -58,6 +58,7 @@
+ 
+   bool mDeleteSent = false;
+   RefPtr<RemoteWorkerController> mController;
++  UniqueThreadsafeContentParentKeepAlive mContentParentKeepAlive;
+ };
+ 
+ }  // namespace mozilla::dom

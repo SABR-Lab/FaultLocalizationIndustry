@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasink/AudioSinkWrapper.h
+# Commit: 37f01a81dac4
+# Full Hash: 37f01a81dac4f4767e2e05cd9e8dfcbac0ab7282
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2022-05-24 21:44:48
+# Regressor Bug: 1743834
+# File Overlap Count: 1
+# Description:
+#   Bug 1743834 - Detect when switching clock provider in AudioSinkWrapper. r=alwu,media-playback-reviewers
+#   
+#   This will allow detecting the first time the AudioSinkWrapper starts using the
+#   clock from an audio stream after having been muted (=using the system clock) for
+#   some time, to correct the timing.
+# ==============================================================================
+
+diff -r 30cd5bcfee92 -r 37f01a81dac4 dom/media/mediasink/AudioSinkWrapper.h
+--- a/dom/media/mediasink/AudioSinkWrapper.h	Tue May 24 13:09:06 2022 +0000
++++ b/dom/media/mediasink/AudioSinkWrapper.h	Tue May 24 13:09:06 2022 +0000
+@@ -87,6 +87,16 @@
+   void GetDebugInfo(dom::MediaSinkDebugInfo& aInfo) override;
+ 
+  private:
++  // The clock that was in use for the previous position query, allowing to
++  // detect clock switches.
++  enum class ClockSource {
++    // The clock comes from an underlying system-level audio stream.
++    AudioStream,
++    // The clock comes from the system clock.
++    SystemClock,
++    // The stream is paused, a constant time is reported.
++    Paused
++  } mLastClockSource = ClockSource::Paused;
+   bool IsMuted() const;
+   void OnMuted(bool aMuted);
+   virtual ~AudioSinkWrapper();

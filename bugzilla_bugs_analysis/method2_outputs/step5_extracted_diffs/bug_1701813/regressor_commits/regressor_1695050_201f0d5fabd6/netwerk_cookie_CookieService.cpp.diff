@@ -1,0 +1,70 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/cookie/CookieService.cpp
+# Commit: 201f0d5fabd6
+# Full Hash: 201f0d5fabd61c8eebe7e27e8597021d3618ddea
+# Author: Tim Huang <tihuang@mozilla.com>
+# Date: 2021-03-29 15:25:22
+# Regressor Bug: 1695050
+# File Overlap Count: 1
+# Description:
+#   Bug 1695050 - Part 2: Modify CookieJarSettings::Create() to be able to creat cookieJarSettings according to the browsing mode. r=dimi,preferences-reviewers
+#   
+#   This patch modifies the current CookieJarSettings::Create() function.
+#   It removes the current function and adds two variants. One takes the
+#   nsIPrincipal as input and another takes the enum value. The new
+# ==============================================================================
+
+diff -r 59cda3c92f48 -r 201f0d5fabd6 netwerk/cookie/CookieService.cpp
+--- a/netwerk/cookie/CookieService.cpp	Mon Mar 29 11:01:50 2021 +0000
++++ b/netwerk/cookie/CookieService.cpp	Mon Mar 29 11:01:51 2021 +0000
+@@ -32,18 +32,29 @@
+ 
+ using namespace mozilla::dom;
+ 
+-// static
+-uint32_t nsICookieManager::GetCookieBehavior() {
++namespace {
++
++uint32_t MakeCookieBehavior(uint32_t aCookieBehavior) {
+   bool isFirstPartyIsolated = OriginAttributes::IsFirstPartyEnabled();
+-  uint32_t cookieBehavior =
+-      mozilla::StaticPrefs::network_cookie_cookieBehavior();
+ 
+   if (isFirstPartyIsolated &&
+-      cookieBehavior ==
++      aCookieBehavior ==
+           nsICookieService::BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN) {
+-    cookieBehavior = nsICookieService::BEHAVIOR_REJECT_TRACKER;
++    return nsICookieService::BEHAVIOR_REJECT_TRACKER;
+   }
+-  return cookieBehavior;
++  return aCookieBehavior;
++}
++
++}  // anonymous namespace
++
++// static
++uint32_t nsICookieManager::GetCookieBehavior(bool aIsPrivate) {
++  if (aIsPrivate) {
++    return MakeCookieBehavior(
++        mozilla::StaticPrefs::network_cookie_cookieBehavior_pbmode());
++  }
++  return MakeCookieBehavior(
++      mozilla::StaticPrefs::network_cookie_cookieBehavior());
+ }
+ 
+ namespace mozilla {
+@@ -265,9 +276,9 @@
+ }
+ 
+ NS_IMETHODIMP
+-CookieService::GetCookieBehavior(uint32_t* aCookieBehavior) {
++CookieService::GetCookieBehavior(bool aIsPrivate, uint32_t* aCookieBehavior) {
+   NS_ENSURE_ARG_POINTER(aCookieBehavior);
+-  *aCookieBehavior = nsICookieManager::GetCookieBehavior();
++  *aCookieBehavior = nsICookieManager::GetCookieBehavior(aIsPrivate);
+   return NS_OK;
+ }
+ 

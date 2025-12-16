@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ProcessHangMonitor.cpp
+# Commit: 04d9dba72f22
+# Full Hash: 04d9dba72f221b5808f077e3aac5522147008438
+# Author: Jim Porter <jporter@mozilla.com>
+# Date: 2019-06-04 21:42:40
+# Regressor Bug: 1552017
+# File Overlap Count: 1
+# Description:
+#   Bug 1552017 - Expand the kinds of URLs that can cancel content JS when navigating; r=smaug
+#   
+#   This patch makes several changes to the kinds of URLs where we can cancel
+#   content JS when navigating between them:
+#   
+# ==============================================================================
+
+diff -r 25b1ee5ee458 -r 04d9dba72f22 dom/ipc/ProcessHangMonitor.cpp
+--- a/dom/ipc/ProcessHangMonitor.cpp	Tue Jun 04 16:44:29 2019 +0000
++++ b/dom/ipc/ProcessHangMonitor.cpp	Tue Jun 04 16:19:27 2019 +0000
+@@ -381,10 +381,16 @@
+     }
+   }
+ 
+-  // Only handle the interrupt for cancelling content JS if we have an actual
+-  // window associated with this context...
++  // Only handle the interrupt for cancelling content JS if we have a
++  // non-privileged script (i.e. not part of Gecko or an add-on).
+   JS::RootedObject global(mContext, JS::CurrentGlobalOrNull(mContext));
+-  RefPtr<nsGlobalWindowInner> win = xpc::WindowOrNull(global);
++  nsIPrincipal* principal = xpc::GetObjectPrincipal(global);
++  if (principal && (principal->IsSystemPrincipal() ||
++                    principal->GetIsAddonOrExpandedAddonPrincipal())) {
++    return true;
++  }
++
++  nsCOMPtr<nsPIDOMWindowInner> win = xpc::WindowOrNull(global);
+   if (!win) {
+     return true;
+   }
+@@ -409,10 +415,17 @@
+   }
+ 
+   if (cancelContentJS) {
++    js::AutoAssertNoContentJS nojs(mContext);
++    TabId currentJSTabId = BrowserChild::GetFrom(win)->GetTabId();
++    if (currentJSTabId != cancelContentJSTab) {
++      // The currently-executing content JS doesn't belong to the tab that
++      // requested cancellation of JS. Just return and let the JS continue.
++      return true;
++    }
++
+     RefPtr<BrowserChild> browserChild =
+         BrowserChild::FindBrowserChild(cancelContentJSTab);
+     if (browserChild) {
+-      js::AutoAssertNoContentJS nojs(mContext);
+       nsresult rv;
+       nsCOMPtr<nsIURI> uri;
+ 

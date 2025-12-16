@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: intl/locale/LocaleService.cpp
+# Commit: e29b15980da2
+# Full Hash: e29b15980da270931b3c798b583687f56a6506a6
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2020-07-08 09:42:17
+# Regressor Bug: 1627075
+# File Overlap Count: 1
+# Description:
+#   Bug 1627075 - Route Omnijar requests through StartupCache r=froydnj
+#   
+#   This should be a relatively straightforward patch. Essentially, we implement
+#   a wrapper class (and friends) around nsZipArchive (and friends), which transparently
+#   caches entries from the underlying zip archive in the StartupCache. This will break
+# ==============================================================================
+
+diff -r eb5265addd5e -r e29b15980da2 intl/locale/LocaleService.cpp
+--- a/intl/locale/LocaleService.cpp	Tue Jul 07 17:03:28 2020 +0000
++++ b/intl/locale/LocaleService.cpp	Tue Jul 07 17:04:27 2020 +0000
+@@ -295,13 +295,14 @@
+ 
+ static bool GetGREFileContents(const char* aFilePath, nsCString* aOutString) {
+   // Look for the requested file in omnijar.
+-  RefPtr<nsZipArchive> zip = Omnijar::GetReader(Omnijar::GRE);
++  RefPtr<CacheAwareZipReader> zip = Omnijar::GetReader(Omnijar::GRE);
+   if (zip) {
+-    nsZipItemPtr<char> item(zip, aFilePath);
+-    if (!item) {
++    uint32_t length;
++    const uint8_t* data = zip->GetData(aFilePath, &length);
++    if (!data) {
+       return false;
+     }
+-    aOutString->Assign(item.Buffer(), item.Length());
++    aOutString->Assign(reinterpret_cast<const char*>(data), length);
+     return true;
+   }
+ 

@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/MediaTrackList.cpp
+# Commit: c54cb3c10992
+# Full Hash: c54cb3c109922bc15fb6d0ca67e5f2a05980c1a5
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2019-07-31 15:46:43
+# Regressor Bug: 1493613
+# File Overlap Count: 2
+# Description:
+#   Bug 1493613 - Move MediaStream control from DOMMediaStream to MediaStreamTrack. r=padenot
+#   
+#   This is inherently large, because modifying these bits of DOMMediaStream and
+#   MediaStreamTrack affects all consumers and producers of all DOMMediaStreams and
+#   MediaStreamTracks.
+# ==============================================================================
+
+diff -r 0b03dd9d20ac -r c54cb3c10992 dom/media/MediaTrackList.cpp
+--- a/dom/media/MediaTrackList.cpp	Wed Jul 31 09:35:06 2019 +0000
++++ b/dom/media/MediaTrackList.cpp	Wed Jul 31 07:58:17 2019 +0000
+@@ -9,7 +9,6 @@
+ #include "mozilla/AsyncEventDispatcher.h"
+ #include "mozilla/dom/HTMLMediaElement.h"
+ #include "mozilla/dom/AudioTrack.h"
+-#include "mozilla/dom/VideoStreamTrack.h"
+ #include "mozilla/dom/VideoTrack.h"
+ #include "mozilla/dom/TrackEvent.h"
+ #include "nsThreadUtils.h"
+@@ -86,9 +85,10 @@
+ 
+ already_AddRefed<AudioTrack> MediaTrackList::CreateAudioTrack(
+     nsIGlobalObject* aOwnerGlobal, const nsAString& aId, const nsAString& aKind,
+-    const nsAString& aLabel, const nsAString& aLanguage, bool aEnabled) {
+-  RefPtr<AudioTrack> track =
+-      new AudioTrack(aOwnerGlobal, aId, aKind, aLabel, aLanguage, aEnabled);
++    const nsAString& aLabel, const nsAString& aLanguage, bool aEnabled,
++    AudioStreamTrack* aAudioTrack) {
++  RefPtr<AudioTrack> track = new AudioTrack(aOwnerGlobal, aId, aKind, aLabel,
++                                            aLanguage, aEnabled, aAudioTrack);
+   return track.forget();
+ }
+ 

@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: testing/web-platform/tests/scheduler/tentative/yield/yield-abort.any.js
+# Commit: f5357c6c5580
+# Full Hash: f5357c6c558088e4d28f89f2bf87bf6f05a7c5b5
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2025-02-25 09:30:56
+# Regressor Bug: 1920115
+# File Overlap Count: 2
+# Description:
+#   Bug 1920115 - Fix a bug where AbortController doesn't abort scheduler.yield r=smaug
+#   
+#   Instead of passing a single `AbortSignal` argument to `CreateTask`,
+#   we now separate it into a `AbortSignal` and a `TaskSignal`. They
+#   could be the same when `TaskController` is used, and if its
+# ==============================================================================
+
+diff -r 6a8cb3cc704e -r f5357c6c5580 testing/web-platform/tests/scheduler/tentative/yield/yield-abort.any.js
+--- a/testing/web-platform/tests/scheduler/tentative/yield/yield-abort.any.js	Mon Feb 24 19:31:29 2025 +0000
++++ b/testing/web-platform/tests/scheduler/tentative/yield/yield-abort.any.js	Mon Feb 24 19:31:29 2025 +0000
+@@ -20,4 +20,15 @@
+     const p = scheduler.yield();
+     await promise_rejects_dom(t, 'AbortError', p);
+   }, {signal});
+-}, 'yield() aborted in a separate task');
++}, 'yield() aborted by TaskController in a separate task');
++
++promise_test(t => {
++  const controller = new AbortController();
++  const signal = controller.signal;
++  return scheduler.postTask(async () => {
++    scheduler.postTask(async () => {controller.abort();}, {priority: 'user-blocking'});
++    t.step(() => assert_false(signal.aborted));
++    const p = scheduler.yield();
++    await promise_rejects_dom(t, 'AbortError', p);
++  }, {signal});
++}, 'yield() aborted by AbortController in a separate task');

@@ -1,0 +1,28 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/gl/GLScreenBuffer.h
+# Commit: a505d6315623
+# Full Hash: a505d6315623943fb581b7f21beece40fc6faf17
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2024-01-18 09:55:36
+# Description:
+#   Bug 1875193 - Don't recycle SharedSurfaces from different SurfaceFactory. r=sotaro
+#   
+#   It looks like we're accidentally putting SharedSurfaces that came from a different
+#   SurfaceFactory back into a different one recycling. This happens because on context
+#   loss in CanvasTranslator, the old GL context may go away, though the RemoteTextureOwnerClient
+# ==============================================================================
+
+diff -r 875fd9f694c9 -r a505d6315623 gfx/gl/GLScreenBuffer.h
+--- a/gfx/gl/GLScreenBuffer.h	Thu Jan 18 05:04:12 2024 +0000
++++ b/gfx/gl/GLScreenBuffer.h	Thu Jan 18 06:46:51 2024 +0000
+@@ -71,7 +71,7 @@
+   virtual ~SwapChain();
+ 
+   void ClearPool();
+-  void StoreRecycledSurface(const std::shared_ptr<SharedSurface>& surf);
++  bool StoreRecycledSurface(const std::shared_ptr<SharedSurface>& surf);
+   const auto& FrontBuffer() const { return mFrontBuffer; }
+   UniquePtr<SwapChainPresenter> Acquire(const gfx::IntSize&, gfx::ColorSpace2);
+ 

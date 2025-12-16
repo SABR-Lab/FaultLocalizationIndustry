@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/wr/WebRenderCanvasRenderer.h
+# Commit: 16c5dd2cfd60
+# Full Hash: 16c5dd2cfd600a62c80ca17cfb35c0868e016056
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-06-15 21:48:38
+# Regressor Bug: 1632249
+# File Overlap Count: 1
+# Description:
+#   Bug 1632249 - Support compositing out-of-process WebGL. r=handyman,lsalzman,nical,geckoview-reviewers,agi,imanol
+#   
+#   * Majorly simplity CanvasRenderer
+#   * Replace GLScreenBuffer with trivial GLSwapChain
+#   * Use descriptor structs so that future SharedSurface changes aren't so painful
+# ==============================================================================
+
+diff -r ca8139d58d58 -r 16c5dd2cfd60 gfx/layers/wr/WebRenderCanvasRenderer.h
+--- a/gfx/layers/wr/WebRenderCanvasRenderer.h	Fri Jun 12 21:53:14 2020 +0000
++++ b/gfx/layers/wr/WebRenderCanvasRenderer.h	Mon Jun 15 18:25:55 2020 +0000
+@@ -19,15 +19,13 @@
+   explicit WebRenderCanvasRenderer(RenderRootStateManager* aManager)
+       : mManager(aManager) {}
+ 
+-  void Initialize(const CanvasInitializeData& aData) override;
+-
+   CompositableForwarder* GetForwarder() override;
+ 
+  protected:
+   RenderRootStateManager* mManager;
+ };
+ 
+-class WebRenderCanvasRendererAsync : public WebRenderCanvasRenderer {
++class WebRenderCanvasRendererAsync final : public WebRenderCanvasRenderer {
+  public:
+   explicit WebRenderCanvasRendererAsync(RenderRootStateManager* aManager)
+       : WebRenderCanvasRenderer(aManager) {}
+@@ -37,11 +35,10 @@
+     return this;
+   }
+ 
+-  void Initialize(const CanvasInitializeData& aData) override;
++  void Initialize(const CanvasRendererData& aData) override;
+   bool CreateCompositable() override;
+ 
+   void ClearCachedResources() override;
+-  void Destroy() override;
+ 
+   void UpdateCompositableClientForEmptyTransaction();
+ 

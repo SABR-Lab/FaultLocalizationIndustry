@@ -1,0 +1,38 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/media/ipc/RDDProcessHost.cpp
+# Commit: b2cb7ee93eef
+# Full Hash: b2cb7ee93eef1d56006716ed24f3d0c11e071f11
+# Author: Michael Froman <mfroman@mozilla.com>
+# Date: 2019-06-11 21:33:19
+# Description:
+#   Bug 1555076 - avoid a potential timeout race on Windows RDD launch. r=jld
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D34186
+# ==============================================================================
+
+diff -r 975fec3b327c -r b2cb7ee93eef dom/media/ipc/RDDProcessHost.cpp
+--- a/dom/media/ipc/RDDProcessHost.cpp	Tue Jun 11 14:42:58 2019 +0000
++++ b/dom/media/ipc/RDDProcessHost.cpp	Mon Jun 10 15:03:46 2019 +0000
+@@ -147,7 +147,6 @@
+   MOZ_ASSERT(!mRDDChild);
+ 
+   mLaunchPhase = LaunchPhase::Complete;
+-  mPrefSerializer = nullptr;
+ 
+   if (aSucceeded) {
+     mProcessToken = ++sRDDProcessTokenCounter;
+@@ -156,6 +155,12 @@
+         mRDDChild->Open(GetChannel(), base::GetProcId(GetChildProcessHandle()));
+     MOZ_ASSERT(rv);
+ 
++    // Only clear mPrefSerializer in the success case to avoid a
++    // possible race in the case case of a timeout on Windows launch.
++    // See Bug 1555076 comment 7:
++    // https://bugzilla.mozilla.org/show_bug.cgi?id=1555076#c7
++    mPrefSerializer = nullptr;
++
+     bool startMacSandbox = false;
+ 
+ #if defined(XP_MACOSX) && defined(MOZ_SANDBOX)

@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: browser/components/newtab/content-src/components/DiscoveryStreamComponents/DSCard/DSCard.jsx
+# Commit: 626dd2a045af
+# Full Hash: 626dd2a045af6cd510ef04e67d027909509547f1
+# Author: Mike Conley <mconley@mozilla.com>
+# Date: 2020-04-17 21:46:50
+# Regressor Bug: 1614502
+# File Overlap Count: 2
+# Description:
+#   Bug 1614502 - Add a mechanism that can generate an about:home document for a startup cache. r=Gijs,k88hudson
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D68094
+# ==============================================================================
+
+diff -r 7ec776d31a2c -r 626dd2a045af browser/components/newtab/content-src/components/DiscoveryStreamComponents/DSCard/DSCard.jsx
+--- a/browser/components/newtab/content-src/components/DiscoveryStreamComponents/DSCard/DSCard.jsx	Fri Apr 17 15:31:11 2020 +0000
++++ b/browser/components/newtab/content-src/components/DiscoveryStreamComponents/DSCard/DSCard.jsx	Fri Apr 17 15:31:39 2020 +0000
+@@ -10,6 +10,7 @@
+ import { SafeAnchor } from "../SafeAnchor/SafeAnchor";
+ import { DSContextFooter } from "../DSContextFooter/DSContextFooter.jsx";
+ import { FluentOrText } from "../../FluentOrText/FluentOrText.jsx";
++import { connect } from "react-redux";
+ 
+ // Default Meta that displays CTA as link if cta_variant in layout is set as "link"
+ export const DefaultMeta = ({
+@@ -83,7 +84,7 @@
+   </div>
+ );
+ 
+-export class DSCard extends React.PureComponent {
++export class _DSCard extends React.PureComponent {
+   constructor(props) {
+     super(props);
+ 
+@@ -95,6 +96,12 @@
+     this.state = {
+       isSeen: false,
+     };
++
++    // If this is for the about:home startup cache, then we always want
++    // to render the DSCard, regardless of whether or not its been seen.
++    if (props.App.isForStartupCache) {
++      this.state.isSeen = true;
++    }
+   }
+ 
+   onLinkClick(event) {
+@@ -255,8 +262,12 @@
+   }
+ }
+ 
+-DSCard.defaultProps = {
++_DSCard.defaultProps = {
+   windowObj: window, // Added to support unit tests
+ };
+ 
++export const DSCard = connect(state => ({
++  App: state.App,
++}))(_DSCard);
++
+ export const PlaceholderDSCard = props => <DSCard placeholder={true} />;

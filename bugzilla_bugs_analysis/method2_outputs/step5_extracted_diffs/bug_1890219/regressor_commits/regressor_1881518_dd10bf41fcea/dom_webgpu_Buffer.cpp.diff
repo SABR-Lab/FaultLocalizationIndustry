@@ -1,0 +1,69 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/webgpu/Buffer.cpp
+# Commit: dd10bf41fcea
+# Full Hash: dd10bf41fcea6aa2f40d4528f4a7afc22b1f389e
+# Author: Nicolas Silva <nsilva@mozilla.com>
+# Date: 2024-04-05 21:43:02
+# Regressor Bug: 1881518
+# File Overlap Count: 1
+# Description:
+#   Bug 1881518 - Recycle indices again. r=webgpu-reviewers,bradwerth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D202433
+# ==============================================================================
+
+diff -r b2cba928a7bb -r dd10bf41fcea dom/webgpu/Buffer.cpp
+--- a/dom/webgpu/Buffer.cpp	Fri Apr 05 07:28:07 2024 +0000
++++ b/dom/webgpu/Buffer.cpp	Fri Apr 05 07:42:05 2024 +0000
+@@ -24,7 +24,7 @@
+ 
+ NS_IMPL_CYCLE_COLLECTION_CLASS(Buffer)
+ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Buffer)
+-  tmp->Drop();
++  tmp->Cleanup();
+   NS_IMPL_CYCLE_COLLECTION_UNLINK(mParent)
+   NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER
+ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
+@@ -51,7 +51,7 @@
+ }
+ 
+ Buffer::~Buffer() {
+-  Drop();
++  Cleanup();
+   mozilla::DropJSObjects(this);
+ }
+ 
+@@ -136,11 +136,10 @@
+   return buffer.forget();
+ }
+ 
+-void Buffer::Drop() {
++void Buffer::Cleanup() {
+   if (!mValid) {
+     return;
+   }
+-
+   mValid = false;
+ 
+   AbortMapRequest();
+@@ -158,9 +157,16 @@
+ 
+   GetDevice().UntrackBuffer(this);
+ 
+-  if (GetDevice().IsBridgeAlive()) {
+-    GetDevice().GetBridge()->SendBufferDrop(mId);
++  auto bridge = GetDevice().GetBridge();
++  if (!bridge) {
++    return;
+   }
++
++  if (bridge->CanSend()) {
++    bridge->SendBufferDrop(mId);
++  }
++
++  wgpu_client_free_buffer_id(bridge->GetClient(), mId);
+ }
+ 
+ void Buffer::SetMapped(BufferAddress aOffset, BufferAddress aSize,

@@ -1,0 +1,93 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/nsGridContainerFrame.cpp
+# Commit: 97e1a1f7230c
+# Full Hash: 97e1a1f7230ce2650804ac5a50efc7901a210e59
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2019-11-30 09:54:44
+# Description:
+#   Bug 1596361 - Ensure nsGridContainerFrame::GetGridFrameWithComputedInfo really returns a frame with computed info. r=mats
+#   
+#   I couldn't repro this with the STR in the bug, but I can repro by inspecting a
+#   grid in print preview, where we don't properly honor the re-reflow request
+#   because $reasons.
+# ==============================================================================
+
+diff -r 0c2c704c7102 -r 97e1a1f7230c layout/generic/nsGridContainerFrame.cpp
+--- a/layout/generic/nsGridContainerFrame.cpp	Fri Nov 29 20:04:18 2019 +0000
++++ b/layout/generic/nsGridContainerFrame.cpp	Fri Nov 29 20:24:26 2019 +0000
+@@ -8418,39 +8418,40 @@
+ nsGridContainerFrame* nsGridContainerFrame::GetGridFrameWithComputedInfo(
+     nsIFrame* aFrame) {
+   nsGridContainerFrame* gridFrame = GetGridContainerFrame(aFrame);
+-  if (gridFrame) {
+-    // if any of our properties are missing, generate them
+-    bool reflowNeeded = (!gridFrame->HasProperty(GridColTrackInfo()) ||
+-                         !gridFrame->HasProperty(GridRowTrackInfo()) ||
+-                         !gridFrame->HasProperty(GridColumnLineInfo()) ||
+-                         !gridFrame->HasProperty(GridRowLineInfo()));
+-
+-    if (reflowNeeded) {
+-      // Trigger a reflow that generates additional grid property data.
+-      // Hold onto aFrame while we do this, in case reflow destroys it.
+-      AutoWeakFrame weakFrameRef(aFrame);
+-
+-      RefPtr<mozilla::PresShell> presShell = gridFrame->PresShell();
+-      gridFrame->AddStateBits(NS_STATE_GRID_GENERATE_COMPUTED_VALUES);
+-      presShell->FrameNeedsReflow(gridFrame, IntrinsicDirty::Resize,
+-                                  NS_FRAME_IS_DIRTY);
+-      presShell->FlushPendingNotifications(FlushType::Layout);
+-
+-      // Since the reflow may have side effects, get the grid frame
+-      // again. But if the weakFrameRef is no longer valid, then we
+-      // must bail out.
+-      if (!weakFrameRef.IsAlive()) {
+-        return nullptr;
+-      }
+-
+-      gridFrame = GetGridContainerFrame(weakFrameRef.GetFrame());
+-
+-      // Assert the grid properties are present
+-      MOZ_ASSERT(!gridFrame || gridFrame->HasProperty(GridColTrackInfo()));
+-      MOZ_ASSERT(!gridFrame || gridFrame->HasProperty(GridRowTrackInfo()));
+-      MOZ_ASSERT(!gridFrame || gridFrame->HasProperty(GridColumnLineInfo()));
+-      MOZ_ASSERT(!gridFrame || gridFrame->HasProperty(GridRowLineInfo()));
+-    }
++  if (!gridFrame) {
++    return nullptr;
++  }
++
++  auto HasComputedInfo = [](const nsGridContainerFrame& aFrame) -> bool {
++    return aFrame.HasProperty(GridColTrackInfo()) &&
++           aFrame.HasProperty(GridRowTrackInfo()) &&
++           aFrame.HasProperty(GridColumnLineInfo()) &&
++           aFrame.HasProperty(GridRowLineInfo());
++  };
++
++  if (HasComputedInfo(*gridFrame)) {
++    return gridFrame;
++  }
++
++  // Trigger a reflow that generates additional grid property data.
++  // Hold onto aFrame while we do this, in case reflow destroys it.
++  AutoWeakFrame weakFrameRef(gridFrame);
++
++  RefPtr<mozilla::PresShell> presShell = gridFrame->PresShell();
++  gridFrame->AddStateBits(NS_STATE_GRID_GENERATE_COMPUTED_VALUES);
++  presShell->FrameNeedsReflow(gridFrame, IntrinsicDirty::Resize,
++                              NS_FRAME_IS_DIRTY);
++  presShell->FlushPendingNotifications(FlushType::Layout);
++
++  // If the weakFrameRef is no longer valid, then we must bail out.
++  if (!weakFrameRef.IsAlive()) {
++    return nullptr;
++  }
++
++  // This can happen if for some reason we ended up not reflowing, like in print
++  // preview under some circumstances.
++  if (MOZ_UNLIKELY(!HasComputedInfo(*gridFrame))) {
++    return nullptr;
+   }
+ 
+   return gridFrame;

@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/shared/LIR-shared.h
+# Commit: 81e645d5ccfd
+# Full Hash: 81e645d5ccfd6f46772be9864a388087210bd5c2
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-10-02 04:10:47
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 6.5: Add tls dependency for WasmModD. r=lth
+#   
+#   We generate builtin call for Mod operation for Double types, so we need
+#   to add a tls dependency. In this patch I've added it.
+#   
+# ==============================================================================
+
+diff -r e2105a52bcdd -r 81e645d5ccfd js/src/jit/shared/LIR-shared.h
+--- a/js/src/jit/shared/LIR-shared.h	Thu Oct 01 07:52:46 2020 +0000
++++ b/js/src/jit/shared/LIR-shared.h	Thu Oct 01 07:53:01 2020 +0000
+@@ -2779,6 +2779,30 @@
+   MMod* mir() const { return mir_->toMod(); }
+ };
+ 
++class LWasmBuiltinModD : public LInstructionHelper<1, 3, 0> {
++  static const size_t LhsIndex = 0;
++  static const size_t RhsIndex = 1;
++  static const size_t TlsIndex = 2;
++
++ public:
++  LIR_HEADER(WasmBuiltinModD)
++
++  LWasmBuiltinModD(const LAllocation& lhs, const LAllocation& rhs,
++                   const LAllocation& tls)
++      : LInstructionHelper(classOpcode) {
++    setOperand(LhsIndex, lhs);
++    setOperand(RhsIndex, rhs);
++    setOperand(TlsIndex, tls);
++    setIsCall();
++  }
++
++  const LAllocation* lhs() { return this->getOperand(LhsIndex); }
++  const LAllocation* rhs() { return this->getOperand(RhsIndex); }
++  const LAllocation* tls() { return this->getOperand(TlsIndex); }
++
++  MWasmBuiltinModD* mir() const { return mir_->toWasmBuiltinModD(); }
++};
++
+ // Adds two string, returning a string.
+ class LConcat : public LInstructionHelper<1, 2, 5> {
+  public:

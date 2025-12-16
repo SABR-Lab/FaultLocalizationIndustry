@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/ViewportFrame.cpp
+# Commit: a2da895a58ce
+# Full Hash: a2da895a58ce094d55e6a2e040dd648962b39868
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2022-02-22 09:37:09
+# Regressor Bug: 1714584
+# File Overlap Count: 2
+# Description:
+#   Bug 1714584 - Part 1: Decouple nsDisplayList internal list from nsDisplayItems r=mstange
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D138152
+# ==============================================================================
+
+diff -r c3b3315d2344 -r a2da895a58ce layout/generic/ViewportFrame.cpp
+--- a/layout/generic/ViewportFrame.cpp	Mon Feb 21 21:57:03 2022 +0000
++++ b/layout/generic/ViewportFrame.cpp	Tue Feb 22 00:44:25 2022 +0000
+@@ -124,7 +124,7 @@
+   nsDisplayListBuilder::AutoBuildingDisplayList buildingForChild(
+       aBuilder, aFrame, visible, dirty);
+ 
+-  nsDisplayList list;
++  nsDisplayList list(aBuilder);
+   aFrame->BuildDisplayListForStackingContext(aBuilder, &list);
+   aList->AppendToTop(&list);
+ }
+@@ -135,7 +135,7 @@
+   // The common case for ::backdrop elements on the top layer is a single
+   // fixed position container, holding an opaque background color covering
+   // the whole viewport.
+-  if (aList->Count() != 1 ||
++  if (aList->Length() != 1 ||
+       aList->GetTop()->GetType() != DisplayItemType::TYPE_FIXED_POSITION) {
+     return false;
+   }
+@@ -168,7 +168,7 @@
+ 
+ nsDisplayWrapList* ViewportFrame::BuildDisplayListForTopLayer(
+     nsDisplayListBuilder* aBuilder, bool* aIsOpaque) {
+-  nsDisplayList topLayerList;
++  nsDisplayList topLayerList(aBuilder);
+ 
+   nsTArray<dom::Element*> topLayer = PresContext()->Document()->GetTopLayer();
+   for (dom::Element* elem : topLayer) {

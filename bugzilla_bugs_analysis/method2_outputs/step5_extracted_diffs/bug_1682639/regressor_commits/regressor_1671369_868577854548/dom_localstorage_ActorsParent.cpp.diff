@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/localstorage/ActorsParent.cpp
+# Commit: 868577854548
+# Full Hash: 868577854548c7442c15ab9b1ad1213af187e01e
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2020-11-17 21:55:29
+# Regressor Bug: 1671369
+# File Overlap Count: 1
+# Description:
+#   Bug 1671369 - Change GetUsageForClient to return a UsageInfo. r=dom-workers-and-storage-reviewers,ttung
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D93777
+# ==============================================================================
+
+diff -r 5f347d3846aa -r 868577854548 dom/localstorage/ActorsParent.cpp
+--- a/dom/localstorage/ActorsParent.cpp	Tue Nov 17 12:13:05 2020 +0000
++++ b/dom/localstorage/ActorsParent.cpp	Tue Nov 17 13:17:24 2020 +0000
+@@ -7373,10 +7373,11 @@
+     return rv;
+   }
+ 
+-  uint64_t usage;
+-  bool hasUsage =
+-      quotaManager->GetUsageForClient(PERSISTENCE_TYPE_DEFAULT, mQuotaInfo,
+-                                      mozilla::dom::quota::Client::LS, usage);
++  const UsageInfo usageInfo = quotaManager->GetUsageForClient(
++      PERSISTENCE_TYPE_DEFAULT, mQuotaInfo, mozilla::dom::quota::Client::LS);
++
++  const bool hasUsage = usageInfo.DatabaseUsage().isSome();
++  MOZ_ASSERT(usageInfo.FileUsage().isNothing());
+ 
+   if (!gArchivedOrigins) {
+     rv = LoadArchivedOrigins();
+@@ -7467,7 +7468,9 @@
+   if (alreadyExisted) {
+     // The database does exist.
+     MOZ_ASSERT(hasUsage);
+-    mUsage = usage;
++
++    // XXX Change type of mUsage to UsageInfo or DatabaseUsageType.
++    mUsage = usageInfo.DatabaseUsage().value();
+   } else {
+     // The database doesn't exist.
+     MOZ_ASSERT(!hasUsage);
+@@ -9107,14 +9110,8 @@
+   QuotaManager* quotaManager = QuotaManager::Get();
+   MOZ_ASSERT(quotaManager);
+ 
+-  UsageInfo res;
+-  uint64_t usage;
+-  if (quotaManager->GetUsageForClient(PERSISTENCE_TYPE_DEFAULT, aGroupAndOrigin,
+-                                      Client::LS, usage)) {
+-    res += DatabaseUsageType(Some(usage));
+-  }
+-
+-  return res;
++  return quotaManager->GetUsageForClient(PERSISTENCE_TYPE_DEFAULT,
++                                         aGroupAndOrigin, Client::LS);
+ }
+ 
+ nsresult QuotaClient::AboutToClearOrigins(

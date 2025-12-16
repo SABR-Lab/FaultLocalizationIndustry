@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/ActorsParent.cpp
+# Commit: 7c4e2c13f1c3
+# Full Hash: 7c4e2c13f1c374abc612950e4e76bd34b95f1175
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2019-12-05 04:11:08
+# Regressor Bug: 1600906
+# File Overlap Count: 1
+# Description:
+#   Bug 1600906 - Make use of FlippedOnce in ConnectionPool. r=dom-workers-and-storage-reviewers,ytausky
+#   
+#   Depends on D55677
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D55678
+# ==============================================================================
+
+diff -r 09e4368e2355 -r 7c4e2c13f1c3 dom/indexedDB/ActorsParent.cpp
+--- a/dom/indexedDB/ActorsParent.cpp	Wed Dec 04 14:26:48 2019 +0000
++++ b/dom/indexedDB/ActorsParent.cpp	Wed Dec 04 14:24:59 2019 +0000
+@@ -4996,8 +4996,8 @@
+ 
+   uint64_t mNextTransactionId;
+   uint32_t mTotalThreadCount;
+-  bool mShutdownRequested;
+-  bool mShutdownComplete;
++  FlippedOnce<false> mShutdownRequested;
++  FlippedOnce<false> mShutdownComplete;
+ 
+  public:
+   ConnectionPool();
+@@ -11077,9 +11077,7 @@
+     : mDatabasesMutex("ConnectionPool::mDatabasesMutex"),
+       mIdleTimer(NS_NewTimer()),
+       mNextTransactionId(0),
+-      mTotalThreadCount(0),
+-      mShutdownRequested(false),
+-      mShutdownComplete(false) {
++      mTotalThreadCount(0) {
+   AssertIsOnOwningThread();
+   AssertIsOnBackgroundThread();
+   MOZ_ASSERT(mIdleTimer);
+@@ -11379,12 +11377,11 @@
+ 
+ void ConnectionPool::Shutdown() {
+   AssertIsOnOwningThread();
+-  MOZ_ASSERT(!mShutdownRequested);
+   MOZ_ASSERT(!mShutdownComplete);
+ 
+   AUTO_PROFILER_LABEL("ConnectionPool::Shutdown", DOM);
+ 
+-  mShutdownRequested = true;
++  mShutdownRequested.Flip();
+ 
+   CancelIdleTimer();
+   MOZ_ASSERT(mTargetIdleTime.IsNull());
+@@ -11404,7 +11401,8 @@
+     return;
+   }
+ 
+-  MOZ_ALWAYS_TRUE(SpinEventLoopUntil([&]() { return mShutdownComplete; }));
++  MOZ_ALWAYS_TRUE(SpinEventLoopUntil(
++      [&]() { return static_cast<bool>(mShutdownComplete); }));
+ }
+ 
+ void ConnectionPool::Cleanup() {
+@@ -11438,7 +11436,7 @@
+     MOZ_ALWAYS_SUCCEEDS(NS_ProcessPendingEvents(currentThread));
+   }
+ 
+-  mShutdownComplete = true;
++  mShutdownComplete.Flip();
+ }
+ 
+ void ConnectionPool::AdjustIdleTimer() {

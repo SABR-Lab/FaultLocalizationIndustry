@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/transportbridge/MediaPipeline.cpp
+# Commit: b2332c1d550e
+# Full Hash: b2332c1d550ed2d02408150e9979685981d0817f
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 5
+# Description:
+#   Bug 1654112 - Don't push RtpSource info to main thread on every received frame. r=ng,bwc
+#   
+#   If js doesn't intend to look at get*Sources, then pushing RtpSource info to main
+#   thread constantly is cycles spent in vain. Considering that upstream already
+#   updates this info off-main on every received frame it is also to a large extent
+# ==============================================================================
+
+diff -r c186df8a088e -r b2332c1d550e dom/media/webrtc/transportbridge/MediaPipeline.cpp
+--- a/dom/media/webrtc/transportbridge/MediaPipeline.cpp	Fri Aug 20 13:52:08 2021 +0200
++++ b/dom/media/webrtc/transportbridge/MediaPipeline.cpp	Fri Aug 20 14:03:36 2021 +0200
+@@ -1672,8 +1672,6 @@
+   void RenderVideoFrame(const webrtc::VideoFrameBuffer& aBuffer,
+                         uint32_t aTimeStamp, int64_t aRenderTime) override {
+     mPipeline->mListener->RenderVideoFrame(aBuffer, aTimeStamp, aRenderTime);
+-    // This is what drives SSRC/CSRC stats updates in VideoConduit
+-    mPipeline->OnFrameDelivered();
+   }
+ 
+  private:
+@@ -1739,10 +1737,6 @@
+   }
+ }
+ 
+-void MediaPipelineReceiveVideo::OnFrameDelivered() {
+-  (*mConduit->AsVideoSessionConduit())->OnFrameDelivered();
+-}
+-
+ DOMHighResTimeStamp MediaPipeline::GetNow() const { return mConduit->GetNow(); }
+ 
+ DOMHighResTimeStamp MediaPipeline::RtpCSRCStats::GetExpiryFromTime(

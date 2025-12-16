@@ -1,0 +1,66 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/PCanvas.ipdl
+# Commit: 2b56c2b2837a
+# Full Hash: 2b56c2b2837adfd7c49b599771cfea2d9e3d687b
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2023-11-22 21:50:37
+# Regressor Bug: 1863914
+# File Overlap Count: 2
+# Description:
+#   Bug 1863914: Use multiple shmem buffers for remote canvas recording. r=aosmond
+#   
+#   This replaces the use of a single large ring buffer.
+#   The buffers are still processed in parallel and are recycled to reduce
+#   allocation. Events that do not fit in the default sized buffer have a separate
+# ==============================================================================
+
+diff -r ed311995cd70 -r 2b56c2b2837a gfx/layers/ipc/PCanvas.ipdl
+--- a/gfx/layers/ipc/PCanvas.ipdl	Wed Nov 22 14:06:43 2023 +0200
++++ b/gfx/layers/ipc/PCanvas.ipdl	Wed Nov 22 11:52:08 2023 +0000
+@@ -25,25 +25,35 @@
+ parent:
+   /**
+    * Initialize a CanvasTranslator for a particular TextureType, which
+-   * translates events from a CanvasEventRingBuffer. aReadHandle is the shared
+-   * memory handle for the ring buffer. aReaderSem and aWriterSem are handles
+-   * for the semaphores to handle waiting on either side.
++   * translates events from shared memory buffers. aHeaderHandle is a shared
++   * memory handle for the control header. aBufferHandles are shared memory
++   * handles for the initial buffers for translation. aBufferSize is the size of
++   * each aBufferHandles' memory and the default size. aReaderSem and aWriterSem
++   * are handles for the semaphores to handle waiting on either side.
++   * aUseIPDLThread if true, use the IPDL thread instead of the worker pool for
++   * translation requests
+    */
+-  async InitTranslator(TextureType aTextureType, Handle aReadHandle,
++  async InitTranslator(TextureType aTextureType, Handle aHeaderHandle,
++                       Handle[] aBufferHandles, uint64_t aBufferSize,
+                        CrossProcessSemaphoreHandle aReaderSem,
+                        CrossProcessSemaphoreHandle aWriterSem,
+                        bool aUseIPDLThread);
+ 
+   /**
+-   * Send a new buffer to resume translation after it's been stopped by writer.
++   * Restart the translation from a Stopped state.
+    */
+-  async NewBuffer(Handle aReadHandle);
++  async RestartTranslation();
+ 
+   /**
+-   * Used to tell the CanvasTranslator to start translating again after it has
+-   * stopped due to a timeout waiting for events.
++   * Adds a new buffer to be translated. The current buffer will be recycled if
++   * it is of the default size. The translation will then be restarted.
+    */
+-  async ResumeTranslation();
++  async AddBuffer(Handle aBufferHandle, uint64_t aBufferSize);
++
++  /**
++   * Sets the shared memory to be used for readback.
++   */
++  async SetDataSurfaceBuffer(Handle aBufferHandle, uint64_t aBufferSize);
+ 
+   async __delete__();
+ 

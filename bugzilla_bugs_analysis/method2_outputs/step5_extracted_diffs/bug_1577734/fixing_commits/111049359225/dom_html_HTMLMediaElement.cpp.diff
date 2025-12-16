@@ -1,0 +1,37 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/html/HTMLMediaElement.cpp
+# Commit: 111049359225
+# Full Hash: 11104935922576fa9d6c2e7ae73a1b09ebab5477
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2019-08-30 21:54:33
+# Description:
+#   Bug 1577734 - Don't unset mGraphTimeOffset in MediaStreamRenderer. r=padenot
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44158
+# ==============================================================================
+
+diff -r 7fa833ff0b1c -r 111049359225 dom/html/HTMLMediaElement.cpp
+--- a/dom/html/HTMLMediaElement.cpp	Fri Aug 30 14:45:20 2019 +0000
++++ b/dom/html/HTMLMediaElement.cpp	Fri Aug 30 14:46:44 2019 +0000
+@@ -484,7 +484,6 @@
+ 
+     mWatchManager.Unwatch(mGraphTimeDummy->mStream->Graph()->CurrentTime(),
+                           &MediaStreamRenderer::UpdateGraphTime);
+-    mGraphTimeOffset = Nothing();
+ 
+     for (const auto& t : mAudioTracks) {
+       if (t) {
+@@ -636,9 +635,8 @@
+   // GraphTime units.
+   Watchable<GraphTime> mGraphTime = {0, "MediaStreamRenderer::mGraphTime"};
+ 
+-  // Nothing while we're not rendering. While rendering, the current GraphTime
+-  // at the time when rendering was Start()ed, possibly delayed until the first
+-  // track appeared.
++  // Nothing until a track has been added. Then, the current GraphTime at the
++  // time when we were last Start()ed.
+   Maybe<GraphTime> mGraphTimeOffset;
+ 
+   // Currently enabled (and rendered) audio tracks.

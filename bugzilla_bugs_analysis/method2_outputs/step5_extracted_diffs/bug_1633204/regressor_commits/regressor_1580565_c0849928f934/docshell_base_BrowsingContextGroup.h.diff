@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/BrowsingContextGroup.h
+# Commit: c0849928f934
+# Full Hash: c0849928f934f0b5e931813eaadc23f0fb8521d7
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-04-23 09:52:48
+# Regressor Bug: 1580565
+# File Overlap Count: 2
+# Description:
+#   Bug 1580565 - Part 6: Add a unique ID to each BrowsingContextGroup, r=kmag
+#   
+#   This allows us to explicitly specify BrowsingContextGroups when synchronizing
+#   them. A major advantage of this is that it means we can handle an attempt to
+#   create a BrowsingContext with a parent which the content process is unaware of,
+# ==============================================================================
+
+diff -r 3d4f155096be -r c0849928f934 docshell/base/BrowsingContextGroup.h
+--- a/docshell/base/BrowsingContextGroup.h	Wed Apr 22 15:48:15 2020 +0000
++++ b/docshell/base/BrowsingContextGroup.h	Wed Apr 22 16:25:18 2020 +0000
+@@ -55,18 +55,18 @@
+     aToplevels.AppendElements(mToplevels);
+   }
+ 
++  uint64_t Id() { return mId; }
++
+   nsISupports* GetParentObject() const;
+   JSObject* WrapObject(JSContext* aCx,
+                        JS::Handle<JSObject*> aGivenProto) override;
+ 
+-  BrowsingContextGroup();
+-
++  // Get or create a BrowsingContextGroup with the given ID.
++  static already_AddRefed<BrowsingContextGroup> GetOrCreate(uint64_t aId);
++  static already_AddRefed<BrowsingContextGroup> Create();
+   static already_AddRefed<BrowsingContextGroup> Select(
+       WindowContext* aParent, BrowsingContext* aOpener);
+ 
+-  static already_AddRefed<BrowsingContextGroup> Select(uint64_t aParentId,
+-                                                       uint64_t aOpenerId);
+-
+   // For each 'ContentParent', except for 'aExcludedParent',
+   // associated with this group call 'aCallback'.
+   template <typename Func>
+@@ -114,13 +114,18 @@
+     return mWorkerEventQueue;
+   }
+ 
++  static void GetAllGroups(nsTArray<RefPtr<BrowsingContextGroup>>& aGroups);
++
+  private:
+   friend class CanonicalBrowsingContext;
+ 
++  explicit BrowsingContextGroup(uint64_t aId);
+   ~BrowsingContextGroup();
+ 
+   void UnsubscribeAllContentParents();
+ 
++  uint64_t mId;
++
+   // A BrowsingContextGroup contains a series of BrowsingContext objects. They
+   // are addressed using a hashtable to avoid linear lookup when adding or
+   // removing elements from the set.

@@ -1,0 +1,77 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/WindowGlobalChild.cpp
+# Commit: e1fd1fa67a65
+# Full Hash: e1fd1fa67a6554ae8dc206a6fed9e5405a0bf778
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2021-04-01 03:12:48
+# Regressor Bug: 1699721
+# File Overlap Count: 1
+# Description:
+#   Bug 1699721 - Part 2: Track BrowserParent lifecycles during process switches, r=kmag
+#   
+#   This patch contains a large number of changes around the process switching
+#   mechanism in order to avoid issues which are caused by a mismatched
+#   understanding of the state of the process switch between processes in the
+# ==============================================================================
+
+diff -r 2b3a6042d48e -r e1fd1fa67a65 dom/ipc/WindowGlobalChild.cpp
+--- a/dom/ipc/WindowGlobalChild.cpp	Wed Mar 31 16:51:58 2021 +0000
++++ b/dom/ipc/WindowGlobalChild.cpp	Wed Mar 31 16:51:58 2021 +0000
+@@ -390,13 +390,14 @@
+   MOZ_LOG(BrowsingContext::GetLog(), LogLevel::Debug,
+           ("RecvMakeFrameRemote ID=%" PRIx64, aFrameContext.ContextId()));
+ 
+-  // Immediately resolve the promise, acknowledging the request.
+-  aResolve(true);
+-
+   if (!aLayersId.IsValid()) {
+     return IPC_FAIL(this, "Received an invalid LayersId");
+   }
+ 
++  // Resolve the promise when this function exits, as we'll have fully unloaded
++  // at that point.
++  auto scopeExit = MakeScopeExit([&] { aResolve(true); });
++
+   // Get a BrowsingContext if we're not null or discarded. We don't want to
+   // early-return before we connect the BrowserBridgeChild, as otherwise we'll
+   // never break the channel in the parent.
+@@ -415,20 +416,20 @@
+     return IPC_OK();
+   }
+ 
++  auto deleteBridge =
++      MakeScopeExit([&] { BrowserBridgeChild::Send__delete__(bridge); });
++
+   // Immediately tear down the actor if we don't have a valid FrameContext.
+   if (NS_WARN_IF(aFrameContext.IsNullOrDiscarded())) {
+-    BrowserBridgeChild::Send__delete__(bridge);
+     return IPC_OK();
+   }
+ 
+   RefPtr<Element> embedderElt = frameContext->GetEmbedderElement();
+   if (NS_WARN_IF(!embedderElt)) {
+-    BrowserBridgeChild::Send__delete__(bridge);
+     return IPC_OK();
+   }
+ 
+   if (NS_WARN_IF(embedderElt->GetOwnerGlobal() != GetWindowGlobal())) {
+-    BrowserBridgeChild::Send__delete__(bridge);
+     return IPC_OK();
+   }
+ 
+@@ -439,10 +440,12 @@
+   IgnoredErrorResult rv;
+   flo->ChangeRemotenessWithBridge(bridge, rv);
+   if (NS_WARN_IF(rv.Failed())) {
+-    BrowserBridgeChild::Send__delete__(bridge);
+     return IPC_OK();
+   }
+ 
++  // Everything succeeded, so don't delete the bridge.
++  deleteBridge.release();
++
+   return IPC_OK();
+ }
+ 

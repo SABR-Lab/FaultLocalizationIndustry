@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/nsHTMLCanvasFrame.cpp
+# Commit: 96da9d241051
+# Full Hash: 96da9d241051d222bdd693bdb519d058a013b59c
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2019-03-23 09:46:24
+# Regressor Bug: 1441308
+# File Overlap Count: 2
+# Description:
+#   Bug 1441308 - Core renderroot splitting changes r=kats,sotaro
+#   
+#   This is a large patch that contains all of the core changes for
+#   renderroot splitting.
+#   
+# ==============================================================================
+
+diff -r 8cefa694f811 -r 96da9d241051 layout/generic/nsHTMLCanvasFrame.cpp
+--- a/layout/generic/nsHTMLCanvasFrame.cpp	Fri Mar 22 18:28:31 2019 +0000
++++ b/layout/generic/nsHTMLCanvasFrame.cpp	Fri Mar 22 18:28:42 2019 +0000
+@@ -129,7 +129,7 @@
+         RefPtr<WebRenderCanvasData> canvasData =
+             aManager->CommandBuilder()
+                 .CreateOrRecycleWebRenderUserData<WebRenderCanvasData>(
+-                    this, &isRecycled);
++                    this, aBuilder.GetRenderRoot(), &isRecycled);
+         nsHTMLCanvasFrame* canvasFrame =
+             static_cast<nsHTMLCanvasFrame*>(mFrame);
+         if (!canvasFrame->UpdateWebRenderCanvasData(aDisplayListBuilder,
+@@ -140,7 +140,7 @@
+             static_cast<WebRenderCanvasRendererAsync*>(
+                 canvasData->GetCanvasRenderer());
+         MOZ_ASSERT(data);
+-        data->UpdateCompositableClient();
++        data->UpdateCompositableClient(aBuilder.GetRenderRoot());
+ 
+         // Push IFrame for async image pipeline.
+         // XXX Remove this once partial display list update is supported.
+@@ -187,7 +187,8 @@
+         aManager->WrBridge()->AddWebRenderParentCommand(
+             OpUpdateAsyncImagePipeline(data->GetPipelineId().value(), scBounds,
+                                        scTransform, scaleToSize, filter,
+-                                       mixBlendMode));
++                                       mixBlendMode),
++            aBuilder.GetRenderRoot());
+         break;
+       }
+       case CanvasContextType::ImageBitmap: {

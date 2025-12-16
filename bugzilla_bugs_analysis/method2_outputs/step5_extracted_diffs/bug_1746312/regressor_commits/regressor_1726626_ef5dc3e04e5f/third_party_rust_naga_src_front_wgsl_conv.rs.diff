@@ -1,0 +1,84 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/naga/src/front/wgsl/conv.rs
+# Commit: ef5dc3e04e5f
+# Full Hash: ef5dc3e04e5f271eea0636ab3a495e95cc912f1d
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-09-04 09:40:24
+# Regressor Bug: 1726626
+# File Overlap Count: 3
+# Description:
+#   Bug 1726626 - Move gfx/wgpu into a 3rd party dependency r=jgilbert,bholley
+#   
+#   This update makes wgpu a vendored dependency instead of having it in gfx/wgpu.
+#   
+#   ## Notes
+# ==============================================================================
+
+diff --git a/third_party/rust/naga/src/front/wgsl/conv.rs b/third_party/rust/naga/src/front/wgsl/conv.rs
+--- a/third_party/rust/naga/src/front/wgsl/conv.rs
++++ b/third_party/rust/naga/src/front/wgsl/conv.rs
+@@ -1,38 +1,43 @@
+ use super::{Error, Span};
+ 
+ pub fn map_storage_class(word: &str, span: Span) -> Result<crate::StorageClass, Error<'_>> {
+     match word {
+         "private" => Ok(crate::StorageClass::Private),
+         "workgroup" => Ok(crate::StorageClass::WorkGroup),
+         "uniform" => Ok(crate::StorageClass::Uniform),
+-        "storage" => Ok(crate::StorageClass::Storage),
++        "storage" => Ok(crate::StorageClass::Storage {
++            access: crate::StorageAccess::default(),
++        }),
+         "push_constant" => Ok(crate::StorageClass::PushConstant),
++        "function" => Ok(crate::StorageClass::Function),
+         _ => Err(Error::UnknownStorageClass(span)),
+     }
+ }
+ 
+ pub fn map_built_in(word: &str, span: Span) -> Result<crate::BuiltIn, Error<'_>> {
+     Ok(match word {
+         "position" => crate::BuiltIn::Position,
+         // vertex
+         "vertex_index" => crate::BuiltIn::VertexIndex,
+         "instance_index" => crate::BuiltIn::InstanceIndex,
+         // fragment
+         "front_facing" => crate::BuiltIn::FrontFacing,
+         "frag_depth" => crate::BuiltIn::FragDepth,
++        "primitive_index" => crate::BuiltIn::PrimitiveIndex,
+         "sample_index" => crate::BuiltIn::SampleIndex,
+         "sample_mask" => crate::BuiltIn::SampleMask,
+         // compute
+         "global_invocation_id" => crate::BuiltIn::GlobalInvocationId,
+         "local_invocation_id" => crate::BuiltIn::LocalInvocationId,
+         "local_invocation_index" => crate::BuiltIn::LocalInvocationIndex,
+         "workgroup_id" => crate::BuiltIn::WorkGroupId,
+         "workgroup_size" => crate::BuiltIn::WorkGroupSize,
++        "num_workgroups" => crate::BuiltIn::NumWorkGroups,
+         _ => return Err(Error::UnknownBuiltin(span)),
+     })
+ }
+ 
+ pub fn map_shader_stage(word: &str, span: Span) -> Result<crate::ShaderStage, Error<'_>> {
+     match word {
+         "vertex" => Ok(crate::ShaderStage::Vertex),
+         "fragment" => Ok(crate::ShaderStage::Fragment),
+@@ -47,16 +52,17 @@ pub fn map_interpolation(word: &str, spa
+         "flat" => Ok(crate::Interpolation::Flat),
+         "perspective" => Ok(crate::Interpolation::Perspective),
+         _ => Err(Error::UnknownAttribute(span)),
+     }
+ }
+ 
+ pub fn map_sampling(word: &str, span: Span) -> Result<crate::Sampling, Error<'_>> {
+     match word {
++        "center" => Ok(crate::Sampling::Center),
+         "centroid" => Ok(crate::Sampling::Centroid),
+         "sample" => Ok(crate::Sampling::Sample),
+         _ => Err(Error::UnknownAttribute(span)),
+     }
+ }
+ 
+ pub fn map_storage_format(word: &str, span: Span) -> Result<crate::StorageFormat, Error<'_>> {
+     use crate::StorageFormat as Sf;

@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/frontend/Stencil.cpp
+# Commit: 2bc5949902ac
+# Full Hash: 2bc5949902acc042205fc7e85260bbbc37dbedc7
+# Author: Matthew Gaudet <mgaudet@mozilla.com>
+# Date: 2021-09-18 09:46:57
+# Regressor Bug: 1688788
+# File Overlap Count: 1
+# Description:
+#   Bug 1688788 - Convert ScriptPreloader to manage Stencils, not Scripts. r=kmag,tcampbell
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D113013
+# ==============================================================================
+
+diff -r e660e2c3c3d1 -r 2bc5949902ac js/src/frontend/Stencil.cpp
+--- a/js/src/frontend/Stencil.cpp	Sat Sep 18 01:29:45 2021 +0000
++++ b/js/src/frontend/Stencil.cpp	Sat Sep 18 01:29:45 2021 +0000
+@@ -4040,6 +4040,10 @@
+   return gcOutput.get().script;
+ }
+ 
++JS_PUBLIC_API bool JS::StencilIsBorrowed(Stencil* stencil) {
++  return stencil->hasExternalDependency;
++}
++
+ JSObject* JS::InstantiateModuleStencil(
+     JSContext* cx, const JS::ReadOnlyCompileOptions& optionsInput,
+     JS::Stencil* stencil) {
+@@ -4101,3 +4105,8 @@
+   MOZ_ASSERT(CurrentThreadCanAccessRuntime(cx->runtime()));
+   return do_AddRef(HelperThreadState().finishStencilParseTask(cx, token));
+ }
++
++JS_PUBLIC_API size_t JS::SizeOfStencil(Stencil* stencil,
++                                       mozilla::MallocSizeOf mallocSizeOf) {
++  return stencil->sizeOfIncludingThis(mallocSizeOf);
++}

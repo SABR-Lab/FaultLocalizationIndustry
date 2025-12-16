@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/StoreBuffer.cpp
+# Commit: 410d1b57bb09
+# Full Hash: 410d1b57bb0955e0fe2f47b95ffa5ee1005e6791
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2022-03-09 21:37:17
+# Regressor Bug: 1643586
+# File Overlap Count: 1
+# Description:
+#   Bug 1643586 - Part 5: Replace heap state checks that rely on there being a JSContext for the thread r=jandem
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D140192
+# ==============================================================================
+
+diff -r f78d139e1d0e -r 410d1b57bb09 js/src/gc/StoreBuffer.cpp
+--- a/js/src/gc/StoreBuffer.cpp	Wed Mar 09 10:17:07 2022 +0000
++++ b/js/src/gc/StoreBuffer.cpp	Wed Mar 09 10:17:07 2022 +0000
+@@ -29,6 +29,20 @@
+   sb->unlock();
+ }
+ 
++#ifdef DEBUG
++void StoreBuffer::checkAccess() const {
++  // The GC runs tasks that may access the storebuffer in parallel and so must
++  // take a lock. The mutator may only access the storebuffer from the main
++  // thread.
++  if (runtime_->heapState() != JS::HeapState::Idle) {
++    MOZ_ASSERT(!CurrentThreadIsGCMarking());
++    lock_.assertOwnedByCurrentThread();
++  } else {
++    MOZ_ASSERT(CurrentThreadCanAccessRuntime(runtime_));
++  }
++}
++#endif
++
+ bool StoreBuffer::WholeCellBuffer::init() {
+   MOZ_ASSERT(!stringHead_);
+   MOZ_ASSERT(!nonStringHead_);

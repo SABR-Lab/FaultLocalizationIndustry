@@ -1,0 +1,79 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/dav1d/src/arm/32/mc.S
+# Commit: a5108ffbd311
+# Full Hash: a5108ffbd31101e7cb72dabc271d92027f953c3c
+# Author: Alex Chronopoulos <achronop@gmail.com>
+# Date: 2019-04-20 09:35:22
+# Regressor Bug: 1540830
+# File Overlap Count: 3
+# Description:
+#   Bug 1540830 - Update dav1d from upstream to 1f7a7e8. r=TD-Linux
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D28200
+# ==============================================================================
+
+diff -r 98adabf295d0 -r a5108ffbd311 third_party/dav1d/src/arm/32/mc.S
+--- a/third_party/dav1d/src/arm/32/mc.S	Fri Apr 19 20:49:36 2019 +0000
++++ b/third_party/dav1d/src/arm/32/mc.S	Fri Apr 19 20:36:10 2019 +0000
+@@ -217,8 +217,8 @@
+ 
+ // This has got the same signature as the put_8tap functions,
+ // assumes that the caller has loaded the h argument into r5,
+-// and assumes that r8 is set to (24-clz(w)).
+-function put
++// and assumes that r8 is set to (clz(w)-24).
++function put_neon
+         adr             r9,  L(put_tbl)
+         ldr             r8,  [r9, r8, lsl #2]
+         add             r9,  r9,  r8
+@@ -307,9 +307,9 @@
+ 
+ 
+ // This has got the same signature as the put_8tap functions,
+-// assumes that the caller has loaded the h argument into r5,
+-// and assumes that r8 is set to (24-clz(w)), and r7 to w*2.
+-function prep
++// assumes that the caller has loaded the h argument into r4,
++// and assumes that r8 is set to (clz(w)-24), and r7 to w*2.
++function prep_neon
+         adr             r9,  L(prep_tbl)
+         ldr             r8,  [r9, r8, lsl #2]
+         add             r9,  r9,  r8
+@@ -660,7 +660,7 @@
+         push            {r4-r11,lr}
+         movw            r8,  \type_h
+         movw            r9,  \type_v
+-        b               \op\()_8tap
++        b               \op\()_8tap_neon
+ endfunc
+ .endm
+ 
+@@ -680,7 +680,7 @@
+ make_8tap_fn \type, sharp_regular,  SHARP,   REGULAR
+ make_8tap_fn \type, sharp_smooth,   SHARP,   SMOOTH
+ 
+-function \type\()_8tap
++function \type\()_8tap_neon
+         ldrd            r4,  r5,  [sp, #36]
+         ldrd            r6,  r7,  [sp, #44]
+         movw            r10,  #0x4081  // (1 << 14) | (1 << 7) | (1 << 0)
+@@ -699,7 +699,7 @@
+         bne             L(\type\()_8tap_h)
+         tst             \my, #(0x7f << 14)
+         bne             L(\type\()_8tap_v)
+-        b               \type
++        b               \type\()_neon
+ 
+ L(\type\()_8tap_h):
+         cmp             \w,  #4
+@@ -1831,7 +1831,7 @@
+         bne             L(\type\()_bilin_h)
+         cmp             \my, #0
+         bne             L(\type\()_bilin_v)
+-        b               \type
++        b               \type\()_neon
+ 
+ L(\type\()_bilin_h):
+         cmp             \my, #0

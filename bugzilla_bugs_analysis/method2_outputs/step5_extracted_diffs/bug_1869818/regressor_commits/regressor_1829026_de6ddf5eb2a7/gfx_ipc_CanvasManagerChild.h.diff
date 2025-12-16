@@ -1,0 +1,37 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/ipc/CanvasManagerChild.h
+# Commit: de6ddf5eb2a7
+# Full Hash: de6ddf5eb2a7bd3d8a2f58636760e0aa16c584b9
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2023-12-05 21:29:44
+# Regressor Bug: 1829026
+# File Overlap Count: 1
+# Description:
+#   Bug 1829026 - Update CanvasTranslator to work with DrawTargetWebgl. r=aosmond
+#   
+#   This adds the necessary infrastructure for CanvasTranslator to allocate DrawTargetWebgl
+#   instead of just allocating TextureData, and to use RemoteTextureMap to handle sending
+#   the DrawTargetWebgl frames to the compositor.
+# ==============================================================================
+
+diff -r 773e7b31ac6e -r de6ddf5eb2a7 gfx/ipc/CanvasManagerChild.h
+--- a/gfx/ipc/CanvasManagerChild.h	Tue Dec 05 09:37:03 2023 +0000
++++ b/gfx/ipc/CanvasManagerChild.h	Tue Dec 05 09:37:03 2023 +0000
+@@ -48,6 +48,7 @@
+   bool IsCanvasActive() { return mActive; }
+   void EndCanvasTransaction();
+   void DeactivateCanvas();
++  void BlockCanvas();
+ 
+   RefPtr<layers::CanvasChild> GetCanvasChild();
+ 
+@@ -62,6 +63,7 @@
+   RefPtr<webgpu::WebGPUChild> mWebGPUChild;
+   const uint32_t mId;
+   bool mActive = true;
++  bool mBlocked = false;
+ 
+   static MOZ_THREAD_LOCAL(CanvasManagerChild*) sLocalManager;
+   static Atomic<uint32_t> sNextId;

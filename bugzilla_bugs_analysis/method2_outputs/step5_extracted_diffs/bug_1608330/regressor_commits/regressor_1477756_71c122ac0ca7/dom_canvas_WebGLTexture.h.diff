@@ -1,0 +1,116 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLTexture.h
+# Commit: 71c122ac0ca7
+# Full Hash: 71c122ac0ca73391866b1ef19f4f82bc2d28568b
+# Author: David Parks <davidp99@gmail.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Initial out-of-process WebGL implementation. r=mccr8,handyman
+#   
+#   Splits WebGLContext into ClientWebGLContext and HostWebGLContext.  The Client enables the JS-control of a WebGL context in a content procecss while the Host executes the WebGL graphics operations (via a WebGLContext that maintains much of the existing code) in the compositor process.  At this point, the cross-process behavior is disabled -- this series of patches is an incremental step toward that final goal.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D54018
+# ==============================================================================
+
+diff -r 5cbf5bb11c58 -r 71c122ac0ca7 dom/canvas/WebGLTexture.h
+--- a/dom/canvas/WebGLTexture.h	Wed Jan 08 21:52:03 2020 +0000
++++ b/dom/canvas/WebGLTexture.h	Wed Jan 08 22:19:14 2020 +0000
+@@ -97,8 +97,7 @@
+ 
+ // NOTE: When this class is switched to new DOM bindings, update the (then-slow)
+ // WrapObject calls in GetParameter and GetFramebufferAttachmentParameter.
+-class WebGLTexture final : public nsWrapperCache,
+-                           public WebGLRefCountedObject<WebGLTexture>,
++class WebGLTexture final : public WebGLRefCountedObject<WebGLTexture>,
+                            public LinkedListElement<WebGLTexture>,
+                            public CacheInvalidator {
+   // Friends
+@@ -166,8 +165,7 @@
+ 
+   ////////////////////////////////////
+ 
+-  NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(WebGLTexture)
+-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_CLASS(WebGLTexture)
++  NS_INLINE_DECL_REFCOUNTING(WebGLTexture)
+ 
+   WebGLTexture(WebGLContext* webgl, GLuint tex);
+ 
+@@ -175,11 +173,6 @@
+ 
+   TexTarget Target() const { return mTarget; }
+ 
+-  WebGLContext* GetParentObject() const { return mContext; }
+-
+-  virtual JSObject* WrapObject(JSContext* cx,
+-                               JS::Handle<JSObject*> givenProto) override;
+-
+  protected:
+   ~WebGLTexture() { DeleteOnce(); }
+ 
+@@ -188,7 +181,7 @@
+   // GL calls
+   bool BindTexture(TexTarget texTarget);
+   void GenerateMipmap();
+-  JS::Value GetTexParameter(TexTarget texTarget, GLenum pname);
++  MaybeWebGLVariant GetTexParameter(TexTarget texTarget, GLenum pname);
+   void TexParameter(TexTarget texTarget, GLenum pname, const FloatOrInt& param);
+ 
+   ////////////////////////////////////
+@@ -216,40 +209,44 @@
+  public:
+   void TexStorage(TexTarget target, GLsizei levels, GLenum sizedFormat,
+                   GLsizei width, GLsizei height, GLsizei depth);
++
+   void TexImage(TexImageTarget target, GLint level, GLenum internalFormat,
+                 GLsizei width, GLsizei height, GLsizei depth, GLint border,
+-                const webgl::PackingInfo& pi, const TexImageSource& src);
++                const webgl::PackingInfo& pi,
++                UniquePtr<webgl::TexUnpackBlob>&& src);
+   void TexSubImage(TexImageTarget target, GLint level, GLint xOffset,
+                    GLint yOffset, GLint zOffset, GLsizei width, GLsizei height,
+                    GLsizei depth, const webgl::PackingInfo& pi,
+-                   const TexImageSource& src);
++                   UniquePtr<webgl::TexUnpackBlob>&& src);
+ 
+  protected:
+   void TexImage(TexImageTarget target, GLint level, GLenum internalFormat,
+-                const webgl::PackingInfo& pi, const webgl::TexUnpackBlob* blob);
++                const webgl::PackingInfo& pi,
++                UniquePtr<webgl::TexUnpackBlob>&& blob);
++
+   void TexSubImage(TexImageTarget target, GLint level, GLint xOffset,
+                    GLint yOffset, GLint zOffset, const webgl::PackingInfo& pi,
+-                   const webgl::TexUnpackBlob* blob);
++                   UniquePtr<webgl::TexUnpackBlob>&& blob);
+ 
+  public:
+   void CompressedTexImage(TexImageTarget target, GLint level,
+                           GLenum internalFormat, GLsizei width, GLsizei height,
+                           GLsizei depth, GLint border,
+-                          const TexImageSource& src,
++                          UniquePtr<webgl::TexUnpackBytes>&& src,
+                           const Maybe<GLsizei>& expectedImageSize);
+   void CompressedTexSubImage(TexImageTarget target, GLint level, GLint xOffset,
+                              GLint yOffset, GLint zOffset, GLsizei width,
+                              GLsizei height, GLsizei depth,
+                              GLenum sizedUnpackFormat,
+-                             const TexImageSource& src,
++                             UniquePtr<webgl::TexUnpackBytes>&& src,
+                              const Maybe<GLsizei>& expectedImageSize);
+ 
+   void CopyTexImage2D(TexImageTarget target, GLint level, GLenum internalFormat,
+-                      GLint x, GLint y, GLsizei width, GLsizei height,
+-                      GLint border);
++                      GLint x, GLint y, uint32_t width, uint32_t height,
++                      uint32_t depth);
+   void CopyTexSubImage(TexImageTarget target, GLint level, GLint xOffset,
+                        GLint yOffset, GLint zOffset, GLint x, GLint y,
+-                       GLsizei width, GLsizei height);
++                       uint32_t width, uint32_t height, uint32_t depth);
+ 
+   ////////////////////////////////////
+ 

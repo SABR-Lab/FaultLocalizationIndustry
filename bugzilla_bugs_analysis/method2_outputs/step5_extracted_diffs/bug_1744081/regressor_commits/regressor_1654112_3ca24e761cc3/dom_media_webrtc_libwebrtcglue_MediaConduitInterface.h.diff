@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/MediaConduitInterface.h
+# Commit: 3ca24e761cc3
+# Full Hash: 3ca24e761cc31bbb71c659661874a995ef3d3db1
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 6
+# Description:
+#   Bug 1654112 - Remove WebrtcGmpPCHandleSetter and plumb pc handles explicitly. r=bwc
+#   
+#   With the libwebrtc update codecs will be created off-main.
+#   WebrtcGmpPCHandleSetter not only adds a lot of indirection, it is also
+#   main-thread-only. With this patch we can create gmp codecs on any thread.
+# ==============================================================================
+
+diff -r 1913c332695e -r 3ca24e761cc3 dom/media/webrtc/libwebrtcglue/MediaConduitInterface.h
+--- a/dom/media/webrtc/libwebrtcglue/MediaConduitInterface.h	Wed Feb 10 09:58:11 2021 +0100
++++ b/dom/media/webrtc/libwebrtcglue/MediaConduitInterface.h	Wed Feb 10 10:34:14 2021 +0100
+@@ -227,8 +227,6 @@
+ 
+   virtual bool HasCodecPluginID(uint64_t aPluginID) = 0;
+ 
+-  virtual void SetPCHandle(const std::string& aPCHandle) = 0;
+-
+   virtual MediaConduitErrorCode DeliverPacket(const void* data, int len) = 0;
+ 
+   virtual void DeleteStreams() = 0;
+@@ -415,7 +413,7 @@
+    */
+   static RefPtr<VideoSessionConduit> Create(
+       RefPtr<WebRtcCallWrapper> aCall,
+-      nsCOMPtr<nsISerialEventTarget> aStsThread);
++      nsCOMPtr<nsISerialEventTarget> aStsThread, std::string aPCHandle);
+ 
+   enum FrameRequestType {
+     FrameRequestNone,

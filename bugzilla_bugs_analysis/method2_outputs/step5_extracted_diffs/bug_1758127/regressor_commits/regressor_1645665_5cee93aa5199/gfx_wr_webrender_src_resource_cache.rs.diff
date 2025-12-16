@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/resource_cache.rs
+# Commit: 5cee93aa5199
+# Full Hash: 5cee93aa5199068b93a13eedd940bf1a3af57011
+# Author: Jamie Nicol <jnicol@mozilla.com>
+# Date: 2020-07-11 09:22:23
+# Regressor Bug: 1645665
+# File Overlap Count: 1
+# Description:
+#   Bug 1645665 - Calculate tight bounds for each sub-run of glyphs when batching. r=lsalzman
+#   
+#   When adding a text run to a batch, we split the text run in to contiguous
+#   runs of glyphs which can be batched together. For example, when a glyph is
+#   encountered mid-run with a different glyph format or that is cached in a
+# ==============================================================================
+
+diff -r c89ca61cdd43 -r 5cee93aa5199 gfx/wr/webrender/src/resource_cache.rs
+--- a/gfx/wr/webrender/src/resource_cache.rs	Wed Jul 08 21:45:55 2020 +0000
++++ b/gfx/wr/webrender/src/resource_cache.rs	Fri Jul 10 18:41:49 2020 +0000
+@@ -57,6 +57,9 @@
+ pub struct GlyphFetchResult {
+     pub index_in_text_run: i32,
+     pub uv_rect_address: GpuCacheAddress,
++    pub offset: DevicePoint,
++    pub size: DeviceIntSize,
++    pub scale: f32,
+ }
+ 
+ // These coordinates are always in texels.
+@@ -76,6 +79,7 @@
+     pub uv_rect_handle: GpuCacheHandle,
+     pub uv_rect: DeviceIntRect,
+     pub texture_layer: i32,
++    pub user_data: [f32; 3],
+ }
+ 
+ impl CacheItem {
+@@ -85,6 +89,7 @@
+             uv_rect_handle: GpuCacheHandle::new(),
+             uv_rect: DeviceIntRect::zero(),
+             texture_layer: 0,
++            user_data: [0.0, 0.0, 0.0],
+         }
+     }
+ }
+@@ -1031,6 +1036,9 @@
+             fetch_buffer.push(GlyphFetchResult {
+                 index_in_text_run: loop_index as i32,
+                 uv_rect_address: gpu_cache.get_address(&cache_item.uv_rect_handle),
++                offset: DevicePoint::new(cache_item.user_data[0], cache_item.user_data[1]),
++                size: cache_item.uv_rect.size,
++                scale: cache_item.user_data[2],
+             });
+         }
+ 

@@ -1,0 +1,68 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webcodecs/VideoDecoder.h
+# Commit: 23bc44bf238c
+# Full Hash: 23bc44bf238c5258bc2bf8712930f64c1c52ce64
+# Author: Chun-Min Chang <chun.m.chang@gmail.com>
+# Date: 2023-06-30 04:06:43
+# Regressor Bug: 1831451
+# File Overlap Count: 1
+# Description:
+#   Bug 1831451 - Implement VideoDecoder::Constructor r=padenot
+#   
+#   Depends on D158816
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D161355
+# ==============================================================================
+
+diff -r 02cb31bfdc0f -r 23bc44bf238c dom/media/webcodecs/VideoDecoder.h
+--- a/dom/media/webcodecs/VideoDecoder.h	Thu Jun 29 22:33:11 2023 +0000
++++ b/dom/media/webcodecs/VideoDecoder.h	Thu Jun 29 22:33:11 2023 +0000
+@@ -24,6 +24,8 @@
+ class EventHandlerNonNull;
+ class GlobalObject;
+ class Promise;
++class VideoFrameOutputCallback;
++class WebCodecsErrorCallback;
+ enum class CodecState : uint8_t;
+ struct VideoDecoderConfig;
+ struct VideoDecoderInit;
+@@ -39,17 +41,19 @@
+   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(VideoDecoder, DOMEventTargetHelper)
+ 
+  public:
+-  VideoDecoder() = default;
++  VideoDecoder(nsIGlobalObject* aParent,
++               RefPtr<WebCodecsErrorCallback>&& aErrorCallback,
++               RefPtr<VideoFrameOutputCallback>&& aOutputCallback);
+ 
+  protected:
+-  ~VideoDecoder() = default;
++  ~VideoDecoder();
+ 
+  public:
+   JSObject* WrapObject(JSContext* aCx,
+                        JS::Handle<JSObject*> aGivenProto) override;
+ 
+   static already_AddRefed<VideoDecoder> Constructor(
+-      const GlobalObject& global, const VideoDecoderInit& init,
++      const GlobalObject& aGlobal, const VideoDecoderInit& aInit,
+       ErrorResult& aRv);
+ 
+   CodecState State() const;
+@@ -73,6 +77,14 @@
+   static already_AddRefed<Promise> IsConfigSupported(
+       const GlobalObject& aGlobal, const VideoDecoderConfig& aConfig,
+       ErrorResult& aRv);
++
++ private:
++  // VideoDecoder can run on either main thread or worker thread.
++  void AssertIsOnOwningThread() const { NS_ASSERT_OWNINGTHREAD(VideoDecoder); }
++
++  // Constant in practice, only set in ::Constructor.
++  RefPtr<WebCodecsErrorCallback> mErrorCallback;
++  RefPtr<VideoFrameOutputCallback> mOutputCallback;
+ };
+ 
+ }  // namespace mozilla::dom

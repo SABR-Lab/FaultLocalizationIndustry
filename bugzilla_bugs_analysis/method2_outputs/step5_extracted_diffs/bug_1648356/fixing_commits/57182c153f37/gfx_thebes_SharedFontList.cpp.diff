@@ -1,0 +1,31 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/SharedFontList.cpp
+# Commit: 57182c153f37
+# Full Hash: 57182c153f37876c89bfc36f5821031ce4d3b01f
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2020-06-27 09:38:32
+# Description:
+#   Bug 1648356 - Don't crash the parent process we fail to share font-list blocks while launching a child; the content process will safely handle this by requesting blocks as needed. r=jwatt
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D81338
+# ==============================================================================
+
+diff -r fec02fef5e73 -r 57182c153f37 gfx/thebes/SharedFontList.cpp
+--- a/gfx/thebes/SharedFontList.cpp	Fri Jun 26 21:19:17 2020 +0000
++++ b/gfx/thebes/SharedFontList.cpp	Fri Jun 26 21:25:25 2020 +0000
+@@ -615,7 +615,12 @@
+     base::SharedMemoryHandle* handle =
+         aBlocks->AppendElement(base::SharedMemory::NULLHandle());
+     if (!shmem->ShareToProcess(aPid, handle)) {
+-      MOZ_CRASH("failed to share block");
++      // If something went wrong here, we just bail out; the child will need to
++      // request the blocks as needed, at some performance cost. (Although in
++      // practice this may mean resources are so constrained the child process
++      // isn't really going to work at all. But that's not our problem here.)
++      aBlocks->Clear();
++      return;
+     }
+   }
+ }

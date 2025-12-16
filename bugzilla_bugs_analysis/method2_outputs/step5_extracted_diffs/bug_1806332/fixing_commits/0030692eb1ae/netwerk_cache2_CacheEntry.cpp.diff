@@ -1,0 +1,38 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: netwerk/cache2/CacheEntry.cpp
+# Commit: 0030692eb1ae
+# Full Hash: 0030692eb1aea0f8a52cb3b7ef5c360eb282fd2b
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2022-12-21 21:21:23
+# Description:
+#   Bug 1806332 - Dispatch CacheOutputCloseListener to main thread when already there, r=kershaw,necko-reviewers
+#   
+#   This should avoid the crash caused by the CacheOutputCloseListener being
+#   fired on the main thread too late during shutdown by keeping the
+#   previous behaviour when on the main thread.
+# ==============================================================================
+
+diff -r 903719ec824e -r 0030692eb1ae netwerk/cache2/CacheEntry.cpp
+--- a/netwerk/cache2/CacheEntry.cpp	Tue Dec 20 20:17:33 2022 +0000
++++ b/netwerk/cache2/CacheEntry.cpp	Tue Dec 20 20:18:46 2022 +0000
+@@ -1888,6 +1888,18 @@
+   // We need this class and to redispatch since this callback is invoked
+   // under the file's lock and to do the job we need to enter the entry's
+   // lock too.  That would lead to potential deadlocks.
++
++  if (NS_IsMainThread()) {
++    // If we're already on the main thread, dispatch to the main thread instead
++    // of the sts. Always dispatching to the sts can cause problems late in
++    // shutdown, when threadpools may no longer be available (bug 1806332).
++    //
++    // This may also avoid some unnecessary thread-hops when invoking callbacks,
++    // which can require that they be called on the main thread.
++    MOZ_ALWAYS_SUCCEEDS(NS_DispatchToMainThread(do_AddRef(this)));
++    return;
++  }
++
+   nsCOMPtr<nsIEventTarget> sts =
+       do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
+   MOZ_DIAGNOSTIC_ASSERT(sts);

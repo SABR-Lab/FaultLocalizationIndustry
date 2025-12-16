@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/MIROps.yaml
+# Commit: b037127d38f3
+# Full Hash: b037127d38f3b0001c11ea8130bf8c7f85f8514b
+# Author: André Bargull <andre.bargull@gmail.com>
+# Date: 2022-04-21 15:23:18
+# Regressor Bug: 1765397
+# File Overlap Count: 1
+# Description:
+#   Bug 1765397 - Part 3: Scalar replace ArgumentsSlice on frame arguments. r=iain
+#   
+#   Adds support to scalar replace `MArgumentsSlice` for frame arguments. The next
+#   patch will add support for inlined arguments.
+#   
+# ==============================================================================
+
+diff -r aeb3d90e0434 -r b037127d38f3 js/src/jit/MIROps.yaml
+--- a/js/src/jit/MIROps.yaml	Thu Apr 21 08:45:45 2022 +0000
++++ b/js/src/jit/MIROps.yaml	Thu Apr 21 08:45:45 2022 +0000
+@@ -1235,6 +1235,28 @@
+   result_type: Object
+   possibly_calls: true
+ 
++# Array.prototype.slice on an arguments object.
++- name: FrameArgumentsSlice
++  operands:
++    begin: Int32
++    count: Int32
++  arguments:
++    templateObj: JSObject*
++    initialHeap: gc::InitialHeap
++  result_type: Object
++  alias_set: none
++  possibly_calls: true
++
++- name: NormalizeSliceTerm
++  operands:
++    value: Int32
++    length: Int32
++  result_type: Int32
++  movable: true
++  congruent_to: if_operands_equal
++  alias_set: none
++  folds_to: custom
++
+ # MArrayJoin doesn't override |getAliasSet()|, because Array.prototype.join
+ # might coerce the elements of the Array to strings. This coercion might
+ # cause the evaluation of JavaScript code.

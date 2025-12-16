@@ -1,0 +1,72 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/CompositorBridgeParent.cpp
+# Commit: f37913e7cb92
+# Full Hash: f37913e7cb9295617b7e5a7ac5f462f29df583b4
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2021-08-18 15:53:06
+# Regressor Bug: 1726063
+# File Overlap Count: 1
+# Description:
+#   Bug 1726063 - Remove support for non-WR compositor initialization. r=jrmuizel,aosmond
+#   
+#   Depends on D122796
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D122798
+# ==============================================================================
+
+diff -r 7398bc391379 -r f37913e7cb92 gfx/layers/ipc/CompositorBridgeParent.cpp
+--- a/gfx/layers/ipc/CompositorBridgeParent.cpp	Tue Aug 17 23:19:44 2021 +0000
++++ b/gfx/layers/ipc/CompositorBridgeParent.cpp	Tue Aug 17 23:19:44 2021 +0000
+@@ -383,16 +383,13 @@
+     MOZ_ASSERT(!mApzcTreeManager);
+     MOZ_ASSERT(!mApzSampler);
+     MOZ_ASSERT(!mApzUpdater);
+-    mApzcTreeManager =
+-        new APZCTreeManager(mRootLayerTreeID, mOptions.UseWebRender());
+-    mApzSampler = new APZSampler(mApzcTreeManager, mOptions.UseWebRender());
+-    mApzUpdater = new APZUpdater(mApzcTreeManager, mOptions.UseWebRender());
++    mApzcTreeManager = new APZCTreeManager(mRootLayerTreeID, true);
++    mApzSampler = new APZSampler(mApzcTreeManager, true);
++    mApzUpdater = new APZUpdater(mApzcTreeManager, true);
+   }
+ 
+-  if (mOptions.UseWebRender()) {
+-    CompositorAnimationStorage* animationStorage = GetAnimationStorage();
+-    mOMTASampler = new OMTASampler(animationStorage, mRootLayerTreeID);
+-  }
++  CompositorAnimationStorage* animationStorage = GetAnimationStorage();
++  mOMTASampler = new OMTASampler(animationStorage, mRootLayerTreeID);
+ 
+   mPaused = mOptions.InitiallyPaused();
+ 
+@@ -410,10 +407,6 @@
+   }
+ 
+   LayerScope::SetPixelScale(mScale.scale);
+-
+-  if (!mOptions.UseWebRender()) {
+-    mCompositorScheduler = new CompositorVsyncScheduler(this, mWidget);
+-  }
+ }
+ 
+ LayersId CompositorBridgeParent::RootLayerTreeId() {
+@@ -733,8 +726,7 @@
+ 
+   MonitorAutoLock lock(mResumeCompositionMonitor);
+ 
+-  bool resumed =
+-      mOptions.UseWebRender() ? mWrBridge->Resume() : mCompositor->Resume();
++  bool resumed = mWrBridge->Resume();
+   if (!resumed) {
+ #ifdef MOZ_WIDGET_ANDROID
+     // We can't get a surface. This could be because the activity changed
+@@ -1637,7 +1629,6 @@
+     return CompositorOptionsChangeKind::eSupported;
+   }
+   if (aOld.UseAdvancedLayers() == aNew.UseAdvancedLayers() &&
+-      aOld.UseWebRender() == aNew.UseWebRender() &&
+       aOld.InitiallyPaused() == aNew.InitiallyPaused()) {
+     // Only APZ enablement changed.
+     return CompositorOptionsChangeKind::eBestEffort;

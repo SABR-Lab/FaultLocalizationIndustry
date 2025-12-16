@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/ObjectGroup.cpp
+# Commit: 11fc8f557a2a
+# Full Hash: 11fc8f557a2a7cf3c89e7c1396316aabd9725778
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2021-03-06 09:33:16
+# Regressor Bug: 1689413
+# File Overlap Count: 1
+# Description:
+#   Bug 1689413 part 6 - Move Realm* from ObjectGroup to BaseShape. r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D106976
+# ==============================================================================
+
+diff -r 9bfa6023a553 -r 11fc8f557a2a js/src/vm/ObjectGroup.cpp
+--- a/js/src/vm/ObjectGroup.cpp	Sat Mar 06 01:05:20 2021 +0000
++++ b/js/src/vm/ObjectGroup.cpp	Sat Mar 06 01:05:21 2021 +0000
+@@ -47,22 +47,15 @@
+   if (!group) {
+     return nullptr;
+   }
+-  new (group) ObjectGroup(proto, cx->realm());
++  new (group) ObjectGroup(proto);
+ 
+   return group;
+ }
+ 
+-ObjectGroup::ObjectGroup(TaggedProto proto, JS::Realm* realm)
+-    : TenuredCellWithNonGCPointer(nullptr), proto_(proto), realm_(realm) {
++ObjectGroup::ObjectGroup(TaggedProto proto)
++    : TenuredCellWithNonGCPointer(nullptr), proto_(proto) {
+   /* Windows may not appear on prototype chains. */
+   MOZ_ASSERT_IF(proto.isObject(), !IsWindow(proto.toObject()));
+-
+-#ifdef DEBUG
+-  GlobalObject* global = realm->unsafeUnbarrieredMaybeGlobal();
+-  if (global) {
+-    AssertTargetIsNotGray(global);
+-  }
+-#endif
+ }
+ 
+ void ObjectGroup::setProtoUnchecked(TaggedProto proto) {

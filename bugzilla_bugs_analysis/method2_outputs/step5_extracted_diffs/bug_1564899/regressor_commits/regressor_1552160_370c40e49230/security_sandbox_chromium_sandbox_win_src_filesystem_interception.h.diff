@@ -1,0 +1,108 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/sandbox/win/src/filesystem_interception.h
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 2
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/sandbox/win/src/filesystem_interception.h
+--- a/security/sandbox/chromium/sandbox/win/src/filesystem_interception.h	Wed Jun 12 21:55:59 2019 +1200
++++ b/security/sandbox/chromium/sandbox/win/src/filesystem_interception.h	Wed Jun 12 11:10:48 2019 +0100
+@@ -2,36 +2,47 @@
+ // Use of this source code is governed by a BSD-style license that can be
+ // found in the LICENSE file.
+ 
++#ifndef SANDBOX_WIN_SRC_FILESYSTEM_INTERCEPTION_H_
++#define SANDBOX_WIN_SRC_FILESYSTEM_INTERCEPTION_H_
++
+ #include "sandbox/win/src/nt_internals.h"
+ #include "sandbox/win/src/sandbox_types.h"
+ 
+-#ifndef SANDBOX_SRC_FILESYSTEM_INTERCEPTION_H__
+-#define SANDBOX_SRC_FILESYSTEM_INTERCEPTION_H__
+-
+ namespace sandbox {
+ 
+ extern "C" {
+ 
+ // Interception of NtCreateFile on the child process.
+-SANDBOX_INTERCEPT NTSTATUS WINAPI TargetNtCreateFile(
+-    NtCreateFileFunction orig_CreateFile, PHANDLE file,
+-    ACCESS_MASK desired_access, POBJECT_ATTRIBUTES object_attributes,
+-    PIO_STATUS_BLOCK io_status, PLARGE_INTEGER allocation_size,
+-    ULONG file_attributes, ULONG sharing, ULONG disposition, ULONG options,
+-    PVOID ea_buffer, ULONG ea_length);
++SANDBOX_INTERCEPT NTSTATUS WINAPI
++TargetNtCreateFile(NtCreateFileFunction orig_CreateFile,
++                   PHANDLE file,
++                   ACCESS_MASK desired_access,
++                   POBJECT_ATTRIBUTES object_attributes,
++                   PIO_STATUS_BLOCK io_status,
++                   PLARGE_INTEGER allocation_size,
++                   ULONG file_attributes,
++                   ULONG sharing,
++                   ULONG disposition,
++                   ULONG options,
++                   PVOID ea_buffer,
++                   ULONG ea_length);
+ 
+ // Interception of NtOpenFile on the child process.
+-SANDBOX_INTERCEPT NTSTATUS WINAPI TargetNtOpenFile(
+-    NtOpenFileFunction orig_OpenFile, PHANDLE file, ACCESS_MASK desired_access,
+-    POBJECT_ATTRIBUTES object_attributes, PIO_STATUS_BLOCK io_status,
+-    ULONG sharing, ULONG options);
++SANDBOX_INTERCEPT NTSTATUS WINAPI
++TargetNtOpenFile(NtOpenFileFunction orig_OpenFile,
++                 PHANDLE file,
++                 ACCESS_MASK desired_access,
++                 POBJECT_ATTRIBUTES object_attributes,
++                 PIO_STATUS_BLOCK io_status,
++                 ULONG sharing,
++                 ULONG options);
+ 
+ // Interception of NtQueryAtttributesFile on the child process.
+ // It should never be called directly.
+-SANDBOX_INTERCEPT NTSTATUS WINAPI TargetNtQueryAttributesFile(
+-    NtQueryAttributesFileFunction orig_QueryAttributes,
+-    POBJECT_ATTRIBUTES object_attributes,
+-    PFILE_BASIC_INFORMATION file_attributes);
++SANDBOX_INTERCEPT NTSTATUS WINAPI
++TargetNtQueryAttributesFile(NtQueryAttributesFileFunction orig_QueryAttributes,
++                            POBJECT_ATTRIBUTES object_attributes,
++                            PFILE_BASIC_INFORMATION file_attributes);
+ 
+ // Interception of NtQueryFullAtttributesFile on the child process.
+ // It should never be called directly.
+@@ -41,13 +52,16 @@
+     PFILE_NETWORK_OPEN_INFORMATION file_attributes);
+ 
+ // Interception of NtSetInformationFile on the child process.
+-SANDBOX_INTERCEPT NTSTATUS WINAPI TargetNtSetInformationFile(
+-    NtSetInformationFileFunction orig_SetInformationFile, HANDLE file,
+-    PIO_STATUS_BLOCK io_status, PVOID file_information, ULONG length,
+-    FILE_INFORMATION_CLASS file_information_class);
++SANDBOX_INTERCEPT NTSTATUS WINAPI
++TargetNtSetInformationFile(NtSetInformationFileFunction orig_SetInformationFile,
++                           HANDLE file,
++                           PIO_STATUS_BLOCK io_status,
++                           PVOID file_information,
++                           ULONG length,
++                           FILE_INFORMATION_CLASS file_information_class);
+ 
+ }  // extern "C"
+ 
+ }  // namespace sandbox
+ 
+-#endif  // SANDBOX_SRC_FILESYSTEM_INTERCEPTION_H__
++#endif  // SANDBOX_WIN_SRC_FILESYSTEM_INTERCEPTION_H_

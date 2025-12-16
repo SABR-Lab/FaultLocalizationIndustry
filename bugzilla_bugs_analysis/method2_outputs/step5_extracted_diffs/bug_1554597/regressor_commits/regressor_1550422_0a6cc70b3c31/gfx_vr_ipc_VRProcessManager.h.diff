@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/vr/ipc/VRProcessManager.h
+# Commit: 0a6cc70b3c31
+# Full Hash: 0a6cc70b3c31b6ce28a5fbbbdfa7a434955953c8
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2019-05-26 21:12:53
+# Regressor Bug: 1550422
+# File Overlap Count: 2
+# Description:
+#   Bug 1550422 - P9. Sync preferences in VR process when they change. r=daoshengmu
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D31017
+# ==============================================================================
+
+diff -r d4cbcf4f1900 -r 0a6cc70b3c31 gfx/vr/ipc/VRProcessManager.h
+--- a/gfx/vr/ipc/VRProcessManager.h	Sat May 25 10:12:45 2019 +0000
++++ b/gfx/vr/ipc/VRProcessManager.h	Sat May 25 10:12:40 2019 +0000
+@@ -53,6 +53,7 @@
+   bool CreateGPUVRManager(base::ProcessId aOtherProcess,
+                           mozilla::ipc::Endpoint<PVRGPUChild>* aOutEndpoint);
+   void OnXPCOMShutdown();
++  void OnPreferenceChange(const char16_t* aData);
+   void CleanShutdown();
+   void DestroyProcess();
+ 
+@@ -76,6 +77,10 @@
+   RefPtr<Observer> mObserver;
+   VRProcessParent* mProcess;
+   VRChild* mVRChild;
++  // Collects any pref changes that occur during process launch (after
++  // the initial map is passed in command-line arguments) to be sent
++  // when the process can receive IPC messages.
++  nsTArray<mozilla::dom::Pref> mQueuedPrefs;
+ };
+ 
+ }  // namespace gfx

@@ -1,0 +1,62 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/WindowSurfaceWayland.cpp
+# Commit: 2b20b560fe61
+# Full Hash: 2b20b560fe614c26fe779367c3323addaa55122a
+# Author: stransky <stransky@redhat.com>
+# Date: 2021-06-20 09:32:48
+# Description:
+#   Bug 1716796 [Wayland] Poll mozcontainer remap state, r=rmader
+#   
+#   - Poll mozcontainer remap state by moz_container_wayland_remapped()
+#   - Remove WindowSurface::Reset()
+#   - Remove moz_container_wayland_set_window_surface() as it adds extra ref at WindowSurface() and causes cyclic dependency.
+# ==============================================================================
+
+diff -r 668013f3e201 -r 2b20b560fe61 widget/gtk/WindowSurfaceWayland.cpp
+--- a/widget/gtk/WindowSurfaceWayland.cpp	Sat Jun 19 07:06:41 2021 +0300
++++ b/widget/gtk/WindowSurfaceWayland.cpp	Sat Jun 19 09:33:19 2021 +0000
+@@ -177,8 +177,6 @@
+   if (currentDesktop && strstr(currentDesktop, "KDE") != nullptr) {
+     mSmoothRendering = CACHE_NONE;
+   }
+-  MozContainer* container = mWindow->GetMozContainer();
+-  moz_container_wayland_set_window_surface(container, this);
+ }
+ 
+ WindowSurfaceWayland::~WindowSurfaceWayland() {
+@@ -186,9 +184,6 @@
+ 
+   MutexAutoLock lock(mSurfaceLock);
+ 
+-  MozContainer* container = mWindow->GetMozContainer();
+-  moz_container_wayland_set_window_surface(container, nullptr);
+-
+   if (mSurfaceReadyTimerID) {
+     g_source_remove(mSurfaceReadyTimerID);
+     mSurfaceReadyTimerID = 0;
+@@ -691,6 +686,12 @@
+   wl_proxy_set_queue((struct wl_proxy*)waylandSurface,
+                      mWaylandDisplay->GetEventQueue());
+ 
++  // We can't use frame callbacks from previous surfaces
++  if (moz_container_wayland_get_and_reset_remapped(container)) {
++    mLastCommittedSurfaceID = -1;
++    g_clear_pointer(&mFrameCallback, wl_callback_destroy);
++  }
++
+   // We have an active frame callback request so handle it.
+   if (mFrameCallback) {
+     int waylandSurfaceID =
+@@ -813,10 +814,4 @@
+   surface->BufferReleaseCallbackHandler(aBuffer);
+ }
+ 
+-void WindowSurfaceWayland::Reset() {
+-  LOGWAYLAND(("WindowSurfaceWayland::Reset [%p]\n", this));
+-  // No need to lock WindowSurfaceWayland here.
+-  mLastCommittedSurfaceID = -1;
+-}
+-
+ }  // namespace mozilla::widget

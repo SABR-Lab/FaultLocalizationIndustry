@@ -1,0 +1,35 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/BrowsingContext.cpp
+# Commit: d0acf898fb0d
+# Full Hash: d0acf898fb0d00fac535141d777659ef6702b710
+# Author: Kris Maglione <maglione.k@gmail.com>
+# Date: 2019-09-12 21:52:31
+# Description:
+#   Bug 1574593: Silently ignore load attempt on/from discarded BrowsingContext. r=nika
+#   
+#   The (non-normative) window.open spec does not specify what should happen when
+#   window.open is called on a window with a null/discarded browsing context, but
+#   in general the lookup and creation rules do not make sense when the window has
+# ==============================================================================
+
+diff -r d54701f32f28 -r d0acf898fb0d docshell/base/BrowsingContext.cpp
+--- a/docshell/base/BrowsingContext.cpp	Thu Sep 12 14:35:46 2019 +0300
++++ b/docshell/base/BrowsingContext.cpp	Thu Sep 12 11:37:01 2019 +0000
+@@ -792,8 +792,13 @@
+ 
+ nsresult BrowsingContext::LoadURI(BrowsingContext* aAccessor,
+                                   nsDocShellLoadState* aLoadState) {
+-  MOZ_DIAGNOSTIC_ASSERT(!IsDiscarded());
+-  MOZ_DIAGNOSTIC_ASSERT(!aAccessor || !aAccessor->IsDiscarded());
++  // Per spec, most load attempts are silently ignored when a BrowsingContext is
++  // null (which in our code corresponds to discarded), so we simply fail
++  // silently in those cases. Regardless, we cannot trigger loads in/from
++  // discarded BrowsingContexts via IPC, so we need to abort in any case.
++  if (IsDiscarded() || (aAccessor && aAccessor->IsDiscarded())) {
++    return NS_OK;
++  }
+ 
+   if (mDocShell) {
+     return mDocShell->LoadURI(aLoadState);

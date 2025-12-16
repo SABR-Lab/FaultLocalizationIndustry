@@ -1,0 +1,92 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/WorkerDebuggerManager.cpp
+# Commit: 9e22fbf8ab8f
+# Full Hash: 9e22fbf8ab8f828b6e500a6e4994accc42c5e819
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2025-04-09 04:12:49
+# Regressor Bug: 1899503
+# File Overlap Count: 2
+# Description:
+#   Bug 1899503 - P1 New top-level IPC PRemoteWorkerDebuggerManager and PRemoteWorkerDebugger to support nsIWorkerDebugger interface for Workers in the parent process. r=asuth
+#   
+#   New IPC PRemoteWorkerDebuggerManager and PRemoteWorkerDebugger are introduced to support remote debugger of Workers on the parent thread.
+#   
+#   PRemoteWorkerDebuggerManager is IPC between the parent process main thread and the content process WorkerLauncher thread.
+# ==============================================================================
+
+diff -r a5880ebdc3d7 -r 9e22fbf8ab8f dom/workers/WorkerDebuggerManager.cpp
+--- a/dom/workers/WorkerDebuggerManager.cpp	Tue Apr 08 09:20:53 2025 +0000
++++ b/dom/workers/WorkerDebuggerManager.cpp	Tue Apr 08 09:43:33 2025 +0000
+@@ -71,12 +71,12 @@
+ } /* anonymous namespace */
+ 
+ class WorkerDebuggerEnumerator final : public nsSimpleEnumerator {
+-  nsTArray<RefPtr<WorkerDebugger>> mDebuggers;
++  nsTArray<nsCOMPtr<nsIWorkerDebugger>> mDebuggers;
+   uint32_t mIndex;
+ 
+  public:
+   explicit WorkerDebuggerEnumerator(
+-      const nsTArray<RefPtr<WorkerDebugger>>& aDebuggers)
++      const nsTArray<nsCOMPtr<nsIWorkerDebugger>>& aDebuggers)
+       : mDebuggers(aDebuggers.Clone()), mIndex(0) {}
+ 
+   NS_DECL_NSISIMPLEENUMERATOR
+@@ -269,6 +269,30 @@
+   }
+ }
+ 
++void WorkerDebuggerManager::RegisterDebugger(
++    nsIWorkerDebugger* aRemoteWorkerDebugger) {
++  MOZ_ASSERT_DEBUG_OR_FUZZING(XRE_IsParentProcess());
++  AssertIsOnMainThread();
++
++  mDebuggers.AppendElement(aRemoteWorkerDebugger);
++
++  for (const auto& listener : CloneListeners()) {
++    listener->OnRegister(aRemoteWorkerDebugger);
++  }
++}
++
++void WorkerDebuggerManager::UnregisterDebugger(
++    nsIWorkerDebugger* aRemoteWorkerDebugger) {
++  MOZ_ASSERT_DEBUG_OR_FUZZING(XRE_IsParentProcess());
++  AssertIsOnMainThread();
++
++  mDebuggers.RemoveElement(aRemoteWorkerDebugger);
++
++  for (const auto& listener : CloneListeners()) {
++    listener->OnUnregister(aRemoteWorkerDebugger);
++  }
++}
++
+ void WorkerDebuggerManager::RegisterDebuggerMainThread(
+     WorkerPrivate* aWorkerPrivate, bool aNotifyListeners) {
+   AssertIsOnMainThread();
+@@ -316,10 +340,23 @@
+   return mDebuggers.Length();
+ }
+ 
+-WorkerDebugger* WorkerDebuggerManager::GetDebuggerAt(uint32_t aIndex) const {
++nsIWorkerDebugger* WorkerDebuggerManager::GetDebuggerAt(uint32_t aIndex) const {
+   return mDebuggers.SafeElementAt(aIndex, nullptr);
+ }
+ 
++nsCOMPtr<nsIWorkerDebugger> WorkerDebuggerManager::GetDebuggerById(
++    const nsString& aWorkerId) {
++  MOZ_ASSERT_DEBUG_OR_FUZZING(!aWorkerId.IsEmpty());
++  for (auto debugger : mDebuggers) {
++    nsAutoString workerId;
++    debugger->GetId(workerId);
++    if (workerId.Equals(aWorkerId)) {
++      return debugger;
++    }
++  }
++  return nullptr;
++}
++
+ nsTArray<nsCOMPtr<nsIWorkerDebuggerManagerListener>>
+ WorkerDebuggerManager::CloneListeners() {
+   MutexAutoLock lock(mMutex);

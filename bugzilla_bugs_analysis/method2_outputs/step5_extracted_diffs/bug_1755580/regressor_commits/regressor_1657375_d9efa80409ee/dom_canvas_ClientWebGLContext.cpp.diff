@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/ClientWebGLContext.cpp
+# Commit: d9efa80409ee
+# Full Hash: d9efa80409eed34d06fb989e6b5ebea0f58bd60f
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2021-11-10 09:24:53
+# Regressor Bug: 1657375
+# File Overlap Count: 1
+# Description:
+#   Bug 1657375 - Cache the principal hash value for OffscreenCanvas on worker threads. r=dom-worker-reviewers,asuth,smaug
+#   
+#   We cannot access ClientWebGLContext::mCanvasElement or its associated
+#   nsIPrincipal off the main thread. We use the hash value of the principal
+#   to limit how many WebGL contexts a single domain can create. We can
+# ==============================================================================
+
+diff -r 2f9159719ec5 -r d9efa80409ee dom/canvas/ClientWebGLContext.cpp
+--- a/dom/canvas/ClientWebGLContext.cpp	Tue Nov 09 20:16:04 2021 +0000
++++ b/dom/canvas/ClientWebGLContext.cpp	Tue Nov 09 20:16:05 2021 +0000
+@@ -587,9 +587,7 @@
+     }
+ 
+     const bool resistFingerprinting = ShouldResistFingerprinting();
+-
+-    const auto& principal = GetCanvas()->NodePrincipal();
+-    const auto principalKey = principal->GetHashValue();
++    const auto principalKey = GetPrincipalHashValue();
+     const auto initDesc = webgl::InitContextDesc{
+         mIsWebGL2, resistFingerprinting, requestedSize, options, principalKey};
+ 
+@@ -5288,6 +5286,16 @@
+   return nsContentUtils::ShouldResistFingerprinting();
+ }
+ 
++uint32_t ClientWebGLContext::GetPrincipalHashValue() const {
++  if (mCanvasElement) {
++    return mCanvasElement->NodePrincipal()->GetHashValue();
++  }
++  if (mOffscreenCanvas) {
++    return mOffscreenCanvas->GetOwnerGlobal()->GetPrincipalHashValue();
++  }
++  return 0;
++}
++
+ // ---------------------------
+ 
+ void ClientWebGLContext::EnqueueError_ArgEnum(const char* const argName,

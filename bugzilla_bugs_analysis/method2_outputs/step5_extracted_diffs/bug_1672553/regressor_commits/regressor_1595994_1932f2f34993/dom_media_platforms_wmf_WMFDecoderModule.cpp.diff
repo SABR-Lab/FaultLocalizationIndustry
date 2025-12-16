@@ -1,0 +1,73 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/platforms/wmf/WMFDecoderModule.cpp
+# Commit: 1932f2f34993
+# Full Hash: 1932f2f3499302f712bb680096d51478e53c99ed
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2020-10-21 09:51:28
+# Regressor Bug: 1595994
+# File Overlap Count: 1
+# Description:
+#   Bug 1595994 - P6: Change Supports to take SupportDecoderParams. r=kamidphish
+#   
+#   This is a subset of the parameters passed via CreateDecoderParams and is so
+#   Supports() calls have access to KnowsCompositor and Options when determining
+#   if decoding is supported.
+# ==============================================================================
+
+diff -r 0606794a9e8c -r 1932f2f34993 dom/media/platforms/wmf/WMFDecoderModule.cpp
+--- a/dom/media/platforms/wmf/WMFDecoderModule.cpp	Tue Oct 20 23:24:48 2020 +0000
++++ b/dom/media/platforms/wmf/WMFDecoderModule.cpp	Tue Oct 20 23:26:25 2020 +0000
+@@ -224,20 +224,21 @@
+   if (!trackInfo) {
+     return false;
+   }
+-  return Supports(*trackInfo, aDiagnostics);
++  return Supports(SupportDecoderParams(*trackInfo), aDiagnostics);
+ }
+ 
+-bool WMFDecoderModule::Supports(const TrackInfo& aTrackInfo,
++bool WMFDecoderModule::Supports(const SupportDecoderParams& aParams,
+                                 DecoderDoctorDiagnostics* aDiagnostics) const {
+-  const auto videoInfo = aTrackInfo.GetAsVideoInfo();
++  const auto& trackInfo = aParams.mConfig;
++  const auto* videoInfo = trackInfo.GetAsVideoInfo();
+   if (videoInfo && !SupportsColorDepth(videoInfo->mColorDepth, aDiagnostics)) {
+     return false;
+   }
+ 
+-  if ((aTrackInfo.mMimeType.EqualsLiteral("audio/mp4a-latm") ||
+-       aTrackInfo.mMimeType.EqualsLiteral("audio/mp4")) &&
++  if ((trackInfo.mMimeType.EqualsLiteral("audio/mp4a-latm") ||
++       trackInfo.mMimeType.EqualsLiteral("audio/mp4")) &&
+       WMFDecoderModule::HasAAC()) {
+-    const auto audioInfo = aTrackInfo.GetAsAudioInfo();
++    const auto audioInfo = trackInfo.GetAsAudioInfo();
+     if (audioInfo && audioInfo->mRate > 0) {
+       // Supported sampling rates per:
+       // https://msdn.microsoft.com/en-us/library/windows/desktop/dd742784(v=vs.85).aspx
+@@ -249,19 +250,19 @@
+     }
+     return true;
+   }
+-  if (MP4Decoder::IsH264(aTrackInfo.mMimeType) && WMFDecoderModule::HasH264()) {
++  if (MP4Decoder::IsH264(trackInfo.mMimeType) && WMFDecoderModule::HasH264()) {
+     return true;
+   }
+-  if (aTrackInfo.mMimeType.EqualsLiteral("audio/mpeg") &&
++  if (trackInfo.mMimeType.EqualsLiteral("audio/mpeg") &&
+       !StaticPrefs::media_ffvpx_mp3_enabled() &&
+       CanCreateWMFDecoder<CLSID_CMP3DecMediaObject>()) {
+     return true;
+   }
+   if (sUsableVPXMFT) {
+     static const uint32_t VP8_USABLE_BUILD = 16287;
+-    if ((VPXDecoder::IsVP8(aTrackInfo.mMimeType) &&
++    if ((VPXDecoder::IsVP8(trackInfo.mMimeType) &&
+          IsWindowsBuildOrLater(VP8_USABLE_BUILD)) ||
+-        VPXDecoder::IsVP9(aTrackInfo.mMimeType)) {
++        VPXDecoder::IsVP9(trackInfo.mMimeType)) {
+       return CanCreateWMFDecoder<CLSID_WebmMfVpxDec>();
+     }
+   }

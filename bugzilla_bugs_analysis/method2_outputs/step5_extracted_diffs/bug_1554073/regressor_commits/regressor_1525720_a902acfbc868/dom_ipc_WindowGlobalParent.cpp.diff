@@ -1,0 +1,65 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/WindowGlobalParent.cpp
+# Commit: a902acfbc868
+# Full Hash: a902acfbc8680811e4538f8d27e78e4fe6ca55f2
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2019-05-23 15:55:11
+# Regressor Bug: 1525720
+# File Overlap Count: 1
+# Description:
+#   Bug 1525720, part 13 - Stop inheriting nsIRemoteTab interface in BrowserParent. r=nika
+#   
+#   This commit removes nsIRemoteTab as a parent class from BrowserParent,
+#   so that BrowserHost is the only concrete implementation of nsIRemoteTab.
+#   
+# ==============================================================================
+
+diff -r 50475885250c -r a902acfbc868 dom/ipc/WindowGlobalParent.cpp
+--- a/dom/ipc/WindowGlobalParent.cpp	Wed May 08 11:45:23 2019 -0500
++++ b/dom/ipc/WindowGlobalParent.cpp	Wed May 08 14:34:47 2019 -0500
+@@ -11,6 +11,7 @@
+ #include "mozilla/dom/BrowserBridgeParent.h"
+ #include "mozilla/dom/CanonicalBrowsingContext.h"
+ #include "mozilla/dom/ContentParent.h"
++#include "mozilla/dom/BrowserHost.h"
+ #include "mozilla/dom/BrowserParent.h"
+ #include "mozilla/dom/WindowGlobalActorsBinding.h"
+ #include "mozilla/dom/WindowGlobalChild.h"
+@@ -143,7 +144,7 @@
+   return do_AddRef(static_cast<WindowGlobalChild*>(otherSide));
+ }
+ 
+-already_AddRefed<BrowserParent> WindowGlobalParent::GetRemoteTab() {
++already_AddRefed<BrowserParent> WindowGlobalParent::GetBrowserParent() {
+   if (IsInProcess() || mIPCClosed) {
+     return nullptr;
+   }
+@@ -164,7 +165,7 @@
+ 
+ IPCResult WindowGlobalParent::RecvDestroy() {
+   if (!mIPCClosed) {
+-    RefPtr<BrowserParent> browserParent = GetRemoteTab();
++    RefPtr<BrowserParent> browserParent = GetBrowserParent();
+     if (!browserParent || !browserParent->IsDestroyed()) {
+       // Make a copy so that we can avoid potential iterator invalidation when
+       // calling the user-provided Destroy() methods.
+@@ -200,7 +201,7 @@
+ }
+ 
+ const nsAString& WindowGlobalParent::GetRemoteType() {
+-  if (RefPtr<BrowserParent> browserParent = GetRemoteTab()) {
++  if (RefPtr<BrowserParent> browserParent = GetBrowserParent()) {
+     return browserParent->Manager()->GetRemoteType();
+   }
+ 
+@@ -253,7 +254,7 @@
+ already_AddRefed<Promise> WindowGlobalParent::ChangeFrameRemoteness(
+     dom::BrowsingContext* aBc, const nsAString& aRemoteType,
+     uint64_t aPendingSwitchId, ErrorResult& aRv) {
+-  RefPtr<BrowserParent> browserParent = GetRemoteTab();
++  RefPtr<BrowserParent> browserParent = GetBrowserParent();
+   if (NS_WARN_IF(!browserParent)) {
+     aRv.Throw(NS_ERROR_FAILURE);
+     return nullptr;

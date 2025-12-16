@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fetch/FetchDriver.cpp
+# Commit: 7f9255188d00
+# Full Hash: 7f9255188d00c8f0cb4338d4604602111378de59
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2022-02-27 09:40:54
+# Regressor Bug: 1754365
+# File Overlap Count: 1
+# Description:
+#   Bug 1754365 - Getting PerformanceTimingData from channel for FetchService. r=dom-worker-reviewers,jesup
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D138249
+# ==============================================================================
+
+diff -r 3eecad934fc1 -r 7f9255188d00 dom/fetch/FetchDriver.cpp
+--- a/dom/fetch/FetchDriver.cpp	Sat Feb 26 23:24:47 2022 +0000
++++ b/dom/fetch/FetchDriver.cpp	Sun Feb 27 00:26:21 2022 +0000
+@@ -34,6 +34,7 @@
+ #include "mozilla/dom/BlobURLProtocolHandler.h"
+ #include "mozilla/dom/File.h"
+ #include "mozilla/dom/PerformanceStorage.h"
++#include "mozilla/dom/PerformanceTiming.h"
+ #include "mozilla/dom/UserActivation.h"
+ #include "mozilla/dom/WorkerCommon.h"
+ #include "mozilla/PreloaderBase.h"
+@@ -1545,6 +1546,23 @@
+   mController = aController;
+ }
+ 
++PerformanceTimingData* FetchDriver::GetPerformanceTimingData(
++    nsAString& aInitiatorType, nsAString& aEntryName) {
++  MOZ_ASSERT(XRE_IsParentProcess());
++  MOZ_ASSERT(mChannel);
++
++  nsCOMPtr<nsITimedChannel> timedChannel = do_QueryInterface(mChannel);
++  if (!timedChannel) {
++    return nullptr;
++  }
++  nsCOMPtr<nsIHttpChannel> httpChannel = do_QueryInterface(mChannel);
++  if (!httpChannel) {
++    return nullptr;
++  }
++  return dom::PerformanceTimingData::Create(timedChannel, httpChannel, 0,
++                                            aInitiatorType, aEntryName);
++}
++
+ void FetchDriver::SetRequestHeaders(nsIHttpChannel* aChannel,
+                                     bool aStripRequestBodyHeader) const {
+   MOZ_ASSERT(aChannel);

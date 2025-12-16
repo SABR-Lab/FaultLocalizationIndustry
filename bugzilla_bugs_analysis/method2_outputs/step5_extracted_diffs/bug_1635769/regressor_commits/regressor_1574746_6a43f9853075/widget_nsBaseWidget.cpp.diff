@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/nsBaseWidget.cpp
+# Commit: 6a43f9853075
+# Full Hash: 6a43f985307516ec1ae2d413a39cd6d813560b8b
+# Author: sotaro <sotaro.ikeda.g@gmail.com>
+# Date: 2020-05-06 09:37:16
+# Regressor Bug: 1574746
+# File Overlap Count: 1
+# Description:
+#   Bug 1574746 - Remove AllowWebRenderForThisWindow() r=nical
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D71440
+# ==============================================================================
+
+diff -r 74d50028caec -r 6a43f9853075 widget/nsBaseWidget.cpp
+--- a/widget/nsBaseWidget.cpp	Tue May 05 23:57:55 2020 +0000
++++ b/widget/nsBaseWidget.cpp	Tue May 05 23:44:36 2020 +0000
+@@ -823,12 +823,6 @@
+ }
+ 
+ bool nsBaseWidget::ComputeShouldAccelerate() {
+-  if (gfx::gfxVars::UseWebRender() && !AllowWebRenderForThisWindow()) {
+-    // If WebRender is enabled, non-WebRender widgets use the basic compositor
+-    // (at least for now), even though they would get an accelerated compositor
+-    // if WebRender wasn't enabled.
+-    return false;
+-  }
+   return gfx::gfxConfig::IsEnabled(gfx::Feature::HW_COMPOSITING) &&
+          WidgetTypeSupportsAcceleration();
+ }
+@@ -841,13 +835,6 @@
+             StaticPrefs::apz_popups_enabled())));
+ }
+ 
+-bool nsBaseWidget::AllowWebRenderForThisWindow() {
+-  return WindowType() == eWindowType_toplevel ||
+-         WindowType() == eWindowType_child ||
+-         WindowType() == eWindowType_dialog ||
+-         (WindowType() == eWindowType_popup && HasRemoteContent());
+-}
+-
+ void nsBaseWidget::CreateCompositor() {
+   LayoutDeviceIntRect rect = GetBounds();
+   CreateCompositor(rect.Width(), rect.Height());
+@@ -1202,9 +1189,8 @@
+     // If widget type does not supports acceleration, we use ClientLayerManager
+     // even when gfxVars::UseWebRender() is true. WebRender could coexist only
+     // with BasicCompositor.
+-    bool enableWR = gfx::gfxVars::UseWebRender() &&
+-                    WidgetTypeSupportsAcceleration() &&
+-                    AllowWebRenderForThisWindow();
++    bool enableWR =
++        gfx::gfxVars::UseWebRender() && WidgetTypeSupportsAcceleration();
+     bool enableAPZ = UseAPZ();
+     CompositorOptions options(enableAPZ, enableWR);
+ 

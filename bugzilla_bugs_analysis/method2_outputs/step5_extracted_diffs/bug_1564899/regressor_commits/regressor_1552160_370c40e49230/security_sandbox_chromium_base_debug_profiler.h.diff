@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/base/debug/profiler.h
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 2
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/base/debug/profiler.h
+--- a/security/sandbox/chromium/base/debug/profiler.h	Wed Jun 12 21:55:59 2019 +1200
++++ b/security/sandbox/chromium/base/debug/profiler.h	Wed Jun 12 11:10:48 2019 +0100
+@@ -35,9 +35,6 @@
+ // Reset profiling after a fork, which disables timers.
+ BASE_EXPORT void RestartProfilingAfterFork();
+ 
+-// Returns true iff this executable is instrumented with the Syzygy profiler.
+-BASE_EXPORT bool IsBinaryInstrumented();
+-
+ // Returns true iff this executable supports profiling.
+ BASE_EXPORT bool IsProfilingSupported();
+ 
+@@ -59,20 +56,6 @@
+ typedef uintptr_t (*ReturnAddressLocationResolver)(
+     uintptr_t return_addr_location);
+ 
+-// This type declaration must match V8's FunctionEntryHook.
+-typedef void (*DynamicFunctionEntryHook)(uintptr_t function,
+-                                         uintptr_t return_addr_location);
+-
+-// The functions below here are to support profiling V8-generated code.
+-// V8 has provisions for generating a call to an entry hook for newly generated
+-// JIT code, and it can push symbol information on code generation and advise
+-// when the garbage collector moves code. The functions declarations below here
+-// make glue between V8's facilities and a profiler.
+-
+-// This type declaration must match V8's FunctionEntryHook.
+-typedef void (*DynamicFunctionEntryHook)(uintptr_t function,
+-                                         uintptr_t return_addr_location);
+-
+ typedef void (*AddDynamicSymbol)(const void* address,
+                                  size_t length,
+                                  const char* name,
+@@ -84,7 +67,6 @@
+ // for each of those purposes, find and return the function in question.
+ // Otherwise returns NULL.
+ BASE_EXPORT ReturnAddressLocationResolver GetProfilerReturnAddrResolutionFunc();
+-BASE_EXPORT DynamicFunctionEntryHook GetProfilerDynamicFunctionEntryHookFunc();
+ BASE_EXPORT AddDynamicSymbol GetProfilerAddDynamicSymbolFunc();
+ BASE_EXPORT MoveDynamicSymbol GetProfilerMoveDynamicSymbolFunc();
+ 

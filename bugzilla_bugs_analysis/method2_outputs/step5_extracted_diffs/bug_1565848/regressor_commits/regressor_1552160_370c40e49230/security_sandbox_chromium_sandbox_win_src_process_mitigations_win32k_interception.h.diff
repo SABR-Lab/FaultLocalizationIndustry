@@ -1,0 +1,99 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/sandbox/win/src/process_mitigations_win32k_interception.h
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 3
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/sandbox/win/src/process_mitigations_win32k_interception.h
+--- a/security/sandbox/chromium/sandbox/win/src/process_mitigations_win32k_interception.h	Wed Jun 12 21:55:59 2019 +1200
++++ b/security/sandbox/chromium/sandbox/win/src/process_mitigations_win32k_interception.h	Wed Jun 12 11:10:48 2019 +0100
+@@ -20,48 +20,37 @@
+   HMONITOR monitors[kMaxEnumMonitors];
+ };
+ 
++typedef BOOL(WINAPI* GdiDllInitializeFunction)(HANDLE dll,
++                                               DWORD reason,
++                                               LPVOID reserved);
++
++using GetStockObjectFunction = decltype(&::GetStockObject);
++
++using RegisterClassWFunction = decltype(&::RegisterClassW);
++
++using EnumDisplayMonitorsFunction = decltype(&::EnumDisplayMonitors);
++
++using EnumDisplayDevicesAFunction = decltype(&::EnumDisplayDevicesA);
++
++using GetMonitorInfoWFunction = decltype(&::GetMonitorInfoW);
++using GetMonitorInfoAFunction = decltype(&::GetMonitorInfoA);
++
+ extern "C" {
+ 
+-typedef BOOL (WINAPI* GdiDllInitializeFunction) (
+-    HANDLE dll,
+-    DWORD reason,
+-    LPVOID reserved);
+-
+-typedef HGDIOBJ (WINAPI *GetStockObjectFunction) (int object);
+-
+-typedef ATOM (WINAPI *RegisterClassWFunction) (const WNDCLASS* wnd_class);
+-
+-typedef BOOL(WINAPI* EnumDisplayMonitorsFunction)(HDC hdc,
+-                                                  LPCRECT clip_rect,
+-                                                  MONITORENUMPROC enum_function,
+-                                                  LPARAM data);
+-
+-typedef BOOL(WINAPI* EnumDisplayDevicesAFunction)(
+-    LPCSTR device,
+-    DWORD device_number,
+-    PDISPLAY_DEVICEA display_device,
+-    DWORD flags);
+-
+-typedef BOOL(WINAPI* GetMonitorInfoWFunction)(HMONITOR monitor,
+-                                              MONITORINFO* monitor_info);
+-typedef BOOL(WINAPI* GetMonitorInfoAFunction)(HMONITOR monitor,
+-                                              MONITORINFO* monitor_info);
+-
+ // Interceptor for the  GdiDllInitialize function.
+-SANDBOX_INTERCEPT BOOL WINAPI TargetGdiDllInitialize(
+-    GdiDllInitializeFunction orig_gdi_dll_initialize,
+-    HANDLE dll,
+-    DWORD reason);
++SANDBOX_INTERCEPT BOOL WINAPI
++TargetGdiDllInitialize(GdiDllInitializeFunction orig_gdi_dll_initialize,
++                       HANDLE dll,
++                       DWORD reason);
+ 
+ // Interceptor for the GetStockObject function.
+-SANDBOX_INTERCEPT HGDIOBJ WINAPI TargetGetStockObject(
+-    GetStockObjectFunction orig_get_stock_object,
+-    int object);
++SANDBOX_INTERCEPT HGDIOBJ WINAPI
++TargetGetStockObject(GetStockObjectFunction orig_get_stock_object, int object);
+ 
+ // Interceptor for the RegisterClassW function.
+-SANDBOX_INTERCEPT ATOM WINAPI TargetRegisterClassW(
+-    RegisterClassWFunction orig_register_class_function,
+-    const WNDCLASS* wnd_class);
++SANDBOX_INTERCEPT ATOM WINAPI
++TargetRegisterClassW(RegisterClassWFunction orig_register_class_function,
++                     const WNDCLASS* wnd_class);
+ 
+ SANDBOX_INTERCEPT BOOL WINAPI TargetEnumDisplayMonitors(
+     EnumDisplayMonitorsFunction orig_enum_display_monitors_function,
+@@ -160,4 +149,3 @@
+ }  // namespace sandbox
+ 
+ #endif  // SANDBOX_SRC_PROCESS_MITIGATIONS_WIN32K_INTERCEPTION_H_
+-

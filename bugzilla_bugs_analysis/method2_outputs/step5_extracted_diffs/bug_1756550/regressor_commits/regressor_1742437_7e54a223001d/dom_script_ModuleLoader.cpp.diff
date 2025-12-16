@@ -1,0 +1,83 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/script/ModuleLoader.cpp
+# Commit: 7e54a223001d
+# Full Hash: 7e54a223001dd1c0057b74c7691dc3821947a3df
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-02-18 09:08:22
+# Regressor Bug: 1742437
+# File Overlap Count: 3
+# Description:
+#   Bug 1742437 - move DOM script context into own file and rename it; r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D138132
+# ==============================================================================
+
+diff -r 3a34d557d474 -r 7e54a223001d dom/script/ModuleLoader.cpp
+--- a/dom/script/ModuleLoader.cpp	Thu Feb 17 15:57:51 2022 +0000
++++ b/dom/script/ModuleLoader.cpp	Thu Feb 17 15:57:51 2022 +0000
+@@ -257,13 +257,13 @@
+   RefPtr<ScriptFetchOptions> options;
+   nsIURI* baseURL = nullptr;
+   nsCOMPtr<Element> element;
+-  RefPtr<DOMScriptLoadContext> context;
++  RefPtr<ScriptLoadContext> context;
+   // This will be null in all cases except WebExtensions.
+   if (script) {
+     options = script->GetFetchOptions();
+     baseURL = script->BaseURL();
+     nsCOMPtr<Element> element = script->GetScriptElement();
+-    context = new DOMScriptLoadContext(element);
++    context = new ScriptLoadContext(element);
+   } else {
+     // We don't have a referencing script so fall back on using
+     // options from the document. This can happen when the user
+@@ -288,7 +288,7 @@
+     options = new ScriptFetchOptions(mozilla::CORS_NONE,
+                                      document->GetReferrerPolicy(), principal);
+     baseURL = document->GetDocBaseURI();
+-    context = new DOMScriptLoadContext(nullptr, global);
++    context = new ScriptLoadContext(nullptr, global);
+   }
+ 
+   RefPtr<ModuleLoadRequest> request = ModuleLoader::CreateDynamicImport(
+@@ -473,7 +473,7 @@
+ already_AddRefed<ModuleLoadRequest> ModuleLoader::CreateTopLevel(
+     nsIURI* aURI, ScriptFetchOptions* aFetchOptions,
+     const SRIMetadata& aIntegrity, nsIURI* aReferrer, ScriptLoader* aLoader,
+-    DOMScriptLoadContext* aContext) {
++    ScriptLoadContext* aContext) {
+   RefPtr<ModuleLoadRequest> request = new ModuleLoadRequest(
+       aURI, aFetchOptions, aIntegrity, aReferrer, aContext, true,
+       /* is top level */ false, /* is dynamic import */
+@@ -486,9 +486,9 @@
+ /* static */
+ already_AddRefed<ModuleLoadRequest> ModuleLoader::CreateStaticImport(
+     nsIURI* aURI, ModuleLoadRequest* aParent) {
+-  RefPtr<DOMScriptLoadContext> newContext =
+-      new DOMScriptLoadContext(aParent->GetLoadContext()->mElement,
+-                               aParent->GetLoadContext()->mWebExtGlobal);
++  RefPtr<ScriptLoadContext> newContext =
++      new ScriptLoadContext(aParent->GetLoadContext()->mElement,
++                            aParent->GetLoadContext()->mWebExtGlobal);
+   newContext->mIsInline = false;
+   // Propagated Parent values. TODO: allow child modules to use root module's
+   // script mode.
+@@ -506,14 +506,14 @@
+ /* static */
+ already_AddRefed<ModuleLoadRequest> ModuleLoader::CreateDynamicImport(
+     nsIURI* aURI, ScriptFetchOptions* aFetchOptions, nsIURI* aBaseURL,
+-    DOMScriptLoadContext* aContext, ScriptLoader* aLoader,
++    ScriptLoadContext* aContext, ScriptLoader* aLoader,
+     JS::Handle<JS::Value> aReferencingPrivate, JS::Handle<JSString*> aSpecifier,
+     JS::Handle<JSObject*> aPromise) {
+   MOZ_ASSERT(aSpecifier);
+   MOZ_ASSERT(aPromise);
+ 
+   aContext->mIsInline = false;
+-  aContext->mScriptMode = DOMScriptLoadContext::ScriptMode::eAsync;
++  aContext->mScriptMode = ScriptLoadContext::ScriptMode::eAsync;
+ 
+   RefPtr<ModuleLoadRequest> request = new ModuleLoadRequest(
+       aURI, aFetchOptions, SRIMetadata(), aBaseURL, aContext, true,

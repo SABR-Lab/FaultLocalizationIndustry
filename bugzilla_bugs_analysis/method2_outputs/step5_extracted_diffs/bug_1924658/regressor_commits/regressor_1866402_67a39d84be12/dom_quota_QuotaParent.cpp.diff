@@ -1,0 +1,108 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/QuotaParent.cpp
+# Commit: 67a39d84be12
+# Full Hash: 67a39d84be12a0ecb22429dbeb88937a3af44450
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-10-09 21:46:09
+# Regressor Bug: 1866402
+# File Overlap Count: 1
+# Description:
+#   Bug 1866402 - Rework QuotaManagerService::ResetStoragesForPrincipal to use an async message with an async response; r=dom-storage-reviewers,jari
+#   
+#   A sub actor is no longer created. Actual result is now returned as
+#   an asynchronous response to an asynchronous message.
+#   
+# ==============================================================================
+
+diff -r f52dd3943988 -r 67a39d84be12 dom/quota/QuotaParent.cpp
+--- a/dom/quota/QuotaParent.cpp	Wed Oct 09 11:57:46 2024 +0000
++++ b/dom/quota/QuotaParent.cpp	Wed Oct 09 11:59:34 2024 +0000
+@@ -180,33 +180,6 @@
+       break;
+     }
+ 
+-    case RequestParams::TResetOriginParams: {
+-      const ClearResetOriginParams& params =
+-          aParams.get_ResetOriginParams().commonParams();
+-
+-      if (NS_WARN_IF(
+-              !QuotaManager::IsPrincipalInfoValid(params.principalInfo()))) {
+-        MOZ_CRASH_UNLESS_FUZZING();
+-        return false;
+-      }
+-
+-      if (params.persistenceTypeIsExplicit()) {
+-        if (NS_WARN_IF(!IsValidPersistenceType(params.persistenceType()))) {
+-          MOZ_CRASH_UNLESS_FUZZING();
+-          return false;
+-        }
+-      }
+-
+-      if (params.clientTypeIsExplicit()) {
+-        if (NS_WARN_IF(!Client::IsValidType(params.clientType()))) {
+-          MOZ_CRASH_UNLESS_FUZZING();
+-          return false;
+-        }
+-      }
+-
+-      break;
+-    }
+-
+     case RequestParams::TListOriginsParams:
+       break;
+ 
+@@ -287,9 +260,6 @@
+         return CreateGetFullOriginMetadataOp(
+             quotaManager, aParams.get_GetFullOriginMetadataParams());
+ 
+-      case RequestParams::TResetOriginParams:
+-        return CreateResetOriginOp(quotaManager, aParams);
+-
+       case RequestParams::TPersistedParams:
+         return CreatePersistedOp(quotaManager, aParams);
+ 
+@@ -783,6 +753,42 @@
+   return IPC_OK();
+ }
+ 
++mozilla::ipc::IPCResult Quota::RecvShutdownStoragesForOrigin(
++    const Maybe<PersistenceType>& aPersistenceType,
++    const PrincipalInfo& aPrincipalInfo, const Maybe<Type>& aClientType,
++    ShutdownStoragesForOriginResolver&& aResolver) {
++  AssertIsOnBackgroundThread();
++
++  QM_TRY(MOZ_TO_RESULT(!QuotaManager::IsShuttingDown()),
++         ResolveBoolResponseAndReturn(aResolver));
++
++  if (!TrustParams()) {
++    if (aPersistenceType) {
++      QM_TRY(MOZ_TO_RESULT(IsValidPersistenceType(*aPersistenceType)),
++             QM_CUF_AND_IPC_FAIL(this));
++    }
++
++    QM_TRY(MOZ_TO_RESULT(QuotaManager::IsPrincipalInfoValid(aPrincipalInfo)),
++           QM_CUF_AND_IPC_FAIL(this));
++
++    if (aClientType) {
++      QM_TRY(MOZ_TO_RESULT(Client::IsValidType(*aClientType)),
++             QM_CUF_AND_IPC_FAIL(this));
++    }
++  }
++
++  QM_TRY_UNWRAP(const NotNull<RefPtr<QuotaManager>> quotaManager,
++                QuotaManager::GetOrCreate(),
++                ResolveBoolResponseAndReturn(aResolver));
++
++  quotaManager
++      ->ShutdownStoragesForOrigin(aPersistenceType, aPrincipalInfo, aClientType)
++      ->Then(GetCurrentSerialEventTarget(), __func__,
++             BoolPromiseResolveOrRejectCallback(this, std::move(aResolver)));
++
++  return IPC_OK();
++}
++
+ mozilla::ipc::IPCResult Quota::RecvShutdownStorage(
+     ShutdownStorageResolver&& aResolver) {
+   AssertIsOnBackgroundThread();

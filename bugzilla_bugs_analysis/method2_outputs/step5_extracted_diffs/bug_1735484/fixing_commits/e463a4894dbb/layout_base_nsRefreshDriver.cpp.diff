@@ -1,0 +1,44 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: layout/base/nsRefreshDriver.cpp
+# Commit: e463a4894dbb
+# Full Hash: e463a4894dbb922addf42ab1511c8b2aedab83e3
+# Author: Florian Quèze <florian@queze.net>
+# Date: 2021-10-26 21:44:17
+# Description:
+#   Bug 1735484 - avoid crashing in nsRefreshDriver::RemoveImageRequest when mPresContext is null, r=emilio.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D129506
+# ==============================================================================
+
+diff -r 5b58ec16010e -r e463a4894dbb layout/base/nsRefreshDriver.cpp
+--- a/layout/base/nsRefreshDriver.cpp	Tue Oct 26 15:46:54 2021 +0000
++++ b/layout/base/nsRefreshDriver.cpp	Tue Oct 26 15:52:19 2021 +0000
+@@ -1130,6 +1130,9 @@
+ }
+ 
+ static nsDocShell* GetDocShell(nsPresContext* aPresContext) {
++  if (!aPresContext) {
++    return nullptr;
++  }
+   return static_cast<nsDocShell*>(aPresContext->GetDocShell());
+ }
+ 
+@@ -1236,12 +1239,10 @@
+                                          FlushType aFlushType,
+                                          const char* aObserverDescription) {
+   ObserverArray& array = ArrayFor(aFlushType);
+-  array.AppendElement(ObserverData{
+-      aObserver, aObserverDescription, TimeStamp::Now(),
+-      mPresContext
+-          ? MarkerInnerWindowIdFromDocShell(mPresContext->GetDocShell())
+-          : MarkerInnerWindowId::NoId(),
+-      profiler_capture_backtrace(), aFlushType});
++  array.AppendElement(
++      ObserverData{aObserver, aObserverDescription, TimeStamp::Now(),
++                   MarkerInnerWindowIdFromDocShell(GetDocShell(mPresContext)),
++                   profiler_capture_backtrace(), aFlushType});
+   EnsureTimerStarted();
+ }
+ 

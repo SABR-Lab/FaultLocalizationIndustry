@@ -1,0 +1,40 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: media/ffvpx/no-unicode-stdio.patch
+# Commit: 32f7037461f2
+# Full Hash: 32f7037461f260c69b8fb9893c3345c672210144
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2024-02-13 21:06:53
+# Description:
+#   Bug 1879740 - Don't pass an UTF-8 string to system vsnprintf. r=media-playback-reviewers,chunmin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D201606
+# ==============================================================================
+
+diff -r c5246b9e5ee6 -r 32f7037461f2 media/ffvpx/no-unicode-stdio.patch
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/media/ffvpx/no-unicode-stdio.patch	Tue Feb 13 14:14:31 2024 +0000
+@@ -0,0 +1,22 @@
++diff --git a/media/ffvpx/libavutil/tx.c b/media/ffvpx/libavutil/tx.c
++--- a/media/ffvpx/libavutil/tx.c
+++++ b/media/ffvpx/libavutil/tx.c
++@@ -603,17 +603,17 @@ static void print_cd_info(const FFTXCode
++     print_type(&bp, cd->type);
++ 
++     av_bprintf(&bp, ", len: ");
++     if (!len) {
++         if (cd->min_len != cd->max_len)
++             av_bprintf(&bp, "[%i, ", cd->min_len);
++ 
++         if (cd->max_len == TX_LEN_UNLIMITED)
++-            av_bprintf(&bp, "∞");
+++            av_bprintf(&bp, "unlimited");
++         else
++             av_bprintf(&bp, "%i", cd->max_len);
++     } else {
++         av_bprintf(&bp, "%i", len);
++     }
++ 
++     if (cd->factors[1]) {
++         av_bprintf(&bp, "%s, factors", !len && cd->min_len != cd->max_len ? "]" : "");

@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/cocoa/nsCocoaWindow.mm
+# Commit: 18c714c3af0f
+# Full Hash: 18c714c3af0f77750cc36ec9f162e9d84d3f537f
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2025-04-29 20:49:47
+# Regressor Bug: 1919165
+# File Overlap Count: 1
+# Description:
+#   Bug 1919165 - Remove support for WindowType::Child, which is now unused. r=stransky
+#   
+#   We don't take this codepath anymore in any platform. Windows and GTK
+#   were already asserting against it.
+#   
+# ==============================================================================
+
+diff -r 734373410b28 -r 18c714c3af0f widget/cocoa/nsCocoaWindow.mm
+--- a/widget/cocoa/nsCocoaWindow.mm	Tue Apr 29 14:04:48 2025 +0000
++++ b/widget/cocoa/nsCocoaWindow.mm	Tue Apr 29 14:04:53 2025 +0000
+@@ -4552,9 +4552,6 @@
+ static DesktopRect GetWidgetScreenRectForChildren(nsIWidget* aWidget) {
+   mozilla::DesktopToLayoutDeviceScale scale =
+       aWidget->GetDesktopToDeviceScale();
+-  if (aWidget->GetWindowType() == WindowType::Child) {
+-    return aWidget->GetScreenBounds() / scale;
+-  }
+   return aWidget->GetClientBounds() / scale;
+ }
+ 
+@@ -4686,7 +4683,6 @@
+   // Configure the window we will create based on the window type.
+   switch (mWindowType) {
+     case WindowType::Invisible:
+-    case WindowType::Child:
+       break;
+     case WindowType::Popup:
+       if (aBorderStyle != BorderStyle::Default &&
+@@ -4978,9 +4974,6 @@
+   // (similar) event loops).
+   for (auto* ancestorWidget = mParent; ancestorWidget;
+        ancestorWidget = ancestorWidget->GetParent()) {
+-    if (ancestorWidget->GetWindowType() == WindowType::Child) {
+-      continue;
+-    }
+     auto* ancestor = static_cast<nsCocoaWindow*>(ancestorWidget);
+     const bool changed = aModal ? ancestor->mNumModalDescendants++ == 0
+                                 : --ancestor->mNumModalDescendants == 0;

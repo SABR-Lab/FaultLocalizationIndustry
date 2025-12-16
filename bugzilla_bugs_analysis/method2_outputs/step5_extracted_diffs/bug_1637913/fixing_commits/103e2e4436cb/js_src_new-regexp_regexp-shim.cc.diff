@@ -1,0 +1,36 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/new-regexp/regexp-shim.cc
+# Commit: 103e2e4436cb
+# Full Hash: 103e2e4436cb1bea2e2a59d21b77427e65e29c18
+# Author: Iain Ireland <iireland@mozilla.com>
+# Date: 2020-05-20 03:39:31
+# Description:
+#   Bug 1637913: Sync up JSRegExp::maxCaptureCount with RegExpMacroAssembler::maxRegisters r=mgaudet
+#   
+#   The RegExpCompiler constructor asserts that the number of registers (aka local stack slots) needed to store all the captures for a regexp does not exceed the maximum number of registers (1 << 16). The parser already enforces a maximum number of captures, but the cap is too high. For `n` captures, we need `(n+1)*2` registers: 1 for the beginning and end of each capture, plus the implicit "entire match" capture.
+#   
+#   If the number of captures in a regexp is between `(1<<15) - 1` and `1<<16`, the parser will not report an error, but the compiler will assert. We could fix this by checking the number of captures, like V8 does [here](https://github.com/v8/v8/blob/dbf9ff6155d29390c3282e866972e5fa8591f7ce/src/regexp/regexp.cc#L718-L722), but we get better error messages if we just adjust maxCaptures.
+# ==============================================================================
+
+diff -r bb7c330d407f -r 103e2e4436cb js/src/new-regexp/regexp-shim.cc
+--- a/js/src/new-regexp/regexp-shim.cc	Tue May 19 15:40:08 2020 +0000
++++ b/js/src/new-regexp/regexp-shim.cc	Fri May 15 21:58:44 2020 +0000
+@@ -10,6 +10,7 @@
+ 
+ #include <iostream>
+ 
++#include "new-regexp/regexp-macro-assembler.h"
+ #include "new-regexp/regexp-shim.h"
+ #include "new-regexp/regexp-stack.h"
+ 
+@@ -207,5 +208,8 @@
+ template Handle<String>
+ Isolate::InternalizeString(const Vector<const char16_t>& str);
+ 
++static_assert(JSRegExp::RegistersForCaptureCount(JSRegExp::kMaxCaptures) <=
++              RegExpMacroAssembler::kMaxRegisterCount);
++
+ }  // namespace internal
+ }  // namespace v8

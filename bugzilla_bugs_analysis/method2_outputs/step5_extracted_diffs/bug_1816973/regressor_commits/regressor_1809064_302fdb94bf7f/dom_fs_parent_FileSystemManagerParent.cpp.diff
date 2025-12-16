@@ -1,0 +1,88 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fs/parent/FileSystemManagerParent.cpp
+# Commit: 302fdb94bf7f
+# Full Hash: 302fdb94bf7f5cd817b69fc4eaaaf6ff8b62bec8
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2023-02-06 21:36:23
+# Regressor Bug: 1809064
+# File Overlap Count: 1
+# Description:
+#   Bug 1809064 - Use managed endpoints for PFileSystemAccessHandle construction; r=dom-storage-reviewers,jari
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D166342
+# ==============================================================================
+
+diff -r 100b45bcf622 -r 302fdb94bf7f dom/fs/parent/FileSystemManagerParent.cpp
+--- a/dom/fs/parent/FileSystemManagerParent.cpp	Mon Feb 06 15:01:20 2023 +0000
++++ b/dom/fs/parent/FileSystemManagerParent.cpp	Mon Feb 06 15:10:34 2023 +0000
+@@ -122,39 +122,42 @@
+   EntryId entryId = aRequest.entryId();
+ 
+   FileSystemAccessHandle::Create(mDataManager, entryId)
+-      ->Then(GetCurrentSerialEventTarget(), __func__,
+-             [self = RefPtr(this), request = std::move(aRequest),
+-              resolver = std::move(aResolver)](
+-                 FileSystemAccessHandle::CreatePromise::ResolveOrRejectValue&&
+-                     aValue) {
+-               if (aValue.IsReject()) {
+-                 resolver(aValue.RejectValue());
+-                 return;
+-               }
++      ->Then(
++          GetCurrentSerialEventTarget(), __func__,
++          [self = RefPtr(this), request = std::move(aRequest),
++           resolver = std::move(aResolver)](
++              FileSystemAccessHandle::CreatePromise::ResolveOrRejectValue&&
++                  aValue) {
++            if (aValue.IsReject()) {
++              resolver(aValue.RejectValue());
++              return;
++            }
+ 
+-               FileSystemAccessHandle::CreateResult result =
+-                   std::move(aValue.ResolveValue());
++            FileSystemAccessHandle::CreateResult result =
++                std::move(aValue.ResolveValue());
+ 
+-               fs::Registered<FileSystemAccessHandle> accessHandle =
+-                   std::move(result.first);
++            fs::Registered<FileSystemAccessHandle> accessHandle =
++                std::move(result.first);
+ 
+-               RandomAccessStreamParams streamParams = std::move(result.second);
++            RandomAccessStreamParams streamParams = std::move(result.second);
+ 
+-               auto accessHandleParent =
+-                   MakeRefPtr<FileSystemAccessHandleParent>(
+-                       accessHandle.inspect());
++            auto accessHandleParent = MakeRefPtr<FileSystemAccessHandleParent>(
++                accessHandle.inspect());
++
++            auto resolveAndReturn = [&resolver](nsresult rv) { resolver(rv); };
+ 
+-               if (!self->SendPFileSystemAccessHandleConstructor(
+-                       accessHandleParent)) {
+-                 resolver(NS_ERROR_FAILURE);
+-                 return;
+-               }
++            ManagedEndpoint<PFileSystemAccessHandleChild>
++                accessHandleChildEndpoint =
++                    self->OpenPFileSystemAccessHandleEndpoint(
++                        accessHandleParent);
++            QM_TRY(MOZ_TO_RESULT(accessHandleChildEndpoint.IsValid()),
++                   resolveAndReturn);
+ 
+-               accessHandle->RegisterActor(WrapNotNull(accessHandleParent));
++            accessHandle->RegisterActor(WrapNotNull(accessHandleParent));
+ 
+-               resolver(FileSystemAccessHandleProperties(
+-                   std::move(streamParams), accessHandleParent, nullptr));
+-             });
++            resolver(FileSystemAccessHandleProperties(
++                std::move(streamParams), std::move(accessHandleChildEndpoint)));
++          });
+ 
+   return IPC_OK();
+ }

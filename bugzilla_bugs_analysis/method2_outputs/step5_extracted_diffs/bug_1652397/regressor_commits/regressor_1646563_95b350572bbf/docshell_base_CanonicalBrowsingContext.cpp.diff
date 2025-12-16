@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/CanonicalBrowsingContext.cpp
+# Commit: 95b350572bbf
+# Full Hash: 95b350572bbf079fdf6613b5a721c6ee5023fc6e
+# Author: Kashav Madan <kmadan@mozilla.com>
+# Date: 2020-06-23 16:15:06
+# Regressor Bug: 1646563
+# File Overlap Count: 1
+# Description:
+#   Bug 1646563 - Remove BrowserId from nsFrameLoaderOwner, r=nika
+#   
+#   We can just use BrowsingContext::BrowserId directly, so it's unnecessary to have
+#   the field on nsFrameLoaderOwner as well.
+#   
+# ==============================================================================
+
+diff -r 4eab38aba3fe -r 95b350572bbf docshell/base/CanonicalBrowsingContext.cpp
+--- a/docshell/base/CanonicalBrowsingContext.cpp	Mon Jun 22 21:30:31 2020 +0000
++++ b/docshell/base/CanonicalBrowsingContext.cpp	Mon Jun 22 21:46:03 2020 +0000
+@@ -144,11 +144,13 @@
+ 
+ void CanonicalBrowsingContext::ReplacedBy(
+     CanonicalBrowsingContext* aNewContext) {
++  MOZ_ASSERT(!aNewContext->EverAttached());
+   if (mStatusFilter) {
+     mStatusFilter->RemoveProgressListener(mWebProgress);
+     mStatusFilter = nullptr;
+   }
+   aNewContext->mWebProgress = std::move(mWebProgress);
++  aNewContext->mFields.SetWithoutSyncing<IDX_BrowserId>(GetBrowserId());
+ }
+ 
+ void CanonicalBrowsingContext::

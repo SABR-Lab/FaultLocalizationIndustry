@@ -1,0 +1,73 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/OffscreenCanvas.cpp
+# Commit: 71c122ac0ca7
+# Full Hash: 71c122ac0ca73391866b1ef19f4f82bc2d28568b
+# Author: David Parks <davidp99@gmail.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Initial out-of-process WebGL implementation. r=mccr8,handyman
+#   
+#   Splits WebGLContext into ClientWebGLContext and HostWebGLContext.  The Client enables the JS-control of a WebGL context in a content procecss while the Host executes the WebGL graphics operations (via a WebGLContext that maintains much of the existing code) in the compositor process.  At this point, the cross-process behavior is disabled -- this series of patches is an incremental step toward that final goal.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D54018
+# ==============================================================================
+
+diff -r 5cbf5bb11c58 -r 71c122ac0ca7 dom/canvas/OffscreenCanvas.cpp
+--- a/dom/canvas/OffscreenCanvas.cpp	Wed Jan 08 21:52:03 2020 +0000
++++ b/dom/canvas/OffscreenCanvas.cpp	Wed Jan 08 22:19:14 2020 +0000
+@@ -17,8 +17,6 @@
+ #include "CanvasUtils.h"
+ #include "GLContext.h"
+ #include "GLScreenBuffer.h"
+-#include "WebGL1Context.h"
+-#include "WebGL2Context.h"
+ 
+ namespace mozilla {
+ namespace dom {
+@@ -119,30 +117,8 @@
+     mCanvasRenderer->SetContextType(contextType);
+     if (contextType == CanvasContextType::WebGL1 ||
+         contextType == CanvasContextType::WebGL2) {
+-      WebGLContext* webGL = static_cast<WebGLContext*>(mCurrentContext.get());
+-      gl::GLContext* gl = webGL->GL();
+-      mCanvasRenderer->mContext = mCurrentContext;
+-      mCanvasRenderer->SetActiveEventTarget();
+-      mCanvasRenderer->mGLContext = gl;
+-      mCanvasRenderer->SetIsAlphaPremultiplied(webGL->IsPremultAlpha() ||
+-                                               !gl->Caps().alpha);
+-
+-      if (RefPtr<ImageBridgeChild> imageBridge =
+-              ImageBridgeChild::GetSingleton()) {
+-        TextureFlags flags = TextureFlags::ORIGIN_BOTTOM_LEFT;
+-        mCanvasClient = imageBridge->CreateCanvasClient(
+-            CanvasClient::CanvasClientTypeShSurf, flags);
+-        mCanvasRenderer->SetCanvasClient(mCanvasClient);
+-
+-        gl::GLScreenBuffer* screen = gl->Screen();
+-        gl::SurfaceCaps caps = screen->mCaps;
+-        auto forwarder = mCanvasClient->GetForwarder();
+-
+-        UniquePtr<gl::SurfaceFactory> factory =
+-            gl::GLScreenBuffer::CreateFactory(gl, caps, forwarder, flags);
+-
+-        if (factory) screen->Morph(std::move(factory));
+-      }
++      MOZ_ASSERT_UNREACHABLE("WebGL OffscreenCanvas not yet supported.");
++      return nullptr;
+     }
+   }
+ 
+@@ -186,7 +162,8 @@
+   CanvasContextType contentType = mCanvasRenderer->GetContextType();
+   if (mCurrentContext && (contentType == CanvasContextType::WebGL1 ||
+                           contentType == CanvasContextType::WebGL2)) {
+-    static_cast<WebGLContext*>(mCurrentContext.get())->PresentScreenBuffer();
++    MOZ_ASSERT_UNREACHABLE("WebGL OffscreenCanvas not yet supported.");
++    return;
+   }
+ 
+   if (mCanvasRenderer && mCanvasRenderer->mGLContext) {

@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/loader/ModuleLoaderBase.cpp
+# Commit: 9153182c650d
+# Full Hash: 9153182c650d0455a6376e071bc230d8803fd4ea
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-12-21 21:21:23
+# Regressor Bug: 1247687
+# File Overlap Count: 1
+# Description:
+#   Bug 1247687 - Handle cancellation of long running modules; r=jonco
+#   
+#   This is a slightly annoying thing that can happen. When we abruptly cancel (such as an infinitely
+#   running script being forcibly terminated) we will be in a state where the EvaluateModule call will
+#   finish _after_ the loader is destroyed. So, instead we track if there has been a forcible
+# ==============================================================================
+
+diff -r 45de9ffeec19 -r 9153182c650d js/loader/ModuleLoaderBase.cpp
+--- a/js/loader/ModuleLoaderBase.cpp	Tue Dec 20 20:56:14 2022 +0000
++++ b/js/loader/ModuleLoaderBase.cpp	Tue Dec 20 20:56:14 2022 +0000
+@@ -1213,6 +1213,11 @@
+   // unless the user cancels execution.
+   MOZ_ASSERT_IF(ok, !JS_IsExceptionPending(aCx));
+ 
++  // For long running scripts, the request may be cancelled abruptly.
++  if (request->IsCanceled() || !mLoader) {
++    return NS_ERROR_ABORT;
++  }
++
+   if (!ok) {
+     LOG(("ScriptLoadRequest (%p):   evaluation failed", aRequest));
+     // For a dynamic import, the promise is rejected. Otherwise an error is

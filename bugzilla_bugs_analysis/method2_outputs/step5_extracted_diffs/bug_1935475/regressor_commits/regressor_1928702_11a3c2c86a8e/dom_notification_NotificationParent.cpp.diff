@@ -1,0 +1,68 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/notification/NotificationParent.cpp
+# Commit: 11a3c2c86a8e
+# Full Hash: 11a3c2c86a8e85fbbfe0fad4d36bf3956af109c5
+# Author: Kagami Sascha Rosylight <saschanaz@outlook.com>
+# Date: 2024-11-12 09:32:50
+# Regressor Bug: 1928702
+# File Overlap Count: 1
+# Description:
+#   Bug 1928702 - Part 9: Implement alertclickcallback behavior r=asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D227694
+# ==============================================================================
+
+diff -r 10bb5f41f44b -r 11a3c2c86a8e dom/notification/NotificationParent.cpp
+--- a/dom/notification/NotificationParent.cpp	Mon Nov 11 20:34:14 2024 +0000
++++ b/dom/notification/NotificationParent.cpp	Mon Nov 11 20:34:14 2024 +0000
+@@ -11,6 +11,7 @@
+ #include "mozilla/Components.h"
+ #include "nsComponentManagerUtils.h"
+ #include "nsIAlertsService.h"
++#include "nsIServiceWorkerManager.h"
+ 
+ namespace mozilla::dom::notification {
+ 
+@@ -25,6 +26,9 @@
+   if (!strcmp("alertsettingscallback", aTopic)) {
+     return OpenSettings(mPrincipal);
+   }
++  if (!strcmp("alertclickcallback", aTopic)) {
++    return FireClickEvent();
++  }
+   if (!strcmp("alertshow", aTopic)) {
+     (void)NS_WARN_IF(NS_FAILED(
+         AdjustPushQuota(mPrincipal, NotificationStatusChange::Shown)));
+@@ -56,6 +60,30 @@
+   return NS_OK;
+ }
+ 
++nsresult NotificationParent::FireClickEvent() {
++  // This needs to be done here rather than in the child actor's
++  // RecvNotifyClick because the caller might not be in the service worker
++  // context but in the window context
++  if (nsCOMPtr<nsIServiceWorkerManager> swm =
++          mozilla::components::ServiceWorkerManager::Service()) {
++    nsAutoCString originSuffix;
++    MOZ_TRY(mPrincipal->GetOriginSuffix(originSuffix));
++    nsAutoString behavior;
++    if (!mOptions.behavior().ToJSON(behavior)) {
++      return NS_ERROR_FAILURE;
++    }
++    MOZ_TRY(swm->SendNotificationClickEvent(
++        originSuffix, NS_ConvertUTF16toUTF8(mScope), mId, mOptions.title(),
++        NS_ConvertASCIItoUTF16(GetEnumString(mOptions.dir())), mOptions.lang(),
++        mOptions.body(), mOptions.tag(), mOptions.icon(),
++        mOptions.dataSerialized(), behavior));
++
++    return NS_OK;
++  }
++
++  return NS_ERROR_FAILURE;
++}
++
+ // Step 4 of
+ // https://notifications.spec.whatwg.org/#dom-notification-notification
+ mozilla::ipc::IPCResult NotificationParent::RecvShow(ShowResolver&& aResolver) {

@@ -1,0 +1,36 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentChild.cpp
+# Commit: 06c26e973285
+# Full Hash: 06c26e97328589418681f58d637df751451f04ca
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2020-05-26 21:37:52
+# Regressor Bug: 1640119
+# File Overlap Count: 1
+# Description:
+#   Bug 1640119 - Pass shared-memory blocks for the font list as part of SetXPCOMProcessAttributes. r=jwatt
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D76507
+# ==============================================================================
+
+diff -r fbdbe0cdce92 -r 06c26e973285 dom/ipc/ContentChild.cpp
+--- a/dom/ipc/ContentChild.cpp	Tue May 26 11:38:58 2020 +0000
++++ b/dom/ipc/ContentChild.cpp	Tue May 26 09:30:17 2020 +0000
+@@ -615,13 +615,15 @@
+     nsTArray<LookAndFeelInt>&& aLookAndFeelIntCache,
+     nsTArray<SystemFontListEntry>&& aFontList,
+     const Maybe<SharedMemoryHandle>& aSharedUASheetHandle,
+-    const uintptr_t& aSharedUASheetAddress) {
++    const uintptr_t& aSharedUASheetAddress,
++    nsTArray<SharedMemoryHandle>&& aSharedFontListBlocks) {
+   if (!sShutdownCanary) {
+     return IPC_OK();
+   }
+ 
+   mLookAndFeelCache = std::move(aLookAndFeelIntCache);
+   mFontList = std::move(aFontList);
++  mSharedFontListBlocks = std::move(aSharedFontListBlocks);
+   gfx::gfxVars::SetValuesForInitialize(aXPCOMInit.gfxNonDefaultVarUpdates());
+   InitSharedUASheets(aSharedUASheetHandle, aSharedUASheetAddress);
+   InitXPCOM(std::move(aXPCOMInit), aInitialData);

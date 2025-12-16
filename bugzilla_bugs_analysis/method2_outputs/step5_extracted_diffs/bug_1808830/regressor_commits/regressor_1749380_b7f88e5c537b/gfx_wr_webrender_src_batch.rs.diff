@@ -1,0 +1,134 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/batch.rs
+# Commit: b7f88e5c537b
+# Full Hash: b7f88e5c537bb7d64ba9d4cb58b052650d510638
+# Author: Glenn Watson <git@intuitionlibrary.com>
+# Date: 2022-02-08 17:32:27
+# Regressor Bug: 1749380
+# File Overlap Count: 1
+# Description:
+#   Bug 1749380 - Improve how WR handles bounding rects for off-screen surfaces r=gfx-reviewers,kvark
+#   
+#   This patch introduces a number of subtle but important changes
+#   to how we deal with off-screen surfaces. The overall goals are:
+#   
+# ==============================================================================
+
+diff -r 8e9c1ffdeed8 -r b7f88e5c537b gfx/wr/webrender/src/batch.rs
+--- a/gfx/wr/webrender/src/batch.rs	Mon Feb 07 22:02:35 2022 +0000
++++ b/gfx/wr/webrender/src/batch.rs	Mon Feb 07 22:14:47 2022 +0000
+@@ -952,8 +952,14 @@
+                                 render_tasks,
+                             ).unwrap();
+ 
++                            let prim_rect = ctx.data_stores.get_local_prim_rect(
++                                child_prim_instance,
++                                &ctx.prim_store.pictures,
++                                ctx.surfaces,
++                            );
++
+                             let prim_header = PrimitiveHeader {
+-                                local_rect: pic.precise_local_rect,
++                                local_rect: prim_rect,
+                                 local_clip_rect: child_prim_info.combined_local_clip_rect,
+                                 specific_prim_address: GpuCacheAddress::INVALID,
+                                 transform_id: transforms
+@@ -964,11 +970,6 @@
+                                     ),
+                             };
+ 
+-                            let raster_config = pic
+-                                .raster_config
+-                                .as_ref()
+-                                .expect("BUG: 3d primitive was not assigned a surface");
+-
+                             let child_pic_task_id = pic
+                                 .primary_render_task_id
+                                 .unwrap();
+@@ -988,7 +989,7 @@
+ 
+                             let prim_header_index = prim_headers.push(&prim_header, z_id, [
+                                 uv_rect_address.as_int(),
+-                                if raster_config.establishes_raster_root { 1 } else { 0 },
++                                BrushFlags::PERSPECTIVE_INTERPOLATION.bits() as i32,
+                                 0,
+                                 child_clip_task_address.0 as i32,
+                             ]);
+@@ -1071,7 +1072,8 @@
+ 
+         let prim_rect = ctx.data_stores.get_local_prim_rect(
+             prim_instance,
+-            ctx.prim_store,
++            &ctx.prim_store.pictures,
++            ctx.surfaces,
+         );
+ 
+         let mut batch_features = BatchFeatures::empty();
+@@ -1539,7 +1541,7 @@
+                 let prim_cache_address = gpu_cache.get_address(&ctx.globals.default_image_handle);
+ 
+                 let prim_header = PrimitiveHeader {
+-                    local_rect: picture.precise_local_rect,
++                    local_rect: prim_rect,
+                     local_clip_rect: prim_info.combined_local_clip_rect,
+                     specific_prim_address: prim_cache_address,
+                     transform_id,
+@@ -1561,16 +1563,12 @@
+                     Some(ref raster_config) => {
+                         // If the child picture was rendered in local space, we can safely
+                         // interpolate the UV coordinates with perspective correction.
+-                        let brush_flags = if raster_config.establishes_raster_root {
+-                            BrushFlags::PERSPECTIVE_INTERPOLATION
+-                        } else {
+-                            BrushFlags::empty()
+-                        };
++                        let brush_flags = BrushFlags::PERSPECTIVE_INTERPOLATION;
+ 
+                         let surface = &ctx.surfaces[raster_config.surface_index.0];
+ 
+                         let mut is_opaque = prim_info.clip_task_index == ClipTaskIndex::INVALID
+-                            && surface.opaque_rect.contains_box(&surface.rect)
++                            && surface.is_opaque
+                             && transform_kind == TransformedRectKind::AxisAligned;
+ 
+                         let pic_task_id = picture.primary_render_task_id.unwrap();
+@@ -1585,7 +1583,7 @@
+                             PictureCompositeMode::Filter(ref filter) => {
+                                 assert!(filter.is_visible());
+                                 match filter {
+-                                    Filter::Blur(..) => {
++                                    Filter::Blur { .. } => {
+                                         let (clip_task_address, clip_mask_texture_id) = ctx.get_prim_clip_task_and_texture(
+                                             prim_info.clip_task_index,
+                                             render_tasks,
+@@ -1824,7 +1822,7 @@
+ 
+                                             // These filters are handled via different paths.
+                                             Filter::ComponentTransfer |
+-                                            Filter::Blur(..) |
++                                            Filter::Blur { .. } |
+                                             Filter::DropShadows(..) |
+                                             Filter::Opacity(..) => unreachable!(),
+                                         };
+@@ -2111,7 +2109,7 @@
+                                 };
+ 
+                                 let prim_header = PrimitiveHeader {
+-                                    local_rect: picture.precise_local_rect,
++                                    local_rect: prim_rect,
+                                     local_clip_rect: prim_info.combined_local_clip_rect,
+                                     specific_prim_address: prim_cache_address,
+                                     transform_id,
+@@ -3042,9 +3040,8 @@
+                 );
+ 
+                 let prim_cache_address = gpu_cache.get_address(&ctx.globals.default_image_handle);
+-                let backdrop_picture = &ctx.prim_store.pictures[backdrop_pic_index.0];
+                 let prim_header = PrimitiveHeader {
+-                    local_rect: backdrop_picture.precise_local_rect,
++                    local_rect: prim_rect,
+                     local_clip_rect: prim_info.combined_local_clip_rect,
+                     transform_id,
+                     specific_prim_address: prim_cache_address,

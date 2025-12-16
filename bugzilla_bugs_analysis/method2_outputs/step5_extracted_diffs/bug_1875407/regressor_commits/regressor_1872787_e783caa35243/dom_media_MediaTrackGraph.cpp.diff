@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/MediaTrackGraph.cpp
+# Commit: e783caa35243
+# Full Hash: e783caa35243bb2aa0d2751148bfe9d1ea0b9400
+# Author: Karl Tomlinson <karlt+@karlt.net>
+# Date: 2024-01-18 09:55:36
+# Regressor Bug: 1872787
+# File Overlap Count: 1
+# Description:
+#   Bug 1872787 add document-title-changed observer in AddTrack() to match removal in RemoveTrack() r=padenot
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D198769
+# ==============================================================================
+
+diff -r b2811c425a31 -r e783caa35243 dom/media/MediaTrackGraph.cpp
+--- a/dom/media/MediaTrackGraph.cpp	Wed Jan 17 22:51:38 2024 +0000
++++ b/dom/media/MediaTrackGraph.cpp	Wed Jan 17 23:06:41 2024 +0000
+@@ -3541,12 +3541,6 @@
+       aPrimaryOutputDeviceID, aMainThread);
+   MOZ_ALWAYS_TRUE(graphs->add(addPtr, graph));
+ 
+-  nsCOMPtr<nsIObserverService> observerService =
+-      mozilla::services::GetObserverService();
+-  if (observerService) {
+-    observerService->AddObserver(graph, "document-title-changed", false);
+-  }
+-
+   LOG(LogLevel::Debug, ("Starting up MediaTrackGraph %p for window 0x%" PRIx64,
+                         graph, aWindowID));
+ 
+@@ -3766,6 +3760,14 @@
+     MOZ_DIAGNOSTIC_ASSERT(p, "Graph must not be shutting down");
+   }
+ #endif
++  if (graph->mMainThreadTrackCount == 0) {
++    nsCOMPtr<nsIObserverService> observerService =
++        mozilla::services::GetObserverService();
++    if (observerService) {
++      observerService->AddObserver(graph, "document-title-changed", false);
++    }
++  }
++
+   NS_ADDREF(aTrack);
+   aTrack->SetGraphImpl(graph);
+   ++graph->mMainThreadTrackCount;

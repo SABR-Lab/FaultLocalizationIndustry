@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/loader/WorkerLoadContext.h
+# Commit: 6118d850a96d
+# Full Hash: 6118d850a96dfa307d91cb73392c659ffb328335
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-11-18 15:46:32
+# Regressor Bug: 1800496
+# File Overlap Count: 1
+# Description:
+#   Bug 1800496 - Re-introduce channel tracking for cancellation; r=asuth
+#   
+#   This was removed as part of an attempt to simplify worker cancellaton. However, this channel cancellation is important, as without it the timing changes when we finish a request. Without it, we continue to load a script, even after a worker has been shut down.
+#   
+#   This tracking will help us reimplement cancellation.
+# ==============================================================================
+
+diff -r eafec005c1bf -r 6118d850a96d dom/workers/loader/WorkerLoadContext.h
+--- a/dom/workers/loader/WorkerLoadContext.h	Fri Nov 18 10:02:26 2022 +0000
++++ b/dom/workers/loader/WorkerLoadContext.h	Fri Nov 18 10:02:26 2022 +0000
+@@ -7,6 +7,7 @@
+ #ifndef mozilla_dom_workers_WorkerLoadContext_h__
+ #define mozilla_dom_workers_WorkerLoadContext_h__
+ 
++#include "nsIChannel.h"
+ #include "nsIInputStream.h"
+ #include "nsIRequest.h"
+ #include "mozilla/CORSMode.h"
+@@ -36,12 +37,23 @@
+  * WorkerLoadContext has the following generic fields applied to all worker
+  * ScriptLoadRequests (and primarily used for error handling):
+  *
+- *    * mLoadResult
+- *        Used to store the result of a load. In particular, it is used for
+- *        error handling when a load fails (for example, a malformed URI).
+  *    * mMutedErrorFlag
+  *        Set when we finish loading a script, and used to determine whether a
+  *        given error is thrown or muted.
++ *    * mLoadResult
++ *        In order to report errors correctly in the worker thread, we need to
++ *        move them from the main thread to the worker. This field records the
++ *        load error, for throwing when we return to the worker thread.
++ *    * mKind
++ *        See documentation of WorkerLoadContext::Kind.
++ *    * mClientInfo
++ *        A snapshot of a global living in the system (see documentation for
++ *        ClientInfo). In worker loading, this field is important for CSP
++ *        information and knowing what to intercept for Service Worker
++ *        interception.
++ *    * mChannel
++ *        The channel used by this request for it's load. Used for cancellation,
++ *        in order to cancel the stream.
+  *
+  * The rest of the fields on this class focus on enabling the ServiceWorker
+  * usecase, in particular -- using the Cache API to store the worker so that
+@@ -102,6 +114,7 @@
+   bool mIsTopLevel = true;
+   Kind mKind;
+   Maybe<ClientInfo> mClientInfo;
++  nsCOMPtr<nsIChannel> mChannel;
+ 
+   /* These fields are only used by service workers */
+   /* TODO: Split out a ServiceWorkerLoadContext */

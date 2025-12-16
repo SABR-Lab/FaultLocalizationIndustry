@@ -1,0 +1,91 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: testing/mochitest/tests/SimpleTest/EventUtils.js
+# Commit: beeda5ef3712
+# Full Hash: beeda5ef3712b73a19c7a4ce08a52ab4dd08b802
+# Author: David P <daparks@mozilla.com>
+# Date: 2024-07-04 16:09:52
+# Regressor Bug: 1893119
+# File Overlap Count: 1
+# Description:
+#   Bug 1893119: Part 20 - Move EndDragSession from nsIDragService to nsIDragSession r=gstoll,rkraesig,win-reviewers,geckoview-reviewers,m_kato
+#   
+#   This is a straightforward move.  It does take the liberty of breaking out an
+#   EndDragSessionImpl method, which will be needed later.
+#   
+# ==============================================================================
+
+diff -r 6c3ffc8c534c -r beeda5ef3712 testing/mochitest/tests/SimpleTest/EventUtils.js
+--- a/testing/mochitest/tests/SimpleTest/EventUtils.js	Thu Jul 04 07:48:10 2024 +0000
++++ b/testing/mochitest/tests/SimpleTest/EventUtils.js	Thu Jul 04 07:48:11 2024 +0000
+@@ -684,7 +684,6 @@
+  *                      synthesize DOM events basically.
+  */
+ function _maybeEndDragSession(left, top, aEvent, aWindow) {
+-  const dragService = getDragService();
+   let utils = _getDOMWindowUtils(aWindow);
+   const dragSession = utils.dragSession;
+   if (!dragSession) {
+@@ -695,7 +694,7 @@
+   // need to synthesize a "drop" event or call setDragEndPointForTests here to
+   // set proper left/top to `dragend` event.
+   try {
+-    dragService.endDragSession(false, _parseModifiers(aEvent, aWindow));
++    dragSession.endDragSession(false, _parseModifiers(aEvent, aWindow));
+   } catch (e) {}
+   return true;
+ }
+@@ -3175,7 +3174,7 @@
+   const obs = _EU_Cc["@mozilla.org/observer-service;1"].getService(
+     _EU_Ci.nsIObserverService
+   );
+-  let utils = _getDOMWindowUtils(aDestWindow);
++  let utils = _getDOMWindowUtils(aWindow);
+   var sess = utils.dragSession;
+ 
+   // This method runs before other callbacks, and acts as a way to inject the
+@@ -3384,7 +3383,9 @@
+       aDragEvent
+     );
+   } finally {
+-    ds.endDragSession(true, _parseModifiers(aDragEvent));
++    let srcWindowUtils = _getDOMWindowUtils(aWindow);
++    const srcDragSession = srcWindowUtils.dragSession;
++    srcDragSession.endDragSession(true, _parseModifiers(aDragEvent));
+   }
+ }
+ 
+@@ -3554,10 +3555,6 @@
+     );
+   }
+ 
+-  const ds = _EU_Cc["@mozilla.org/widget/dragservice;1"].getService(
+-    _EU_Ci.nsIDragService
+-  );
+-
+   const editingHost = (() => {
+     if (!srcElement.matches(":read-write")) {
+       return null;
+@@ -3905,7 +3902,10 @@
+       }
+       srcWindow.addEventListener("dragend", onDragEnd, { capture: true });
+       try {
+-        ds.endDragSession(true, _parseModifiers(dragEvent));
++        srcWindowUtils.dragSession.endDragSession(
++          true,
++          _parseModifiers(dragEvent)
++        );
+         if (!expectSrcElementDisconnected && !dragEndEvent) {
+           // eslint-disable-next-line no-unsafe-finally
+           throw new Error(
+@@ -4448,8 +4448,7 @@
+           !expectNoDragTargetEvents
+             ? `received as a ${expectedMessage} event`
+             : "ignored"
+-        }` +
+-        `, followed by a dragend event`
++        }, followed by a dragend event`
+     );
+ 
+     currentTargetScreenPos = [

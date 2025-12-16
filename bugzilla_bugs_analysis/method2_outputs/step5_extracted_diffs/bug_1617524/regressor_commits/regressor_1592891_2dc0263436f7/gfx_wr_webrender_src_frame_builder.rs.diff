@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/frame_builder.rs
+# Commit: 2dc0263436f7
+# Full Hash: 2dc0263436f78b1689d5e23a2b24720181e91ea4
+# Author: Glenn Watson <git@intuitionlibrary.com>
+# Date: 2019-11-01 09:36:21
+# Regressor Bug: 1592891
+# File Overlap Count: 4
+# Description:
+#   Bug 1592891 - Disable picture caching when picture caches have complex transforms. r=kvark,nical
+#   
+#   With the recent changes to compositing in WR, the scene must either
+#   only produce produce cache tiles, or disable picture caching and
+#   rasterize directly.
+# ==============================================================================
+
+diff -r b96cb18aa920 -r 2dc0263436f7 gfx/wr/webrender/src/frame_builder.rs
+--- a/gfx/wr/webrender/src/frame_builder.rs	Thu Oct 31 13:49:53 2019 +0000
++++ b/gfx/wr/webrender/src/frame_builder.rs	Thu Oct 31 19:53:44 2019 +0000
+@@ -7,7 +7,7 @@
+ use api::units::*;
+ use crate::batch::{BatchBuilder, AlphaBatchBuilder, AlphaBatchContainer};
+ use crate::clip::{ClipStore, ClipChainStack};
+-use crate::clip_scroll_tree::{ClipScrollTree, ROOT_SPATIAL_NODE_INDEX, SpatialNodeIndex};
++use crate::clip_scroll_tree::{ClipScrollTree, ROOT_SPATIAL_NODE_INDEX, SpatialNodeIndex, CoordinateSystemId};
+ use crate::composite::{CompositorKind, CompositeState};
+ use crate::debug_render::DebugItem;
+ use crate::gpu_cache::{GpuCache, GpuCacheHandle};
+@@ -502,9 +502,17 @@
+         // (1) If globally enabled when WR was initialized
+         // (2) If current debug flags allow picture caching
+         // (3) [In future] Whether we are currently pinch zooming
++        // (4) If any picture cache spatial nodes are not in the root coordinate system
+         let picture_caching_is_enabled =
+             scene.config.global_enable_picture_caching &&
+-            !debug_flags.contains(DebugFlags::DISABLE_PICTURE_CACHING);
++            !debug_flags.contains(DebugFlags::DISABLE_PICTURE_CACHING) &&
++            !scene.picture_cache_spatial_nodes.iter().any(|spatial_node_index| {
++                let spatial_node = &scene
++                    .clip_scroll_tree
++                    .spatial_nodes[spatial_node_index.0 as usize];
++                spatial_node.coordinate_system_id != CoordinateSystemId::root()
++            });
++
+         let mut composite_state = CompositeState::new(
+             scene.config.compositor_kind,
+             picture_caching_is_enabled,

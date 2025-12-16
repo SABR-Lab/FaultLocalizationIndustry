@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/performance/PerformanceObserver.h
+# Commit: 3cd097a7b017
+# Full Hash: 3cd097a7b017154cf5f7a2d9ed97c7891d3074f4
+# Author: Will Hawkins <whawkins@mozilla.com>
+# Date: 2019-04-10 09:58:56
+# Regressor Bug: 1539006
+# File Overlap Count: 1
+# Description:
+#   Bug 1539006: Properly implement Performance Timeline Level 2 w3c spec. r=baku,flod
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D26654
+# ==============================================================================
+
+diff -r ea2baf2c9ae7 -r 3cd097a7b017 dom/performance/PerformanceObserver.h
+--- a/dom/performance/PerformanceObserver.h	Tue Apr 09 20:32:54 2019 +0000
++++ b/dom/performance/PerformanceObserver.h	Wed Apr 10 00:14:39 2019 +0000
+@@ -49,7 +49,9 @@
+ 
+   nsISupports* GetParentObject() const { return mOwner; }
+ 
+-  void Observe(const PerformanceObserverInit& aOptions);
++  void Observe(const PerformanceObserverInit& aOptions, ErrorResult& aRv);
++  static void GetSupportedEntryTypes(const GlobalObject& aGlobal,
++                                     JS::MutableHandle<JSObject*> aObject);
+ 
+   void Disconnect();
+ 
+@@ -58,13 +60,26 @@
+   MOZ_CAN_RUN_SCRIPT void Notify();
+   void QueueEntry(PerformanceEntry* aEntry);
+ 
++  bool ObservesTypeOfEntry(PerformanceEntry* aEntry);
++
+  private:
++  void ReportUnsupportedTypesErrorToConsole(bool aIsMainThread,
++                                            const nsString& aInvalidTypes);
+   ~PerformanceObserver();
+ 
+   nsCOMPtr<nsISupports> mOwner;
+   RefPtr<PerformanceObserverCallback> mCallback;
+   RefPtr<Performance> mPerformance;
+   nsTArray<nsString> mEntryTypes;
++  nsTArray<PerformanceObserverInit> mOptions;
++  enum {
++    ObserverTypeUndefined,
++    ObserverTypeSingle,
++    ObserverTypeMultiple,
++  } mObserverType;
++  /*
++   * This is also known as registered, in the spec.
++   */
+   bool mConnected;
+   nsTArray<RefPtr<PerformanceEntry>> mQueuedEntries;
+ };

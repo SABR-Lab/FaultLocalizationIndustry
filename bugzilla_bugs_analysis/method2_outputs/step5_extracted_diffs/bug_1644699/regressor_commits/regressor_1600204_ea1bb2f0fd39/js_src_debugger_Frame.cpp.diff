@@ -1,0 +1,79 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/debugger/Frame.cpp
+# Commit: ea1bb2f0fd39
+# Full Hash: ea1bb2f0fd39a412480bd777ba944b276a54006a
+# Author: Logan Smyth <loganfsmyth@gmail.com>
+# Date: 2019-12-09 09:50:39
+# Regressor Bug: 1600204
+# File Overlap Count: 1
+# Description:
+#   Bug 1600204 - Part 5: Support .environment on suspended generator frames. r=jimb
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D55235
+# ==============================================================================
+
+diff -r 39d1ae1352b3 -r ea1bb2f0fd39 js/src/debugger/Frame.cpp
+--- a/js/src/debugger/Frame.cpp	Fri Dec 06 02:30:30 2019 +0000
++++ b/js/src/debugger/Frame.cpp	Sun Dec 08 23:53:27 2019 +0000
+@@ -524,24 +524,36 @@
+ /* static */
+ bool DebuggerFrame::getEnvironment(JSContext* cx, HandleDebuggerFrame frame,
+                                    MutableHandleDebuggerEnvironment result) {
+-  MOZ_ASSERT(frame->isOnStack());
+-
+   Debugger* dbg = frame->owner();
++  Rooted<Env*> env(cx);
+ 
+-  Maybe<FrameIter> maybeIter;
+-  if (!DebuggerFrame::getFrameIter(cx, frame, maybeIter)) {
+-    return false;
+-  }
+-  FrameIter& iter = *maybeIter;
+-
+-  Rooted<Env*> env(cx);
+-  {
+-    AutoRealm ar(cx, iter.abstractFramePtr().environmentChain());
+-    UpdateFrameIterPc(iter);
+-    env = GetDebugEnvironmentForFrame(cx, iter.abstractFramePtr(), iter.pc());
+-    if (!env) {
++  if (frame->isOnStack()) {
++    Maybe<FrameIter> maybeIter;
++    if (!DebuggerFrame::getFrameIter(cx, frame, maybeIter)) {
+       return false;
+     }
++    FrameIter& iter = *maybeIter;
++
++    {
++      AutoRealm ar(cx, iter.abstractFramePtr().environmentChain());
++      UpdateFrameIterPc(iter);
++      env = GetDebugEnvironmentForFrame(cx, iter.abstractFramePtr(), iter.pc());
++    }
++  } else {
++    MOZ_ASSERT(frame->hasGenerator());
++
++    AbstractGeneratorObject& genObj =
++        frame->generatorInfo()->unwrappedGenerator();
++    JSScript* script = frame->generatorInfo()->generatorScript();
++
++    {
++      AutoRealm ar(cx, &genObj.environmentChain());
++      env = GetDebugEnvironmentForSuspendedGenerator(cx, script, genObj);
++    }
++  }
++
++  if (!env) {
++    return false;
+   }
+ 
+   return dbg->wrapEnvironment(cx, env, result);
+@@ -1379,7 +1391,7 @@
+ }
+ 
+ bool DebuggerFrame::CallData::environmentGetter() {
+-  if (!ensureOnStack()) {
++  if (!ensureOnStackOrSuspended()) {
+     return false;
+   }
+ 

@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/ipc/CanvasManagerParent.h
+# Commit: dab6b48a2a59
+# Full Hash: dab6b48a2a592a441229e88c88b1aa2570f2171d
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2023-12-12 04:37:49
+# Regressor Bug: 1869346
+# File Overlap Count: 5
+# Description:
+#   Bug 1869346 - Rework how canvas accesses shared surfaces in the compositor process. r=gfx-reviewers,lsalzman
+#   
+#   This patch adds plumbing to allow sharing ExternalImageId via
+#   SurfaceDescriptor. This will be used in a future patch by WebGL and
+#   WebGPU to avoid extra copies. It also refactors how CanvasTranslator
+# ==============================================================================
+
+diff -r af13afc7d44f -r dab6b48a2a59 gfx/ipc/CanvasManagerParent.h
+--- a/gfx/ipc/CanvasManagerParent.h	Mon Dec 11 20:19:47 2023 +0000
++++ b/gfx/ipc/CanvasManagerParent.h	Mon Dec 11 20:44:44 2023 +0000
+@@ -17,6 +17,7 @@
+ namespace layers {
+ class CanvasTranslator;
+ class HostIPCAllocator;
++class SharedSurfacesHolder;
+ class SurfaceDescriptor;
+ }  // namespace layers
+ 
+@@ -27,6 +28,7 @@
+   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(CanvasManagerParent, override);
+ 
+   static void Init(Endpoint<PCanvasManagerParent>&& aEndpoint,
++                   layers::SharedSurfacesHolder* aSharedSurfacesHolder,
+                    const dom::ContentParentId& aContentId);
+ 
+   static void Shutdown();
+@@ -45,7 +47,8 @@
+   static UniquePtr<layers::SurfaceDescriptor> WaitForReplayTexture(
+       layers::HostIPCAllocator* aAllocator, int64_t aTextureId);
+ 
+-  explicit CanvasManagerParent(const dom::ContentParentId& aContentId);
++  CanvasManagerParent(layers::SharedSurfacesHolder* aSharedSurfacesHolder,
++                      const dom::ContentParentId& aContentId);
+ 
+   void Bind(Endpoint<PCanvasManagerParent>&& aEndpoint);
+   void ActorDestroy(ActorDestroyReason aWhy) override;
+@@ -70,6 +73,7 @@
+ 
+   ~CanvasManagerParent() override;
+ 
++  RefPtr<layers::SharedSurfacesHolder> mSharedSurfacesHolder;
+   const dom::ContentParentId mContentId;
+   uint32_t mId = 0;
+ 

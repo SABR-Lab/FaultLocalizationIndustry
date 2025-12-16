@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/webgpu/ExternalTexture.cpp
+# Commit: 7f25d62e49a2
+# Full Hash: 7f25d62e49a2325004433386f09955d3c2f64c3c
+# Author: sotaro <sotaro.ikeda.g@gmail.com>
+# Date: 2023-10-24 09:38:27
+# Regressor Bug: 1856787
+# File Overlap Count: 2
+# Description:
+#   Bug 1856787 - Add a capability to present WebGPU without readback on Windows r=webgpu-reviewers,nical
+#   
+#   For presenting WebGPU without readback, wgpu does rendering to ExternalTexture. Then the ExternalTexture is pushed to RemoteTextureMap for present.
+#   
+#   With DX12, ExternalTextureD3D11 is implemented for gecko side implementation. ExternalTextureWgpu holds necessary resource that is necessary by wgpu. ExternalTextureWgpu is created and destroyed by gecko side's ExternalTexture.
+# ==============================================================================
+
+diff -r ed56525c65bc -r 7f25d62e49a2 dom/webgpu/ExternalTexture.cpp
+--- a/dom/webgpu/ExternalTexture.cpp	Tue Oct 24 03:54:42 2023 +0000
++++ b/dom/webgpu/ExternalTexture.cpp	Tue Oct 24 04:04:07 2023 +0000
+@@ -26,6 +26,16 @@
+                                  const struct ffi::WGPUTextureFormat aFormat)
+     : mWidth(aWidth), mHeight(aHeight), mFormat(aFormat) {}
+ 
+-ExternalTexture::~ExternalTexture() {}
++ExternalTexture::~ExternalTexture() {
++  if (mTextureRaw) {
++    wgpu_server_destroy_external_texture_raw(mTextureRaw);
++    mTextureRaw = nullptr;
++  }
++}
++
++void ExternalTexture::SetTextureRaw(ffi::WGPUTextureRaw* aTextureRaw) {
++  MOZ_ASSERT(!mTextureRaw);
++  mTextureRaw = aTextureRaw;
++}
+ 
+ }  // namespace mozilla::webgpu

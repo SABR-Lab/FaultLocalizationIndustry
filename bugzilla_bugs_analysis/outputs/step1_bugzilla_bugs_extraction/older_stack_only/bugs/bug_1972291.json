@@ -1,0 +1,225 @@
+{
+  "bug_id": "1972291",
+  "summary": "[HDR][KDE] MOZ_DIAGNOSTIC_ASSERT(!mFrameCallbackHandler.IsSet());",
+  "status": "RESOLVED",
+  "resolution": "FIXED",
+  "product": "Core",
+  "component": "Widget: Gtk",
+  "version": "unspecified",
+  "severity": "--",
+  "priority": "P3",
+  "creation_time": "2025-06-16T10:11:48Z",
+  "last_change_time": "2025-07-23T14:03:00Z",
+  "is_recent": false,
+  "crash_signature_raw": "[@ mozilla::widget::WaylandSurface::SetFrameCallbackLocked]",
+  "crash_signatures": [
+    "mozilla::widget::WaylandSurface::SetFrameCallbackLocked"
+  ],
+  "keywords": [],
+  "regressed_by": [],
+  "regressions": [
+    1974170
+  ],
+  "bugzilla_url": "https://bugzilla.mozilla.org/show_bug.cgi?id=1972291",
+  "socorro_links": [],
+  "socorro_crash_ids": [],
+  "has_socorro_link": false,
+  "has_direct_crash_id": false,
+  "stack_traces": [
+    {
+      "comment_id": 17538441,
+      "comment_count": 0,
+      "creator": "stransky@redhat.com",
+      "creation_time": "2025-06-16T10:11:48Z",
+      "raw_text": "Looks like race:\n\nMOZ_DIAGNOSTIC_ASSERT(!mFrameCallbackHandler.IsSet());\n\n```\nRenderer:\n\n#10 MOZ_CrashSequence (aAddress=0x0, aLine=368) at /raid/src/objdir/dist/include/mozilla/Assertions.h:248\n#11 0x00007f7ed3cb5697 in mozilla::widget::WaylandSurface::SetFrameCallbackLocked (this=0x7f7e79757400, aProofOfLock=..., aFrameCallbackHandler=..., aEmulateFrameCallback=true)\n    at /raid/src/widget/gtk/WaylandSurface.cpp:368\n#12 0x00007f7ecd5c476c in mozilla::layers::NativeLayerWayland::Map (this=0x7f7e66380890, aParentWaylandSurfaceLock=0x7f7e99af83e0) at /raid/src/gfx/layers/NativeLayerWayland.cpp:765\n#13 0x00007f7ecd5c377a in mozilla::layers::NativeLayerRootWayland::SetLayers (this=0x7f7ead1afa00, aLayers=const nsTArray<RefPtr<mozilla::layers::NativeLayer> > & = {...})\n    at /raid/src/gfx/layers/NativeLayerWayland.cpp:321\n#14 0x00007f7ecde08d56 in mozilla::wr::RenderCompositorNative::CompositorEndFrame (this=0x7f7e8a3172f0) at /raid/src/gfx/webrender_bindings/RenderCompositorNative.cpp:277\n#15 0x00007f7ecde1ba01 in wr_compositor_end_frame (aCompositor=0x7f7e8a3172f0) at /raid/src/gfx/webrender_bindings/RenderCompositor.cpp:149\n#16 0x00007f7ed864a639 in webrender_bindings::bindings::{impl#22}::end_frame (self=0x7f7e910f8b28, _device=0x7f7e854f8000) at gfx/webrender_bindings/src/bindings.rs:1494\n#17 0x00007f7ed8e4750c in webrender::renderer::Renderer::render_impl (self=0x7f7e854f8000, doc_id=..., active_doc=0x7f7e99af94d8, device_size=..., buffer_age=0) at gfx/wr/webrender/src/renderer/mod.rs:1822\n#18 0x00007f7ed8e449f9 in webrender::renderer::Renderer::render (self=0x7f7e854f8000, device_size=..., buffer_age=0) at gfx/wr/webrender/src/renderer/mod.rs:1316\n#19 0x00007f7ed8647dfb in webrender_bindings::bindings::wr_renderer_render (renderer=0x7f7e854f8000, width=1920, height=2088, buffer_age=0, out_stats=0x7f7e99afb250, out_dirty_rects=0x7f7e99afaf18)\n    at gfx/webrender_bindings/src/bindings.rs:650\n```\n\n```\nMain thread:\n\n#7  0x00007f7ed3cb9ab4 in mozilla::widget::WaylandSurface::Lock (this=0x7f7e91036100, aWaylandSurfaceLock=0x7ffc2abb6c88) at /raid/src/widget/gtk/WaylandSurface.cpp:882\n#8  0x00007f7ed3cbed56 in mozilla::widget::WaylandSurfaceLock::WaylandSurfaceLock (this=0x7ffc2abb6c88, aWaylandSurface=[(mozilla::widget::WaylandSurface *)] = {...}, aForceCommit=false)\n    at /raid/src/widget/gtk/WaylandSurfaceLock.cpp:24\n#9  0x00007f7ed3cb4f2f in mozilla::widget::WaylandSurface::FrameCallbackHandler (this=0x7f7e91036100, aCallback=0x7f7e7265e880, aTime=16268468, aRoutedFromChildSurface=false)\n    at /raid/src/widget/gtk/WaylandSurface.cpp:234\n#10 0x00007f7ed3cbce19 in mozilla::widget::FrameCallbackHandler (aWaylandSurface=0x7f7e91036100, aCallback=0x7f7e7265e880, aTime=16268468) at /raid/src/widget/gtk/WaylandSurface.cpp:286\n#11 0x00007f7edd4e6056 in ffi_call_unix64 () at /lib64/libffi.so.8\n#12 0x00007f7edd4e1d08 in ffi_call_int.lto_priv () at /lib64/libffi.so.8\n#13 0x00007f7edd4e470e in ffi_call () at /lib64/libffi.so.8\n#14 0x00007f7ee0805422 in wl_closure_invoke (closure=closure@entry=0x7f7e8a3db4a0, target=<optimized out>, target@entry=0x7f7e7265e880, opcode=opcode@entry=0, data=<optimized out>, flags=1)\n    at ../src/connection.c:1228\n#15 0x00007f7ee0805c79 in dispatch_event (display=display@entry=0x7f7ee2af9760, queue=queue@entry=0x7f7ee2af9858) at ../src/wayland-client.c:1674\n#16 0x00007f7ee0806063 in dispatch_queue (display=0x7f7ee2af9760, queue=0x7f7ee2af9858) at ../src/wayland-client.c:1820\n#17 wl_display_dispatch_queue_pending (display=0x7f7ee2af9760, queue=0x7f7ee2af9858) at ../src/wayland-client.c:2062\n#18 0x00007f7ede89edd0 in _gdk_wayland_display_queue_events () at /lib64/libgdk-3.so.0\n```",
+      "matched_patterns": [
+        "#\\d+\\s+0x[0-9a-fA-F]+\\s+in\\s+\\S+",
+        "#\\d+\\s+\\S+\\s*\\([^)]*\\)\\s+at\\s+\\S+:\\d+",
+        "mozilla::\\S+::\\S+\\s*\\(",
+        "\\bat\\s+\\S+\\.(cpp|c|h|cc|js|jsm|rs|cxx):\\d+"
+      ],
+      "parsed_frames": [
+        {
+          "frame_index": 10,
+          "function": "MOZ_CrashSequence",
+          "file": "/raid/src/objdir/dist/include/mozilla/Assertions.h",
+          "line": 248,
+          "module": "",
+          "raw": "#10 MOZ_CrashSequence (aAddress=0x0, aLine=368) at /raid/src/objdir/dist/include/mozilla/Assertions.h:248"
+        },
+        {
+          "frame_index": 11,
+          "function": "mozilla::widget::WaylandSurface::SetFrameCallbackLocked",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#11 0x00007f7ed3cb5697 in mozilla::widget::WaylandSurface::SetFrameCallbackLocked (this=0x7f7e79757400, aProofOfLock=..., aFrameCallbackHandler=..., aEmulateFrameCallback=true)"
+        },
+        {
+          "frame_index": 12,
+          "function": "mozilla::layers::NativeLayerWayland::Map",
+          "file": "/raid/src/gfx/layers/NativeLayerWayland.cpp",
+          "line": 765,
+          "module": "",
+          "raw": "#12 0x00007f7ecd5c476c in mozilla::layers::NativeLayerWayland::Map (this=0x7f7e66380890, aParentWaylandSurfaceLock=0x7f7e99af83e0) at /raid/src/gfx/layers/NativeLayerWayland.cpp:765"
+        },
+        {
+          "frame_index": 13,
+          "function": "mozilla::layers::NativeLayerRootWayland::SetLayers",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#13 0x00007f7ecd5c377a in mozilla::layers::NativeLayerRootWayland::SetLayers (this=0x7f7ead1afa00, aLayers=const nsTArray<RefPtr<mozilla::layers::NativeLayer> > & = {...})"
+        },
+        {
+          "frame_index": 14,
+          "function": "mozilla::wr::RenderCompositorNative::CompositorEndFrame",
+          "file": "/raid/src/gfx/webrender_bindings/RenderCompositorNative.cpp",
+          "line": 277,
+          "module": "",
+          "raw": "#14 0x00007f7ecde08d56 in mozilla::wr::RenderCompositorNative::CompositorEndFrame (this=0x7f7e8a3172f0) at /raid/src/gfx/webrender_bindings/RenderCompositorNative.cpp:277"
+        },
+        {
+          "frame_index": 15,
+          "function": "wr_compositor_end_frame",
+          "file": "/raid/src/gfx/webrender_bindings/RenderCompositor.cpp",
+          "line": 149,
+          "module": "",
+          "raw": "#15 0x00007f7ecde1ba01 in wr_compositor_end_frame (aCompositor=0x7f7e8a3172f0) at /raid/src/gfx/webrender_bindings/RenderCompositor.cpp:149"
+        },
+        {
+          "frame_index": 16,
+          "function": "webrender_bindings::bindings::{impl#22}::end_frame",
+          "file": "gfx/webrender_bindings/src/bindings.rs",
+          "line": 1494,
+          "module": "",
+          "raw": "#16 0x00007f7ed864a639 in webrender_bindings::bindings::{impl#22}::end_frame (self=0x7f7e910f8b28, _device=0x7f7e854f8000) at gfx/webrender_bindings/src/bindings.rs:1494"
+        },
+        {
+          "frame_index": 17,
+          "function": "webrender::renderer::Renderer::render_impl",
+          "file": "gfx/wr/webrender/src/renderer/mod.rs",
+          "line": 1822,
+          "module": "",
+          "raw": "#17 0x00007f7ed8e4750c in webrender::renderer::Renderer::render_impl (self=0x7f7e854f8000, doc_id=..., active_doc=0x7f7e99af94d8, device_size=..., buffer_age=0) at gfx/wr/webrender/src/renderer/mod.rs:1822"
+        },
+        {
+          "frame_index": 18,
+          "function": "webrender::renderer::Renderer::render",
+          "file": "gfx/wr/webrender/src/renderer/mod.rs",
+          "line": 1316,
+          "module": "",
+          "raw": "#18 0x00007f7ed8e449f9 in webrender::renderer::Renderer::render (self=0x7f7e854f8000, device_size=..., buffer_age=0) at gfx/wr/webrender/src/renderer/mod.rs:1316"
+        },
+        {
+          "frame_index": 19,
+          "function": "webrender_bindings::bindings::wr_renderer_render",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#19 0x00007f7ed8647dfb in webrender_bindings::bindings::wr_renderer_render (renderer=0x7f7e854f8000, width=1920, height=2088, buffer_age=0, out_stats=0x7f7e99afb250, out_dirty_rects=0x7f7e99afaf18)"
+        },
+        {
+          "frame_index": 7,
+          "function": "mozilla::widget::WaylandSurface::Lock",
+          "file": "/raid/src/widget/gtk/WaylandSurface.cpp",
+          "line": 882,
+          "module": "",
+          "raw": "#7  0x00007f7ed3cb9ab4 in mozilla::widget::WaylandSurface::Lock (this=0x7f7e91036100, aWaylandSurfaceLock=0x7ffc2abb6c88) at /raid/src/widget/gtk/WaylandSurface.cpp:882"
+        },
+        {
+          "frame_index": 8,
+          "function": "mozilla::widget::WaylandSurfaceLock::WaylandSurfaceLock",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#8  0x00007f7ed3cbed56 in mozilla::widget::WaylandSurfaceLock::WaylandSurfaceLock (this=0x7ffc2abb6c88, aWaylandSurface=[(mozilla::widget::WaylandSurface *)] = {...}, aForceCommit=false)"
+        },
+        {
+          "frame_index": 9,
+          "function": "mozilla::widget::WaylandSurface::FrameCallbackHandler",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#9  0x00007f7ed3cb4f2f in mozilla::widget::WaylandSurface::FrameCallbackHandler (this=0x7f7e91036100, aCallback=0x7f7e7265e880, aTime=16268468, aRoutedFromChildSurface=false)"
+        },
+        {
+          "frame_index": 10,
+          "function": "mozilla::widget::FrameCallbackHandler",
+          "file": "/raid/src/widget/gtk/WaylandSurface.cpp",
+          "line": 286,
+          "module": "",
+          "raw": "#10 0x00007f7ed3cbce19 in mozilla::widget::FrameCallbackHandler (aWaylandSurface=0x7f7e91036100, aCallback=0x7f7e7265e880, aTime=16268468) at /raid/src/widget/gtk/WaylandSurface.cpp:286"
+        },
+        {
+          "frame_index": 11,
+          "function": "ffi_call_unix64",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#11 0x00007f7edd4e6056 in ffi_call_unix64 () at /lib64/libffi.so.8"
+        },
+        {
+          "frame_index": 12,
+          "function": "ffi_call_int.lto_priv",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#12 0x00007f7edd4e1d08 in ffi_call_int.lto_priv () at /lib64/libffi.so.8"
+        },
+        {
+          "frame_index": 13,
+          "function": "ffi_call",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#13 0x00007f7edd4e470e in ffi_call () at /lib64/libffi.so.8"
+        },
+        {
+          "frame_index": 14,
+          "function": "wl_closure_invoke",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#14 0x00007f7ee0805422 in wl_closure_invoke (closure=closure@entry=0x7f7e8a3db4a0, target=<optimized out>, target@entry=0x7f7e7265e880, opcode=opcode@entry=0, data=<optimized out>, flags=1)"
+        },
+        {
+          "frame_index": 15,
+          "function": "dispatch_event",
+          "file": "../src/wayland-client.c",
+          "line": 1674,
+          "module": "",
+          "raw": "#15 0x00007f7ee0805c79 in dispatch_event (display=display@entry=0x7f7ee2af9760, queue=queue@entry=0x7f7ee2af9858) at ../src/wayland-client.c:1674"
+        },
+        {
+          "frame_index": 16,
+          "function": "dispatch_queue",
+          "file": "../src/wayland-client.c",
+          "line": 1820,
+          "module": "",
+          "raw": "#16 0x00007f7ee0806063 in dispatch_queue (display=0x7f7ee2af9760, queue=0x7f7ee2af9858) at ../src/wayland-client.c:1820"
+        },
+        {
+          "frame_index": 17,
+          "function": "wl_display_dispatch_queue_pending",
+          "file": "../src/wayland-client.c",
+          "line": 2062,
+          "module": "",
+          "raw": "#17 wl_display_dispatch_queue_pending (display=0x7f7ee2af9760, queue=0x7f7ee2af9858) at ../src/wayland-client.c:2062"
+        },
+        {
+          "frame_index": 18,
+          "function": "_gdk_wayland_display_queue_events",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#18 0x00007f7ede89edd0 in _gdk_wayland_display_queue_events () at /lib64/libgdk-3.so.0"
+        }
+      ],
+      "frame_count": 22
+    }
+  ],
+  "has_stack_traces": true,
+  "stack_trace_count": 1,
+  "total_parsed_frames": 22
+}

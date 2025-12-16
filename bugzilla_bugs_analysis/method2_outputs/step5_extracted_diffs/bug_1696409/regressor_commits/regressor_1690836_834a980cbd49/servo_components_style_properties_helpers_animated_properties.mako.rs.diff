@@ -1,0 +1,37 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: servo/components/style/properties/helpers/animated_properties.mako.rs
+# Commit: 834a980cbd49
+# Full Hash: 834a980cbd49b0634e98e0a00441bb20ad4ceb40
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2021-02-16 21:51:29
+# Regressor Bug: 1690836
+# File Overlap Count: 1
+# Description:
+#   Bug 1690836 - Cache substituted values from shorthand properties during the cascade. r=xidorn
+#   
+#   This brings the time down to 1.6ms from 4.8ms on the test-case in the
+#   bug. This should be improvable too, but I think this is a nice
+#   improvement for regular styling as well.
+# ==============================================================================
+
+diff -r 9455553189d2 -r 834a980cbd49 servo/components/style/properties/helpers/animated_properties.mako.rs
+--- a/servo/components/style/properties/helpers/animated_properties.mako.rs	Tue Feb 16 13:38:08 2021 +0000
++++ b/servo/components/style/properties/helpers/animated_properties.mako.rs	Tue Feb 16 13:38:08 2021 +0000
+@@ -367,6 +367,7 @@
+                 }
+             },
+             PropertyDeclaration::WithVariables(ref declaration) => {
++                let mut cache = Default::default();
+                 let substituted = {
+                     let custom_properties =
+                         extra_custom_properties.or_else(|| context.style().custom_properties());
+@@ -376,6 +377,7 @@
+                         custom_properties,
+                         context.quirks_mode,
+                         context.device(),
++                        &mut cache,
+                     )
+                 };
+                 return AnimationValue::from_declaration(

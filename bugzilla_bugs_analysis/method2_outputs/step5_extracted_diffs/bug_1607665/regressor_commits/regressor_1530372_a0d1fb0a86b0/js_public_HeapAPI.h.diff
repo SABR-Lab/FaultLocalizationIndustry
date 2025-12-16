@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/public/HeapAPI.h
+# Commit: a0d1fb0a86b0
+# Full Hash: a0d1fb0a86b04c74a8809c35230382f90cdfe779
+# Author: André Bargull <andre.bargull@gmail.com>
+# Date: 2020-01-07 21:57:58
+# Regressor Bug: 1530372
+# File Overlap Count: 1
+# Description:
+#   Bug 1530372 - Part 4: Support nursery allocation for BigInt. r=sfink,jandem
+#   
+#   Most of the code was copied from the String nursery allocation code paths and
+#   then adjusted to work with BigInts. Where applicable, the newly added BigInt
+#   functions were placed right next to the String functions, so it's easier to
+# ==============================================================================
+
+diff -r 9ae1e055de13 -r a0d1fb0a86b0 js/public/HeapAPI.h
+--- a/js/public/HeapAPI.h	Thu Jan 02 13:04:45 2020 +0000
++++ b/js/public/HeapAPI.h	Mon Jan 06 12:49:45 2020 +0000
+@@ -521,13 +521,17 @@
+   return location == ChunkLocation::Nursery;
+ }
+ 
+-// Allow use before the compiler knows the derivation of JSObject and JSString.
++// Allow use before the compiler knows the derivation of JSObject, JSString, and
++// JS::BigInt.
+ MOZ_ALWAYS_INLINE bool IsInsideNursery(const JSObject* obj) {
+   return IsInsideNursery(reinterpret_cast<const Cell*>(obj));
+ }
+ MOZ_ALWAYS_INLINE bool IsInsideNursery(const JSString* str) {
+   return IsInsideNursery(reinterpret_cast<const Cell*>(str));
+ }
++MOZ_ALWAYS_INLINE bool IsInsideNursery(const JS::BigInt* bi) {
++  return IsInsideNursery(reinterpret_cast<const Cell*>(bi));
++}
+ 
+ MOZ_ALWAYS_INLINE bool IsCellPointerValid(const void* cell) {
+   auto addr = uintptr_t(cell);
+@@ -585,6 +589,10 @@
+ 
+ extern JS_PUBLIC_API void DisableNurseryStrings(JSContext* cx);
+ 
++extern JS_PUBLIC_API void EnableNurseryBigInts(JSContext* cx);
++
++extern JS_PUBLIC_API void DisableNurseryBigInts(JSContext* cx);
++
+ /*
+  * Returns true when writes to GC thing pointers (and reads from weak pointers)
+  * must call an incremental barrier. This is generally only true when running

@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/windowwatcher/nsWindowWatcher.h
+# Commit: b47a29dc541a
+# Full Hash: b47a29dc541a8cefda7c14274581e9c868944400
+# Author: Kris Maglione <maglione.k@gmail.com>
+# Date: 2019-08-15 09:46:49
+# Regressor Bug: 1562292
+# File Overlap Count: 1
+# Description:
+#   Bug 1562292: Part 2c - Use BrowserContext rather than DocShell to resolve named targets. r=nika
+#   
+#   This lets us lookup cross-process targets, but does not yet allow returning or
+#   loading anything into them.
+#   
+# ==============================================================================
+
+diff -r ce60426d7e31 -r b47a29dc541a toolkit/components/windowwatcher/nsWindowWatcher.h
+--- a/toolkit/components/windowwatcher/nsWindowWatcher.h	Fri Jun 28 12:32:49 2019 -0700
++++ b/toolkit/components/windowwatcher/nsWindowWatcher.h	Fri Jun 28 14:34:58 2019 -0700
+@@ -71,12 +71,15 @@
+   already_AddRefed<nsIDocShellTreeItem> GetCallerTreeItem(
+       nsIDocShellTreeItem* aParentItem);
+ 
+-  // Unlike GetWindowByName this will look for a caller on the JS
+-  // stack, and then fall back on aCurrentWindow if it can't find one.
++  mozilla::dom::BrowsingContext* GetCallerBrowsingContext(
++      mozilla::dom::BrowsingContext* aParent);
++
++  // Will first look for a caller on the JS stack, and then fall back on
++  // aCurrentContext if it can't find one.
+   // It also knows to not look for things if aForceNoOpener is set.
+-  nsPIDOMWindowOuter* SafeGetWindowByName(const nsAString& aName,
+-                                          bool aForceNoOpener,
+-                                          mozIDOMWindowProxy* aCurrentWindow);
++  already_AddRefed<mozilla::dom::BrowsingContext> GetBrowsingContextByName(
++      const nsAString& aName, bool aForceNoOpener,
++      mozilla::dom::BrowsingContext* aCurrentContext);
+ 
+   // Just like OpenWindowJS, but knows whether it got called via OpenWindowJS
+   // (which means called from script) or called via OpenWindow.

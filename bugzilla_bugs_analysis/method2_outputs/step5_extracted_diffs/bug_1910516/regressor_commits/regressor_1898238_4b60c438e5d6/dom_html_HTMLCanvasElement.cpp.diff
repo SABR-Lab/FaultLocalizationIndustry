@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/html/HTMLCanvasElement.cpp
+# Commit: 4b60c438e5d6
+# Full Hash: 4b60c438e5d69c30b5d3c24664a06da7693a9402
+# Author: Jamie Nicol <jnicol@mozilla.com>
+# Date: 2024-07-23 09:34:47
+# Regressor Bug: 1898238
+# File Overlap Count: 1
+# Description:
+#   Bug 1898238 - Don't call TexTypeForWebgl when initializing offscreen canvas. r=aosmond,jgilbert
+#   
+#   This is only used if the OffscreenCanvas has a webgl context, in which
+#   case it forwards the tex type to WebGLContext::PresentFrontBuffer(). A
+#   later patch in this series will make TexTypeForWebgl() return a
+# ==============================================================================
+
+diff -r 51ece15f6b4e -r 4b60c438e5d6 dom/html/HTMLCanvasElement.cpp
+--- a/dom/html/HTMLCanvasElement.cpp	Mon Jul 22 20:21:30 2024 +0000
++++ b/dom/html/HTMLCanvasElement.cpp	Mon Jul 22 20:23:37 2024 +0000
+@@ -1039,22 +1039,19 @@
+   }
+ 
+   LayersBackend backend = LayersBackend::LAYERS_NONE;
+-  TextureType textureType = TextureType::Unknown;
+   nsIWidget* docWidget = nsContentUtils::WidgetForDocument(OwnerDoc());
+   if (docWidget) {
+     WindowRenderer* renderer = docWidget->GetWindowRenderer();
+     if (renderer) {
+       backend = renderer->GetCompositorBackendType();
+-      textureType = TexTypeForWebgl(renderer->AsKnowsCompositor());
+     }
+   }
+ 
+   CSSIntSize sz = GetWidthHeight();
+   mOffscreenDisplay =
+       MakeRefPtr<OffscreenCanvasDisplayHelper>(this, sz.width, sz.height);
+-  mOffscreenCanvas =
+-      new OffscreenCanvas(win->AsGlobal(), sz.width, sz.height, backend,
+-                          textureType, do_AddRef(mOffscreenDisplay));
++  mOffscreenCanvas = new OffscreenCanvas(win->AsGlobal(), sz.width, sz.height,
++                                         backend, do_AddRef(mOffscreenDisplay));
+   if (mWriteOnly) {
+     mOffscreenCanvas->SetWriteOnly(mExpandedReader);
+   }

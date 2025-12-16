@@ -1,0 +1,130 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: uriloader/preload/PreloadHashKey.cpp
+# Commit: 86c478d114ec
+# Full Hash: 86c478d114ec223ecf3698ddbb52977bf786f10c
+# Author: Honza Bambas <honzab.moz@firemni.cz>
+# Date: 2020-05-11 21:47:06
+# Regressor Bug: 1618287
+# File Overlap Count: 1
+# Description:
+#   Bug 1618287 - PreloaderBase class, r=smaug
+#   
+#   Depends on D71800
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D67479
+# ==============================================================================
+
+diff -r 5c64c1dfb318 -r 86c478d114ec uriloader/preload/PreloadHashKey.cpp
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/uriloader/preload/PreloadHashKey.cpp	Mon May 11 14:20:39 2020 +0000
+@@ -0,0 +1,108 @@
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++#include "PreloadHashKey.h"
++
++#include "nsIPrincipal.h"
++#include "nsIReferrerInfo.h"
++
++namespace mozilla {
++
++PreloadHashKey::PreloadHashKey(const PreloadHashKey* aKey)
++    : nsURIHashKey(aKey->mKey) {
++  *this = *aKey;
++}
++
++PreloadHashKey::PreloadHashKey(PreloadHashKey&& aToMove)
++    : nsURIHashKey(std::move(aToMove)) {
++  mAs = std::move(aToMove.mAs);
++  mCORSMode = std::move(aToMove.mCORSMode);
++  mReferrerPolicy = std::move(aToMove.mReferrerPolicy);
++
++  switch (mAs) {
++    case ResourceType::SCRIPT:
++      break;
++    case ResourceType::STYLE:
++      break;
++    case ResourceType::IMAGE:
++      break;
++    case ResourceType::FONT:
++      break;
++    case ResourceType::FETCH:
++      break;
++    case ResourceType::NONE:
++      break;
++  }
++}
++
++PreloadHashKey& PreloadHashKey::operator=(const PreloadHashKey& aOther) {
++  MOZ_ASSERT(mAs == ResourceType::NONE || aOther.mAs == ResourceType::NONE,
++             "Assigning more than once, only reset is allowed");
++
++  nsURIHashKey::operator=(aOther);
++
++  mAs = aOther.mAs;
++  mCORSMode = aOther.mCORSMode;
++  mReferrerPolicy = aOther.mReferrerPolicy;
++
++  switch (mAs) {
++    case ResourceType::SCRIPT:
++      break;
++    case ResourceType::STYLE:
++      break;
++    case ResourceType::IMAGE:
++      break;
++    case ResourceType::FONT:
++      break;
++    case ResourceType::FETCH:
++      break;
++    case ResourceType::NONE:
++      break;
++  }
++
++  return *this;
++}
++
++bool PreloadHashKey::KeyEquals(KeyTypePointer aOther) const {
++  if (mAs != aOther->mAs || mCORSMode != aOther->mCORSMode ||
++      mReferrerPolicy != aOther->mReferrerPolicy) {
++    return false;
++  }
++
++  if (!nsURIHashKey::KeyEquals(
++          static_cast<const nsURIHashKey*>(aOther)->GetKey())) {
++    return false;
++  }
++
++  switch (mAs) {
++    case ResourceType::SCRIPT:
++      break;
++    case ResourceType::STYLE:
++      break;
++    case ResourceType::IMAGE:
++      break;
++    case ResourceType::FONT:
++      break;
++    case ResourceType::FETCH:
++      break;
++    case ResourceType::NONE:
++      break;
++  }
++
++  return true;
++}
++
++// static
++PLDHashNumber PreloadHashKey::HashKey(KeyTypePointer aKey) {
++  PLDHashNumber hash = nsURIHashKey::HashKey(aKey->mKey);
++
++  // Enough to use the common attributes
++  hash = AddToHash(hash, static_cast<uint32_t>(aKey->mAs));
++  hash = AddToHash(hash, static_cast<uint32_t>(aKey->mCORSMode));
++  hash = AddToHash(hash, static_cast<uint32_t>(aKey->mReferrerPolicy));
++
++  return hash;
++}
++
++}  // namespace mozilla

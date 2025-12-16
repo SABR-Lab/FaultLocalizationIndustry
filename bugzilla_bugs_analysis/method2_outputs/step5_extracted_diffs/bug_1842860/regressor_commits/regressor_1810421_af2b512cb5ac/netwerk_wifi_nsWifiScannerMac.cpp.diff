@@ -1,0 +1,73 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/wifi/nsWifiScannerMac.cpp
+# Commit: af2b512cb5ac
+# Full Hash: af2b512cb5ac7a2b53224f5065f7d89fd8a503ed
+# Author: David Parks <daparks@mozilla.com>
+# Date: 2023-05-13 21:42:25
+# Regressor Bug: 1810421
+# File Overlap Count: 2
+# Description:
+#   Bug 1810421: Refactor wifi scanning to consolidate generic code r=necko-reviewers,kershaw,valentin a=reland CLOSED TREE
+#   
+#   Reorganizes the wifi-scanning code and makes more of it platform-generic
+#   to ease the transition from polling the wifi to usually scanning only on
+#   network changes.  This is essentially just moving files/code around and
+# ==============================================================================
+
+diff -r 3bb8a8b46f3c -r af2b512cb5ac netwerk/wifi/nsWifiScannerMac.cpp
+--- a/netwerk/wifi/nsWifiScannerMac.cpp	Sat May 13 16:09:03 2023 +0000
++++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
+@@ -1,51 +0,0 @@
+-/* This Source Code Form is subject to the terms of the Mozilla Public
+- * License, v. 2.0. If a copy of the MPL was not distributed with this
+- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+-
+-#include <mach-o/dyld.h>
+-#include <dlfcn.h>
+-#include <unistd.h>
+-
+-#include "osx_wifi.h"
+-
+-#include "nsCOMArray.h"
+-#include "nsWifiMonitor.h"
+-#include "nsWifiAccessPoint.h"
+-
+-#include "nsServiceManagerUtils.h"
+-#include "nsComponentManagerUtils.h"
+-
+-using namespace mozilla;
+-
+-// defined in osx_corewlan.mm
+-// basically replaces accesspoints in the passed reference
+-// it lives in a separate file so that we can use objective c.
+-extern nsresult GetAccessPointsFromWLAN(
+-    nsCOMArray<nsWifiAccessPoint>& accessPoints);
+-
+-nsresult nsWifiMonitor::DoScan() {
+-  // Regularly get the access point data.
+-
+-  nsCOMArray<nsWifiAccessPoint> lastAccessPoints;
+-  nsCOMArray<nsWifiAccessPoint> accessPoints;
+-
+-  do {
+-    nsresult rv = GetAccessPointsFromWLAN(accessPoints);
+-    if (NS_FAILED(rv)) return rv;
+-
+-    bool accessPointsChanged =
+-        !AccessPointsEqual(accessPoints, lastAccessPoints);
+-    ReplaceArray(lastAccessPoints, accessPoints);
+-
+-    rv = CallWifiListeners(lastAccessPoints, accessPointsChanged);
+-    NS_ENSURE_SUCCESS(rv, rv);
+-
+-    // wait for some reasonable amount of time.  pref?
+-    LOG(("waiting on monitor\n"));
+-
+-    ReentrantMonitorAutoEnter mon(mReentrantMonitor);
+-    mon.Wait(PR_SecondsToInterval(kDefaultWifiScanInterval));
+-  } while (mKeepGoing);
+-
+-  return NS_OK;
+-}

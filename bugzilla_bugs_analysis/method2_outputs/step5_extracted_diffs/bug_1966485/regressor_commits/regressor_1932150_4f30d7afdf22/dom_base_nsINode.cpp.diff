@@ -1,0 +1,93 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsINode.cpp
+# Commit: 4f30d7afdf22
+# Full Hash: 4f30d7afdf22c652481513564b60b37053c0948b
+# Author: Atila Butkovits <abutkovits@mozilla.com>
+# Date: 2025-05-08 04:32:48
+# Regressor Bug: 1932150
+# File Overlap Count: 1
+# Description:
+#   Revert "Bug 1932150 - Fix build bustage" for causing build bustages.
+#   
+#   This reverts commit 0681b181d6a8a48ac460a97dacb7fca91f9989c3.
+#   
+#   Revert "Bug 1932150 - Fix lint failure" for causing Build bustage.
+# ==============================================================================
+
+diff -r 1e64a48e3517 -r 4f30d7afdf22 dom/base/nsINode.cpp
+--- a/dom/base/nsINode.cpp	Wed May 07 20:11:46 2025 +0300
++++ b/dom/base/nsINode.cpp	Wed May 07 20:37:37 2025 +0300
+@@ -310,26 +310,17 @@
+     const nsINode* aNode) {
+   while (aNode &&
+          !aNode->IsClosestCommonInclusiveAncestorForRangeInSelection()) {
+-    const bool isNodeInFlattenedShadowTree =
++    const bool isNodeInShadowTree =
+         StaticPrefs::dom_shadowdom_selection_across_boundary_enabled() &&
+-        (aNode->IsInShadowTree() ||
+-         (aNode->IsContent() && aNode->AsContent()->GetAssignedSlot()));
+-
++        aNode->IsInShadowTree();
+     if (!aNode
+              ->IsDescendantOfClosestCommonInclusiveAncestorForRangeInSelection() &&
+-        !isNodeInFlattenedShadowTree) {
++        !isNodeInShadowTree) {
+       return nullptr;
+     }
+-
+-    if (StaticPrefs::dom_shadowdom_selection_across_boundary_enabled()) {
+-      if (aNode->IsContent() && aNode->AsContent()->GetAssignedSlot()) {
+-        aNode = aNode->AsContent()->GetAssignedSlot();
+-      } else {
+-        aNode = aNode->GetParentOrShadowHostNode();
+-      }
+-      continue;
+-    }
+-    aNode = aNode->GetParentNode();
++    aNode = StaticPrefs::dom_shadowdom_selection_across_boundary_enabled()
++                ? aNode->GetParentOrShadowHostNode()
++                : aNode->GetParentNode();
+   }
+   return aNode;
+ }
+@@ -352,28 +343,16 @@
+   }
+ 
+   int operator()(const AbstractRange* const aRange) const {
+-    auto ComparePoints = [](const nsINode* aNode1, const uint32_t aOffset1,
+-                            const nsINode* aNode2, const uint32_t aOffset2,
+-                            nsContentUtils::NodeIndexCache* aCache) {
+-      if (StaticPrefs::dom_shadowdom_selection_across_boundary_enabled()) {
+-        return nsContentUtils::ComparePointsWithIndices<TreeKind::Flat>(
+-            aNode1, aOffset1, aNode2, aOffset2, aCache);
+-      }
+-      return nsContentUtils::ComparePointsWithIndices<
+-          TreeKind::ShadowIncludingDOM>(aNode1, aOffset1, aNode2, aOffset2,
+-                                        aCache);
+-    };
+-
+-    Maybe<int32_t> cmp = ComparePoints(
+-        &mNode, mEndOffset, aRange->GetMayCrossShadowBoundaryStartContainer(),
+-        aRange->MayCrossShadowBoundaryStartOffset(), mCache);
+-    MOZ_ASSERT(cmp.isSome());  // Should always be connected at this point.
+-    if (cmp.value() == 1) {
+-      cmp = ComparePoints(&mNode, mStartOffset,
+-                          aRange->GetMayCrossShadowBoundaryEndContainer(),
+-                          aRange->MayCrossShadowBoundaryEndOffset(), mCache);
+-      MOZ_ASSERT(cmp.isSome());
+-      if (cmp.value() == -1) {
++    Maybe<int32_t> cmp = nsContentUtils::ComparePoints(
++        ConstRawRangeBoundary(&mNode, mEndOffset,
++                              RangeBoundaryIsMutationObserved::No),
++        aRange->MayCrossShadowBoundaryStartRef(), mCache);
++    if (cmp.valueOr(1) == 1) {
++      cmp = nsContentUtils::ComparePoints(
++          ConstRawRangeBoundary(&mNode, mStartOffset,
++                                RangeBoundaryIsMutationObserved::No),
++          aRange->MayCrossShadowBoundaryEndRef(), mCache);
++      if (cmp.valueOr(1) == -1) {
+         return 0;
+       }
+       return 1;

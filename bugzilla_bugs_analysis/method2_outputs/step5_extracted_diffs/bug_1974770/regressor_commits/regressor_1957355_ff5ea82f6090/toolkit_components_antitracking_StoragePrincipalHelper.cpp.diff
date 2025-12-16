@@ -1,0 +1,72 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/antitracking/StoragePrincipalHelper.cpp
+# Commit: ff5ea82f6090
+# Full Hash: ff5ea82f6090a4a1645a1a32749a4ae9102f015b
+# Author: Andrea Marchesini <amarchesini@mozilla.com>
+# Date: 2025-04-17 16:30:04
+# Regressor Bug: 1957355
+# File Overlap Count: 1
+# Description:
+#   Bug 1957355 - No storage access for resources injected by content-scripts, r=timhuang,necko-reviewers,devtools-reviewers,anti-tracking-reviewers,nchevobbe,kershaw
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D244204
+# ==============================================================================
+
+diff -r 04eed8759454 -r ff5ea82f6090 toolkit/components/antitracking/StoragePrincipalHelper.cpp
+--- a/toolkit/components/antitracking/StoragePrincipalHelper.cpp	Thu Apr 17 10:56:59 2025 +0000
++++ b/toolkit/components/antitracking/StoragePrincipalHelper.cpp	Thu Apr 17 10:56:59 2025 +0000
+@@ -6,9 +6,11 @@
+ 
+ #include "StoragePrincipalHelper.h"
+ 
++#include "mozilla/ExpandedPrincipal.h"
+ #include "mozilla/ipc/PBackgroundSharedTypes.h"
+ #include "mozilla/dom/Document.h"
+ #include "mozilla/dom/WorkerPrivate.h"
++#include "mozilla/extensions/WebExtensionPolicy.h"
+ #include "mozilla/net/CookieJarSettings.h"
+ #include "mozilla/ScopeExit.h"
+ #include "mozilla/StaticPrefs_privacy.h"
+@@ -701,4 +703,40 @@
+   }
+ }
+ 
++// static
++nsString StoragePrincipalHelper::PartitionKeyForExpandedPrincipal(
++    nsIPrincipal* aExpandedPrincipal) {
++  MOZ_ASSERT(nsContentUtils::IsExpandedPrincipal(aExpandedPrincipal));
++
++  OriginAttributes attrs;
++
++  for (const auto& principal : BasePrincipal::Cast(aExpandedPrincipal)
++                                   ->As<ExpandedPrincipal>()
++                                   ->AllowList()) {
++    MOZ_ASSERT(principal);
++
++    nsCOMPtr<nsIURI> uri;
++    nsresult rv = BasePrincipal::Cast(principal)->GetURI(getter_AddRefs(uri));
++    if (NS_WARN_IF(NS_FAILED(rv))) {
++      continue;
++    }
++
++    nsAutoCString scheme;
++    rv = uri->GetScheme(scheme);
++    if (NS_WARN_IF(NS_FAILED(rv))) {
++      continue;
++    }
++
++    if (!scheme.Equals("moz-extension")) {
++      continue;
++    }
++
++    attrs.SetFirstPartyDomain(true, uri, true);
++    MOZ_ASSERT(attrs.mPartitionKey.IsEmpty());
++    break;
++  }
++
++  return attrs.mPartitionKey;
++}
++
+ }  // namespace mozilla

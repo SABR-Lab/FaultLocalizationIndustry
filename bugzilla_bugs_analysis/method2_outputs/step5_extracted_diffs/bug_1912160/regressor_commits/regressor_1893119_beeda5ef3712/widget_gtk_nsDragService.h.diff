@@ -1,0 +1,179 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/nsDragService.h
+# Commit: beeda5ef3712
+# Full Hash: beeda5ef3712b73a19c7a4ce08a52ab4dd08b802
+# Author: David P <daparks@mozilla.com>
+# Date: 2024-07-04 16:09:52
+# Regressor Bug: 1893119
+# File Overlap Count: 1
+# Description:
+#   Bug 1893119: Part 20 - Move EndDragSession from nsIDragService to nsIDragSession r=gstoll,rkraesig,win-reviewers,geckoview-reviewers,m_kato
+#   
+#   This is a straightforward move.  It does take the liberty of breaking out an
+#   EndDragSessionImpl method, which will be needed later.
+#   
+# ==============================================================================
+
+diff -r 6c3ffc8c534c -r beeda5ef3712 widget/gtk/nsDragService.h
+--- a/widget/gtk/nsDragService.h	Thu Jul 04 07:48:10 2024 +0000
++++ b/widget/gtk/nsDragService.h	Thu Jul 04 07:48:11 2024 +0000
+@@ -107,6 +107,8 @@
+   // mTargetDragContextForRemote context.
+   NS_IMETHOD UpdateDragEffect() override;
+ 
++  MOZ_CAN_RUN_SCRIPT nsresult EndDragSessionImpl(
++      bool aDoneDrag, uint32_t aKeyModifiers) override;
+   class AutoEventLoop {
+     RefPtr<nsDragSession> mSession;
+ 
+@@ -123,6 +125,18 @@
+  protected:
+   virtual ~nsDragSession() = default;
+ 
++  // mScheduledTask indicates what signal has been received from GTK and
++  // so what needs to be dispatched when the scheduled task is run.  It is
++  // eDragTaskNone when there is no task scheduled (but the
++  // previous task may still not have finished running).
++  enum DragTask {
++    eDragTaskNone,
++    eDragTaskMotion,
++    eDragTaskLeave,
++    eDragTaskDrop,
++    eDragTaskSourceEnd
++  };
++
+   void ReplyToDragMotion(GdkDragContext* aDragContext, guint aTime);
+   void ReplyToDragMotion();
+ 
+@@ -141,6 +155,18 @@
+   // aDragContext is different than mCachedDragContext.
+   void EnsureCachedDataValidForContext(GdkDragContext* aDragContext);
+ 
++  static gboolean TaskRemoveTempFiles(gpointer data);
++
++  bool RemoveTempFiles();
++
++  // Where the drag begins. We need to keep it open on Wayland.
++  RefPtr<nsWindow> mSourceWindow;
++
++  // mTargetWindow and mTargetWindowPoint record the position of the last
++  // eDragTaskMotion or eDragTaskDrop task that was run or is still running.
++  // mTargetWindow is cleared once the drag has completed or left.
++  RefPtr<nsWindow> mTargetWindow;
++
+   // our source data items
+   nsCOMPtr<nsIArray> mSourceDataItems;
+ 
+@@ -175,6 +201,31 @@
+   // because waiting for the data in GetTargetDragData can be very slow.
+   nsTHashMap<nsCStringHashKey, nsTArray<uint8_t>> mCachedData;
+ 
++  DragTask mScheduledTask = eDragTaskNone;
++  bool mScheduledTaskIsRunning = false;
++
++  // mPendingWindow, mPendingWindowPoint, mPendingDragContext, and
++  // mPendingTime, carry information from the GTK signal that will be used
++  // when the scheduled task is run.  mPendingWindow and mPendingDragContext
++  // will be nullptr if the scheduled task is eDragTaskLeave.
++  RefPtr<nsWindow> mPendingWindow;
++  mozilla::LayoutDeviceIntPoint mPendingWindowPoint;
++  RefPtr<GdkDragContext> mPendingDragContext;
++
++  guint mPendingTime;
++
++  // mTaskSource is the GSource id for the task that is either scheduled
++  // or currently running.  It is 0 if no task is scheduled or running.
++  guint mTaskSource = 0;
++
++  // stores all temporary files
++  nsCOMArray<nsIFile> mTemporaryFiles;
++  // timer to trigger deletion of temporary files
++  guint mTempFileTimerID;
++  // the url of the temporary file that has been created in the current drag
++  // session
++  nsTArray<nsCString> mTempFileUrls;
++
+   // mCachedData are tied to mCachedDragContext. mCachedDragContext is not
+   // ref counted and may be already deleted on Gtk side.
+   // We used it for mCachedData invalidation only and can't be used for
+@@ -231,9 +282,8 @@
+       nsIContentSecurityPolicy* aCsp, nsICookieJarSettings* aCookieJarSettings,
+       nsIArray* anArrayTransferables, uint32_t aActionType,
+       nsContentPolicyType aContentPolicyType) override;
++
+   NS_IMETHOD StartDragSession(nsISupports* aWidgetProvider) override;
+-  MOZ_CAN_RUN_SCRIPT NS_IMETHOD EndDragSession(bool aDoneDrag,
+-                                               uint32_t aKeyModifiers) override;
+ 
+   // Methods called from nsWindow to handle responding to GTK drag
+   // destination signals
+@@ -287,37 +337,9 @@
+   virtual ~nsDragService();
+ 
+  private:
+-  // mScheduledTask indicates what signal has been received from GTK and
+-  // so what needs to be dispatched when the scheduled task is run.  It is
+-  // eDragTaskNone when there is no task scheduled (but the
+-  // previous task may still not have finished running).
+-  enum DragTask {
+-    eDragTaskNone,
+-    eDragTaskMotion,
+-    eDragTaskLeave,
+-    eDragTaskDrop,
+-    eDragTaskSourceEnd
+-  };
+-  DragTask mScheduledTask;
+-  // mTaskSource is the GSource id for the task that is either scheduled
+-  // or currently running.  It is 0 if no task is scheduled or running.
+-  guint mTaskSource;
+-  bool mScheduledTaskIsRunning;
+-
+-  // Where the drag begins. We need to keep it open on Wayland.
+-  RefPtr<nsWindow> mSourceWindow;
+-
+   // target/destination side vars
+   // These variables keep track of the state of the current drag.
+ 
+-  // mPendingWindow, mPendingWindowPoint, mPendingDragContext, and
+-  // mPendingTime, carry information from the GTK signal that will be used
+-  // when the scheduled task is run.  mPendingWindow and mPendingDragContext
+-  // will be nullptr if the scheduled task is eDragTaskLeave.
+-  RefPtr<nsWindow> mPendingWindow;
+-  mozilla::LayoutDeviceIntPoint mPendingWindowPoint;
+-  RefPtr<GdkDragContext> mPendingDragContext;
+-
+   // mCachedDragData/mCachedDragFlavors are tied to mCachedDragContext.
+   // mCachedDragContext is not ref counted and may be already deleted
+   // on Gtk side.
+@@ -328,12 +350,6 @@
+ 
+   void SetCachedDragContext(GdkDragContext* aDragContext);
+ 
+-  guint mPendingTime;
+-
+-  // mTargetWindow and mTargetWindowPoint record the position of the last
+-  // eDragTaskMotion or eDragTaskDrop task that was run or is still running.
+-  // mTargetWindow is cleared once the drag has completed or left.
+-  RefPtr<nsWindow> mTargetWindow;
+   mozilla::LayoutDeviceIntPoint mTargetWindowPoint;
+ 
+   int mWaitingForDragDataRequests = 0;
+@@ -376,16 +392,6 @@
+   static uint32_t GetCurrentModifiers();
+ 
+   nsresult CreateTempFile(nsITransferable* aItem, nsACString& aURI);
+-  bool RemoveTempFiles();
+-  static gboolean TaskRemoveTempFiles(gpointer data);
+-
+-  // the url of the temporary file that has been created in the current drag
+-  // session
+-  nsTArray<nsCString> mTempFileUrls;
+-  // stores all temporary files
+-  nsCOMArray<nsIFile> mTemporaryFiles;
+-  // timer to trigger deletion of temporary files
+-  guint mTempFileTimerID;
+ };
+ 
+ #endif  // nsDragService_h__

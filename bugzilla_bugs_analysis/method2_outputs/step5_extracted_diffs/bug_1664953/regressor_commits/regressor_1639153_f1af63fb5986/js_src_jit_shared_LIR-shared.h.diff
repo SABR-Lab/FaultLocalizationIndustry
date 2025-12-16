@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/shared/LIR-shared.h
+# Commit: f1af63fb5986
+# Full Hash: f1af63fb5986e30fa5695a26b9ed7cd506475e1d
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-09-09 16:10:02
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 6: Force Ion to preserve its tls. r=lth
+#   
+#   Let's see following code and let's assume that wasm-compiler is ion:
+#   
+#   call foo
+# ==============================================================================
+
+diff -r facc78377809 -r f1af63fb5986 js/src/jit/shared/LIR-shared.h
+--- a/js/src/jit/shared/LIR-shared.h	Wed Sep 09 05:43:19 2020 +0000
++++ b/js/src/jit/shared/LIR-shared.h	Wed Sep 09 08:55:17 2020 +0000
+@@ -7424,24 +7424,26 @@
+   LWasmParameterI64() : LInstructionHelper(classOpcode) {}
+ };
+ 
+-class LWasmReturn : public LInstructionHelper<0, 1, 0> {
++class LWasmReturn : public LInstructionHelper<0, 2, 0> {
+  public:
+   LIR_HEADER(WasmReturn);
+ 
+   LWasmReturn() : LInstructionHelper(classOpcode) {}
+ };
+ 
+-class LWasmReturnI64 : public LInstructionHelper<0, INT64_PIECES, 0> {
++// +1 for tls.
++class LWasmReturnI64 : public LInstructionHelper<0, INT64_PIECES + 1, 0> {
+  public:
+   LIR_HEADER(WasmReturnI64)
+ 
+-  explicit LWasmReturnI64(const LInt64Allocation& input)
++  LWasmReturnI64(const LInt64Allocation& input, const LAllocation& tls)
+       : LInstructionHelper(classOpcode) {
+     setInt64Operand(0, input);
+-  }
+-};
+-
+-class LWasmReturnVoid : public LInstructionHelper<0, 0, 0> {
++    setOperand(INT64_PIECES, tls);
++  }
++};
++
++class LWasmReturnVoid : public LInstructionHelper<0, 1, 0> {
+  public:
+   LIR_HEADER(WasmReturnVoid);
+ 

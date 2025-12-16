@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/BaselineCodeGen.h
+# Commit: 49a2da59aa3e
+# Full Hash: 49a2da59aa3e33b3719c7953a98fac6c24b8a514
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2019-07-21 21:59:35
+# Regressor Bug: 1566330
+# File Overlap Count: 2
+# Description:
+#   Bug 1566330 - Let BaselineDebugModeOSR resume in the interpreter, remove BaselineDebugModeOSRInfo. r=iain
+#   
+#   At this point most of the DebugModeOSR complexity came from dealing with the
+#   On -> Off case because debugger callVMs are not present in the recompiled script.
+#   We also had to worry about loading unsynced stack values in R0/R1 in the
+# ==============================================================================
+
+diff -r ad5e0980c273 -r 49a2da59aa3e js/src/jit/BaselineCodeGen.h
+--- a/js/src/jit/BaselineCodeGen.h	Sun Jul 21 09:27:47 2019 +0000
++++ b/js/src/jit/BaselineCodeGen.h	Fri Jul 19 09:01:45 2019 +0000
+@@ -288,14 +288,6 @@
+   // is right after the warm-up counter check in the prologue.
+   CodeOffset warmUpCheckPrologueOffset_;
+ 
+-  // Baseline Debug OSR during prologue will enter at this address. This is
+-  // right after where a debug prologue VM call would have returned.
+-  CodeOffset debugOsrPrologueOffset_;
+-
+-  // Baseline Debug OSR during epilogue will enter at this address. This is
+-  // right after where a debug epilogue VM call would have returned.
+-  CodeOffset debugOsrEpilogueOffset_;
+-
+   uint32_t pushedBeforeCall_;
+ #ifdef DEBUG
+   bool inCall_;
+@@ -585,8 +577,8 @@
+ 
+   RetAddrEntryVector& retAddrEntries() { return retAddrEntries_; }
+ 
+-  MOZ_MUST_USE bool appendRetAddrEntry(JSContext* cx, RetAddrEntry::Kind kind,
+-                                       uint32_t retOffset);
++  MOZ_MUST_USE bool recordCallRetAddr(JSContext* cx, RetAddrEntry::Kind kind,
++                                      uint32_t retOffset);
+ 
+   // If a script has more |nslots| than this the stack check must account
+   // for these slots explicitly.
+@@ -678,6 +670,9 @@
+   Label codeCoverageAtPrologueLabel_;
+   Label codeCoverageAtPCLabel_;
+ 
++  // Offsets of some callVMs for BaselineDebugModeOSR.
++  BaselineInterpreter::CallVMOffsets callVMOffsets_;
++
+  public:
+   using FrameInfoT = InterpreterFrameInfo;
+ 
+@@ -706,13 +701,13 @@
+     return debugInstrumentationOffsets_.append(offset.offset());
+   }
+ 
+-  // Interpreter doesn't need to keep track of RetAddrEntries, so this is a
+-  // no-op.
+-  MOZ_MUST_USE bool appendRetAddrEntry(JSContext* cx, RetAddrEntry::Kind kind,
+-                                       uint32_t retOffset) {
+-    return true;
++  const BaselineInterpreter::CallVMOffsets& callVMOffsets() const {
++    return callVMOffsets_;
+   }
+ 
++  MOZ_MUST_USE bool recordCallRetAddr(JSContext* cx, RetAddrEntry::Kind kind,
++                                      uint32_t retOffset);
++
+   bool maybeIonCompileable() const { return true; }
+ 
+   // The interpreter doesn't know the number of slots statically so we always

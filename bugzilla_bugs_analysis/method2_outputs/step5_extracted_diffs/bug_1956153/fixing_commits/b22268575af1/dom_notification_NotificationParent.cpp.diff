@@ -1,0 +1,125 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/notification/NotificationParent.cpp
+# Commit: b22268575af1
+# Full Hash: b22268575af1492bb26867e00ba96bf98414212d
+# Author: Kagami Sascha Rosylight <saschanaz@outlook.com>
+# Date: 2025-04-01 09:40:15
+# Description:
+#   Bug 1956153 - Create actors directly on the main thread r=asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D243689
+# ==============================================================================
+
+diff -r 00dc9f4af854 -r b22268575af1 dom/notification/NotificationParent.cpp
+--- a/dom/notification/NotificationParent.cpp	Mon Mar 31 19:49:03 2025 +0000
++++ b/dom/notification/NotificationParent.cpp	Mon Mar 31 19:53:58 2025 +0000
+@@ -49,7 +49,7 @@
+       return OpenSettings(mPrincipal);
+     }
+ 
+-    RefPtr<NotificationParent> actor = mActor.get();
++    RefPtr<NotificationParent> actor(mActor);
+ 
+     if (actor && actor->CanSend()) {
+       // The actor is alive, call it to ping the content process and/or to make
+@@ -201,7 +201,7 @@
+ }
+ 
+ nsresult NotificationParent::FireClickEvent() {
+-  if (!mScope.IsEmpty()) {
++  if (!mArgs.mScope.IsEmpty()) {
+     return NS_OK;
+   }
+   if (SendNotifyClick()) {
+@@ -221,8 +221,8 @@
+   // not "granted", then queue a task to fire an event named error on this, and
+   // abort these steps.
+   NotificationPermission permission = GetNotificationPermission(
+-      mPrincipal, mEffectiveStoragePrincipal, mIsSecureContext,
+-      PermissionCheckPurpose::NotificationShow);
++      mArgs.mPrincipal, mArgs.mEffectiveStoragePrincipal,
++      mArgs.mIsSecureContext, PermissionCheckPurpose::NotificationShow);
+   if (permission != NotificationPermission::Granted) {
+     CopyableErrorResult rv;
+     rv.ThrowTypeError("Permission to show Notification denied.");
+@@ -259,7 +259,9 @@
+   // make nsIAlertsService parent process only.
+   nsString obsoleteCookie = u"notification:"_ns;
+ 
+-  bool requireInteraction = mOptions.requireInteraction();
++  const IPCNotificationOptions& options = mArgs.mNotification.options();
++
++  bool requireInteraction = options.requireInteraction();
+   if (!StaticPrefs::dom_webnotifications_requireinteraction_enabled()) {
+     requireInteraction = false;
+   }
+@@ -269,16 +271,18 @@
+   if (!alert) {
+     return NS_ERROR_NOT_AVAILABLE;
+   }
+-  MOZ_TRY(alert->Init(mOptions.tag(), mOptions.icon(), mOptions.title(),
+-                      mOptions.body(), true, obsoleteCookie,
+-                      NS_ConvertASCIItoUTF16(GetEnumString(mOptions.dir())),
+-                      mOptions.lang(), mOptions.dataSerialized(), mPrincipal,
+-                      mPrincipal->GetIsInPrivateBrowsing(), requireInteraction,
+-                      mOptions.silent(), mOptions.vibrate()));
++
++  nsCOMPtr<nsIPrincipal> principal = mArgs.mPrincipal;
++  MOZ_TRY(alert->Init(options.tag(), options.icon(), options.title(),
++                      options.body(), true, obsoleteCookie,
++                      NS_ConvertASCIItoUTF16(GetEnumString(options.dir())),
++                      options.lang(), options.dataSerialized(), principal,
++                      principal->GetIsInPrivateBrowsing(), requireInteraction,
++                      options.silent(), options.vibrate()));
+ 
+   nsTArray<RefPtr<nsIAlertAction>> actions;
+-  MOZ_ASSERT(mOptions.actions().Length() <= kMaxActions);
+-  for (const auto& action : mOptions.actions()) {
++  MOZ_ASSERT(options.actions().Length() <= kMaxActions);
++  for (const auto& action : options.actions()) {
+     actions.AppendElement(new AlertAction(action.name(), action.title()));
+   }
+ 
+@@ -288,7 +292,7 @@
+ 
+   nsCOMPtr<nsIAlertsService> alertService = components::Alerts::Service();
+   RefPtr<NotificationObserver> observer = new NotificationObserver(
+-      mScope, mPrincipal, IPCNotification(mId, mOptions), *this);
++      mArgs.mScope, principal, IPCNotification(mId, options), *this);
+   MOZ_TRY(alertService->ShowAlert(alert, observer));
+ 
+ #ifdef ANDROID
+@@ -315,13 +319,14 @@
+   }
+ 
+   mDangling = true;
+-  UnregisterNotification(mPrincipal, mId);
++  UnregisterNotification(mArgs.mPrincipal, mId);
+ }
+ 
+-nsresult NotificationParent::BindToMainThread(
++nsresult NotificationParent::CreateOnMainThread(
++    NotificationParentArgs&& mArgs,
+     Endpoint<PNotificationParent>&& aParentEndpoint,
+     PBackgroundParent::CreateNotificationParentResolver&& aResolver) {
+-  if (mOptions.actions().Length() > kMaxActions) {
++  if (mArgs.mNotification.options().actions().Length() > kMaxActions) {
+     return NS_ERROR_INVALID_ARG;
+   }
+ 
+@@ -329,9 +334,11 @@
+ 
+   NS_DispatchToMainThread(NS_NewRunnableFunction(
+       "NotificationParent::BindToMainThread",
+-      [self = RefPtr(this), endpoint = std::move(aParentEndpoint),
++      [args = std::move(mArgs), endpoint = std::move(aParentEndpoint),
+        resolver = std::move(aResolver), thread]() mutable {
+-        bool result = endpoint.Bind(self);
++        RefPtr<NotificationParent> actor =
++            new NotificationParent(std::move(args));
++        bool result = endpoint.Bind(actor);
+         thread->Dispatch(NS_NewRunnableFunction(
+             "NotificationParent::BindToMainThreadResult",
+             [result, resolver = std::move(resolver)]() { resolver(result); }));

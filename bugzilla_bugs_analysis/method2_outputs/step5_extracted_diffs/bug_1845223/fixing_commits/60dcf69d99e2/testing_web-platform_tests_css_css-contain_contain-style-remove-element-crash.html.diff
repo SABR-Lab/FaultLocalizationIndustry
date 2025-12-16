@@ -1,0 +1,46 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: testing/web-platform/tests/css/css-contain/contain-style-remove-element-crash.html
+# Commit: 60dcf69d99e2
+# Full Hash: 60dcf69d99e2c2e954e1720f5fe30a5758550d2d
+# Author: Martin Robinson <mrobinson@igalia.com>
+# Date: 2023-09-15 04:35:42
+# Description:
+#   Bug 1845223 - Destroy ContainStyleScopes before recalculating counters & quotes during frame destruction r=emilio
+#   
+#   Instead of recalculating quotes and counter before destroying contain
+#   style scopes, calculate them after. This prevents stale frame pointers
+#   from sticking around during counter and quote recalculation.
+# ==============================================================================
+
+diff -r be325dcc5de7 -r 60dcf69d99e2 testing/web-platform/tests/css/css-contain/contain-style-remove-element-crash.html
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/testing/web-platform/tests/css/css-contain/contain-style-remove-element-crash.html	Thu Sep 14 20:41:45 2023 +0000
+@@ -0,0 +1,26 @@
++<style>
++* {
++  counter-reset: reversed(counter_3) reversed(counter_4) 64 reversed(counter_5) -8772;
++  contain: layout paint style inline-size !important;
++}
++</style>
++<script>
++window.addEventListener("load", () => {
++  let a = document.documentElement
++  let b = document.getElementById("o1")
++  let c = document.getElementById("o3")
++  let d = new Range()
++  document.documentElement.style.display = "none"
++  document.documentElement.getBoundingClientRect()
++  document.documentElement.style.display = ""
++  d.setStartAfter(document.getElementById("o2"))
++  try { document.prepend("", document.documentElement) } catch (e) {}
++  d.surroundContents(b)
++  try { b.prepend(a, c) } catch (e) {}
++  b.scrollIntoView({ })
++  a.style.display = "none"
++})
++</script>
++<br id="o1">
++<li id="o2">
++<input id="o3">

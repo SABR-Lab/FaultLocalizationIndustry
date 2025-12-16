@@ -1,0 +1,29 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/gamepad/ipc/GamepadEventChannelParent.h
+# Commit: 2d192d43277b
+# Full Hash: 2d192d43277bb6231b9145572d0059c5964f9d96
+# Author: Chris Martin <cmartin@mozilla.com>
+# Date: 2020-12-15 09:29:54
+# Regressor Bug: 1681750
+# File Overlap Count: 2
+# Description:
+#   Bug 1681750 - Fix random GamepadPlatformService::RemoveChannelParent crashes r=haik
+#   
+#   The most likely cause for the crashes seems like IPDL intermittently calling GamepadEventChannelParent::ActorDestroy() multiple times on the same object.
+#   
+#   This adds a wrapper to stop that behavior (if it's the root cause), and also to fire off release assertions at several other potential causes.
+# ==============================================================================
+
+diff -r 6de49379342e -r 2d192d43277b dom/gamepad/ipc/GamepadEventChannelParent.h
+--- a/dom/gamepad/ipc/GamepadEventChannelParent.h	Mon Dec 14 15:13:35 2020 +0000
++++ b/dom/gamepad/ipc/GamepadEventChannelParent.h	Tue Dec 15 00:01:19 2020 +0000
+@@ -41,6 +41,7 @@
+   GamepadEventChannelParent();
+   ~GamepadEventChannelParent() = default;
+ 
++  bool mShutdown{false};
+   nsCOMPtr<nsIEventTarget> mBackgroundEventTarget;
+ };
+ 

@@ -1,0 +1,36 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/WasmBCE.cpp
+# Commit: 25adf505426d
+# Full Hash: 25adf505426d21f67e15d146f879b0ea53d343a7
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2022-03-23 04:09:13
+# Regressor Bug: 1642412
+# File Overlap Count: 19
+# Description:
+#   Bug 1642412 - wasm: Rollup of inline table.get/set for anyref. r=lth
+#   
+#   Rollup of the previous inline table.get/set patches.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D141024
+# ==============================================================================
+
+diff -r 43f7556db2e1 -r 25adf505426d js/src/jit/WasmBCE.cpp
+--- a/js/src/jit/WasmBCE.cpp	Tue Mar 22 19:44:13 2022 +0000
++++ b/js/src/jit/WasmBCE.cpp	Tue Mar 22 19:59:05 2022 +0000
+@@ -45,7 +45,13 @@
+           MWasmBoundsCheck* bc = def->toWasmBoundsCheck();
+           MDefinition* addr = bc->index();
+ 
+-          // Eliminate constant-address bounds checks to addresses below
++          // We only support bounds check elimination on wasm memory, not
++          // tables. See bug 1625891.
++          if (!bc->isMemory()) {
++            continue;
++          }
++
++          // Eliminate constant-address memory bounds checks to addresses below
+           // the heap minimum.
+           //
+           // The payload of the MConstant will be Double if the constant

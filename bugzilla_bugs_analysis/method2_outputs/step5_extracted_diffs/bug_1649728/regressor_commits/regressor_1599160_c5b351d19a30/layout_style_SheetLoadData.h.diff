@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/style/SheetLoadData.h
+# Commit: c5b351d19a30
+# Full Hash: c5b351d19a3076dd2b782fdbc6fa0d5c07267adb
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2020-06-15 21:48:38
+# Regressor Bug: 1599160
+# File Overlap Count: 3
+# Description:
+#   Bug 1599160 - Allow caching stylesheets across documents. r=heycam
+#   
+#   This patch implements a per-process cache of parsed stylesheets for
+#   non-inline sheets. The entries are evicted when the document gets
+#   destroyed and there's no other document with the same principal around.
+# ==============================================================================
+
+diff -r 3ce9af6580b2 -r c5b351d19a30 layout/style/SheetLoadData.h
+--- a/layout/style/SheetLoadData.h	Mon Jun 15 13:53:18 2020 +0000
++++ b/layout/style/SheetLoadData.h	Fri Jun 12 19:31:32 2020 +0000
+@@ -67,12 +67,12 @@
+                 nsIPrincipal* aTriggeringPrincipal,
+                 nsIReferrerInfo* aReferrerInfo, nsINode* aRequestingNode);
+ 
+-  nsIReferrerInfo* ReferrerInfo() { return mReferrerInfo; }
++  nsIReferrerInfo* ReferrerInfo() const { return mReferrerInfo; }
+ 
+   void ScheduleLoadEventIfNeeded();
+ 
+-  NotNull<const Encoding*> DetermineNonBOMEncoding(nsACString const& aSegment,
+-                                                   nsIChannel* aChannel);
++  NotNull<const Encoding*> DetermineNonBOMEncoding(const nsACString& aSegment,
++                                                   nsIChannel*) const;
+ 
+   // The caller may have the bytes for the stylesheet split across two strings,
+   // so aBytes1 and aBytes2 refer to those pieces.
+@@ -202,9 +202,11 @@
+   // The node that identifies who started loading us.
+   const nsCOMPtr<nsINode> mRequestingNode;
+ 
+-  // The encoding to use for preloading Must be empty if mOwningElement
+-  // is non-null.
+-  const Encoding* const mPreloadEncoding;
++  // The encoding guessed from attributes and the document character set.
++  const NotNull<const Encoding*> mGuessedEncoding;
++
++  // The quirks mode of the loader at the time the load was triggered.
++  const nsCompatibility mCompatMode;
+ 
+ #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
+   // Whether SheetComplete was called.

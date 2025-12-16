@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/wr/WebRenderBridgeParent.h
+# Commit: 020e9eed3a83
+# Full Hash: 020e9eed3a8395caa9235a14946b1e703841c8ea
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2019-07-25 03:53:31
+# Regressor Bug: 1547351
+# File Overlap Count: 1
+# Description:
+#   Bug 1547351 - Factor out RecvEmptyTransaction's core transaction building r=sotaro
+#   
+#   This splits out the inner bit of RecvEmptyTransaction to just iterate over
+#   the documents once, rather than iterating over them individually. Originally
+#   I ran into difficulties with this and then left it on the table, but I think
+# ==============================================================================
+
+diff -r 3cc69158d573 -r 020e9eed3a83 gfx/layers/wr/WebRenderBridgeParent.h
+--- a/gfx/layers/wr/WebRenderBridgeParent.h	Wed Jul 24 10:33:38 2019 +0000
++++ b/gfx/layers/wr/WebRenderBridgeParent.h	Wed Jul 24 14:10:30 2019 +0000
+@@ -20,6 +20,7 @@
+ #include "mozilla/layers/UiCompositorControllerParent.h"
+ #include "mozilla/layers/WebRenderCompositionRecorder.h"
+ #include "mozilla/Maybe.h"
++#include "mozilla/Result.h"
+ #include "mozilla/UniquePtr.h"
+ #include "mozilla/WeakPtr.h"
+ #include "mozilla/webrender/WebRenderTypes.h"
+@@ -306,6 +307,10 @@
+     }
+   }
+ 
++  bool ProcessEmptyTransactionUpdates(RenderRootUpdates& aUpdates,
++                                      uint32_t aPaintSequenceNumber,
++                                      bool* aScheduleComposite);
++
+   bool SetDisplayList(wr::RenderRoot aRenderRoot, const LayoutDeviceRect& aRect,
+                       const wr::LayoutSize& aContentSize, ipc::ByteBuf&& aDL,
+                       const wr::BuiltDisplayListDescriptor& aDLDesc,

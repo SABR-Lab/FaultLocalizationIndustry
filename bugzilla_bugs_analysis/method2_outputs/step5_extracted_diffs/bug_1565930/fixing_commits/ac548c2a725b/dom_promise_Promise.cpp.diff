@@ -1,0 +1,66 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/promise/Promise.cpp
+# Commit: ac548c2a725b
+# Full Hash: ac548c2a725b66db57c81bb24accca2bbe075931
+# Author: Olli Pettay <Olli.Pettay@helsinki.fi>
+# Date: 2019-07-29 21:38:39
+# Description:
+#   Bug 1565930, try to make Promise less error prone to compartment mismatches, r=bzbarsky
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D38762
+# ==============================================================================
+
+diff -r c4980c083852 -r ac548c2a725b dom/promise/Promise.cpp
+--- a/dom/promise/Promise.cpp	Mon Jul 29 08:00:35 2019 +0000
++++ b/dom/promise/Promise.cpp	Mon Jul 29 14:43:54 2019 +0000
+@@ -238,13 +238,13 @@
+   if (promise) {
+     mPromise->MaybeResolve(promise);
+   } else {
+-    mPromise->MaybeResolve(JS::UndefinedHandleValue);
++    mPromise->MaybeResolveWithUndefined();
+   }
+ }
+ 
+ void PromiseNativeThenHandlerBase::RejectedCallback(
+     JSContext* aCx, JS::Handle<JS::Value> aValue) {
+-  mPromise->MaybeReject(aCx, aValue);
++  mPromise->MaybeReject(aValue);
+ }
+ 
+ NS_IMPL_CYCLE_COLLECTION_CLASS(PromiseNativeThenHandlerBase)
+@@ -470,7 +470,7 @@
+   JS::Rooted<JS::Value> exn(aCx);
+   if (JS_GetPendingException(aCx, &exn)) {
+     JS_ClearPendingException(aCx);
+-    // This is only called from MaybeSomething, so it's OK to MaybeReject here.
++    // Always reject even if this was called in *Resolve.
+     MaybeReject(aCx, exn);
+   }
+ }
+@@ -556,7 +556,10 @@
+ 
+   xpc::StackScopedCloneOptions options;
+   options.wrapReflectors = true;
+-  StackScopedClone(cx, options, sourceScope, &value);
++  if (!StackScopedClone(cx, options, sourceScope, &value)) {
++    HandleException(cx);
++    return;
++  }
+   MaybeResolve(aCx, value);
+ }
+ 
+@@ -569,7 +572,10 @@
+ 
+   xpc::StackScopedCloneOptions options;
+   options.wrapReflectors = true;
+-  StackScopedClone(cx, options, sourceScope, &value);
++  if (!StackScopedClone(cx, options, sourceScope, &value)) {
++    HandleException(cx);
++    return;
++  }
+   MaybeReject(aCx, value);
+ }
+ 

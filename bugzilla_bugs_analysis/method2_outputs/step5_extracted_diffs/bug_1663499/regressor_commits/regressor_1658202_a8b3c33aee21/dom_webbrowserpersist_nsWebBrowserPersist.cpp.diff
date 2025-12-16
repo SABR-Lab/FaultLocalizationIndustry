@@ -1,0 +1,73 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/webbrowserpersist/nsWebBrowserPersist.cpp
+# Commit: a8b3c33aee21
+# Full Hash: a8b3c33aee2195643896a00a9ae69cfa1a849dc7
+# Author: Gijs Kruitbosch <gijskruitbosch@gmail.com>
+# Date: 2020-09-03 09:45:53
+# Regressor Bug: 1658202
+# File Overlap Count: 2
+# Description:
+#   Bug 1658202 - move flushes caused by closing the stream away from the main thread, r=valentin
+#   
+#   Depends on D88730
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D88731
+# ==============================================================================
+
+diff -r 1b44712c42dc -r a8b3c33aee21 dom/webbrowserpersist/nsWebBrowserPersist.cpp
+--- a/dom/webbrowserpersist/nsWebBrowserPersist.cpp	Wed Sep 02 23:15:06 2020 +0000
++++ b/dom/webbrowserpersist/nsWebBrowserPersist.cpp	Wed Sep 02 23:15:21 2020 +0000
+@@ -889,8 +889,34 @@
+       SendErrorStatusChange(true, status, request, data->mFile);
+     }
+ 
++    // If there is a stream ref and we weren't canceled,
++    // close it away from the main thread.
++    // We don't do this when there's an error/cancelation,
++    // because our consumer may try to delete the file, which will error
++    // if we're still holding on to it, so we have to close it pronto.
++    {
++      MutexAutoLock lock(data->mStreamMutex);
++      if (data->mStream && NS_SUCCEEDED(status) && !mCancel) {
++        if (!mBackgroundQueue) {
++          nsresult rv = NS_CreateBackgroundTaskQueue(
++              "WebBrowserPersist", getter_AddRefs(mBackgroundQueue));
++          if (NS_FAILED(rv)) {
++            return rv;
++          }
++        }
++        // Now steal the stream ref and close it away from the main thread,
++        // keeping the promise around so we don't finish before all files
++        // are flushed and closed.
++        mFileClosePromises.AppendElement(InvokeAsync(
++            mBackgroundQueue, __func__, [stream = std::move(data->mStream)]() {
++              nsresult rv = stream->Close();
++              // We don't care if closing failed; we don't care in the
++              // destructor either...
++              return ClosePromise::CreateAndResolve(rv, __func__);
++            }));
++      }
++    }
+     MutexAutoLock lock(mOutputMapMutex);
+-    // This will automatically close the output stream
+     mOutputMap.Remove(keyPtr);
+   } else {
+     // if we didn't find the data in mOutputMap, try mUploadList
+@@ -2275,7 +2301,14 @@
+   if (NS_SUCCEEDED(mPersistResult) && NS_FAILED(aResult)) {
+     mPersistResult = aResult;
+   }
+-
++  ClosePromise::All(GetCurrentSerialEventTarget(), mFileClosePromises)
++      ->Then(GetCurrentSerialEventTarget(), __func__,
++             [self = RefPtr{this}, aResult]() {
++               self->EndDownloadInternal(aResult);
++             });
++}
++
++void nsWebBrowserPersist::EndDownloadInternal(nsresult aResult) {
+   // mCompleted needs to be set before issuing the stop notification.
+   // (Bug 1224437)
+   mCompleted = true;

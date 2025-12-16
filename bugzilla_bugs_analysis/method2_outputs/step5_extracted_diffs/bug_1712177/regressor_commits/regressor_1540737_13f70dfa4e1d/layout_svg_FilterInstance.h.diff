@@ -1,0 +1,88 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/svg/FilterInstance.h
+# Commit: 13f70dfa4e1d
+# Full Hash: 13f70dfa4e1d1d2c0f00b851ca655529f624fddd
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2021-05-16 09:17:48
+# Regressor Bug: 1540737
+# File Overlap Count: 1
+# Description:
+#   Bug 1540737 - Allow filter painting to take a callback for painting children. r=miko
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D114670
+# ==============================================================================
+
+diff -r 10dacf71ccbe -r 13f70dfa4e1d layout/svg/FilterInstance.h
+--- a/layout/svg/FilterInstance.h	Sun May 16 02:28:40 2021 +0300
++++ b/layout/svg/FilterInstance.h	Sun May 16 03:55:29 2021 +0000
+@@ -20,6 +20,7 @@
+ #include "mozilla/gfx/2D.h"
+ #include "mozilla/webrender/WebRenderTypes.h"
+ #include "mozilla/ServoStyleConsts.h"
++#include "mozilla/SVGIntegrationUtils.h"
+ 
+ class gfxContext;
+ class nsIContent;
+@@ -27,7 +28,6 @@
+ struct WrFiltersHolder;
+ 
+ namespace mozilla {
+-class SVGFilterPaintCallback;
+ 
+ namespace dom {
+ class UserSpaceMetrics;
+@@ -61,6 +61,7 @@
+   using FilterDescription = gfx::FilterDescription;
+   using UserSpaceMetrics = dom::UserSpaceMetrics;
+   using imgDrawingParams = image::imgDrawingParams;
++  using SVGFilterPaintCallback = SVGIntegrationUtils::SVGFilterPaintCallback;
+ 
+  public:
+   /**
+@@ -89,7 +90,7 @@
+    *   border box).
+    */
+   static void PaintFilteredFrame(nsIFrame* aFilteredFrame, gfxContext* aCtx,
+-                                 SVGFilterPaintCallback* aPaintCallback,
++                                 const SVGFilterPaintCallback& aPaintCallback,
+                                  const nsRegion* aDirtyArea,
+                                  imgDrawingParams& aImgParams,
+                                  float aOpacity = 1.0f);
+@@ -158,16 +159,16 @@
+    * @param aOverrideBBox [optional] Use a different SVG bbox for the target
+    *   element. Must be non-null if aTargetFrame is null.
+    */
+-  FilterInstance(nsIFrame* aTargetFrame, nsIContent* aTargetContent,
+-                 const UserSpaceMetrics& aMetrics,
+-                 Span<const StyleFilter> aFilterChain,
+-                 bool aFilterInputIsTainted,
+-                 SVGFilterPaintCallback* aPaintCallback,
+-                 const gfxMatrix& aPaintTransform,
+-                 const nsRegion* aPostFilterDirtyRegion = nullptr,
+-                 const nsRegion* aPreFilterDirtyRegion = nullptr,
+-                 const nsRect* aPreFilterInkOverflowRectOverride = nullptr,
+-                 const gfxRect* aOverrideBBox = nullptr);
++  FilterInstance(
++      nsIFrame* aTargetFrame, nsIContent* aTargetContent,
++      const UserSpaceMetrics& aMetrics, Span<const StyleFilter> aFilterChain,
++      bool aFilterInputIsTainted,
++      const SVGIntegrationUtils::SVGFilterPaintCallback& aPaintCallback,
++      const gfxMatrix& aPaintTransform,
++      const nsRegion* aPostFilterDirtyRegion = nullptr,
++      const nsRegion* aPreFilterDirtyRegion = nullptr,
++      const nsRect* aPreFilterInkOverflowRectOverride = nullptr,
++      const gfxRect* aOverrideBBox = nullptr);
+ 
+   /**
+    * Returns true if the filter instance was created successfully.
+@@ -336,7 +337,7 @@
+    */
+   const UserSpaceMetrics& mMetrics;
+ 
+-  SVGFilterPaintCallback* mPaintCallback;
++  const SVGFilterPaintCallback& mPaintCallback;
+ 
+   /**
+    * The SVG bbox of the element that is being filtered, in user space.

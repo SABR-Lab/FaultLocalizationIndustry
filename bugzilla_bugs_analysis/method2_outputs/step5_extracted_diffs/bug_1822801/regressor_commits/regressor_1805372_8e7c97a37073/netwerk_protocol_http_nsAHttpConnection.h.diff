@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/nsAHttpConnection.h
+# Commit: 8e7c97a37073
+# Full Hash: 8e7c97a37073a14ba832e2f5c27f2c11b7787ef5
+# Author: Valentin Gosu <valentin.gosu@gmail.com>
+# Date: 2023-03-15 16:26:49
+# Regressor Bug: 1805372
+# File Overlap Count: 1
+# Description:
+#   Bug 1805372 - Pass effectiveTRRMode to nsHttpChannel from socketTransport/DnsAndConnectSocket r=necko-reviewers,kershaw
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D164539
+# ==============================================================================
+
+diff -r 5abfd5ad2e35 -r 8e7c97a37073 netwerk/protocol/http/nsAHttpConnection.h
+--- a/netwerk/protocol/http/nsAHttpConnection.h	Wed Mar 15 12:41:26 2023 +0000
++++ b/netwerk/protocol/http/nsAHttpConnection.h	Wed Mar 15 13:00:46 2023 +0000
+@@ -11,6 +11,7 @@
+ #include "nsAHttpTransaction.h"
+ #include "Http3WebTransportSession.h"
+ #include "HttpTrafficAnalyzer.h"
++#include "nsIRequest.h"
+ 
+ class nsIAsyncInputStream;
+ class nsIAsyncOutputStream;
+@@ -168,6 +169,8 @@
+   virtual nsresult GetSelfAddr(NetAddr* addr) = 0;
+   virtual nsresult GetPeerAddr(NetAddr* addr) = 0;
+   virtual bool ResolvedByTRR() = 0;
++  virtual nsIRequest::TRRMode EffectiveTRRMode() = 0;
++  virtual nsITRRSkipReason::value TRRSkipReason() = 0;
+   virtual bool GetEchConfigUsed() = 0;
+   virtual PRIntervalTime LastWriteTime() = 0;
+ };
+@@ -263,6 +266,14 @@
+   bool ResolvedByTRR() override {                                            \
+     return (!(fwdObject)) ? false : (fwdObject)->ResolvedByTRR();            \
+   }                                                                          \
++  nsIRequest::TRRMode EffectiveTRRMode() override {                          \
++    return (!(fwdObject)) ? nsIRequest::TRR_DEFAULT_MODE                     \
++                          : (fwdObject)->EffectiveTRRMode();                 \
++  }                                                                          \
++  nsITRRSkipReason::value TRRSkipReason() override {                         \
++    return (!(fwdObject)) ? nsITRRSkipReason::TRR_UNSET                      \
++                          : (fwdObject)->TRRSkipReason();                    \
++  }                                                                          \
+   bool GetEchConfigUsed() override {                                         \
+     return (!(fwdObject)) ? false : (fwdObject)->GetEchConfigUsed();         \
+   }                                                                          \

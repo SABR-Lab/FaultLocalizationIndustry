@@ -1,0 +1,72 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/HttpTransactionChild.cpp
+# Commit: 521c9e019678
+# Full Hash: 521c9e019678f584590f63473416d40e03f33342
+# Author: Valentin Gosu <valentin.gosu@gmail.com>
+# Date: 2023-03-15 04:10:55
+# Regressor Bug: 1805372
+# File Overlap Count: 1
+# Description:
+#   Bug 1805372 - Pass effectiveTRRMode to nsHttpChannel from socketTransport/DnsAndConnectSocket r=necko-reviewers,kershaw
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D164539
+# ==============================================================================
+
+diff -r dfb39ca05529 -r 521c9e019678 netwerk/protocol/http/HttpTransactionChild.cpp
+--- a/netwerk/protocol/http/HttpTransactionChild.cpp	Tue Mar 14 15:29:49 2023 +0200
++++ b/netwerk/protocol/http/HttpTransactionChild.cpp	Tue Mar 14 12:59:40 2023 +0000
+@@ -470,12 +470,25 @@
+   int32_t proxyConnectResponseCode =
+       mTransaction->GetProxyConnectResponseCode();
+ 
++  nsIRequest::TRRMode mode = nsIRequest::TRR_DEFAULT_MODE;
++  TRRSkippedReason reason = nsITRRSkipReason::TRR_UNSET;
++  {
++    NetAddr selfAddr;
++    NetAddr peerAddr;
++    bool isTrr = false;
++    bool echConfigUsed = false;
++    if (mTransaction) {
++      mTransaction->GetNetworkAddresses(selfAddr, peerAddr, isTrr, mode, reason,
++                                        echConfigUsed);
++    }
++  }
++
+   Unused << SendOnStartRequest(
+       status, optionalHead, securityInfo, mTransaction->ProxyConnectFailed(),
+       ToTimingStructArgs(mTransaction->Timings()), proxyConnectResponseCode,
+       dataForSniffer, optionalAltSvcUsed, !!mDataBridgeParent,
+       mTransaction->TakeRestartedState(), mTransaction->HTTPSSVCReceivedStage(),
+-      mTransaction->GetSupportsHTTP3());
++      mTransaction->GetSupportsHTTP3(), mode, reason);
+   return NS_OK;
+ }
+ 
+@@ -582,8 +595,10 @@
+     NetAddr peerAddr;
+     bool isTrr = false;
+     bool echConfigUsed = false;
++    nsIRequest::TRRMode mode = nsIRequest::TRR_DEFAULT_MODE;
++    TRRSkippedReason reason = nsITRRSkipReason::TRR_UNSET;
+     if (mTransaction) {
+-      mTransaction->GetNetworkAddresses(selfAddr, peerAddr, isTrr,
++      mTransaction->GetNetworkAddresses(selfAddr, peerAddr, isTrr, mode, reason,
+                                         echConfigUsed);
+     } else {
+       nsCOMPtr<nsISocketTransport> socketTransport =
+@@ -592,10 +607,12 @@
+         socketTransport->GetSelfAddr(&selfAddr);
+         socketTransport->GetPeerAddr(&peerAddr);
+         socketTransport->ResolvedByTRR(&isTrr);
++        socketTransport->GetEffectiveTRRMode(&mode);
++        socketTransport->GetTrrSkipReason(&reason);
+         socketTransport->GetEchConfigUsed(&echConfigUsed);
+       }
+     }
+-    arg.emplace(selfAddr, peerAddr, isTrr, echConfigUsed);
++    arg.emplace(selfAddr, peerAddr, isTrr, mode, reason, echConfigUsed);
+   }
+ 
+   Unused << SendOnTransportStatus(aStatus, aProgress, aProgressMax, arg);

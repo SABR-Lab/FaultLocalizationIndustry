@@ -1,0 +1,109 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/ClientWebGLContext.h
+# Commit: 8e0aea33f622
+# Full Hash: 8e0aea33f622a76c5c8baa7dcf4485ffefd1662f
+# Author: Kelsey Gilbert <kelsey.gilbert@mozilla.com>
+# Date: 2024-07-09 09:45:28
+# Regressor Bug: 1892542
+# File Overlap Count: 1
+# Description:
+#   Bug 1892542 - Webgl e.g. createBuffer() made infallible. r=gfx-reviewers,webidl,saschanaz,lsalzman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D208050
+# ==============================================================================
+
+diff -r b953e0ccb68b -r 8e0aea33f622 dom/canvas/ClientWebGLContext.h
+--- a/dom/canvas/ClientWebGLContext.h	Mon Jul 08 19:36:12 2024 +0300
++++ b/dom/canvas/ClientWebGLContext.h	Mon Jul 08 17:24:12 2024 +0000
+@@ -220,7 +220,7 @@
+  protected:
+   bool mDeleteRequested = false;
+ 
+-  explicit ObjectJS(const ClientWebGLContext&);
++  explicit ObjectJS(const ClientWebGLContext*);
+   virtual ~ObjectJS() = default;
+ 
+  public:
+@@ -274,7 +274,7 @@
+   NS_DECL_CYCLE_COLLECTION_NATIVE_WRAPPERCACHE_CLASS(WebGLBufferJS)
+ 
+   explicit WebGLBufferJS(const ClientWebGLContext& webgl)
+-      : webgl::ObjectJS(webgl) {}
++      : webgl::ObjectJS(&webgl) {}
+ 
+  private:
+   ~WebGLBufferJS();
+@@ -396,7 +396,7 @@
+   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(WebGLQueryJS)
+   NS_DECL_CYCLE_COLLECTION_NATIVE_WRAPPERCACHE_CLASS(WebGLQueryJS)
+ 
+-  explicit WebGLQueryJS(const ClientWebGLContext& webgl)
++  explicit WebGLQueryJS(const ClientWebGLContext* const webgl)
+       : webgl::ObjectJS(webgl) {}
+ 
+  private:
+@@ -420,7 +420,7 @@
+   bool mHasBeenBound = false;  // !IsRenderbuffer until Bind
+ 
+   explicit WebGLRenderbufferJS(const ClientWebGLContext& webgl)
+-      : webgl::ObjectJS(webgl) {}
++      : webgl::ObjectJS(&webgl) {}
+   ~WebGLRenderbufferJS();
+ 
+  public:
+@@ -436,7 +436,7 @@
+   NS_DECL_CYCLE_COLLECTION_NATIVE_WRAPPERCACHE_CLASS(WebGLSamplerJS)
+ 
+   explicit WebGLSamplerJS(const ClientWebGLContext& webgl)
+-      : webgl::ObjectJS(webgl) {}
++      : webgl::ObjectJS(&webgl) {}
+ 
+  private:
+   ~WebGLSamplerJS();
+@@ -497,7 +497,7 @@
+   NS_DECL_CYCLE_COLLECTION_NATIVE_WRAPPERCACHE_CLASS(WebGLSyncJS)
+ 
+   explicit WebGLSyncJS(const ClientWebGLContext& webgl)
+-      : webgl::ObjectJS(webgl) {}
++      : webgl::ObjectJS(&webgl) {}
+ 
+  private:
+   ~WebGLSyncJS();
+@@ -518,7 +518,7 @@
+   NS_DECL_CYCLE_COLLECTION_NATIVE_WRAPPERCACHE_CLASS(WebGLTextureJS)
+ 
+   explicit WebGLTextureJS(const ClientWebGLContext& webgl)
+-      : webgl::ObjectJS(webgl) {}
++      : webgl::ObjectJS(&webgl) {}
+ 
+  private:
+   ~WebGLTextureJS();
+@@ -571,7 +571,7 @@
+   WebGLUniformLocationJS(const ClientWebGLContext& webgl,
+                          std::weak_ptr<webgl::LinkResult> parent, uint32_t loc,
+                          GLenum elemType)
+-      : webgl::ObjectJS(webgl),
++      : webgl::ObjectJS(&webgl),
+         mParent(parent),
+         mLocation(loc),
+         mValidUploadElemTypes(ValidUploadElemTypes(elemType)) {}
+@@ -596,7 +596,7 @@
+   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(WebGLVertexArrayJS)
+   NS_DECL_CYCLE_COLLECTION_NATIVE_WRAPPERCACHE_CLASS(WebGLVertexArrayJS)
+ 
+-  explicit WebGLVertexArrayJS(const ClientWebGLContext&);
++  explicit WebGLVertexArrayJS(const ClientWebGLContext*);
+ 
+  private:
+   ~WebGLVertexArrayJS();
+@@ -1013,7 +1013,7 @@
+   already_AddRefed<mozilla::gfx::SourceSurface> GetSurfaceSnapshot(
+       gfxAlphaType* out_alphaType) override;
+ 
+-  void SetOpaqueValueFromOpaqueAttr(bool) override{};
++  void SetOpaqueValueFromOpaqueAttr(bool) override {};
+   bool GetIsOpaque() override { return !mInitialOptions->alpha; }
+ 
+   /**

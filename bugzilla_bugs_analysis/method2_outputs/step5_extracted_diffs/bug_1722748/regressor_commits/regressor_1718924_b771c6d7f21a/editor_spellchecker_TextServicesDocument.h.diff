@@ -1,0 +1,78 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/spellchecker/TextServicesDocument.h
+# Commit: b771c6d7f21a
+# Full Hash: b771c6d7f21adb444686879f19264832fbe174ef
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2021-07-13 21:42:32
+# Regressor Bug: 1718924
+# File Overlap Count: 2
+# Description:
+#   Bug 1718924 - part 15: Move `TextServicesDocument::mSelStartIndex` and `TextServicesDocument::mSelEndIndex` into `OffsetEntryArray` r=m_kato
+#   
+#   They are indices of `OffsetEntryArray`. Therefore, they should be managed in it.
+#   
+#   Depends on D119161
+# ==============================================================================
+
+diff -r 3ffbb88fe641 -r b771c6d7f21a editor/spellchecker/TextServicesDocument.h
+--- a/editor/spellchecker/TextServicesDocument.h	Tue Jul 13 10:51:46 2021 +0000
++++ b/editor/spellchecker/TextServicesDocument.h	Tue Jul 13 10:57:48 2021 +0000
+@@ -88,6 +88,43 @@
+      *                  greater than 0 and less than `mLength`.
+      */
+     nsresult SplitElementAt(size_t aIndex, uint32_t aOffsetInTextNode);
++
++    class Selection final {
++     public:
++      size_t StartIndex() const {
++        MOZ_ASSERT(IsSet());
++        return *mStartIndex;
++      }
++      size_t EndIndex() const {
++        MOZ_ASSERT(IsSet());
++        return *mEndIndex;
++      }
++
++      bool IsSet() const { return mStartIndex.isSome() && mEndIndex.isSome(); }
++      bool IsInSameElement() const {
++        return IsSet() && StartIndex() == EndIndex();
++      }
++
++      void Reset() {
++        mStartIndex.reset();
++        mEndIndex.reset();
++      }
++      void Set(size_t aIndex) { mEndIndex = mStartIndex = Some(aIndex); }
++      void Set(size_t aStartIndex, size_t aEndIndex) {
++        mStartIndex = Some(aStartIndex);
++        mEndIndex = Some(aEndIndex);
++      }
++
++      void CollapseToStart() {
++        MOZ_ASSERT(mStartIndex.isSome());
++        mEndIndex = mStartIndex;
++      }
++
++     private:
++      Maybe<size_t> mStartIndex;
++      Maybe<size_t> mEndIndex;
++    };
++    Selection mSelection;
+   };
+ 
+   RefPtr<dom::Document> mDocument;
+@@ -99,11 +136,8 @@
+   OffsetEntryArray mOffsetTable;
+   RefPtr<nsRange> mExtent;
+ 
+-  // TODO: Making the following members manged in a struct must become the code
+-  //       simpler.
+-  Maybe<size_t> mSelStartIndex;
+-  Maybe<size_t> mSelEndIndex;
+   // Selected start and end offset in all text in a block element.
++  // XXX Should we move them into `OffsetEntryArray::Selection`?
+   Maybe<uint32_t> mSelectionStartOffsetInTextInBlock;
+   Maybe<uint32_t> mSelectionEndOffsetInTextInBlock;
+ 

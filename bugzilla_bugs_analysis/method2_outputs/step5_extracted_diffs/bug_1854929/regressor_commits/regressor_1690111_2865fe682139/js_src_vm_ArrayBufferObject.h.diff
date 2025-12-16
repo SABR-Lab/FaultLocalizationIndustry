@@ -1,0 +1,90 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/ArrayBufferObject.h
+# Commit: 2865fe682139
+# Full Hash: 2865fe682139450ad7574810366f980d771412c2
+# Author: Steve Fink <sfink@mozilla.com>
+# Date: 2023-09-12 04:12:49
+# Regressor Bug: 1690111
+# File Overlap Count: 1
+# Description:
+#   Bug 1690111 - Implement the ability to pin lengths (prevent changes to length, eg via detaching) for ArrayBuffers and their views. r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D131301
+# ==============================================================================
+
+diff -r 9dcd2416f8a5 -r 2865fe682139 js/src/vm/ArrayBufferObject.h
+--- a/js/src/vm/ArrayBufferObject.h	Mon Sep 11 12:52:18 2023 +0000
++++ b/js/src/vm/ArrayBufferObject.h	Mon Sep 11 12:52:19 2023 +0000
+@@ -124,6 +124,8 @@
+   inline bool isDetached() const;
+   inline SharedMem<uint8_t*> dataPointerEither();
+ 
++  inline bool pinLength(bool pin);
++
+   // WebAssembly support:
+   // Note: the eventual goal is to remove this from ArrayBuffer and have
+   // (Shared)ArrayBuffers alias memory owned by some wasm::Memory object.
+@@ -236,6 +238,11 @@
+     // INLINE_DATA buffer is used with asm.js, it's silently rewritten into a
+     // MALLOCED buffer which *can* be prepared.)
+     FOR_ASMJS = 0b10'0000,
++
++    // The length is temporarily pinned, so it should not be detached. In the
++    // future, this will also prevent GrowableArrayBuffer/ResizeableArrayBuffer
++    // from modifying the length while this is set.
++    PINNED_LENGTH = 0b100'0000
+   };
+ 
+   static_assert(JS_ARRAYBUFFER_DETACHED_FLAG == DETACHED,
+@@ -400,6 +407,15 @@
+ 
+   bool addView(JSContext* cx, ArrayBufferViewObject* view);
+ 
++  // Pin or unpin the length. Returns whether pinned status was changed.
++  bool pinLength(bool pin) {
++    if (bool(flags() & PINNED_LENGTH) == pin) {
++      return false;
++    }
++    setFlags(flags() ^ PINNED_LENGTH);
++    return true;
++  }
++
+   // Detach this buffer from its original memory.  (This necessarily makes
+   // views of this buffer unusable for modifying that original memory.)
+   static void detach(JSContext* cx, Handle<ArrayBufferObject*> buffer);
+@@ -452,6 +468,7 @@
+   bool isExternal() const { return bufferKind() == EXTERNAL; }
+ 
+   bool isDetached() const { return flags() & DETACHED; }
++  bool isLengthPinned() const { return flags() & PINNED_LENGTH; }
+   bool isPreparedForAsmJS() const { return flags() & FOR_ASMJS; }
+ 
+   // Only WASM and asm.js buffers have a non-undefined [[ArrayBufferDetachKey]].
+@@ -497,7 +514,10 @@
+   uint32_t flags() const;
+   void setFlags(uint32_t flags);
+ 
+-  void setIsDetached() { setFlags(flags() | DETACHED); }
++  void setIsDetached() {
++    MOZ_ASSERT(!(flags() & PINNED_LENGTH));
++    setFlags(flags() | DETACHED);
++  }
+   void setIsPreparedForAsmJS() {
+     MOZ_ASSERT(!isWasm());
+     MOZ_ASSERT(!hasUserOwnedData());
+@@ -514,6 +534,13 @@
+   }
+ };
+ 
++inline bool ArrayBufferObjectMaybeShared::pinLength(bool pin) {
++  if (is<ArrayBufferObject>()) {
++    return as<ArrayBufferObject>().pinLength(pin);
++  }
++  return false;  // Cannot pin or unpin shared array buffers.
++}
++
+ // Create a buffer for a wasm memory, whose type is determined by
+ // memory.indexType().
+ ArrayBufferObjectMaybeShared* CreateWasmBuffer(JSContext* cx,

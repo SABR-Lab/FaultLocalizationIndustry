@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/webgpu/ipc/WebGPUParent.h
+# Commit: 843c7d19787b
+# Full Hash: 843c7d19787b5beb9caa2fbf71192b174738bb92
+# Author: Brad Werth <bwerth@mozilla.com>
+# Date: 2023-10-17 03:58:35
+# Regressor Bug: 1838693
+# File Overlap Count: 1
+# Description:
+#   Bug 1838693 Part 1: Stub in 'lose the device' and trigger it on device lost errors. r=webgpu-reviewers,nical
+#   
+#   This creates a WebGPUParent::LoseDevice entry point, which informs the
+#   WebGPUChild that the device has been lost. The child side is largely a
+#   stub, as a later part will rationalize the handling of the device.lost
+# ==============================================================================
+
+diff -r e0dd0b10e8fd -r 843c7d19787b dom/webgpu/ipc/WebGPUParent.h
+--- a/dom/webgpu/ipc/WebGPUParent.h	Mon Oct 16 15:29:21 2023 +0000
++++ b/dom/webgpu/ipc/WebGPUParent.h	Mon Oct 16 15:31:59 2023 +0000
+@@ -123,6 +123,7 @@
+     bool mHasMapFlags;
+     uint64_t mMappedOffset;
+     uint64_t mMappedSize;
++    RawId mDeviceId;
+   };
+ 
+   BufferMapData* GetBufferMapData(RawId aBufferId);
+@@ -143,10 +144,14 @@
+   std::shared_ptr<ExternalTexture> GetExternalTexture(ffi::WGPUTextureId aId);
+ 
+  private:
++  static void MapCallback(ffi::WGPUBufferMapAsyncStatus aStatus,
++                          uint8_t* aUserData);
+   void DeallocBufferShmem(RawId aBufferId);
+ 
+   virtual ~WebGPUParent();
+   void MaintainDevices();
++  void LoseDevice(const RawId aDeviceId, Maybe<uint8_t> aReason,
++                  const nsACString& aMessage);
+ 
+   bool ForwardError(const RawId aDeviceId, ErrorBuffer& aError) {
+     return ForwardError(Some(aDeviceId), aError);

@@ -1,0 +1,69 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmCode.h
+# Commit: 1a3bc285395f
+# Full Hash: 1a3bc285395ffcc5d9281dd45d4f6c2bb918bf43
+# Author: Julien Pages <jpages@mozilla.com>
+# Date: 2025-03-04 04:58:00
+# Regressor Bug: 1861078
+# File Overlap Count: 1
+# Description:
+#   Bug 1861078 - wasm: make metadata offsets relative to CodeBlock->codeBase. r=rhunt
+#   
+#   Metadata used offsets to the beginning of code segment. Change that to use
+#   offsets relative to the beginning of CodeBlock. This allows us to avoid offseting
+#   metadata later on and prepare the work for simplification of stackmaps.
+# ==============================================================================
+
+diff -r 66d70b730ea6 -r 1a3bc285395f js/src/wasm/WasmCode.h
+--- a/js/src/wasm/WasmCode.h	Mon Mar 03 16:15:17 2025 +0000
++++ b/js/src/wasm/WasmCode.h	Mon Mar 03 16:37:47 2025 +0000
+@@ -561,21 +561,20 @@
+ 
+   // The code segment our JIT code is within.
+   SharedCodeSegment segment;
+-  // The sub-range of the code segment our JIT code is within.
+-  const uint8_t* codeBase;
++
++  // Pointer to the beginning of the CodeBlock.
++  uint8_t* codeBase;
+   size_t codeLength;
+ 
+   // Metadata about the code we have contributed to the segment.
+   //
+   // * `funcToCodeRange` does not involve code locations.
+   //
+-  // * `stackMaps` specifies code locations directly, in
+-  //   StackMaps::Maplet::nextInsnAddr.
++  // * `stackMaps` specifies code locations directly, in nextInsnAddr.
+   //
+   // * All 6 other fields specify a code locations in by carrying an offset
+   //   which is interpreted to be relative to the start of the containing
+-  //   segment, *not* relative to `CodeBlock::codeBase`.  That is, the denoted
+-  //   address is `segment->base() + ..offset...`.
++  //   CodeBlock::codeBase.
+   //
+   FuncToCodeRangeMap funcToCodeRange;
+   CodeRangeVector codeRanges;
+@@ -637,10 +636,7 @@
+            kind == CodeBlockKind::OptimizedTier;
+   }
+ 
+-  // Add an offset to the metadata.  See comment above.
+-  void offsetMetadataBy(uint32_t delta);
+-
+-  const uint8_t* base() const { return codeBase; }
++  uint8_t* base() const { return codeBase; }
+   uint32_t length() const { return codeLength; }
+   bool containsCodePC(const void* pc) const {
+     return pc >= base() && pc < (base() + length());
+@@ -1170,7 +1166,7 @@
+                      uint8_t** codeBase) const {
+     const CodeBlock& codeBlock = funcCodeBlock(funcIndex);
+     *range = &codeBlock.codeRanges[codeBlock.funcToCodeRange[funcIndex]];
+-    *codeBase = codeBlock.segment->base();
++    *codeBase = codeBlock.base();
+   }
+ 
+   const LinkData* codeBlockLinkData(const CodeBlock& block) const;

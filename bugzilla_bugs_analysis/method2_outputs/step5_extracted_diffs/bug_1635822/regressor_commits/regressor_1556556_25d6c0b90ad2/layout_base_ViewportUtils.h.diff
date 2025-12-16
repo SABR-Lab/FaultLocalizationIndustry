@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/base/ViewportUtils.h
+# Commit: 25d6c0b90ad2
+# Full Hash: 25d6c0b90ad2a5e3fef0e4628fcc64f7811812b5
+# Author: Botond Ballo <botond@mozilla.com>
+# Date: 2020-05-06 09:37:16
+# Regressor Bug: 1556556
+# File Overlap Count: 1
+# Description:
+#   Bug 1556556 - Support both CSS and LayoutDevice units in GetVisualToLayoutTransform(). r=kats
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D68725
+# ==============================================================================
+
+diff -r b76b8d0b94ca -r 25d6c0b90ad2 layout/base/ViewportUtils.h
+--- a/layout/base/ViewportUtils.h	Tue May 05 19:37:26 2020 +0000
++++ b/layout/base/ViewportUtils.h	Tue May 05 19:22:42 2020 +0000
+@@ -34,7 +34,8 @@
+        up to the root, using values populated in
+        APZCCallbackHelper::UpdateCallbackTransform. See that method's
+        documentation for additional details. */
+-  static CSSToCSSMatrix4x4 GetVisualToLayoutTransform(
++  template <typename Units = CSSPixel>
++  static gfx::Matrix4x4Typed<Units, Units> GetVisualToLayoutTransform(
+       layers::ScrollableLayerGuid::ViewID aScrollId);
+ 
+   /* The functions below apply GetVisualToLayoutTransform() or its inverse
+@@ -51,6 +52,18 @@
+   static nsPoint LayoutToVisual(const nsPoint& aPt, PresShell* aContext);
+ };
+ 
++// Forward declare explicit instantiations of GetVisualToLayoutTransform() for
++// CSSPixel and LayoutDevicePixel, the only two types it gets used with.
++// These declarations promise to callers in any translation unit that _some_
++// translation unit (in this case, ViewportUtils.cpp) will contain the
++// definitions of these instantiations. This allows us to keep the definition
++// out-of-line in the source.
++extern template CSSToCSSMatrix4x4 ViewportUtils::GetVisualToLayoutTransform<
++    CSSPixel>(layers::ScrollableLayerGuid::ViewID);
++extern template LayoutDeviceToLayoutDeviceMatrix4x4
++    ViewportUtils::GetVisualToLayoutTransform<LayoutDevicePixel>(
++        layers::ScrollableLayerGuid::ViewID);
++
+ }  // namespace mozilla
+ 
+ #endif /* mozilla_ViewportUtils_h */

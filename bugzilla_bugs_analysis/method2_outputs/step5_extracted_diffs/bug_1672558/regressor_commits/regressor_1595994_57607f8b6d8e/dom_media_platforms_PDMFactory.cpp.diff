@@ -1,0 +1,103 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/platforms/PDMFactory.cpp
+# Commit: 57607f8b6d8e
+# Full Hash: 57607f8b6d8e1619b5c488494fd57547944c47b1
+# Author: Dan Glastonbury <dan.glastonbury@gmail.com>
+# Date: 2020-10-21 09:51:28
+# Regressor Bug: 1595994
+# File Overlap Count: 1
+# Description:
+#   Bug 1595994 - P7: Add Supports messages to PRemoteDecoderManager. r=kamidphish,nika,ipc-reviewers
+#   
+#   Add a synchronous Supports message to the IPDL PRemoteDecoderManager protocol so
+#   decoder modules can query for playback support in the actual process that will
+#   attempt to do the decoding.
+# ==============================================================================
+
+diff -r 1932f2f34993 -r 57607f8b6d8e dom/media/platforms/PDMFactory.cpp
+--- a/dom/media/platforms/PDMFactory.cpp	Tue Oct 20 23:26:25 2020 +0000
++++ b/dom/media/platforms/PDMFactory.cpp	Tue Oct 20 23:26:27 2020 +0000
+@@ -209,15 +209,7 @@
+       if (diagnostics) {
+         // If libraries failed to load, the following loop over mCurrentPDMs
+         // will not even try to use them. So we record failures now.
+-        if (mWMFFailedToLoad) {
+-          diagnostics->SetWMFFailedToLoad();
+-        }
+-        if (mFFmpegFailedToLoad) {
+-          diagnostics->SetFFmpegFailedToLoad();
+-        }
+-        if (mGMPPDMFailedToStartup) {
+-          diagnostics->SetGMPPDMFailedToStartup();
+-        }
++        diagnostics->SetFailureFlags(mFailureFlags);
+       }
+ 
+       for (auto& current : mCurrentPDMs) {
+@@ -376,12 +368,15 @@
+ 
+ #ifdef XP_WIN
+   if (StaticPrefs::media_wmf_enabled() && !IsWin7AndPre2000Compatible()) {
+-    RefPtr<PlatformDecoderModule> m = MakeAndAddRef<WMFDecoderModule>();
++    RefPtr<WMFDecoderModule> m = MakeAndAddRef<WMFDecoderModule>();
+     StartupPDM(MakeAndAddRef<GpuDecoderModule>(m));
+-    mWMFFailedToLoad = !StartupPDM(m.forget());
++    if (!StartupPDM(m.forget())) {
++      mFailureFlags += DecoderDoctorDiagnostics::Flags::WMFFailedToLoad;
++    }
+   } else {
+-    mWMFFailedToLoad =
+-        StaticPrefs::media_decoder_doctor_wmf_disabled_is_failure();
++    if (StaticPrefs::media_decoder_doctor_wmf_disabled_is_failure()) {
++      mFailureFlags += DecoderDoctorDiagnostics::Flags::WMFFailedToLoad;
++    }
+   }
+ #endif
+ #ifdef MOZ_APPLEMEDIA
+@@ -398,9 +393,10 @@
+   }
+ #endif
+ #ifdef MOZ_FFMPEG
+-  mFFmpegFailedToLoad = StaticPrefs::media_ffmpeg_enabled()
+-                            ? !CreateAndStartupPDM<FFmpegRuntimeLinker>()
+-                            : false;
++  if (StaticPrefs::media_ffmpeg_enabled() &&
++      !CreateAndStartupPDM<FFmpegRuntimeLinker>()) {
++    mFailureFlags += DecoderDoctorDiagnostics::Flags::FFmpegFailedToLoad;
++  }
+ #endif
+ #ifdef MOZ_WIDGET_ANDROID
+   if (StaticPrefs::media_android_media_codec_enabled()) {
+@@ -411,9 +407,10 @@
+ 
+   CreateAndStartupPDM<AgnosticDecoderModule>();
+ 
+-  mGMPPDMFailedToStartup = StaticPrefs::media_gmp_decoder_enabled()
+-                               ? !CreateAndStartupPDM<GMPDecoderModule>()
+-                               : false;
++  if (StaticPrefs::media_gmp_decoder_enabled() &&
++      !CreateAndStartupPDM<GMPDecoderModule>()) {
++    mFailureFlags += DecoderDoctorDiagnostics::Flags::GMPPDMFailedToStartup;
++  }
+ }
+ 
+ void PDMFactory::CreateNullPDM() {
+@@ -441,15 +438,7 @@
+   if (aDiagnostics) {
+     // If libraries failed to load, the following loop over mCurrentPDMs
+     // will not even try to use them. So we record failures now.
+-    if (mWMFFailedToLoad) {
+-      aDiagnostics->SetWMFFailedToLoad();
+-    }
+-    if (mFFmpegFailedToLoad) {
+-      aDiagnostics->SetFFmpegFailedToLoad();
+-    }
+-    if (mGMPPDMFailedToStartup) {
+-      aDiagnostics->SetGMPPDMFailedToStartup();
+-    }
++    aDiagnostics->SetFailureFlags(mFailureFlags);
+   }
+ 
+   RefPtr<PlatformDecoderModule> pdm;

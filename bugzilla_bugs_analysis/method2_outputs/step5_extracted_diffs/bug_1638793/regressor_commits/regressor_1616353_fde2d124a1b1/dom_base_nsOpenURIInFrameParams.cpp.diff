@@ -1,0 +1,69 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsOpenURIInFrameParams.cpp
+# Commit: fde2d124a1b1
+# Full Hash: fde2d124a1b15877570390c7c69f5fcf6770640d
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-04-08 03:36:50
+# Regressor Bug: 1616353
+# File Overlap Count: 1
+# Description:
+#   Bug 1616353 - Part 7.2: Create and use nsOpenWindowInfo types in nsWindowWatcher logic, r=kmag
+#   
+#   This patch builds on top of part 7.1 by creating this object within
+#   nsWindowWatcher and ContentParent to carry the relevant information through
+#   provider interfaces when creating new content windows. The nsOpenWindowInfo
+# ==============================================================================
+
+diff -r 7ccbbb127b7f -r fde2d124a1b1 dom/base/nsOpenURIInFrameParams.cpp
+--- a/dom/base/nsOpenURIInFrameParams.cpp	Tue Apr 07 21:39:24 2020 +0000
++++ b/dom/base/nsOpenURIInFrameParams.cpp	Tue Apr 07 21:39:32 2020 +0000
+@@ -5,6 +5,7 @@
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
+ #include "nsOpenURIInFrameParams.h"
++#include "nsIOpenWindowInfo.h"
+ #include "mozilla/BasePrincipal.h"
+ #include "mozilla/dom/Element.h"
+ #include "mozilla/dom/ToJSValue.h"
+@@ -20,13 +21,18 @@
+ NS_IMPL_CYCLE_COLLECTING_RELEASE(nsOpenURIInFrameParams)
+ 
+ nsOpenURIInFrameParams::nsOpenURIInFrameParams(
+-    const mozilla::OriginAttributes& aOriginAttributes,
+-    mozilla::dom::Element* aOpener)
+-    : mOpenerOriginAttributes(aOriginAttributes), mOpenerBrowser(aOpener) {}
++    nsIOpenWindowInfo* aOpenWindowInfo, mozilla::dom::Element* aOpener)
++    : mOpenWindowInfo(aOpenWindowInfo), mOpenerBrowser(aOpener) {}
+ 
+ nsOpenURIInFrameParams::~nsOpenURIInFrameParams() = default;
+ 
+ NS_IMETHODIMP
++nsOpenURIInFrameParams::GetOpenWindowInfo(nsIOpenWindowInfo** aOpenWindowInfo) {
++  NS_IF_ADDREF(*aOpenWindowInfo = mOpenWindowInfo);
++  return NS_OK;
++}
++
++NS_IMETHODIMP
+ nsOpenURIInFrameParams::GetReferrerInfo(nsIReferrerInfo** aReferrerInfo) {
+   NS_IF_ADDREF(*aReferrerInfo = mReferrerInfo);
+   return NS_OK;
+@@ -41,7 +47,7 @@
+ NS_IMETHODIMP
+ nsOpenURIInFrameParams::GetIsPrivate(bool* aIsPrivate) {
+   NS_ENSURE_ARG_POINTER(aIsPrivate);
+-  *aIsPrivate = mOpenerOriginAttributes.mPrivateBrowsingId > 0;
++  *aIsPrivate = mOpenWindowInfo->GetOriginAttributes().mPrivateBrowsingId > 0;
+   return NS_OK;
+ }
+ 
+@@ -83,7 +89,5 @@
+ NS_IMETHODIMP
+ nsOpenURIInFrameParams::GetOpenerOriginAttributes(
+     JSContext* aCx, JS::MutableHandle<JS::Value> aValue) {
+-  bool ok = ToJSValue(aCx, mOpenerOriginAttributes, aValue);
+-  NS_ENSURE_TRUE(ok, NS_ERROR_FAILURE);
+-  return NS_OK;
++  return mOpenWindowInfo->GetScriptableOriginAttributes(aCx, aValue);
+ }

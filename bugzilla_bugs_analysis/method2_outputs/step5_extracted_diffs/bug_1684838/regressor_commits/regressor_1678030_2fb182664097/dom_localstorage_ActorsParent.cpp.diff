@@ -1,0 +1,102 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/localstorage/ActorsParent.cpp
+# Commit: 2fb182664097
+# Full Hash: 2fb182664097f1b22021eec844d0d1adbffc40dc
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2020-12-05 09:38:58
+# Regressor Bug: 1678030
+# File Overlap Count: 1
+# Description:
+#   Bug 1678030 - Support multiple variants of hasResult expectations in CreateAndExecuteSingleStepStatement. r=dom-workers-and-storage-reviewers,ttung
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D97461
+# ==============================================================================
+
+diff -r 2ed5e139d784 -r 2fb182664097 dom/localstorage/ActorsParent.cpp
+--- a/dom/localstorage/ActorsParent.cpp	Fri Dec 04 14:56:18 2020 +0000
++++ b/dom/localstorage/ActorsParent.cpp	Fri Dec 04 15:10:07 2020 +0000
+@@ -3770,30 +3770,24 @@
+     return rv;
+   }
+ 
+-  rv = aConnection->GetCachedStatement(nsLiteralCString("SELECT usage "
+-                                                        "FROM database"),
+-                                       &stmt);
+-  if (NS_WARN_IF(NS_FAILED(rv))) {
+-    return rv;
+-  }
+-
+-  bool hasResult;
+-  rv = stmt->ExecuteStep(&hasResult);
+-  if (NS_WARN_IF(NS_FAILED(rv))) {
+-    return rv;
+-  }
+-
+-  if (NS_WARN_IF(!hasResult)) {
+-    return NS_ERROR_FAILURE;
+-  }
+-
+-  int64_t usage;
+-  rv = stmt->GetInt64(0, &usage);
+-  if (NS_WARN_IF(NS_FAILED(rv))) {
+-    return rv;
+-  }
+-
+-  aOutUsage = usage;
++  {
++    LS_TRY_INSPECT(const auto& stmt,
++                   CreateAndExecuteSingleStepStatement<
++                       SingleStepResult::ReturnNullIfNoResult>(
++                       *aConnection->StorageConnection(),
++                       "SELECT usage FROM database"_ns));
++
++    LS_TRY(OkIf(stmt), NS_ERROR_FAILURE);
++
++    int64_t usage;
++    rv = stmt->GetInt64(0, &usage);
++    if (NS_WARN_IF(NS_FAILED(rv))) {
++      return rv;
++    }
++
++    aOutUsage = usage;
++  }
++
+   return NS_OK;
+ }
+ 
+@@ -7681,26 +7675,15 @@
+   AssertIsOnIOThread();
+   MOZ_ASSERT(aConnection);
+ 
+-  nsCOMPtr<mozIStorageStatement> stmt;
+-  nsresult rv = aConnection->CreateStatement(nsLiteralCString("SELECT origin "
+-                                                              "FROM database"),
+-                                             getter_AddRefs(stmt));
+-  if (NS_WARN_IF(NS_FAILED(rv))) {
+-    return rv;
+-  }
+-
+-  bool hasResult;
+-  rv = stmt->ExecuteStep(&hasResult);
+-  if (NS_WARN_IF(NS_FAILED(rv))) {
+-    return rv;
+-  }
+-
+-  if (NS_WARN_IF(!hasResult)) {
+-    return NS_ERROR_FILE_CORRUPTED;
+-  }
++  LS_TRY_INSPECT(const auto& stmt,
++                 CreateAndExecuteSingleStepStatement<
++                     SingleStepResult::ReturnNullIfNoResult>(
++                     *aConnection, "SELECT origin FROM database"_ns));
++
++  LS_TRY(OkIf(stmt), NS_ERROR_FILE_CORRUPTED);
+ 
+   nsCString origin;
+-  rv = stmt->GetUTF8String(0, origin);
++  nsresult rv = stmt->GetUTF8String(0, origin);
+   if (NS_WARN_IF(NS_FAILED(rv))) {
+     return rv;
+   }

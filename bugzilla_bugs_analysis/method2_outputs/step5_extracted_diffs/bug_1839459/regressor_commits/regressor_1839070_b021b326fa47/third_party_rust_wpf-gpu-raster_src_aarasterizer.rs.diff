@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/wpf-gpu-raster/src/aarasterizer.rs
+# Commit: b021b326fa47
+# Full Hash: b021b326fa47eb57e14f858078ab5daaa6cd2274
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2023-06-20 03:53:45
+# Regressor Bug: 1839070
+# File Overlap Count: 6
+# Description:
+#   Bug 1839070 - Emit a start point if close is called immediately after move_to. r=jrmuizel
+#   
+#   wpf-gpu-raster would blindly modify the last point type in a path when call was closed, even
+#   if move_to preceded it directly and outputted no actual point type. In this case, we need to
+#   ensure that we emit a start point if close is called immediately after move_to.
+# ==============================================================================
+
+diff -r 4c4b0b9db374 -r b021b326fa47 third_party/rust/wpf-gpu-raster/src/aarasterizer.rs
+--- a/third_party/rust/wpf-gpu-raster/src/aarasterizer.rs	Mon Jun 19 19:34:31 2023 +0000
++++ b/third_party/rust/wpf-gpu-raster/src/aarasterizer.rs	Mon Jun 19 19:54:24 2023 +0000
+@@ -1033,13 +1033,15 @@
+         // Advance to the first point after the 'start' point:
+         count -= 1;
+         if (count == 0) {
+-            TraceTag!((tagMILWarning, "Path ended after start-path"));
+-            return (false);
++            //TraceTag!((tagMILWarning, "Path ended after start-path"));
++            //return (false);
++            return (true);
+         }
+ 
+         if ((types[1] & PathPointTypePathTypeMask) == PathPointTypeStart) {
+-            TraceTag!((tagMILWarning, "Can't have a start followed by a start!"));
+-            return (false);
++            //TraceTag!((tagMILWarning, "Can't have a start followed by a start!"));
++            //return (false);
++            return (true);
+         }
+ 
+         // Process runs of lines and Bezier curves:

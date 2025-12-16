@@ -1,0 +1,81 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/MouseEvents.h
+# Commit: f8a2a169b296
+# Full Hash: f8a2a169b2969d29e04733ae27a56459e5359973
+# Author: Alexandru Marc <amarc@mozila.com>
+# Date: 2025-05-16 09:19:19
+# Regressor Bug: 1550462
+# File Overlap Count: 1
+# Description:
+#   Revert "Bug 1550462 - part 3: Enable `pointerrawupdate` event r=smaug" for causing mochitest failures @ test_pointerrawupdate_event_count.html
+#   
+#   This reverts commit eb27445e0352d6b4df540adb40e21f72fc052e80.
+#   
+#   Revert "Bug 1550462 - part 2: Make `PresShell::HandleEvent` dispatch preceding `pointerrawupdate` event r=smaug,dom-core,edgar"
+# ==============================================================================
+
+diff -r 8d25773fc82f -r f8a2a169b296 widget/MouseEvents.h
+--- a/widget/MouseEvents.h	Fri May 16 06:20:47 2025 +0000
++++ b/widget/MouseEvents.h	Fri May 16 09:30:09 2025 +0300
+@@ -43,22 +43,22 @@
+ 
+ class WidgetPointerHelper {
+  public:
+-  uint32_t pointerId = 0;
+-  int32_t tiltX = 0;
+-  int32_t tiltY = 0;
+-  int32_t twist = 0;
+-  float tangentialPressure = 0.0f;
+-  bool convertToPointer = true;
+-  // When convertToPointerRawUpdate is set to true, the event or the touch may
+-  // cause ePointerRawUpdate event in PresShell::HandleEvent() if it's requested
+-  // by the web app.  This is set to false if the source mouse event or the
+-  // source touch move event is not dispatched immediately by BrowserChild
+-  // because BrowserChild dispatches only eMouseRawUpdate or eTouchRawUpdate to
+-  // dispatch ePointerRawUpdate immediately.
+-  bool convertToPointerRawUpdate = true;
++  uint32_t pointerId;
++  int32_t tiltX;
++  int32_t tiltY;
++  int32_t twist;
++  float tangentialPressure;
++  bool convertToPointer;
+   RefPtr<WidgetPointerEventHolder> mCoalescedWidgetEvents;
+ 
+-  WidgetPointerHelper() = default;
++  WidgetPointerHelper()
++      : pointerId(0),
++        tiltX(0),
++        tiltY(0),
++        twist(0),
++        tangentialPressure(0),
++        convertToPointer(true) {}
++
+   WidgetPointerHelper(uint32_t aPointerId, uint32_t aTiltX, uint32_t aTiltY,
+                       uint32_t aTwist = 0, float aTangentialPressure = 0)
+       : pointerId(aPointerId),
+@@ -108,7 +108,6 @@
+     twist = aEvent.twist;
+     tangentialPressure = aEvent.tangentialPressure;
+     convertToPointer = aEvent.convertToPointer;
+-    convertToPointerRawUpdate = aEvent.convertToPointerRawUpdate;
+     if (aCopyCoalescedEvents) {
+       mCoalescedWidgetEvents = aEvent.mCoalescedWidgetEvents;
+     }
+@@ -414,13 +413,7 @@
+    * Returns true if the event is a real mouse event.  Otherwise, i.e., it's
+    * a synthesized event by scroll or something, returns false.
+    */
+-  [[nodiscard]] bool IsReal() const { return mReason == eReal; }
+-
+-  /**
+-   * Returns true if the event is synthesized for scroll or layout change.
+-   * Do not confuse this with a synthesized event for tests.
+-   */
+-  [[nodiscard]] bool IsSynthesized() const { return mReason == eSynthesized; }
++  bool IsReal() const { return mReason == eReal; }
+ 
+   /**
+    * Returns true if middle click paste is enabled.

@@ -1,0 +1,91 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/WindowContext.cpp
+# Commit: 52ac63af39a4
+# Full Hash: 52ac63af39a4de5a2e8ea8d44071a3006f6a1b8d
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-04-25 09:49:23
+# Regressor Bug: 1580565
+# File Overlap Count: 3
+# Description:
+#   Bug 1580565 - Part 4: Use WindowContext to manage BrowsingContext cached status, r=farre
+#   
+#   The existing infrastructure which stored cached BrowsingContexts on the
+#   BrowsingContextGroup was added before WindowContexts were added, and can cause
+#   racing issues with partially discarded trees during process switches.
+# ==============================================================================
+
+diff -r 775fcd064844 -r 52ac63af39a4 docshell/base/WindowContext.cpp
+--- a/docshell/base/WindowContext.cpp	Fri Apr 24 18:33:01 2020 +0000
++++ b/docshell/base/WindowContext.cpp	Fri Apr 24 18:33:04 2020 +0000
+@@ -45,10 +45,43 @@
+   return static_cast<WindowGlobalParent*>(this);
+ }
+ 
++bool WindowContext::IsCached() const {
++  return mBrowsingContext->mCurrentWindowContext != this;
++}
++
+ nsIGlobalObject* WindowContext::GetParentObject() const {
+   return xpc::NativeGlobal(xpc::PrivilegedJunkScope());
+ }
+ 
++void WindowContext::AppendChildBrowsingContext(
++    BrowsingContext* aBrowsingContext) {
++  MOZ_DIAGNOSTIC_ASSERT(Group() == aBrowsingContext->Group(),
++                        "Mismatched groups?");
++  MOZ_DIAGNOSTIC_ASSERT(!mChildren.Contains(aBrowsingContext));
++
++  mChildren.AppendElement(aBrowsingContext);
++
++  // If we're the current WindowContext in our BrowsingContext, make sure to
++  // clear any cached `children` value.
++  if (!IsCached()) {
++    BrowsingContext_Binding::ClearCachedChildrenValue(mBrowsingContext);
++  }
++}
++
++void WindowContext::RemoveChildBrowsingContext(
++    BrowsingContext* aBrowsingContext) {
++  MOZ_DIAGNOSTIC_ASSERT(Group() == aBrowsingContext->Group(),
++                        "Mismatched groups?");
++
++  mChildren.RemoveElement(aBrowsingContext);
++
++  // If we're the current WindowContext in our BrowsingContext, make sure to
++  // clear any cached `children` value.
++  if (!IsCached()) {
++    BrowsingContext_Binding::ClearCachedChildrenValue(mBrowsingContext);
++  }
++}
++
+ void WindowContext::SendCommitTransaction(ContentParent* aParent,
+                                           const BaseTransaction& aTxn,
+                                           uint64_t aEpoch) {
+@@ -131,9 +164,9 @@
+     return;
+   }
+ 
+-  mBrowsingContext->UnregisterWindowContext(this);
++  mIsDiscarded = true;
+   gWindowContexts->Remove(InnerWindowId());
+-  mIsDiscarded = true;
++  mBrowsingContext->UnregisterWindowContext(this);
+ }
+ 
+ WindowContext::WindowContext(BrowsingContext* aBrowsingContext,
+@@ -172,11 +205,13 @@
+   }
+ 
+   NS_IMPL_CYCLE_COLLECTION_UNLINK(mBrowsingContext)
++  NS_IMPL_CYCLE_COLLECTION_UNLINK(mChildren)
+   NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER
+ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
+ 
+ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(WindowContext)
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBrowsingContext)
++  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mChildren)
+ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
+ 
+ NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(WindowContext)

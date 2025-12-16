@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/Sweeping.cpp
+# Commit: 2fa53cd9ac4e
+# Full Hash: 2fa53cd9ac4e821763dbc4402e58b58184ce230b
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2022-03-04 04:18:28
+# Regressor Bug: 1643586
+# File Overlap Count: 1
+# Description:
+#   Bug 1643586 - Part 6: Stop using JSContext for GC helper thread tasks r=jandem
+#   
+#   This patch moves the debug-only GC state from JSContext to JSFreeOp. Support
+#   functions for this move to FreeOp.h and most RAII classes move to GCInternals.h.
+#   
+# ==============================================================================
+
+diff -r 054a08d13999 -r 2fa53cd9ac4e js/src/gc/Sweeping.cpp
+--- a/js/src/gc/Sweeping.cpp	Thu Mar 03 17:49:18 2022 +0000
++++ b/js/src/gc/Sweeping.cpp	Thu Mar 03 17:49:18 2022 +0000
+@@ -319,7 +319,7 @@
+     return;
+   }
+ 
+-  JSFreeOp* fop = TlsContext.get()->defaultFreeOp();
++  JSFreeOp* fop = TlsFreeOp.get();
+ 
+   // Sweep zones in order. The atoms zone must be finalized last as other
+   // zones may have direct pointers into it.
+@@ -456,7 +456,7 @@
+ 
+     lifoBlocks.freeAll();
+ 
+-    JSFreeOp* fop = TlsContext.get()->defaultFreeOp();
++    JSFreeOp* fop = TlsFreeOp.get();
+     for (Nursery::BufferSet::Range r = buffers.all(); !r.empty();
+          r.popFront()) {
+       // Malloc memory associated with nursery objects is not tracked as these

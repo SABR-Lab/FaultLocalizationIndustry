@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/manager/ssl/tests/unit/head_psm.js
+# Commit: ee9744982673
+# Full Hash: ee974498267381418f06efd6ab92c1f2c5f3735d
+# Author: Dana Keeler <dkeeler@mozilla.com>
+# Date: 2022-11-15 16:44:51
+# Regressor Bug: 1791633
+# File Overlap Count: 1
+# Description:
+#   Bug 1791633 - separate nsITLSSocketControl from nsITransportSecurityInfo r=necko-reviewers,kershaw,jschanck
+#   
+#   Depends on D160311
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D160313
+# ==============================================================================
+
+diff -r f5a4bfdaba40 -r ee9744982673 security/manager/ssl/tests/unit/head_psm.js
+--- a/security/manager/ssl/tests/unit/head_psm.js	Tue Nov 15 05:34:40 2022 +0000
++++ b/security/manager/ssl/tests/unit/head_psm.js	Tue Nov 15 05:34:40 2022 +0000
+@@ -617,7 +617,7 @@
+     return connection.go();
+   }
+ 
+-  return connectTo(aHost).then(function(conn) {
++  return connectTo(aHost).then(async function(conn) {
+     info("handling " + aHost);
+     let expectedNSResult =
+       aExpectedResult == PRErrorCodeSuccess
+@@ -630,9 +630,7 @@
+     );
+     if (aWithSecurityInfo) {
+       aWithSecurityInfo(
+-        conn.transport.tlsSocketControl.QueryInterface(
+-          Ci.nsITransportSecurityInfo
+-        )
++        await conn.transport.tlsSocketControl.asyncGetSecurityInfo()
+       );
+     }
+   });

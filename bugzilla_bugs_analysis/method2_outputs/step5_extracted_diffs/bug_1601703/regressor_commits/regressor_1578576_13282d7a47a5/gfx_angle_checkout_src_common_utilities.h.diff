@@ -1,0 +1,105 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/angle/checkout/src/common/utilities.h
+# Commit: 13282d7a47a5
+# Full Hash: 13282d7a47a57a73be8d060efd9645b4d642f03e
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2019-09-08 09:46:52
+# Regressor Bug: 1578576
+# File Overlap Count: 4
+# Description:
+#   Bug 1578576 - Part 2: Update to ANGLE 3865 r=jgilbert
+#   
+#   Depends on D44561
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44579
+# ==============================================================================
+
+diff -r 3064469c073d -r 13282d7a47a5 gfx/angle/checkout/src/common/utilities.h
+--- a/gfx/angle/checkout/src/common/utilities.h	Sat Sep 07 13:36:46 2019 +0000
++++ b/gfx/angle/checkout/src/common/utilities.h	Sat Sep 07 13:38:36 2019 +0000
+@@ -62,7 +62,8 @@
+ // Find the child field which matches 'fullName' == var.name + "." + field.name.
+ // Return nullptr if not found.
+ const sh::ShaderVariable *FindShaderVarField(const sh::ShaderVariable &var,
+-                                             const std::string &fullName);
++                                             const std::string &fullName,
++                                             GLuint *fieldIndexOut);
+ 
+ // Find the range of index values in the provided indices pointer.  Primitive restart indices are
+ // only counted in the range if primitive restart is disabled.
+@@ -74,6 +75,20 @@
+ // Get the primitive restart index value for the given index type.
+ GLuint GetPrimitiveRestartIndex(DrawElementsType indexType);
+ 
++// Get the primitive restart index value with the given C++ type.
++template <typename T>
++constexpr T GetPrimitiveRestartIndexFromType()
++{
++    return std::numeric_limits<T>::max();
++}
++
++static_assert(GetPrimitiveRestartIndexFromType<uint8_t>() == 0xFF,
++              "verify restart index for uint8_t values");
++static_assert(GetPrimitiveRestartIndexFromType<uint16_t>() == 0xFFFF,
++              "verify restart index for uint8_t values");
++static_assert(GetPrimitiveRestartIndexFromType<uint32_t>() == 0xFFFFFFFF,
++              "verify restart index for uint8_t values");
++
+ bool IsTriangleMode(PrimitiveMode drawMode);
+ 
+ namespace priv
+@@ -124,7 +139,8 @@
+                                      size_t externalSize,
+                                      bool isSampler,
+                                      bool isMatrixType,
+-                                     bool isImageType);
++                                     bool isImageType,
++                                     const char *glslAsFloat);
+ 
+     GLenum type;
+     GLenum componentType;
+@@ -141,6 +157,7 @@
+     bool isSampler;
+     bool isMatrixType;
+     bool isImageType;
++    const char *glslAsFloat;
+ };
+ 
+ inline constexpr UniformTypeInfo::UniformTypeInfo(GLenum type,
+@@ -157,7 +174,8 @@
+                                                   size_t externalSize,
+                                                   bool isSampler,
+                                                   bool isMatrixType,
+-                                                  bool isImageType)
++                                                  bool isImageType,
++                                                  const char *glslAsFloat)
+     : type(type),
+       componentType(componentType),
+       textureType(textureType),
+@@ -172,7 +190,8 @@
+       externalSize(externalSize),
+       isSampler(isSampler),
+       isMatrixType(isMatrixType),
+-      isImageType(isImageType)
++      isImageType(isImageType),
++      glslAsFloat(glslAsFloat)
+ {}
+ 
+ const UniformTypeInfo &GetUniformTypeInfo(GLenum uniformType);
+@@ -187,6 +206,14 @@
+     static constexpr size_t kMax = static_cast<size_t>(std::numeric_limits<T>::max());
+     return static_cast<T>(vertexCount > kMax ? kMax : vertexCount);
+ }
++
++enum class PipelineType
++{
++    GraphicsPipeline = 0,
++    ComputePipeline  = 1,
++};
++
++PipelineType GetPipelineType(ShaderType shaderType);
+ }  // namespace gl
+ 
+ namespace egl

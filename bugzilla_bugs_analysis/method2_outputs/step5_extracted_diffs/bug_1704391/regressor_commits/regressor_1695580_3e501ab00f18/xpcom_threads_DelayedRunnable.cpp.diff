@@ -1,0 +1,68 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: xpcom/threads/DelayedRunnable.cpp
+# Commit: 3e501ab00f18
+# Full Hash: 3e501ab00f1855046db1f8db6be58fb35f7c6adc
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-04-07 03:19:44
+# Regressor Bug: 1695580
+# File Overlap Count: 1
+# Description:
+#   Bug 1695580 - In xpcom, cancel pending DelayedRunnable timers on shutdown. r=KrisWright
+#   
+#   Because DelayedRunnables are fire-and-forget, there is no way for a targeted
+#   EventTarget to clean them up on shutdown. Thus if a timer fires after
+#   EventTarget shutdown it will fail to dispatch the timer event, and avoid
+# ==============================================================================
+
+diff -r 2a88ea548a86 -r 3e501ab00f18 xpcom/threads/DelayedRunnable.cpp
+--- a/xpcom/threads/DelayedRunnable.cpp	Tue Apr 06 20:15:10 2021 +0000
++++ b/xpcom/threads/DelayedRunnable.cpp	Tue Apr 06 20:15:11 2021 +0000
+@@ -13,15 +13,25 @@
+                                  uint32_t aDelay)
+     : mozilla::Runnable("DelayedRunnable"),
+       mTarget(aTarget),
++      mObserver(do_QueryInterface(mTarget)),
+       mWrappedRunnable(aRunnable),
+       mDelayedFrom(TimeStamp::NowLoRes()),
+-      mDelay(aDelay) {}
++      mDelay(aDelay) {
++  MOZ_DIAGNOSTIC_ASSERT(mObserver,
++                        "Target must implement nsIDelayedRunnableObserver");
++}
+ 
+ nsresult DelayedRunnable::Init() {
++  mObserver->OnDelayedRunnableCreated(this);
+   return NS_NewTimerWithCallback(getter_AddRefs(mTimer), this, mDelay,
+                                  nsITimer::TYPE_ONE_SHOT, mTarget);
+ }
+ 
++void DelayedRunnable::CancelTimer() {
++  MOZ_ASSERT(mTarget->IsOnCurrentThread());
++  mTimer->Cancel();
++}
++
+ NS_IMETHODIMP DelayedRunnable::Run() {
+   MOZ_ASSERT(mTimer, "DelayedRunnable without Init?");
+ 
+@@ -33,6 +43,9 @@
+   // Are we too early?
+   if ((mozilla::TimeStamp::NowLoRes() - mDelayedFrom).ToMilliseconds() <
+       mDelay) {
++    if (mObserver) {
++      mObserver->OnDelayedRunnableScheduled(this);
++    }
+     return NS_OK;  // Let the nsITimer run us.
+   }
+ 
+@@ -44,6 +57,9 @@
+   // If we already ran, the timer should have been canceled.
+   MOZ_ASSERT(mWrappedRunnable);
+ 
++  if (mObserver) {
++    mObserver->OnDelayedRunnableRan(this);
++  }
+   return DoRun();
+ }
+ 

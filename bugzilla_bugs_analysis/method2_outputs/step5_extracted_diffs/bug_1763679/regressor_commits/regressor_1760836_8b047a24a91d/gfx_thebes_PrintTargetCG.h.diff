@@ -1,0 +1,66 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/PrintTargetCG.h
+# Commit: 8b047a24a91d
+# Full Hash: 8b047a24a91df99818fd01165b6b00d05258a3d4
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2022-03-31 09:35:41
+# Regressor Bug: 1760836
+# File Overlap Count: 1
+# Description:
+#   Bug 1760836 - Support printing to an nsIOutputStream. r=jfkthame,jrmuizel,webdriver-reviewers,geckoview-reviewers,agi
+#   
+#   The trickiest bits are the PrintTargetCG ones, the rest is just plumbing
+#   and cleanups and tests, but let me know if you want those to be split
+#   out, can do.
+# ==============================================================================
+
+diff -r a04583558158 -r 8b047a24a91d gfx/thebes/PrintTargetCG.h
+--- a/gfx/thebes/PrintTargetCG.h	Wed Mar 30 18:46:53 2022 +0000
++++ b/gfx/thebes/PrintTargetCG.h	Wed Mar 30 18:51:58 2022 +0000
+@@ -9,8 +9,9 @@
+ #include <Carbon/Carbon.h>
+ #include "PrintTarget.h"
+ 
+-namespace mozilla {
+-namespace gfx {
++class nsIOutputStream;
++
++namespace mozilla::gfx {
+ 
+ /**
+  * CoreGraphics printing target.
+@@ -18,8 +19,9 @@
+ class PrintTargetCG final : public PrintTarget {
+  public:
+   static already_AddRefed<PrintTargetCG> CreateOrNull(
+-      PMPrintSession aPrintSession, PMPageFormat aPageFormat,
+-      PMPrintSettings aPrintSettings, const IntSize& aSize);
++      nsIOutputStream* aOutputStream, PMPrintSession aPrintSession,
++      PMPageFormat aPageFormat, PMPrintSettings aPrintSettings,
++      const IntSize& aSize);
+ 
+   nsresult BeginPrinting(const nsAString& aTitle,
+                          const nsAString& aPrintToFileName, int32_t aStartPage,
+@@ -32,16 +34,17 @@
+   already_AddRefed<DrawTarget> GetReferenceDrawTarget() final;
+ 
+  private:
+-  PrintTargetCG(PMPrintSession aPrintSession, PMPageFormat aPageFormat,
++  PrintTargetCG(CGContextRef aPrintToStreamContext,
++                PMPrintSession aPrintSession, PMPageFormat aPageFormat,
+                 PMPrintSettings aPrintSettings, const IntSize& aSize);
+   ~PrintTargetCG();
+ 
++  CGContextRef mPrintToStreamContext = nullptr;
+   PMPrintSession mPrintSession;
+   PMPageFormat mPageFormat;
+   PMPrintSettings mPrintSettings;
+ };
+ 
+-}  // namespace gfx
+-}  // namespace mozilla
++}  // namespace mozilla::gfx
+ 
+ #endif /* MOZILLA_GFX_PRINTTARGETCG_H */

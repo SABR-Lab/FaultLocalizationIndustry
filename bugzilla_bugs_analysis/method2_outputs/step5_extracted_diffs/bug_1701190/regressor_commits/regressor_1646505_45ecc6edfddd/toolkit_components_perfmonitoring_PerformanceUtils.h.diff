@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/perfmonitoring/PerformanceUtils.h
+# Commit: 45ecc6edfddd
+# Full Hash: 45ecc6edfddd1091dd8496db5b6061b29ec6daea
+# Author: Andreas Farre <farre@mozilla.com>
+# Date: 2020-12-12 09:23:03
+# Regressor Bug: 1646505
+# File Overlap Count: 1
+# Description:
+#   Bug 1646505 - Fix about:performance for Fission. r=tarek
+#   
+#   With fission it's not possible to use
+#   nsPIDOMWindowOuter::GetInProcessTop and expect to find the top-level
+#   window, since it might be in another process. Instead we use
+# ==============================================================================
+
+diff -r 5642ac1f250f -r 45ecc6edfddd toolkit/components/perfmonitoring/PerformanceUtils.h
+--- a/toolkit/components/perfmonitoring/PerformanceUtils.h	Fri Dec 11 16:03:18 2020 +0000
++++ b/toolkit/components/perfmonitoring/PerformanceUtils.h	Fri Dec 11 15:56:23 2020 +0000
+@@ -11,7 +11,10 @@
+ class nsPIDOMWindowOuter;
+ 
+ namespace mozilla {
+-
++namespace dom {
++class BrowsingContext;
++class DocGroup;
++}  // namespace dom
+ /**
+  * Returns an array of promises to asynchronously collect all performance
+  * info in the current process.
+@@ -22,7 +25,11 @@
+  * Asynchronously collects memory info for a given window
+  */
+ RefPtr<MemoryPromise> CollectMemoryInfo(
+-    const nsCOMPtr<nsPIDOMWindowOuter>& aWindow,
++    const RefPtr<dom::BrowsingContext>& aContext,
++    const RefPtr<AbstractThread>& aEventTarget);
++
++RefPtr<MemoryPromise> CollectMemoryInfo(
++    const RefPtr<dom::DocGroup>& aDocGroup,
+     const RefPtr<AbstractThread>& aEventTarget);
+ 
+ }  // namespace mozilla

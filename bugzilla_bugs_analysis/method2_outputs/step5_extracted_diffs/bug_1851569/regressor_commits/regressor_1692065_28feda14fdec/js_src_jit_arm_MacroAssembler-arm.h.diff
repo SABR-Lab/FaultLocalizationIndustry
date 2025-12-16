@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/arm/MacroAssembler-arm.h
+# Commit: 28feda14fdec
+# Full Hash: 28feda14fdec962ea68c26a0570ea69042a5ad27
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2023-08-05 09:19:01
+# Regressor Bug: 1692065
+# File Overlap Count: 3
+# Description:
+#   Bug 1692065 - wasm: Add tagging for JSString* in AnyRef. r=yury
+#   
+#   Before this commit we would need to box a JSString* in WasmValueBox
+#   when we received one from JS and converted to an AnyRef.
+#   
+# ==============================================================================
+
+diff -r 85605041672d -r 28feda14fdec js/src/jit/arm/MacroAssembler-arm.h
+--- a/js/src/jit/arm/MacroAssembler-arm.h	Fri Aug 04 14:06:50 2023 +0000
++++ b/js/src/jit/arm/MacroAssembler-arm.h	Fri Aug 04 14:06:50 2023 +0000
+@@ -865,6 +865,19 @@
+     load32(ToPayload(src), dest);
+   }
+ 
++  void unboxWasmAnyRefGCThingForGCBarrier(const Address& src, Register dest) {
++    load32(ToPayload(src), dest);
++    {
++      ScratchRegisterScope scratch(asMasm());
++      ma_and(Imm32(wasm::AnyRef::GCThingMask), dest, scratch);
++    }
++  }
++
++  void getWasmAnyRefGCThingChunk(Register src, Register dest) {
++    ScratchRegisterScope scratch(asMasm());
++    ma_and(Imm32(wasm::AnyRef::GCThingChunkMask), src, dest, scratch);
++  }
++
+   void notBoolean(const ValueOperand& val) {
+     as_eor(val.payloadReg(), val.payloadReg(), Imm8(1));
+   }

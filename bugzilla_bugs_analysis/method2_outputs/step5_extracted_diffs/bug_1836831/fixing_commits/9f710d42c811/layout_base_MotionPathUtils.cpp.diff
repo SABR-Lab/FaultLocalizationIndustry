@@ -1,0 +1,48 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: layout/base/MotionPathUtils.cpp
+# Commit: 9f710d42c811
+# Full Hash: 9f710d42c811206544a54f51a97897d7d597ed0b
+# Author: Robert Longson <longsonr@gmail.com>
+# Date: 2023-12-06 16:58:51
+# Description:
+#   Bug 1836831 - don't try to resolve ray with StrokeBox when non-scaling-stroke is in effect r=boris
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D195552
+# ==============================================================================
+
+diff -r 1be0a23195c0 -r 9f710d42c811 layout/base/MotionPathUtils.cpp
+--- a/layout/base/MotionPathUtils.cpp	Wed Dec 06 09:14:24 2023 +0000
++++ b/layout/base/MotionPathUtils.cpp	Wed Dec 06 09:19:01 2023 +0000
+@@ -100,13 +100,23 @@
+   //
+   // Note: Per the spec, border-box is treated as stroke-box in the SVG context,
+   // https://drafts.csswg.org/css-box-4/#valdef-box-border-box
+-  const auto size =
+-      CSSSize::FromAppUnits((aFrame->HasAnyStateBits(NS_FRAME_SVG_LAYOUT)
+-                                 ? nsLayoutUtils::ComputeSVGReferenceRect(
+-                                       aFrame, StyleGeometryBox::StrokeBox)
+-                                 : nsLayoutUtils::ComputeHTMLReferenceRect(
+-                                       aFrame, StyleGeometryBox::BorderBox))
+-                                .Size());
++
++  // To calculate stroke bounds for an element with `non-scaling-stroke` we
++  // need to resolve its transform to its outer-svg, but to resolve that
++  // transform when it has `transform-box:stroke-box` (or `border-box`)
++  // may require its stroke bounds. There's no ideal way to break this
++  // cyclical dependency, but we break it by using the FillBox.
++  // https://github.com/w3c/csswg-drafts/issues/9640
++
++  const auto size = CSSSize::FromAppUnits(
++      (aFrame->HasAnyStateBits(NS_FRAME_SVG_LAYOUT)
++           ? nsLayoutUtils::ComputeSVGReferenceRect(
++                 aFrame, aFrame->StyleSVGReset()->HasNonScalingStroke()
++                             ? StyleGeometryBox::FillBox
++                             : StyleGeometryBox::StrokeBox)
++           : nsLayoutUtils::ComputeHTMLReferenceRect(
++                 aFrame, StyleGeometryBox::BorderBox))
++          .Size());
+   return std::max(size.width, size.height);
+ }
+ 

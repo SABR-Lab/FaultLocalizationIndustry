@@ -1,0 +1,77 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/webgpu/RenderPassEncoder.cpp
+# Commit: a5be865d06b1
+# Full Hash: a5be865d06b167e20cff16ad33e4f076bbe41757
+# Author: Erich Gubler <erichdongubler@gmail.com>
+# Date: 2025-07-17 09:30:54
+# Regressor Bug: 1976960
+# File Overlap Count: 1
+# Description:
+#   Bug 1976960 - feat(webgpu): allow `GPUTexture`s where `GPUTextureView`s are allowed r=webgpu-reviewers,webidl,smaug,nical
+#   
+#   Changed in spec. upstream by [gpuweb#5228](https://github.com/gpuweb/gpuweb/pull/5228), tested by CTS in [gpuweb/cts#4407](https://github.com/gpuweb/cts/pull/4407) (which is what caused the `FAIL`s removed here to be introduced with bug 1976874).
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D257054
+# ==============================================================================
+
+diff -r e98afaa9f97b -r a5be865d06b1 dom/webgpu/RenderPassEncoder.cpp
+--- a/dom/webgpu/RenderPassEncoder.cpp	Thu Jul 17 04:08:37 2025 +0000
++++ b/dom/webgpu/RenderPassEncoder.cpp	Thu Jul 17 04:08:38 2025 +0000
+@@ -9,6 +9,7 @@
+ #include "CommandEncoder.h"
+ #include "RenderBundle.h"
+ #include "RenderPipeline.h"
++#include "TextureView.h"
+ #include "Utility.h"
+ #include "mozilla/webgpu/ffi/wgpu.h"
+ #include "ipc/WebGPUChild.h"
+@@ -86,7 +87,8 @@
+   ffi::WGPURenderPassDepthStencilAttachment dsDesc = {};
+   if (aDesc.mDepthStencilAttachment.WasPassed()) {
+     const auto& dsa = aDesc.mDepthStencilAttachment.Value();
+-    dsDesc.view = dsa.mView->mId;
++    // NOTE: We're assuming callers reified this to be a view.
++    dsDesc.view = dsa.mView.GetAsGPUTextureView()->mId;
+ 
+     // -
+ 
+@@ -168,7 +170,8 @@
+ 
+   for (const auto& ca : aDesc.mColorAttachments) {
+     ffi::WGPUFfiRenderPassColorAttachment cd = {};
+-    cd.view = ca.mView->mId;
++    // NOTE: We're assuming callers reified this to be a view.
++    cd.view = ca.mView.GetAsGPUTextureView()->mId;
+     cd.store_op = ConvertStoreOp(ca.mStoreOp);
+ 
+     if (ca.mDepthSlice.WasPassed()) {
+@@ -178,7 +181,8 @@
+       cd.depth_slice.tag = ffi::WGPUFfiOption_u32_None_u32;
+     }
+     if (ca.mResolveTarget.WasPassed()) {
+-      cd.resolve_target = ca.mResolveTarget.Value().mId;
++      // NOTE: We're assuming callers reified this to be a view.
++      cd.resolve_target = ca.mResolveTarget.Value().GetAsGPUTextureView()->mId;
+     }
+ 
+     switch (ca.mLoadOp) {
+@@ -222,12 +226,15 @@
+     return;
+   }
+ 
++  // NOTE: We depend on callers ensuring that texture-or-view fields are reified
++  // to views.
++
+   for (const auto& at : aDesc.mColorAttachments) {
+-    mUsedTextureViews.AppendElement(at.mView);
++    mUsedTextureViews.AppendElement(at.mView.GetAsGPUTextureView());
+   }
+   if (aDesc.mDepthStencilAttachment.WasPassed()) {
+     mUsedTextureViews.AppendElement(
+-        aDesc.mDepthStencilAttachment.Value().mView);
++        aDesc.mDepthStencilAttachment.Value().mView.GetAsGPUTextureView());
+   }
+ }
+ 

@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentParent.h
+# Commit: afd6a3f623e1
+# Full Hash: afd6a3f623e1b0d9de616c1dfa6f2806e4a587af
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-07-31 04:11:13
+# Regressor Bug: 1652144
+# File Overlap Count: 1
+# Description:
+#   Bug 1652144 - Part 2: Consider current BrowsingContextGroup for process selection, r=farre
+#   
+#   This requires keeping track of the current process used to host documents with a
+#   particular remote type loaded in each BrowsingContextGroup. Due to lifecycle
+#   oddities, this set is kept separate from the existing subscribers set on
+# ==============================================================================
+
+diff -r 3d58dcc5e59f -r afd6a3f623e1 dom/ipc/ContentParent.h
+--- a/dom/ipc/ContentParent.h	Thu Jul 30 20:27:34 2020 +0000
++++ b/dom/ipc/ContentParent.h	Thu Jul 30 20:27:37 2020 +0000
+@@ -188,12 +188,12 @@
+    * 3. normal iframe
+    */
+   static RefPtr<ContentParent::LaunchPromise> GetNewOrUsedBrowserProcessAsync(
+-      const nsACString& aRemoteType,
++      const nsACString& aRemoteType, BrowsingContextGroup* aGroup = nullptr,
+       hal::ProcessPriority aPriority =
+           hal::ProcessPriority::PROCESS_PRIORITY_FOREGROUND,
+       bool aPreferUsed = false);
+   static already_AddRefed<ContentParent> GetNewOrUsedBrowserProcess(
+-      const nsACString& aRemoteType,
++      const nsACString& aRemoteType, BrowsingContextGroup* aGroup = nullptr,
+       hal::ProcessPriority aPriority =
+           hal::ProcessPriority::PROCESS_PRIORITY_FOREGROUND,
+       bool aPreferUsed = false);
+@@ -209,7 +209,7 @@
+    * the process to be fully launched.
+    */
+   static already_AddRefed<ContentParent> GetNewOrUsedLaunchingBrowserProcess(
+-      const nsACString& aRemoteType,
++      const nsACString& aRemoteType, BrowsingContextGroup* aGroup = nullptr,
+       hal::ProcessPriority aPriority =
+           hal::ProcessPriority::PROCESS_PRIORITY_FOREGROUND,
+       bool aPreferUsed = false);
+@@ -1355,8 +1355,8 @@
+                                const bool& aMinimizeMemoryUsage,
+                                const Maybe<FileDescriptor>& aDMDFile) override;
+ 
+-  void OnBrowsingContextGroupSubscribe(BrowsingContextGroup* aGroup);
+-  void OnBrowsingContextGroupUnsubscribe(BrowsingContextGroup* aGroup);
++  void AddBrowsingContextGroup(BrowsingContextGroup* aGroup);
++  void RemoveBrowsingContextGroup(BrowsingContextGroup* aGroup);
+ 
+   // See `BrowsingContext::mEpochs` for an explanation of this field.
+   uint64_t GetBrowsingContextFieldEpoch() const {

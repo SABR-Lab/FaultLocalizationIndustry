@@ -1,0 +1,78 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/render_backend.rs
+# Commit: f3b490c076d6
+# Full Hash: f3b490c076d623d6ef3bcfd297a0522d9727477c
+# Author: sotaro <sotaro.ikeda.g@gmail.com>
+# Date: 2020-01-23 21:42:24
+# Regressor Bug: 1602643
+# File Overlap Count: 1
+# Description:
+#   Bug 1602643 - Disable WebRender compositor dinamically for async screenshot r=gw
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D59658
+# ==============================================================================
+
+diff -r 0c5fb3a8a94d -r f3b490c076d6 gfx/wr/webrender/src/render_backend.rs
+--- a/gfx/wr/webrender/src/render_backend.rs	Thu Jan 23 15:35:45 2020 +0200
++++ b/gfx/wr/webrender/src/render_backend.rs	Thu Jan 23 04:37:28 2020 +0000
+@@ -711,6 +711,7 @@
+     resource_cache: ResourceCache,
+ 
+     frame_config: FrameBuilderConfig,
++    default_compositor_kind: CompositorKind,
+     documents: FastHashMap<DocumentId, Document>,
+ 
+     notifier: Box<dyn RenderNotifier>,
+@@ -755,6 +756,7 @@
+             resource_cache,
+             gpu_cache: GpuCache::new(),
+             frame_config,
++            default_compositor_kind : frame_config.compositor_kind,
+             documents: FastHashMap::default(),
+             notifier,
+             recorder,
+@@ -1225,6 +1227,33 @@
+                         self.resource_cache.clear(mask);
+                         return RenderBackendStatus::Continue;
+                     }
++                    DebugCommand::EnableNativeCompositor(enable) => {
++                        // Default CompositorKind should be Native
++                        if let CompositorKind::Draw { .. } = self.default_compositor_kind {
++                            unreachable!();
++                        }
++
++                        let compositor_kind = if enable {
++                            self.default_compositor_kind
++                        } else {
++                            CompositorKind::default()
++                        };
++
++                        for (_, doc) in &mut self.documents {
++                            doc.scene.config.compositor_kind = compositor_kind;
++                            doc.frame_is_valid = false;
++                        }
++
++                        self.frame_config.compositor_kind = compositor_kind;
++
++                        // Update config in SceneBuilder
++                        self.low_priority_scene_tx.send(SceneBuilderRequest::SetFrameBuilderConfig(
++                            self.frame_config.clone()
++                         )).unwrap();
++
++                        // We don't want to forward this message to the renderer.
++                        return RenderBackendStatus::Continue;
++                    }
+                     DebugCommand::SimulateLongSceneBuild(time_ms) => {
+                         self.scene_tx.send(SceneBuilderRequest::SimulateLongSceneBuild(time_ms)).unwrap();
+                         return RenderBackendStatus::Continue;
+@@ -1514,7 +1543,7 @@
+         // external image with NativeTexture or when platform requested to composite frame.
+         if invalidate_rendered_frame {
+             doc.rendered_frame_is_valid = false;
+-            if let CompositorKind::Draw { max_partial_present_rects } = self.frame_config.compositor_kind {
++            if let CompositorKind::Draw { max_partial_present_rects } = doc.scene.config.compositor_kind {
+               // When partial present is enabled, we need to force redraw.
+               if max_partial_present_rects > 0 {
+                   let msg = ResultMsg::ForceRedraw;

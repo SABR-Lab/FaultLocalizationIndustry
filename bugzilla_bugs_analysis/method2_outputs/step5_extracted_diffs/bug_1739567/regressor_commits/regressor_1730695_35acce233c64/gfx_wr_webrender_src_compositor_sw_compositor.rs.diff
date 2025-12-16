@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/compositor/sw_compositor.rs
+# Commit: 35acce233c64
+# Full Hash: 35acce233c64bec11ecb7ca8c171cfaec2a52ad3
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2021-11-08 16:38:54
+# Regressor Bug: 1730695
+# File Overlap Count: 1
+# Description:
+#   Bug 1739567 - Ensure SWGL composite rects have valid i32 sizes. r=gfx-reviewers,aosmond
+#   
+#   We represent rects in WR with the Box2D format which uses a (p0, p1) representation.
+#   When evaluating the size of these, the subtraction p1-p0 can potentially overflow the
+#   i32 range, so we need to guard against this. Bug 1730695 consequently allows SWGL
+# ==============================================================================
+
+diff -r 0f21e53a52ed -r 35acce233c64 gfx/wr/webrender/src/compositor/sw_compositor.rs
+--- a/gfx/wr/webrender/src/compositor/sw_compositor.rs	Sun Nov 07 22:43:12 2021 +0000
++++ b/gfx/wr/webrender/src/compositor/sw_compositor.rs	Mon Nov 08 07:23:10 2021 +0000
+@@ -101,8 +101,8 @@
+         // Offset the valid rect to the appropriate surface origin.
+         let valid = self.local_bounds(surface);
+         // The destination rect is the valid rect transformed and then clipped.
+-        let dest_rect = transform.outer_transformed_box2d(&valid.to_f32())?.round_out().try_cast()?;
+-        if !dest_rect.intersects(clip_rect) {
++        let dest_rect = transform.outer_transformed_box2d(&valid.to_f32())?.round_out();
++        if !dest_rect.intersects(&clip_rect.to_f32()) {
+             return None;
+         }
+         // To get a valid source rect, we need to inverse transform the clipped destination rect to find out the effect
+@@ -110,11 +110,17 @@
+         // a source rect that is now relative to the surface origin rather than absolute.
+         let inv_transform = transform.inverse()?;
+         let src_rect = inv_transform
+-            .outer_transformed_box2d(&dest_rect.to_f32())?
++            .outer_transformed_box2d(&dest_rect)?
+             .round()
+-            .to_i32()
+-            .translate(-valid.min.to_vector());
+-        Some((src_rect, dest_rect, transform.m22 < 0.0))
++            .translate(-valid.min.to_vector().to_f32());
++        // Ensure source and dest rects when transformed from Box2D to Rect formats will still fit in an i32.
++        // If p0=i32::MIN and p1=i32::MAX, then evaluating the size with p1-p0 will overflow an i32 and not
++        // be representable. 
++        if src_rect.size().try_cast::<i32>().is_none() ||
++           dest_rect.size().try_cast::<i32>().is_none() {
++            return None;
++        }
++        Some((src_rect.try_cast()?, dest_rect.try_cast()?, transform.m22 < 0.0))
+     }
+ }
+ 

@@ -1,0 +1,88 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: ipc/glue/BackgroundChild.h
+# Commit: 43cd1d6eb145
+# Full Hash: 43cd1d6eb1459ae16207f4c9396cf5113a7b034a
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2022-01-11 03:49:34
+# Regressor Bug: 1737828
+# File Overlap Count: 2
+# Description:
+#   Bug 1737828 - Avoid the main thread when starting PBackground, r=asuth,ipc-reviewers,necko-reviewers,kershaw,handyman
+#   
+#   This patch avoids requiring the main thread to create PBackground instances by
+#   instead using a background starter TaskQueue, and sending messages from a
+#   PBackgroundStarter actor hosted on that thread to the target background thread
+# ==============================================================================
+
+diff -r 400d19ddbff7 -r 43cd1d6eb145 ipc/glue/BackgroundChild.h
+--- a/ipc/glue/BackgroundChild.h	Mon Jan 10 19:44:23 2022 +0000
++++ b/ipc/glue/BackgroundChild.h	Mon Jan 10 20:09:14 2022 +0000
+@@ -16,6 +16,7 @@
+ namespace dom {
+ 
+ class BlobImpl;
++class ContentChild;
+ class ContentParent;
+ class ContentProcess;
+ 
+@@ -24,12 +25,14 @@
+ namespace net {
+ 
+ class SocketProcessChild;
++class SocketProcessBridgeChild;
+ 
+ }  // namespace net
+ 
+ namespace ipc {
+ 
+ class PBackgroundChild;
++class PBackgroundStarterChild;
+ 
+ // This class allows access to the PBackground protocol. PBackground allows
+ // communication between any thread (in the parent or a child process) and a
+@@ -53,6 +56,10 @@
+ //
+ // The PBackgroundChild actor and all its sub-protocol actors will be
+ // automatically destroyed when its designated thread completes.
++//
++// Init{Content,Socket,SocketBridge}Starter must be called on the main thread
++// with an actor bridging to the relevant target process type before these
++// methods can be used.
+ class BackgroundChild final {
+   friend class mozilla::dom::ContentParent;
+   friend class mozilla::dom::ContentProcess;
+@@ -65,19 +72,26 @@
+   static PBackgroundChild* GetForCurrentThread();
+ 
+   // See above.
+-  static PBackgroundChild* GetOrCreateForCurrentThread(
+-      nsIEventTarget* aMainEventTarget = nullptr);
++  static PBackgroundChild* GetOrCreateForCurrentThread();
++
++  // See above.
++  static PBackgroundChild* GetOrCreateSocketActorForCurrentThread();
++
++  // See above.
++  static PBackgroundChild* GetOrCreateForSocketParentBridgeForCurrentThread();
+ 
+   // See above.
+   static void CloseForCurrentThread();
+ 
+   // See above.
+-  static PBackgroundChild* GetOrCreateSocketActorForCurrentThread(
+-      nsIEventTarget* aMainEventTarget = nullptr);
++  static void InitContentStarter(mozilla::dom::ContentChild* aContent);
+ 
+   // See above.
+-  static PBackgroundChild* GetOrCreateForSocketParentBridgeForCurrentThread(
+-      nsIEventTarget* aMainEventTarget = nullptr);
++  static void InitSocketStarter(mozilla::net::SocketProcessChild* aSocket);
++
++  // See above.
++  static void InitSocketBridgeStarter(
++      mozilla::net::SocketProcessBridgeChild* aSocketBridge);
+ 
+  private:
+   // Only called by this class's friends.

@@ -1,0 +1,68 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/TouchEvents.h
+# Commit: 5718f7f3067e
+# Full Hash: 5718f7f3067eff42e097a6013acd82fbe6aa299a
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2025-05-15 22:58:00
+# Regressor Bug: 1550462
+# File Overlap Count: 1
+# Description:
+#   Bug 1550462 - part 2: Make `PresShell::HandleEvent` dispatch preceding `pointerrawupdate` event r=smaug,dom-core,edgar
+#   
+#   This patch tries to dispatch `ePointerRawUpdate` with
+#   `PresShell::EventHandler::DispatchPrecedingPointerEvent` as same as usual
+#   pointer events.
+# ==============================================================================
+
+diff -r aae164cff6aa -r 5718f7f3067e widget/TouchEvents.h
+--- a/widget/TouchEvents.h	Thu May 15 03:20:28 2025 +0000
++++ b/widget/TouchEvents.h	Thu May 15 03:20:29 2025 +0000
+@@ -151,13 +151,23 @@
+ 
+   MOZ_COUNTED_DEFAULT_CTOR(WidgetTouchEvent)
+ 
+-  WidgetTouchEvent(const WidgetTouchEvent& aOther)
++  enum class CloneTouches : bool { No, Yes };
++  WidgetTouchEvent(const WidgetTouchEvent& aOther,
++                   CloneTouches aCloneTouches = CloneTouches::No)
+       : WidgetInputEvent(aOther.IsTrusted(), aOther.mMessage, aOther.mWidget,
+                          eTouchEventClass) {
+     MOZ_COUNT_CTOR(WidgetTouchEvent);
+     mModifiers = aOther.mModifiers;
+     mTimeStamp = aOther.mTimeStamp;
+-    mTouches.AppendElements(aOther.mTouches);
++    if (static_cast<bool>(aCloneTouches)) {
++      mTouches.SetCapacity(aOther.mTouches.Length());
++      for (const RefPtr<dom::Touch>& touch : aOther.mTouches) {
++        RefPtr<dom::Touch> clonedTouch = new dom::Touch(*touch);
++        mTouches.AppendElement(std::move(clonedTouch));
++      }
++    } else {
++      mTouches.AppendElements(aOther.mTouches);
++    }
+     mInputSource = aOther.mInputSource;
+     mButton = aOther.mButton;
+     mButtons = aOther.mButtons;
+@@ -213,6 +223,20 @@
+     mTouches.AppendElements(aEvent.mTouches);
+     mInputSource = aEvent.mInputSource;
+   }
++
++  void SetConvertToPointerRawUpdate(bool aConvert) {
++    for (dom::Touch* const touch : mTouches) {
++      touch->convertToPointerRawUpdate = aConvert;
++    }
++  }
++  [[nodiscard]] bool CanConvertToPointerRawUpdate() const {
++    for (const dom::Touch* const touch : mTouches) {
++      if (touch->convertToPointerRawUpdate) {
++        return true;
++      }
++    }
++    return false;
++  }
+ };
+ 
+ }  // namespace mozilla

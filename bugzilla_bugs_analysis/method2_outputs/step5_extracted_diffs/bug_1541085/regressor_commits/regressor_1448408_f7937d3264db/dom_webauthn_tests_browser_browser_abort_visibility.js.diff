@@ -1,0 +1,98 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/webauthn/tests/browser/browser_abort_visibility.js
+# Commit: f7937d3264db
+# Full Hash: f7937d3264db00771b46cb1fcba71640d8df05cb
+# Author: J.C. Jones <jjones@mozilla.com>
+# Date: 2019-03-30 09:32:04
+# Regressor Bug: 1448408
+# File Overlap Count: 2
+# Description:
+#   Bug 1448408 - Web Authentication - Don't immediately abort on visibility events r=keeler
+#   
+#   The published recommendation of L1 for WebAuthn changed the visibility/focus
+#   listening behaviors to a SHOULD [1], and Chromium, for reasons like our SoftU2F
+#   bug [0], opted to not interrupt on tabswitch/visibility change.
+# ==============================================================================
+
+diff -r a5c4f7e6069a -r f7937d3264db dom/webauthn/tests/browser/browser_abort_visibility.js
+--- a/dom/webauthn/tests/browser/browser_abort_visibility.js	Fri Mar 29 19:38:53 2019 +0000
++++ b/dom/webauthn/tests/browser/browser_abort_visibility.js	Fri Mar 29 17:59:08 2019 +0000
+@@ -18,8 +18,8 @@
+ async function waitForStatus(tab, expected) {
+   await ContentTask.spawn(tab.linkedBrowser, [expected], async function (expected) {
+     return ContentTaskUtils.waitForCondition(() => {
+-      info("visbility state: " + content.document.visibilityState);
+-      info("docshell active: " + docShell.isActive);
++      info("expecting " + expected + ", visbility state: " + content.document.visibilityState);
++      info("expecting " + expected + ", docshell active: " + docShell.isActive);
+       return content.document.getElementById("status").value == expected;
+     });
+   });
+@@ -103,14 +103,15 @@
+ 
+   // Open another tab and switch to it. The first will lose focus.
+   let tab_get = await BrowserTestUtils.openNewForegroundTab(gBrowser, TEST_URL);
+-  await waitForStatus(tab_create, "aborted");
++  await assertStatus(tab_create, "pending");
+ 
+-  // Start a GetAssertion() request in the second tab.
++  // Start a GetAssertion() request in the second tab, the first is aborted
+   await startGetAssertionRequest(tab_get);
++  await waitForStatus(tab_create, "aborted");
+   await assertStatus(tab_get, "pending");
+ 
+-  // Switch back to the first tab, the get() request is aborted.
+-  await BrowserTestUtils.switchTab(gBrowser, tab_create);
++  // Start a second request in the second tab. It should abort.
++  await startGetAssertionRequest(tab_get);
+   await waitForStatus(tab_get, "aborted");
+ 
+   // Close tabs.
+@@ -137,7 +138,7 @@
+   // Open a new window. The tab will lose focus.
+   let win = await BrowserTestUtils.openNewBrowserWindow();
+   await windowGonePromise;
+-  await waitForStatus(tab, "aborted");
++  await assertStatus(tab, "pending");
+ 
+   let windowBackPromise = waitForWindowActive(window, true);
+   await BrowserTestUtils.closeWindow(win);
+@@ -159,7 +160,7 @@
+   // Open a new window. The tab will lose focus.
+   let win = await BrowserTestUtils.openNewBrowserWindow();
+   await windowGonePromise;
+-  await waitForStatus(tab, "aborted");
++  await assertStatus(tab, "pending");
+ 
+   let windowBackPromise = waitForWindowActive(window, true);
+   await BrowserTestUtils.closeWindow(win);
+@@ -188,11 +189,12 @@
+   // Minimize the window.
+   let windowGonePromise = waitForWindowActive(win, false);
+   win.minimize();
+-  await waitForStatus(tab, "aborted");
++  await assertStatus(tab, "pending");
+   await windowGonePromise;
+ 
+   // Restore the window.
+   await new Promise(resolve => SimpleTest.waitForFocus(resolve, win));
++  await assertStatus(tab, "pending");
+ 
+   // Close window and wait for main window to be focused again.
+   let windowBackPromise = waitForWindowActive(window, true);
+@@ -219,11 +221,12 @@
+   // Minimize the window.
+   let windowGonePromise = waitForWindowActive(win, false);
+   win.minimize();
+-  await waitForStatus(tab, "aborted");
++  await assertStatus(tab, "pending");
+   await windowGonePromise;
+ 
+   // Restore the window.
+   await new Promise(resolve => SimpleTest.waitForFocus(resolve, win));
++  await assertStatus(tab, "pending");
+ 
+   // Close window and wait for main window to be focused again.
+   let windowBackPromise = waitForWindowActive(window, true);

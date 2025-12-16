@@ -1,0 +1,72 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/ash/src/extensions/khr/wayland_surface.rs
+# Commit: ef5dc3e04e5f
+# Full Hash: ef5dc3e04e5f271eea0636ab3a495e95cc912f1d
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-09-04 09:40:24
+# Regressor Bug: 1726626
+# File Overlap Count: 3
+# Description:
+#   Bug 1726626 - Move gfx/wgpu into a 3rd party dependency r=jgilbert,bholley
+#   
+#   This update makes wgpu a vendored dependency instead of having it in gfx/wgpu.
+#   
+#   ## Notes
+# ==============================================================================
+
+diff --git a/third_party/rust/ash/src/extensions/khr/wayland_surface.rs b/third_party/rust/ash/src/extensions/khr/wayland_surface.rs
+--- a/third_party/rust/ash/src/extensions/khr/wayland_surface.rs
++++ b/third_party/rust/ash/src/extensions/khr/wayland_surface.rs
+@@ -1,28 +1,27 @@
+-#![allow(dead_code)]
+ use crate::prelude::*;
+-use crate::version::{EntryV1_0, InstanceV1_0};
+ use crate::vk;
+ use crate::RawPtr;
++use crate::{EntryCustom, Instance};
+ use std::ffi::CStr;
+ use std::mem;
+ 
+ #[derive(Clone)]
+ pub struct WaylandSurface {
+     handle: vk::Instance,
+     wayland_surface_fn: vk::KhrWaylandSurfaceFn,
+ }
+ 
+ impl WaylandSurface {
+-    pub fn new<E: EntryV1_0, I: InstanceV1_0>(entry: &E, instance: &I) -> WaylandSurface {
++    pub fn new<L>(entry: &EntryCustom<L>, instance: &Instance) -> Self {
+         let surface_fn = vk::KhrWaylandSurfaceFn::load(|name| unsafe {
+             mem::transmute(entry.get_instance_proc_addr(instance.handle(), name.as_ptr()))
+         });
+-        WaylandSurface {
++        Self {
+             handle: instance.handle(),
+             wayland_surface_fn: surface_fn,
+         }
+     }
+ 
+     pub fn name() -> &'static CStr {
+         vk::KhrWaylandSurfaceFn::name()
+     }
+@@ -39,17 +38,17 @@ impl WaylandSurface {
+                 self.handle,
+                 create_info,
+                 allocation_callbacks.as_raw_ptr(),
+                 &mut surface,
+             )
+             .result_with_success(surface)
+     }
+ 
+-    #[doc = "<https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/vkGetPhysicalDeviceWaylandPresentationSupportKHR.html"]
++    #[doc = "<https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/vkGetPhysicalDeviceWaylandPresentationSupportKHR.html>"]
+     pub unsafe fn get_physical_device_wayland_presentation_support(
+         &self,
+         physical_device: vk::PhysicalDevice,
+         queue_family_index: u32,
+         wl_display: &mut vk::wl_display,
+     ) -> bool {
+         let b = self
+             .wayland_surface_fn

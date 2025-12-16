@@ -1,0 +1,89 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/nsBaseWidget.cpp
+# Commit: 96da9d241051
+# Full Hash: 96da9d241051d222bdd693bdb519d058a013b59c
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2019-03-23 09:46:24
+# Regressor Bug: 1441308
+# File Overlap Count: 2
+# Description:
+#   Bug 1441308 - Core renderroot splitting changes r=kats,sotaro
+#   
+#   This is a large patch that contains all of the core changes for
+#   renderroot splitting.
+#   
+# ==============================================================================
+
+diff -r 8cefa694f811 -r 96da9d241051 widget/nsBaseWidget.cpp
+--- a/widget/nsBaseWidget.cpp	Fri Mar 22 18:28:31 2019 +0000
++++ b/widget/nsBaseWidget.cpp	Fri Mar 22 18:28:42 2019 +0000
+@@ -911,10 +911,10 @@
+ 
+ void nsBaseWidget::SetConfirmedTargetAPZC(
+     uint64_t aInputBlockId,
+-    const nsTArray<ScrollableLayerGuid>& aTargets) const {
++    const nsTArray<SLGuidAndRenderRoot>& aTargets) const {
+   APZThreadUtils::RunOnControllerThread(
+       NewRunnableMethod<uint64_t,
+-                        StoreCopyPassByRRef<nsTArray<ScrollableLayerGuid>>>(
++                        StoreCopyPassByRRef<nsTArray<SLGuidAndRenderRoot>>>(
+           "layers::IAPZCTreeManager::SetTargetAPZC", mAPZC,
+           &IAPZCTreeManager::SetTargetAPZC, aInputBlockId, aTargets));
+ }
+@@ -941,7 +941,9 @@
+   }
+   LayersId layersId = mCompositorSession->RootLayerTreeId();
+   mAPZC->UpdateZoomConstraints(
+-      ScrollableLayerGuid(layersId, aPresShellId, aViewId), aConstraints);
++      SLGuidAndRenderRoot(layersId, aPresShellId, aViewId,
++                          wr::RenderRoot::Default),
++      aConstraints);
+ }
+ 
+ bool nsBaseWidget::AsyncPanZoomEnabled() const { return !!mAPZC; }
+@@ -1780,10 +1782,12 @@
+   }
+   LayersId layerId = mCompositorSession->RootLayerTreeId();
+   APZThreadUtils::RunOnControllerThread(
+-      NewRunnableMethod<ScrollableLayerGuid, CSSRect, uint32_t>(
++      NewRunnableMethod<SLGuidAndRenderRoot, CSSRect, uint32_t>(
+           "layers::IAPZCTreeManager::ZoomToRect", mAPZC,
+           &IAPZCTreeManager::ZoomToRect,
+-          ScrollableLayerGuid(layerId, aPresShellId, aViewId), aRect, aFlags));
++          SLGuidAndRenderRoot(layerId, aPresShellId, aViewId,
++                              wr::RenderRoot::Default),
++          aRect, aFlags));
+ }
+ 
+ #ifdef ACCESSIBILITY
+@@ -1821,23 +1825,23 @@
+   MOZ_ASSERT(XRE_IsParentProcess() && mCompositorSession);
+ 
+   LayersId layersId = mCompositorSession->RootLayerTreeId();
+-  ScrollableLayerGuid guid(layersId, aDragMetrics.mPresShellId,
+-                           aDragMetrics.mViewId);
++  SLGuidAndRenderRoot guid(layersId, aDragMetrics.mPresShellId,
++                           aDragMetrics.mViewId, wr::RenderRoot::Default);
+ 
+   APZThreadUtils::RunOnControllerThread(
+-      NewRunnableMethod<ScrollableLayerGuid, AsyncDragMetrics>(
++      NewRunnableMethod<SLGuidAndRenderRoot, AsyncDragMetrics>(
+           "layers::IAPZCTreeManager::StartScrollbarDrag", mAPZC,
+           &IAPZCTreeManager::StartScrollbarDrag, guid, aDragMetrics));
+ }
+ 
+ bool nsBaseWidget::StartAsyncAutoscroll(const ScreenPoint& aAnchorLocation,
+-                                        const ScrollableLayerGuid& aGuid) {
++                                        const SLGuidAndRenderRoot& aGuid) {
+   MOZ_ASSERT(XRE_IsParentProcess() && AsyncPanZoomEnabled());
+ 
+   return mAPZC->StartAutoscroll(aGuid, aAnchorLocation);
+ }
+ 
+-void nsBaseWidget::StopAsyncAutoscroll(const ScrollableLayerGuid& aGuid) {
++void nsBaseWidget::StopAsyncAutoscroll(const SLGuidAndRenderRoot& aGuid) {
+   MOZ_ASSERT(XRE_IsParentProcess() && AsyncPanZoomEnabled());
+ 
+   mAPZC->StopAutoscroll(aGuid);

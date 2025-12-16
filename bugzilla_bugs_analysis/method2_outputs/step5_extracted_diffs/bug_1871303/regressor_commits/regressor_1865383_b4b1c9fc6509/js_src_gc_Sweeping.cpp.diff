@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/Sweeping.cpp
+# Commit: b4b1c9fc6509
+# Full Hash: b4b1c9fc65090f4a10a3d214d98766de25c14a68
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2023-11-21 04:58:33
+# Regressor Bug: 1865383
+# File Overlap Count: 2
+# Description:
+#   Bug 1865383 - Check slice budget when we start marking or sweeping r=sfink
+#   
+#   The patch forces a budget check when we start marking or sweeping unless we
+#   have just started a GC slice in the current state.
+#   
+# ==============================================================================
+
+diff -r 64a78f18c3fa -r b4b1c9fc6509 js/src/gc/Sweeping.cpp
+--- a/js/src/gc/Sweeping.cpp	Mon Nov 20 16:27:28 2023 +0000
++++ b/js/src/gc/Sweeping.cpp	Mon Nov 20 16:28:11 2023 +0000
+@@ -2326,9 +2326,15 @@
+   }
+ #endif
+ 
+-  if (initialState == State::Sweep &&
+-      markDuringSweeping(gcx, budget) == NotFinished) {
+-    return NotFinished;
++  if (initialState == State::Sweep) {
++    if (markDuringSweeping(gcx, budget) == NotFinished) {
++      return NotFinished;
++    }
++  } else {
++    budget.forceCheck();
++    if (budget.isOverBudget()) {
++      return NotFinished;
++    }
+   }
+ 
+   // Then continue running sweep actions.

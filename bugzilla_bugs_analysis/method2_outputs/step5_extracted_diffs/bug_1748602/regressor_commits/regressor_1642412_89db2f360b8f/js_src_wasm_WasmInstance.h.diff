@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmInstance.h
+# Commit: 89db2f360b8f
+# Full Hash: 89db2f360b8fd68c398c70a8c556b92b2058ab00
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2022-03-24 21:54:20
+# Regressor Bug: 1642412
+# File Overlap Count: 7
+# Description:
+#   Bug 1642412 - wasm: Implement a 'precise' post-write barrier in baseline. r=jseward
+#   
+#   Add a post-write barrier which will remove a previous store buffer entry if the
+#   new value stored in the field would not require it. This requires the previous
+#   value to be loaded before the store and propagated to the post-write barrier
+# ==============================================================================
+
+diff -r eabb888a0851 -r 89db2f360b8f js/src/wasm/WasmInstance.h
+--- a/js/src/wasm/WasmInstance.h	Thu Mar 24 17:56:52 2022 +0000
++++ b/js/src/wasm/WasmInstance.h	Thu Mar 24 17:56:52 2022 +0000
+@@ -456,6 +456,8 @@
+   static void* refFunc(Instance* instance, uint32_t funcIndex);
+   static void preBarrierFiltering(Instance* instance, gc::Cell** location);
+   static void postBarrier(Instance* instance, gc::Cell** location);
++  static void postBarrierPrecise(Instance* instance, JSObject** location,
++                                 JSObject* prev);
+   static void postBarrierFiltering(Instance* instance, gc::Cell** location);
+   static void* structNew(Instance* instance, void* structDescr);
+ #ifdef ENABLE_WASM_EXCEPTIONS

@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/nsTextFrame.cpp
+# Commit: 193184268c8e
+# Full Hash: 193184268c8ef6347a77ef450d0ce008a7a360ee
+# Author: longsonr <longsonr@gmail.com>
+# Date: 2021-03-01 09:36:12
+# Regressor Bug: 1600855
+# File Overlap Count: 1
+# Description:
+#   Bug 1695490 - Remove svg.text-spacing.enabled pref r=emilio
+#   
+#   Backs out bug 1599173 which landed in Firefox 72. The pref has been enabled since bug 1600855 which landed in Firefox 73
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D106731
+# ==============================================================================
+
+diff -r 587d8a869c38 -r 193184268c8e layout/generic/nsTextFrame.cpp
+--- a/layout/generic/nsTextFrame.cpp	Sun Feb 28 21:44:17 2021 +0000
++++ b/layout/generic/nsTextFrame.cpp	Sun Feb 28 21:52:21 2021 +0000
+@@ -19,7 +19,6 @@
+ #include "mozilla/MathAlgorithms.h"
+ #include "mozilla/PresShell.h"
+ #include "mozilla/StaticPrefs_layout.h"
+-#include "mozilla/StaticPrefs_svg.h"
+ #include "mozilla/StaticPresData.h"
+ #include "mozilla/SVGTextFrame.h"
+ #include "mozilla/SVGUtils.h"
+@@ -1773,9 +1772,6 @@
+   }
+ 
+   if (SVGUtils::IsInSVGTextSubtree(aFrame)) {
+-    if (!StaticPrefs::svg_text_spacing_enabled()) {
+-      return 0;
+-    }
+     // SVG text can have a scaling factor applied so that very small or very
+     // large font-sizes don't suffer from poor glyph placement due to app unit
+     // rounding. The used letter-spacing value must be scaled by the same
+@@ -1802,9 +1798,6 @@
+     // factor, although any percentage basis has already effectively been
+     // scaled, since it's the space glyph width, which is based on the already-
+     // scaled font-size.
+-    if (!StaticPrefs::svg_text_spacing_enabled()) {
+-      return 0;
+-    }
+     auto spacing = aStyleText->mWordSpacing;
+     spacing.ScaleLengthsBy(GetSVGFontSizeScaleFactor(aFrame));
+     return spacing.Resolve([&] { return GetSpaceWidthAppUnits(aTextRun); });
+@@ -1818,11 +1811,6 @@
+ // letter-spacing or word-spacing is present.
+ static gfx::ShapedTextFlags GetSpacingFlags(
+     nsIFrame* aFrame, const nsStyleText* aStyleText = nullptr) {
+-  if (SVGUtils::IsInSVGTextSubtree(aFrame) &&
+-      !StaticPrefs::svg_text_spacing_enabled()) {
+-    return gfx::ShapedTextFlags();
+-  }
+-
+   const nsStyleText* styleText = aFrame->StyleText();
+   const auto& ls = styleText->mLetterSpacing;
+   const auto& ws = styleText->mWordSpacing;

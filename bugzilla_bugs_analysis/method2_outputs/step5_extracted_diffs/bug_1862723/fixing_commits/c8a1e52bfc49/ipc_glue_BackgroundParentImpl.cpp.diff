@@ -1,0 +1,35 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: ipc/glue/BackgroundParentImpl.cpp
+# Commit: c8a1e52bfc49
+# Full Hash: c8a1e52bfc49cb809bfcdfcd5f3635615579bc86
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2023-11-28 09:49:07
+# Description:
+#   Bug 1862723 - Use nsCString types for BackgroundParent::KillHardAsync, r=ipc-reviewers,mccr8
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D194548
+# ==============================================================================
+
+diff -r 008c188bf70b -r c8a1e52bfc49 ipc/glue/BackgroundParentImpl.cpp
+--- a/ipc/glue/BackgroundParentImpl.cpp	Mon Nov 27 17:41:45 2023 +0000
++++ b/ipc/glue/BackgroundParentImpl.cpp	Mon Nov 27 17:49:06 2023 +0000
+@@ -139,15 +139,15 @@
+   }
+ 
+   // Other errors are big deals.
++  nsDependentCString reason(aReason);
+   if (BackgroundParent::IsOtherProcessActor(this)) {
+ #ifndef FUZZING
+-    BackgroundParent::KillHardAsync(this, aReason);
++    BackgroundParent::KillHardAsync(this, reason);
+ #endif
+     if (CanSend()) {
+       GetIPCChannel()->InduceConnectionError();
+     }
+   } else {
+-    nsDependentCString reason(aReason);
+     CrashReporter::AnnotateCrashReport(
+         CrashReporter::Annotation::ipc_channel_error, reason);
+ 

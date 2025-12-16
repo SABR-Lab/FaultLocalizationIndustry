@@ -1,0 +1,75 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/nsHttpChannel.cpp
+# Commit: 8e7c97a37073
+# Full Hash: 8e7c97a37073a14ba832e2f5c27f2c11b7787ef5
+# Author: Valentin Gosu <valentin.gosu@gmail.com>
+# Date: 2023-03-15 16:26:49
+# Regressor Bug: 1805372
+# File Overlap Count: 1
+# Description:
+#   Bug 1805372 - Pass effectiveTRRMode to nsHttpChannel from socketTransport/DnsAndConnectSocket r=necko-reviewers,kershaw
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D164539
+# ==============================================================================
+
+diff -r 5abfd5ad2e35 -r 8e7c97a37073 netwerk/protocol/http/nsHttpChannel.cpp
+--- a/netwerk/protocol/http/nsHttpChannel.cpp	Wed Mar 15 12:41:26 2023 +0000
++++ b/netwerk/protocol/http/nsHttpChannel.cpp	Wed Mar 15 13:00:46 2023 +0000
+@@ -6469,8 +6469,7 @@
+     mDNSPrefetch =
+         new nsDNSPrefetch(mURI, originAttributes, nsIRequest::GetTRRMode(),
+                           this, LoadTimingEnabled());
+-    nsIDNSService::DNSFlags dnsFlags =
+-        nsIDNSService::RESOLVE_WANT_RECORD_ON_ERROR;
++    nsIDNSService::DNSFlags dnsFlags = nsIDNSService::RESOLVE_DEFAULT_FLAGS;
+     if (mCaps & NS_HTTP_REFRESH_DNS) {
+       dnsFlags |= nsIDNSService::RESOLVE_BYPASS_CACHE;
+     }
+@@ -7126,6 +7125,12 @@
+ 
+     StoreLoadedBySocketProcess(mTransaction->AsHttpTransactionParent() !=
+                                nullptr);
++
++    bool isTrr;
++    bool echConfigUsed;
++    mTransaction->GetNetworkAddresses(mSelfAddr, mPeerAddr, isTrr,
++                                      mEffectiveTRRMode, mTRRSkipReason,
++                                      echConfigUsed);
+   }
+ 
+   // don't enter this block if we're reading from the cache...
+@@ -8180,6 +8185,7 @@
+     bool echConfigUsed = false;
+     if (mTransaction) {
+       mTransaction->GetNetworkAddresses(mSelfAddr, mPeerAddr, isTrr,
++                                        mEffectiveTRRMode, mTRRSkipReason,
+                                         echConfigUsed);
+     } else {
+       nsCOMPtr<nsISocketTransport> socketTransport = do_QueryInterface(trans);
+@@ -8187,9 +8193,12 @@
+         socketTransport->GetSelfAddr(&mSelfAddr);
+         socketTransport->GetPeerAddr(&mPeerAddr);
+         socketTransport->ResolvedByTRR(&isTrr);
++        MOZ_ALWAYS_SUCCEEDS(
++            socketTransport->GetEffectiveTRRMode(&mEffectiveTRRMode));
+         socketTransport->GetEchConfigUsed(&echConfigUsed);
+       }
+     }
++
+     StoreResolvedByTRR(isTrr);
+     StoreEchConfigUsed(echConfigUsed);
+   }
+@@ -8711,11 +8720,6 @@
+                                 nsresult status) {
+   MOZ_ASSERT(NS_IsMainThread(), "Expecting DNS callback on main thread.");
+ 
+-  if (nsCOMPtr<nsIDNSAddrRecord> r = do_QueryInterface(rec)) {
+-    r->GetEffectiveTRRMode(&mEffectiveTRRMode);
+-    r->GetTrrSkipReason(&mTRRSkipReason);
+-  }
+-
+   LOG(
+       ("nsHttpChannel::OnLookupComplete [this=%p] prefetch complete%s: "
+        "%s status[0x%" PRIx32 "]\n",

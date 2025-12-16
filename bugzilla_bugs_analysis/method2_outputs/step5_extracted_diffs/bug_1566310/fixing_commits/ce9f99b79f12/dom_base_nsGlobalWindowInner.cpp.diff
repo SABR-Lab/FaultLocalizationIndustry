@@ -1,0 +1,37 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsGlobalWindowInner.cpp
+# Commit: ce9f99b79f12
+# Full Hash: ce9f99b79f12aae2cf231004197b92b3b372e0bc
+# Author: Kashav Madan <kmadan@mozilla.com>
+# Date: 2019-07-17 09:36:40
+# Description:
+#   Bug 1566310 - Nullcheck mWindowGlobalChild prior to notifying it of beforeunload listeners, r=nika
+#   
+#   Missed in the 1543251 refactor.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D38223
+# ==============================================================================
+
+diff -r 663f5d1ba3f3 -r ce9f99b79f12 dom/base/nsGlobalWindowInner.cpp
+--- a/dom/base/nsGlobalWindowInner.cpp	Tue Jul 16 23:40:47 2019 +0300
++++ b/dom/base/nsGlobalWindowInner.cpp	Tue Jul 16 18:35:25 2019 +0000
+@@ -6069,7 +6069,7 @@
+     mHasVRDisplayActivateEvents = true;
+   }
+ 
+-  if (aType == nsGkAtoms::onbeforeunload && mBrowserChild &&
++  if (aType == nsGkAtoms::onbeforeunload && mWindowGlobalChild &&
+       (!mDoc || !(mDoc->GetSandboxFlags() & SANDBOXED_MODALS))) {
+     mWindowGlobalChild->BeforeUnloadAdded();
+     MOZ_ASSERT(mWindowGlobalChild->BeforeUnloadListeners() > 0);
+@@ -6091,7 +6091,7 @@
+ }
+ 
+ void nsGlobalWindowInner::EventListenerRemoved(nsAtom* aType) {
+-  if (aType == nsGkAtoms::onbeforeunload && mBrowserChild &&
++  if (aType == nsGkAtoms::onbeforeunload && mWindowGlobalChild &&
+       (!mDoc || !(mDoc->GetSandboxFlags() & SANDBOXED_MODALS))) {
+     mWindowGlobalChild->BeforeUnloadRemoved();
+     MOZ_ASSERT(mWindowGlobalChild->BeforeUnloadListeners() >= 0);

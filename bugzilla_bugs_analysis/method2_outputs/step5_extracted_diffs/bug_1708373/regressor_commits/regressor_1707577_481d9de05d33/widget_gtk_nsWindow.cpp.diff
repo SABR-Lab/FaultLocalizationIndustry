@@ -1,0 +1,34 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/nsWindow.cpp
+# Commit: 481d9de05d33
+# Full Hash: 481d9de05d339907e1f488f2159ac65c3a590e2c
+# Author: Robert Mader <robert.mader@posteo.de>
+# Date: 2021-04-27 22:18:30
+# Regressor Bug: 1707577
+# File Overlap Count: 1
+# Description:
+#   Bug 1707577 - Assert on aWiindow in GetWindowOrigin(), r=stransky
+#   
+#   The out-variables would contain garbage otherwise.
+#   If we really hit this code path in the wild, lets hope we get a
+#   crash report from nightly and fix it properly
+# ==============================================================================
+
+diff -r 2b9aa5686e79 -r 481d9de05d33 widget/gtk/nsWindow.cpp
+--- a/widget/gtk/nsWindow.cpp	Tue Apr 27 18:57:59 2021 +0000
++++ b/widget/gtk/nsWindow.cpp	Tue Apr 27 18:57:59 2021 +0000
+@@ -388,9 +388,9 @@
+ }
+ 
+ void GetWindowOrigin(GdkWindow* aWindow, int* aX, int* aY) {
+-  if (aWindow) {
+-    gdk_window_get_origin(aWindow, aX, aY);
+-  }
++  MOZ_RELEASE_ASSERT(aWindow);
++
++  gdk_window_get_origin(aWindow, aX, aY);
+ 
+   // TODO(bug 1655924): gdk_window_get_origin is can block waiting for the x
+   // server for a long time, we would like to use the implementation below

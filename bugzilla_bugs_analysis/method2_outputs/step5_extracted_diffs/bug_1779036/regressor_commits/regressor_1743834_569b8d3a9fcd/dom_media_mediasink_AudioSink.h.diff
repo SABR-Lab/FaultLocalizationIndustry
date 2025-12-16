@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasink/AudioSink.h
+# Commit: 569b8d3a9fcd
+# Full Hash: 569b8d3a9fcd96eb276c5225f81fcf9c01183565
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2022-05-10 03:50:31
+# Regressor Bug: 1743834
+# File Overlap Count: 1
+# Description:
+#   Bug 1743834 - Split initialization and start in AudioSinkWrapper. r=alwu
+#   
+#   No change in functionality, this is to prepare for the next patch that will do
+#   the initialization asynchronously because it's expensing and blocking.
+#   
+# ==============================================================================
+
+diff -r 9c37cd8faac3 -r 569b8d3a9fcd dom/media/mediasink/AudioSink.h
+--- a/dom/media/mediasink/AudioSink.h	Mon May 09 13:20:52 2022 +0000
++++ b/dom/media/mediasink/AudioSink.h	Mon May 09 13:20:53 2022 +0000
+@@ -37,13 +37,15 @@
+   };
+ 
+   AudioSink(AbstractThread* aThread, MediaQueue<AudioData>& aAudioQueue,
+-            const media::TimeUnit& aStartTime, const AudioInfo& aInfo,
+-            AudioDeviceInfo* aAudioDevice);
++            const AudioInfo& aInfo, AudioDeviceInfo* aAudioDevice);
+ 
+   ~AudioSink();
+ 
++  // Allocate and initialize mAudioStream. Returns NS_OK on success.
++  nsresult InitializeAudioStream(const PlaybackParams& aParams);
++
+   // Start audio playback.
+-  nsresult Start(const PlaybackParams& aParams,
++  nsresult Start(const media::TimeUnit& aStartTime,
+                  MozPromiseHolder<MediaSink::EndedPromise>& aEndedPromise);
+ 
+   /*
+@@ -88,9 +90,6 @@
+   }
+ 
+  private:
+-  // Allocate and initialize mAudioStream. Returns NS_OK on success.
+-  nsresult InitializeAudioStream(const PlaybackParams& aParams);
+-
+   // Interface of AudioStream::DataSource.
+   // Called on the callback thread of cubeb. Returns the number of frames that
+   // were available.

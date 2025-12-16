@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/events/ContentEventHandler.cpp
+# Commit: 3d4472548fb9
+# Full Hash: 3d4472548fb9d48cce00f59066690611ee20ffcb
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2024-11-26 09:36:10
+# Regressor Bug: 1931301
+# File Overlap Count: 1
+# Description:
+#   Bug 1931301 - Notify of removals on a stable state, not mid-remove. r=smaug,masayuki,dshin
+#   
+#   This simplifies some observers, and makes others a bit more subtle, but I think
+#   over-all it is an improvement.
+#   
+# ==============================================================================
+
+diff -r 20a0394d798f -r 3d4472548fb9 dom/events/ContentEventHandler.cpp
+--- a/dom/events/ContentEventHandler.cpp	Mon Nov 25 17:56:21 2024 +0000
++++ b/dom/events/ContentEventHandler.cpp	Mon Nov 25 17:58:40 2024 +0000
+@@ -3153,17 +3153,9 @@
+   // including it forcibly.
+   RawNodePosition endPosition(aEndPosition);
+ 
+-  // This may be called for retrieving the text of removed nodes.  Even in this
+-  // case, the node thinks it's still in the tree because UnbindFromTree() will
+-  // be called after here.  However, the node was already removed from the
+-  // array of children of its parent.  So, be careful to handle this case.
++  // This may be called for retrieving the text of removed nodes. So, be careful
++  // to handle this case. FIXME: Do we need this special-case now?
+   if (aIsRemovingNode) {
+-    DebugOnly<nsIContent*> parent = aStartPosition.Container()->GetParent();
+-    MOZ_ASSERT(
+-        parent &&
+-            parent->ComputeIndexOf(aStartPosition.Container()).isNothing(),
+-        "At removing the node, the node shouldn't be in the array of children "
+-        "of its parent");
+     MOZ_ASSERT(aStartPosition.Container() == endPosition.Container(),
+                "At removing the node, start and end node should be same");
+     MOZ_ASSERT(*aStartPosition.Offset(

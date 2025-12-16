@@ -1,0 +1,67 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/sandbox/win/src/resolver_64.cc
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 2
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/sandbox/win/src/resolver_64.cc
+--- a/security/sandbox/chromium/sandbox/win/src/resolver_64.cc	Wed Jun 12 21:55:59 2019 +1200
++++ b/security/sandbox/chromium/sandbox/win/src/resolver_64.cc	Wed Jun 12 11:10:48 2019 +0100
+@@ -31,8 +31,8 @@
+     mov_rax = kMovRax;
+     jmp_rax = kJmpRax;
+     interceptor_function = 0;
+-  };
+-  USHORT mov_rax;       // = 48 B8
++  }
++  USHORT mov_rax;  // = 48 B8
+   ULONG_PTR interceptor_function;
+   USHORT jmp_rax;  // = ff e0
+ };
+@@ -54,7 +54,7 @@
+     ldr_x16_pc4 = kLdrX16Pc4;
+     br_x16 = kBrX16;
+     interceptor_function = 0;
+-  };
++  }
+   ULONG ldr_x16_pc4;
+   ULONG br_x16;
+   ULONG_PTR interceptor_function;
+@@ -64,7 +64,7 @@
+ #error "Unsupported Windows 64-bit Arch"
+ #endif
+ 
+-} // namespace.
++}  // namespace.
+ 
+ namespace sandbox {
+ 
+@@ -72,13 +72,14 @@
+   return sizeof(InternalThunk);
+ }
+ 
+-bool ResolverThunk::SetInternalThunk(void* storage, size_t storage_bytes,
++bool ResolverThunk::SetInternalThunk(void* storage,
++                                     size_t storage_bytes,
+                                      const void* original_function,
+                                      const void* interceptor) {
+   if (storage_bytes < sizeof(InternalThunk))
+     return false;
+ 
+-  InternalThunk* thunk = new(storage) InternalThunk;
++  InternalThunk* thunk = new (storage) InternalThunk;
+   thunk->interceptor_function = reinterpret_cast<ULONG_PTR>(interceptor);
+ 
+   return true;

@@ -1,0 +1,134 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/sync15/src/engine/request.rs
+# Commit: 2147c5c81edf
+# Full Hash: 2147c5c81edf9cd56c19e7e92dfebfcd77329978
+# Author: Ryan VanderMeulen <ryanvm@gmail.com>
+# Date: 2023-03-01 17:52 -0500
+# Regressor Bug: 1818349
+# File Overlap Count: 24
+# Overlapping Files: third_party/rust/sync15/src/client/coll_update.rs, third_party/rust/sync15/src/client/mod.rs, third_party/rust/sync15/.cargo-checksum.json, third_party/rust/sync15/src/client/sync.rs, Cargo.toml
+# Description:
+#   Backed out changesets b05343a5b533 and 57b2cda7e0db (bug 1818349) for causing bug 1819723.
+# ==============================================================================
+
+diff -r d59b76766f0d -r 2147c5c81edf third_party/rust/sync15/src/engine/request.rs
+--- a/third_party/rust/sync15/src/engine/request.rs	Wed Mar 01 05:53:30 2023 +0000
++++ b/third_party/rust/sync15/src/engine/request.rs	Wed Mar 01 17:52:01 2023 -0500
+@@ -1,24 +1,37 @@
+ /* This Source Code Form is subject to the terms of the Mozilla Public
+  * License, v. 2.0. If a copy of the MPL was not distributed with this
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+-use crate::{CollectionName, Guid, ServerTimestamp};
+-#[derive(Debug, Default, Clone, PartialEq, Eq)]
++use crate::{Guid, ServerTimestamp};
++use std::borrow::Cow;
++#[derive(Debug, Clone, PartialEq, Eq)]
+ pub struct CollectionRequest {
+-    pub collection: CollectionName,
++    pub collection: Cow<'static, str>,
+     pub full: bool,
+     pub ids: Option<Vec<Guid>>,
+-
+-    pub limit: Option<RequestLimit>,
++    pub limit: usize,
+     pub older: Option<ServerTimestamp>,
+     pub newer: Option<ServerTimestamp>,
++    pub order: Option<RequestOrder>,
++    pub commit: bool,
++    pub batch: Option<String>,
+ }
+ 
+ impl CollectionRequest {
+     #[inline]
+-    pub fn new(collection: CollectionName) -> CollectionRequest {
++    pub fn new<S>(collection: S) -> CollectionRequest
++    where
++        S: Into<Cow<'static, str>>,
++    {
+         CollectionRequest {
+-            collection,
+-            ..Default::default()
++            collection: collection.into(),
++            full: false,
++            ids: None,
++            limit: 0,
++            older: None,
++            newer: None,
++            order: None,
++            commit: false,
++            batch: None,
+         }
+     }
+ 
+@@ -51,47 +64,30 @@
+     }
+ 
+     #[inline]
+-    pub fn limit(mut self, num: usize, order: RequestOrder) -> CollectionRequest {
+-        self.limit = Some(RequestLimit { num, order });
++    pub fn sort_by(mut self, order: RequestOrder) -> CollectionRequest {
++        self.order = Some(order);
+         self
+     }
+-}
+-
+-// This is just used interally - consumers just provide the content, not request params.
+-#[cfg(feature = "sync-client")]
+-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+-pub(crate) struct CollectionPost {
+-    pub collection: CollectionName,
+-    pub commit: bool,
+-    pub batch: Option<String>,
+-}
+-
+-#[cfg(feature = "sync-client")]
+-impl CollectionPost {
+-    #[inline]
+-    pub fn new(collection: CollectionName) -> Self {
+-        Self {
+-            collection,
+-            ..Default::default()
+-        }
+-    }
+ 
+     #[inline]
+-    pub fn batch(mut self, batch: Option<String>) -> Self {
++    pub fn limit(mut self, num: usize) -> CollectionRequest {
++        self.limit = num;
++        self
++    }
++
++    #[inline]
++    pub fn batch(mut self, batch: Option<String>) -> CollectionRequest {
+         self.batch = batch;
+         self
+     }
+ 
+     #[inline]
+-    pub fn commit(mut self, v: bool) -> Self {
++    pub fn commit(mut self, v: bool) -> CollectionRequest {
+         self.commit = v;
+         self
+     }
+ }
+ 
+-// Asking for the order of records only makes sense if you are limiting them
+-// in some way - consumers don't care about the order otherwise as everything
+-// is processed as a set.
+ #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
+ pub enum RequestOrder {
+     Oldest,
+@@ -115,11 +111,3 @@
+         f.write_str(self.as_str())
+     }
+ }
+-
+-// If you specify a numerical limit you must provide the order so backfilling
+-// is possible (ie, so you know which ones you got!)
+-#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
+-pub struct RequestLimit {
+-    pub(crate) num: usize,
+-    pub(crate) order: RequestOrder,
+-}

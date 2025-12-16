@@ -1,0 +1,141 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/MediaEngineSource.h
+# Commit: 20543d03a4cd
+# Full Hash: 20543d03a4cda05c785011a25079aa42aec8b2ba
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2019-03-29 21:53:01
+# Regressor Bug: 1494675
+# File Overlap Count: 2
+# Description:
+#   Bug 1494675 - Remove AllocationHandle. r=padenot
+#   
+#   The handle was used to keep separate allocations of the same source in a single
+#   process apart. Sources no longer use sharing, so we no longer need allocations
+#   or their handles even as a concept.
+# ==============================================================================
+
+diff -r 9e7832fee028 -r 20543d03a4cd dom/media/webrtc/MediaEngineSource.h
+--- a/dom/media/webrtc/MediaEngineSource.h	Wed Mar 27 14:10:27 2019 +0000
++++ b/dom/media/webrtc/MediaEngineSource.h	Wed Mar 27 14:10:24 2019 +0000
+@@ -27,7 +27,6 @@
+ class PrincipalInfo;
+ }  // namespace ipc
+ 
+-class AllocationHandle;
+ class MediaEnginePhotoCallback;
+ class MediaEnginePrefs;
+ class SourceMediaStream;
+@@ -108,43 +107,30 @@
+   }
+ 
+   /**
+-   * Called by MediaEngine to allocate a handle to this source.
+-   *
+-   * If this is the first registered AllocationHandle, the underlying device
+-   * will be allocated.
+-   *
+-   * Note that the AllocationHandle may be nullptr at the discretion of the
+-   * MediaEngineSource implementation. Any user is to treat it as an opaque
+-   * object.
++   * Called by MediaEngine to allocate an instance of this source.
+    */
+   virtual nsresult Allocate(const dom::MediaTrackConstraints& aConstraints,
+                             const MediaEnginePrefs& aPrefs,
+                             const nsString& aDeviceId,
+                             const mozilla::ipc::PrincipalInfo& aPrincipalInfo,
+-                            AllocationHandle** aOutHandle,
+                             const char** aOutBadConstraint) = 0;
+ 
+   /**
+    * Called by MediaEngine when a SourceMediaStream and TrackID have been
+-   * provided for the given AllocationHandle to feed data to.
++   * provided for the source to feed data to.
+    *
+-   * This must be called before Start for the given AllocationHandle.
++   * This must be called before Start.
+    */
+-  virtual void SetTrack(const RefPtr<const AllocationHandle>& aHandle,
+-                        const RefPtr<SourceMediaStream>& aStream,
++  virtual void SetTrack(const RefPtr<SourceMediaStream>& aStream,
+                         TrackID aTrackID,
+                         const PrincipalHandle& aPrincipal) = 0;
+ 
+   /**
+-   * Called by MediaEngine to start feeding data to the track associated with
+-   * the given AllocationHandle.
+-   *
+-   * If this is the first AllocationHandle to start, the underlying device
+-   * will be started.
++   * Called by MediaEngine to start feeding data to the track.
+    *
+    * NB: Audio sources handle the enabling of pulling themselves.
+    */
+-  virtual nsresult Start(const RefPtr<const AllocationHandle>& aHandle) = 0;
++  virtual nsresult Start() = 0;
+ 
+   /**
+    * This brings focus to the selected source, e.g. to bring a captured window
+@@ -157,8 +143,7 @@
+    *                            is not yet implemented.
+    * NS_ERROR_FAILURE         - Failures reported from underlying code.
+    */
+-  virtual nsresult FocusOnSelectedSource(
+-      const RefPtr<const AllocationHandle>& aHandle) = 0;
++  virtual nsresult FocusOnSelectedSource() = 0;
+ 
+   /**
+    * Applies new constraints to the capability selection for the underlying
+@@ -176,34 +161,25 @@
+    *                        unexpectedly. This leaves the device in a stopped
+    *                        state.
+    */
+-  virtual nsresult Reconfigure(const RefPtr<AllocationHandle>& aHandle,
+-                               const dom::MediaTrackConstraints& aConstraints,
++  virtual nsresult Reconfigure(const dom::MediaTrackConstraints& aConstraints,
+                                const MediaEnginePrefs& aPrefs,
+                                const nsString& aDeviceId,
+                                const char** aOutBadConstraint) = 0;
+ 
+   /**
+-   * Called by MediaEngine to stop feeding data to the track associated with
+-   * the given AllocationHandle.
++   * Called by MediaEngine to stop feeding data to the track.
+    *
+-   * If this was the last AllocationHandle that had been started,
+-   * the underlying device will be stopped.
+-   *
+-   * Double-stopping a given allocation handle is allowed and will return NS_OK.
+-   * This is necessary sometimes during shutdown.
++   * Double-stopping is allowed and will return NS_OK. This is necessary
++   * sometimes during shutdown.
+    *
+    * NB: Audio sources handle the disabling of pulling themselves.
+    */
+-  virtual nsresult Stop(const RefPtr<const AllocationHandle>& aHandle) = 0;
++  virtual nsresult Stop() = 0;
+ 
+   /**
+-   * Called by MediaEngine to deallocate a handle to this source.
+-   *
+-   * If this was the last registered AllocationHandle, the underlying device
+-   * will be deallocated.
++   * Called by MediaEngine to deallocate an underlying device.
+    */
+-  virtual nsresult Deallocate(
+-      const RefPtr<const AllocationHandle>& aHandle) = 0;
++  virtual nsresult Deallocate() = 0;
+ 
+   /**
+    * Called by MediaEngine when it knows this MediaEngineSource won't be used
+@@ -277,8 +253,7 @@
+   bool GetScary() const override;
+ 
+   // Returns NS_ERROR_NOT_AVAILABLE by default.
+-  nsresult FocusOnSelectedSource(
+-      const RefPtr<const AllocationHandle>& aHandle) override;
++  nsresult FocusOnSelectedSource() override;
+ 
+   // Shutdown does nothing by default.
+   void Shutdown() override;

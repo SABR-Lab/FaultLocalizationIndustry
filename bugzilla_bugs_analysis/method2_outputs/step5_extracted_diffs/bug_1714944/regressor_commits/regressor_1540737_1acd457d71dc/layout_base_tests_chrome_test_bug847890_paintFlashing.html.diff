@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/base/tests/chrome/test_bug847890_paintFlashing.html
+# Commit: 1acd457d71dc
+# Full Hash: 1acd457d71dc0a587ae67322e8b8d5d2e039117f
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2021-05-16 09:17:48
+# Regressor Bug: 1540737
+# File Overlap Count: 2
+# Description:
+#   Bug 1540737 - Implement Paint() for all display items, and nsDisplayList so that we can paint without using FrameLayerBuilder. r=miko
+#   
+#   This creates a new leaf nsDisplayWrapper item for consumers that just want an empty wrapper, with a Paint method that asserts. This lets us leaves Paint pure-virtual on nsDisplayWrapList, and lets the compiler force us to implement it for the other leaf types.
+#   
+#   It also disables flattening of transform/opacity items. This is because they flatten the items even when used with FlattenedDisplayItemIterator, even though this doesn't add markers to replace them (only FLB does this). We could in theory fix this, but I don't think FLB performance matters much any more.
+# ==============================================================================
+
+diff -r 2be59ae8b677 -r 1acd457d71dc layout/base/tests/chrome/test_bug847890_paintFlashing.html
+--- a/layout/base/tests/chrome/test_bug847890_paintFlashing.html	Sun May 16 03:55:31 2021 +0000
++++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
+@@ -1,31 +0,0 @@
+-<!DOCTYPE HTML>
+-<html>
+-<head>
+-  <title>Tests for paint flashing</title>
+-  <script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
+-  <link rel="stylesheet" type="text/css" href="chrome://mochikit/content/tests/SimpleTest/test.css"/>
+-  <script src="chrome://mochikit/content/tests/SimpleTest/WindowSnapshot.js"></script>
+-  <script src="chrome://mochikit/content/tests/SimpleTest/paint_listener.js"></script>
+-
+-  <script type="application/javascript">
+-    SimpleTest.waitForExplicitFinish();
+-    function startTest() {
+-      waitForAllPaintsFlushed(function () {
+-        var before = snapshotWindow(window, false);
+-        SpecialPowers.getDOMWindowUtils(window).paintFlashing = true;
+-        document.body.innerHTML = "bar";
+-        waitForAllPaintsFlushed(function () {
+-          document.body.innerHTML = "foo";
+-          waitForAllPaintsFlushed(function () {
+-            var after = snapshotWindow(window, false);
+-            ok(compareSnapshots(before, after, false)[0], "windows are different");
+-            SpecialPowers.getDOMWindowUtils(window).paintFlashing = false;
+-            SimpleTest.finish();
+-          });
+-        });
+-      });
+-    }
+-  </script>
+-</head>
+-<body onload="startTest()">foo</body>
+-</html>

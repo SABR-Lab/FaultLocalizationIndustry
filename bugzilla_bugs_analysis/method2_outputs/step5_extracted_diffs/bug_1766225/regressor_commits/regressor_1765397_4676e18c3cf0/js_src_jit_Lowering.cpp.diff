@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/Lowering.cpp
+# Commit: 4676e18c3cf0
+# Full Hash: 4676e18c3cf0bb2d3a73f37e125ba29582812402
+# Author: André Bargull <andre.bargull@gmail.com>
+# Date: 2022-04-21 15:23:18
+# Regressor Bug: 1765397
+# File Overlap Count: 1
+# Description:
+#   Bug 1765397 - Part 4: Scalar replace ArgumentsSlice on inline arguments. r=iain
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D144044
+# ==============================================================================
+
+diff -r b037127d38f3 -r 4676e18c3cf0 js/src/jit/Lowering.cpp
+--- a/js/src/jit/Lowering.cpp	Thu Apr 21 08:45:45 2022 +0000
++++ b/js/src/jit/Lowering.cpp	Thu Apr 21 08:45:46 2022 +0000
+@@ -3747,6 +3747,31 @@
+   assignSafepoint(lir, ins);
+ }
+ 
++void LIRGenerator::visitInlineArgumentsSlice(MInlineArgumentsSlice* ins) {
++  LAllocation begin = useRegisterOrConstant(ins->begin());
++  LAllocation count = useRegisterOrConstant(ins->count());
++  uint32_t numActuals = ins->numActuals();
++  uint32_t numOperands =
++      numActuals * BOX_PIECES + LInlineArgumentsSlice::NumNonArgumentOperands;
++
++  auto* lir = allocateVariadic<LInlineArgumentsSlice>(numOperands, temp());
++  if (!lir) {
++    abort(AbortReason::Alloc, "OOM: LIRGenerator::visitInlineArgumentsSlice");
++    return;
++  }
++
++  lir->setOperand(LInlineArgumentsSlice::Begin, begin);
++  lir->setOperand(LInlineArgumentsSlice::Count, count);
++  for (uint32_t i = 0; i < numActuals; i++) {
++    MDefinition* arg = ins->getArg(i);
++    uint32_t index = LInlineArgumentsSlice::ArgIndex(i);
++    lir->setBoxOperand(index,
++                       useBoxOrTypedOrConstant(arg, /*useConstant = */ true));
++  }
++  define(lir, ins);
++  assignSafepoint(lir, ins);
++}
++
+ void LIRGenerator::visitNormalizeSliceTerm(MNormalizeSliceTerm* ins) {
+   MOZ_ASSERT(ins->type() == MIRType::Int32);
+   MOZ_ASSERT(ins->value()->type() == MIRType::Int32);

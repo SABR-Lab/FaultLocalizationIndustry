@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/VMFunctions.cpp
+# Commit: 43978ebfc7ac
+# Full Hash: 43978ebfc7ace2c37aba0b7644ac4e866e0730bd
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2021-01-20 16:13:57
+# Regressor Bug: 1686219
+# File Overlap Count: 1
+# Description:
+#   Bug 1686219 - Store chunk information at the start rather than the end of the chunk r=sfink
+#   
+#   This moves the chunk metadata to the start of the chunk and defines the data structures in the public header.  This simplifies accessing this data and removes the need for hardcoded offsets.
+#   
+#   Requesting review from jandem for JIT updates.
+# ==============================================================================
+
+diff -r 496d47ff3fa1 -r 43978ebfc7ac js/src/jit/VMFunctions.cpp
+--- a/js/src/jit/VMFunctions.cpp	Wed Jan 20 10:04:11 2021 +0000
++++ b/js/src/jit/VMFunctions.cpp	Wed Jan 20 10:04:29 2021 +0000
+@@ -1652,28 +1652,34 @@
+ 
+ void MarkValueFromJit(JSRuntime* rt, Value* vp) {
+   AutoUnsafeCallWithABI unsafe;
++  MOZ_ASSERT(vp->isGCThing());
++  MOZ_ASSERT(!vp->toGCThing()->isMarkedBlack());
+   TraceManuallyBarrieredEdge(&rt->gc.marker, vp, "write barrier");
+ }
+ 
+ void MarkStringFromJit(JSRuntime* rt, JSString** stringp) {
+   AutoUnsafeCallWithABI unsafe;
+   MOZ_ASSERT(*stringp);
++  MOZ_ASSERT(!(*stringp)->isMarkedBlack());
+   TraceManuallyBarrieredEdge(&rt->gc.marker, stringp, "write barrier");
+ }
+ 
+ void MarkObjectFromJit(JSRuntime* rt, JSObject** objp) {
+   AutoUnsafeCallWithABI unsafe;
+   MOZ_ASSERT(*objp);
++  MOZ_ASSERT(!(*objp)->isMarkedBlack());
+   TraceManuallyBarrieredEdge(&rt->gc.marker, objp, "write barrier");
+ }
+ 
+ void MarkShapeFromJit(JSRuntime* rt, Shape** shapep) {
+   AutoUnsafeCallWithABI unsafe;
++  MOZ_ASSERT(!(*shapep)->isMarkedBlack());
+   TraceManuallyBarrieredEdge(&rt->gc.marker, shapep, "write barrier");
+ }
+ 
+ void MarkObjectGroupFromJit(JSRuntime* rt, ObjectGroup** groupp) {
+   AutoUnsafeCallWithABI unsafe;
++  MOZ_ASSERT(!(*groupp)->isMarkedBlack());
+   TraceManuallyBarrieredEdge(&rt->gc.marker, groupp, "write barrier");
+ }
+ 

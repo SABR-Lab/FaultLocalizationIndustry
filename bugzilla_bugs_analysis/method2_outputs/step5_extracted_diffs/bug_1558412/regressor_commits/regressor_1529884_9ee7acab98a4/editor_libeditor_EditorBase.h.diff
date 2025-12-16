@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/EditorBase.h
+# Commit: 9ee7acab98a4
+# Full Hash: 9ee7acab98a470b2860125ba3deb439a64dc83e7
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2019-06-10 21:47:35
+# Regressor Bug: 1529884
+# File Overlap Count: 1
+# Description:
+#   Bug 1529884 - part 6: Through subject principal at Document::ExecCommand() to constructor of EditorBase::AutoEditActionDataSetter r=smaug
+#   
+#   `Document::ExecCommand()` knows subject principal.  This patch makes it tell
+#   `EditorCommand::DoCommand()` and `EditorCommand::DoCommandParam()`.  Then,
+#   makes they tell each editor public methods which may cause dispatching
+# ==============================================================================
+
+diff -r 258c4da663ca -r 9ee7acab98a4 editor/libeditor/EditorBase.h
+--- a/editor/libeditor/EditorBase.h	Mon Jun 10 10:26:04 2019 +0000
++++ b/editor/libeditor/EditorBase.h	Mon Jun 10 10:27:07 2019 +0000
+@@ -46,6 +46,7 @@
+ class nsIEditActionListener;
+ class nsIEditorObserver;
+ class nsINode;
++class nsIPrincipal;
+ class nsISupports;
+ class nsITransferable;
+ class nsITransaction;
+@@ -283,9 +284,13 @@
+ 
+   /**
+    * ToggleTextDirection() toggles text-direction of the root element.
++   *
++   * @param aPrincipal          Set subject principal if it may be called by
++   *                            JS.  If set to nullptr, will be treated as
++   *                            called by system.
+    */
+-  MOZ_CAN_RUN_SCRIPT
+-  nsresult ToggleTextDirection();
++  MOZ_CAN_RUN_SCRIPT nsresult
++  ToggleTextDirectionAsAction(nsIPrincipal* aPrincipal = nullptr);
+ 
+   /**
+    * SwitchTextDirectionTo() sets the text-direction of the root element to
+@@ -598,8 +603,13 @@
+    */
+   class MOZ_STACK_CLASS AutoEditActionDataSetter final {
+    public:
++    // NOTE: aPrincipal will be used when we implement "beforeinput" event.
++    //       It's set only when maybe we shouldn't dispatch it because of
++    //       called by JS.  I.e., if this is nullptr, we can always dispatch
++    //       it.
+     AutoEditActionDataSetter(const EditorBase& aEditorBase,
+-                             EditAction aEditAction);
++                             EditAction aEditAction,
++                             nsIPrincipal* aPrincipal = nullptr);
+     ~AutoEditActionDataSetter();
+ 
+     void UpdateEditAction(EditAction aEditAction) { mEditAction = aEditAction; }

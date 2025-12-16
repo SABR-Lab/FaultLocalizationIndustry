@@ -1,0 +1,31 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: layout/style/FontFaceSetDocumentImpl.cpp
+# Commit: f9d68808b49b
+# Full Hash: f9d68808b49b6a69c42cdc23f4fdca8901e0a3e4
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2022-06-30 21:24:30
+# Description:
+#   Bug 1777301 - Fix crash in FontFaceSetDocumentImpl::Destroy due to clearing document reference too early. r=jfkthame
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D150684
+# ==============================================================================
+
+diff -r dc0042704c87 -r f9d68808b49b layout/style/FontFaceSetDocumentImpl.cpp
+--- a/layout/style/FontFaceSetDocumentImpl.cpp	Thu Jun 30 11:44:30 2022 +0000
++++ b/layout/style/FontFaceSetDocumentImpl.cpp	Thu Jun 30 11:59:15 2022 +0000
+@@ -95,9 +95,11 @@
+ 
+   mRuleFaces.Clear();
+ 
+-  mDocument = nullptr;
++  // Since the base class may depend on the document remaining set, we need to
++  // clear mDocument after.
++  FontFaceSetImpl::Destroy();
+ 
+-  FontFaceSetImpl::Destroy();
++  mDocument = nullptr;
+ }
+ 
+ uint64_t FontFaceSetDocumentImpl::GetInnerWindowID() {

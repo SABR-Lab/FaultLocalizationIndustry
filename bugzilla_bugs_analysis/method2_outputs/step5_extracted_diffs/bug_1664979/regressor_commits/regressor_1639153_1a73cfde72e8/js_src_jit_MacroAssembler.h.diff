@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/MacroAssembler.h
+# Commit: 1a73cfde72e8
+# Full Hash: 1a73cfde72e8f4d19bdcfdbffa9fbc78bba01e24
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2021-09-28 09:54:33
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Introduce indirect stubs to optimize call_indirect. r=lth
+#   
+#   This patch introduces indirect stubs.
+#   An indirect stub is a stub that takes care of any switching activities needed for call_indirect.
+#   Before this patch, we have to conservatively assume that any call_indirect's target can be from a foreign instance,
+# ==============================================================================
+
+diff -r da3c5d8492db -r 1a73cfde72e8 js/src/jit/MacroAssembler.h
+--- a/js/src/jit/MacroAssembler.h	Tue Sep 28 05:16:23 2021 +0000
++++ b/js/src/jit/MacroAssembler.h	Tue Sep 28 05:24:15 2021 +0000
+@@ -270,6 +270,11 @@
+ constexpr uint32_t WasmCalleeTLSOffsetBeforeCall =
+     wasm::FrameWithTls::calleeTLSOffset() + ShadowStackSpace;
+ 
++constexpr uint32_t WasmCallerTLSOffsetAfterCall =
++    WasmCallerTLSOffsetBeforeCall + SizeOfReturnAddressAfterCall;
++constexpr uint32_t WasmCalleeTLSOffsetAfterCall =
++    WasmCalleeTLSOffsetBeforeCall + SizeOfReturnAddressAfterCall;
++
+ // Allocation sites may be passed to GC thing allocation methods either via a
+ // register (for baseline compilation) or an enum indicating one of the
+ // catch-all allocation sites (for optimized compilation).

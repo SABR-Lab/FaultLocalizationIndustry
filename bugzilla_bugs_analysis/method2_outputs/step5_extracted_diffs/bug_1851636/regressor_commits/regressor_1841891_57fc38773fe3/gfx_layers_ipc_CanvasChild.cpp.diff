@@ -1,0 +1,91 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/CanvasChild.cpp
+# Commit: 57fc38773fe3
+# Full Hash: 57fc38773fe37f21748092e3e58fdf5265e85c0d
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2023-08-30 04:26:43
+# Regressor Bug: 1841891
+# File Overlap Count: 3
+# Description:
+#   Bug 1841891: Only use a larger canvas ring buffer when in the foreground. r=jrmuizel
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D186544
+# ==============================================================================
+
+diff -r 082442e3b925 -r 57fc38773fe3 gfx/layers/ipc/CanvasChild.cpp
+--- a/gfx/layers/ipc/CanvasChild.cpp	Tue Aug 29 19:15:34 2023 +0000
++++ b/gfx/layers/ipc/CanvasChild.cpp	Tue Aug 29 19:17:45 2023 +0000
+@@ -20,6 +20,8 @@
+ namespace mozilla {
+ namespace layers {
+ 
++/* static */ bool CanvasChild::mInForeground = true;
++
+ class RingBufferWriterServices final
+     : public CanvasEventRingBuffer::WriterServices {
+  public:
+@@ -209,6 +211,9 @@
+     return;
+   }
+ 
++  // We're forwarding textures, so we must be in the foreground.
++  mInForeground = true;
++
+   if (mHasOutstandingWriteLock) {
+     mRecorder->RecordEvent(RecordedCanvasFlush());
+     if (!mRecorder->WaitForCheckpoint(mLastWriteLockCheckpoint)) {
+@@ -233,6 +238,17 @@
+   }
+ 
+   if (!mIsInTransaction) {
++    // Ensure we are using a large buffer when in the foreground and small one
++    // in the background.
++    if (mInForeground != mRecorder->UsingLargeStream()) {
++      SharedMemoryBasic::Handle handle;
++      if (!mRecorder->SwitchBuffer(OtherPid(), &handle) ||
++          !SendNewBuffer(std::move(handle))) {
++        mRecorder = nullptr;
++        return;
++      }
++    }
++
+     mRecorder->RecordEvent(RecordedCanvasBeginTransaction());
+     mIsInTransaction = true;
+   }
+@@ -247,12 +263,17 @@
+   if (mIsInTransaction) {
+     mRecorder->RecordEvent(RecordedCanvasEndTransaction());
+     mIsInTransaction = false;
+-    mLastNonEmptyTransaction = TimeStamp::NowLoRes();
+   }
+ 
+   ++mTransactionsSinceGetDataSurface;
+ }
+ 
++/* static */
++void CanvasChild::ClearCachedResources() {
++  // We use this as a proxy for the tab being in the backgound.
++  mInForeground = false;
++}
++
+ bool CanvasChild::ShouldBeCleanedUp() const {
+   // Always return true if we've been deactivated.
+   if (Deactivated()) {
+@@ -260,14 +281,7 @@
+   }
+ 
+   // We can only be cleaned up if nothing else references our recorder.
+-  if (mRecorder && !mRecorder->hasOneRef()) {
+-    return false;
+-  }
+-
+-  static const TimeDuration kCleanUpCanvasThreshold =
+-      TimeDuration::FromSeconds(10);
+-  return TimeStamp::NowLoRes() - mLastNonEmptyTransaction >
+-         kCleanUpCanvasThreshold;
++  return !mRecorder || mRecorder->hasOneRef();
+ }
+ 
+ already_AddRefed<gfx::DrawTarget> CanvasChild::CreateDrawTarget(

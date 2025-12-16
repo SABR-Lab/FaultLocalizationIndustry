@@ -1,0 +1,68 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: xpcom/threads/nsIThread.idl
+# Commit: 36ef70762b74
+# Full Hash: 36ef70762b74b3c6b8bd0f26c57ab4b54467f64b
+# Author: Bill McCloskey <billm@mozilla.com>
+# Date: 2017-08-17 23:17:14
+# Regressor Bug: 1382922
+# File Overlap Count: 3
+# Description:
+#   Bug 1382922 - Refactor event queue to allow multiple implementations (r=erahm)
+#   
+#   This patch refactors the nsThread event queue to clean it up and to make it easier to restructure. The fundamental concepts are as follows:
+#   
+#   Each nsThread will have a pointer to a refcounted SynchronizedEventQueue. A SynchronizedEQ takes care of doing the locking and condition variable work when posting and popping events. For the actual storage of events, it delegates to an AbstractEventQueue data structure. It keeps a UniquePtr to the AbstractEventQueue that it uses for storage.
+# ==============================================================================
+
+diff -r ca6618d0bc17 -r 36ef70762b74 xpcom/threads/nsIThread.idl
+--- a/xpcom/threads/nsIThread.idl	Tue Aug 01 12:55:21 2017 -0400
++++ b/xpcom/threads/nsIThread.idl	Tue Jun 20 19:42:13 2017 -0700
+@@ -5,7 +5,6 @@
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
+ #include "nsISerialEventTarget.idl"
+-#include "nsIIdlePeriod.idl"
+ 
+ %{C++
+ #include "mozilla/AlreadyAddRefed.h"
+@@ -13,7 +12,6 @@
+ 
+ [ptr] native PRThread(PRThread);
+ 
+-native alreadyAddRefed_nsIIdlePeriod(already_AddRefed<nsIIdlePeriod>);
+ native nsIEventTargetPtr(nsIEventTarget*);
+ native nsISerialEventTargetPtr(nsISerialEventTarget*);
+ 
+@@ -123,20 +121,6 @@
+   void asyncShutdown();
+ 
+   /**
+-   * Register an instance of nsIIdlePeriod which works as a facade of
+-   * the abstract notion of a "current idle period". The
+-   * nsIIdlePeriod should always represent the "current" idle period
+-   * with regard to expected work for the thread. The thread is free
+-   * to use this when there are no higher prioritized tasks to process
+-   * to determine if it is reasonable to schedule tasks that could run
+-   * when the thread is idle. The responsibility of the registered
+-   * nsIIdlePeriod is to answer with an estimated deadline at which
+-   * the thread should expect that it could receive new higher
+-   * priority tasks.
+-   */
+-  [noscript] void registerIdlePeriod(in alreadyAddRefed_nsIIdlePeriod aIdlePeriod);
+-
+-  /**
+    * Dispatch an event to the thread's idle queue.  This function may be called
+    * from any thread, and it may be called re-entrantly.
+    *
+@@ -152,9 +136,6 @@
+    */
+   [noscript] void idleDispatch(in alreadyAddRefed_nsIRunnable event);
+ 
+-  [noscript] void enableEventPrioritization();
+-  [noscript] bool isEventPrioritizationEnabled();
+-
+   /**
+    * Use this attribute to dispatch runnables to the thread. Eventually, the
+    * eventTarget attribute will be the only way to dispatch events to a

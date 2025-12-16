@@ -1,0 +1,81 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/webgpu/ipc/WebGPUParent.cpp
+# Commit: ef5dc3e04e5f
+# Full Hash: ef5dc3e04e5f271eea0636ab3a495e95cc912f1d
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-09-04 09:40:24
+# Regressor Bug: 1726626
+# File Overlap Count: 3
+# Description:
+#   Bug 1726626 - Move gfx/wgpu into a 3rd party dependency r=jgilbert,bholley
+#   
+#   This update makes wgpu a vendored dependency instead of having it in gfx/wgpu.
+#   
+#   ## Notes
+# ==============================================================================
+
+diff --git a/dom/webgpu/ipc/WebGPUParent.cpp b/dom/webgpu/ipc/WebGPUParent.cpp
+--- a/dom/webgpu/ipc/WebGPUParent.cpp
++++ b/dom/webgpu/ipc/WebGPUParent.cpp
+@@ -76,20 +76,16 @@ static void FreeAdapter(RawId id, void* 
+ }
+ static void FreeDevice(RawId id, void* param) {
+   ipc::ByteBuf byteBuf;
+   wgpu_server_device_free(id, ToFFI(&byteBuf));
+   if (!static_cast<WebGPUParent*>(param)->SendDropAction(std::move(byteBuf))) {
+     NS_ERROR("Unable FreeDevice");
+   }
+ }
+-static void FreeSwapChain(RawId id, void* param) {
+-  Unused << id;
+-  Unused << param;
+-}
+ static void FreeShaderModule(RawId id, void* param) {
+   ipc::ByteBuf byteBuf;
+   wgpu_server_shader_module_free(id, ToFFI(&byteBuf));
+   if (!static_cast<WebGPUParent*>(param)->SendDropAction(std::move(byteBuf))) {
+     NS_ERROR("Unable FreeShaderModule");
+   }
+ }
+ static void FreePipelineLayout(RawId id, void* param) {
+@@ -173,17 +169,16 @@ static void FreeSurface(RawId id, void* 
+   Unused << id;
+   Unused << param;
+ }
+ 
+ static ffi::WGPUIdentityRecyclerFactory MakeFactory(void* param) {
+   ffi::WGPUIdentityRecyclerFactory factory = {param};
+   factory.free_adapter = FreeAdapter;
+   factory.free_device = FreeDevice;
+-  factory.free_swap_chain = FreeSwapChain;
+   factory.free_pipeline_layout = FreePipelineLayout;
+   factory.free_shader_module = FreeShaderModule;
+   factory.free_bind_group_layout = FreeBindGroupLayout;
+   factory.free_bind_group = FreeBindGroup;
+   factory.free_command_buffer = FreeCommandBuffer;
+   factory.free_render_bundle = FreeRenderBundle;
+   factory.free_render_pipeline = FreeRenderPipeline;
+   factory.free_compute_pipeline = FreeComputePipeline;
+@@ -601,18 +596,18 @@ ipc::IPCResult WebGPUParent::RecvSwapCha
+   data->mBuffersLock.Lock();
+   if (!data->mAvailableBufferIds.empty()) {
+     bufferId = data->mAvailableBufferIds.back();
+     data->mAvailableBufferIds.pop_back();
+   } else if (!data->mUnassignedBufferIds.empty()) {
+     bufferId = data->mUnassignedBufferIds.back();
+     data->mUnassignedBufferIds.pop_back();
+ 
+-    ffi::WGPUBufferUsage usage =
+-        WGPUBufferUsage_COPY_DST | WGPUBufferUsage_MAP_READ;
++    ffi::WGPUBufferUsages usage =
++        WGPUBufferUsages_COPY_DST | WGPUBufferUsages_MAP_READ;
+     ffi::WGPUBufferDescriptor desc = {};
+     desc.size = bufferSize;
+     desc.usage = usage;
+ 
+     ErrorBuffer error;
+     ffi::wgpu_server_device_create_buffer(mContext, data->mDeviceId, &desc,
+                                           bufferId, error.ToFFI());
+     if (ForwardError(data->mDeviceId, error)) {

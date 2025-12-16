@@ -1,0 +1,69 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fs/child/FileSystemAccessHandleControlChild.h
+# Commit: b68e19021833
+# Full Hash: b68e1902183357e129a1a53490447fc3cc219f4f
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2023-02-07 16:42:31
+# Regressor Bug: 1809064
+# File Overlap Count: 1
+# Description:
+#   Bug 1809064 - Add PFileSystemAccessHandleControl top level protocol; r=dom-storage-reviewers,jari
+#   
+#   Sync access handle methods need to run sync loops to block the thread until a
+#   result is available. The main protocol PFileSystemManager and its subprotocol
+#   PFileSystemAccessHandle is bound to the main worker event queue, so incoming
+# ==============================================================================
+
+diff -r fc3ab5ee8ef3 -r b68e19021833 dom/fs/child/FileSystemAccessHandleControlChild.h
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/dom/fs/child/FileSystemAccessHandleControlChild.h	Tue Feb 07 08:27:06 2023 +0000
+@@ -0,0 +1,47 @@
++/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
++/* vim: set ts=8 sts=2 et sw=2 tw=80: */
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++#ifndef DOM_FS_CHILD_FILESYSTEMACCESSHANDLECONTROLCHILD_H_
++#define DOM_FS_CHILD_FILESYSTEMACCESSHANDLECONTROLCHILD_H_
++
++#include "mozilla/dom/PFileSystemAccessHandleControlChild.h"
++#include "nsISupportsImpl.h"
++
++namespace mozilla::dom {
++
++class FileSystemSyncAccessHandle;
++
++class FileSystemAccessHandleControlChild
++    : public PFileSystemAccessHandleControlChild {
++ public:
++  NS_INLINE_DECL_REFCOUNTING_WITH_DESTROY(FileSystemAccessHandleControlChild,
++                                          Destroy(), override)
++
++  void SetAccessHandle(FileSystemSyncAccessHandle* aAccessHandle);
++
++  void Shutdown();
++
++  void ActorDestroy(ActorDestroyReason aWhy) override;
++
++ protected:
++  virtual ~FileSystemAccessHandleControlChild() = default;
++
++  // This is called when the object's refcount drops to zero. We use this custom
++  // callback to close the top level actor if it hasn't been explicitly closed
++  // yet. For example when `FileSystemSyncAccessHandle::Create` fails after
++  // creating and binding the top level actor.
++  virtual void Destroy() {
++    Shutdown();
++    delete this;
++  }
++
++  // The weak reference is cleared in ActorDestroy.
++  FileSystemSyncAccessHandle* MOZ_NON_OWNING_REF mAccessHandle;
++};
++
++}  // namespace mozilla::dom
++
++#endif  // DOM_FS_CHILD_FILESYSTEMACCESSHANDLECONTROLCHILD_H_

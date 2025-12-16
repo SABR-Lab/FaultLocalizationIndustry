@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/CodeGenerator.h
+# Commit: b037127d38f3
+# Full Hash: b037127d38f3b0001c11ea8130bf8c7f85f8514b
+# Author: André Bargull <andre.bargull@gmail.com>
+# Date: 2022-04-21 15:23:18
+# Regressor Bug: 1765397
+# File Overlap Count: 1
+# Description:
+#   Bug 1765397 - Part 3: Scalar replace ArgumentsSlice on frame arguments. r=iain
+#   
+#   Adds support to scalar replace `MArgumentsSlice` for frame arguments. The next
+#   patch will add support for inlined arguments.
+#   
+# ==============================================================================
+
+diff -r aeb3d90e0434 -r b037127d38f3 js/src/jit/CodeGenerator.h
+--- a/js/src/jit/CodeGenerator.h	Thu Apr 21 08:45:45 2022 +0000
++++ b/js/src/jit/CodeGenerator.h	Thu Apr 21 08:45:45 2022 +0000
+@@ -207,6 +207,18 @@
+   void emitGetInlinedArgument(GetInlinedArgument* lir, Register index,
+                               ValueOperand output);
+ 
++  using RegisterOrInt32 = mozilla::Variant<Register, int32_t>;
++
++#ifdef DEBUG
++  void emitAssertArgumentsSliceBounds(const RegisterOrInt32& begin,
++                                      const RegisterOrInt32& count,
++                                      Register numActualArgs);
++#endif
++
++  template <class ArgumentsSlice>
++  void emitNewArray(ArgumentsSlice* lir, const RegisterOrInt32& count,
++                    Register output, Register temp);
++
+   void visitNewArrayCallVM(LNewArray* lir);
+   void visitNewObjectVMCall(LNewObject* lir);
+ 

@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/cocoa/nsChildView.mm
+# Commit: beeda5ef3712
+# Full Hash: beeda5ef3712b73a19c7a4ce08a52ab4dd08b802
+# Author: David P <daparks@mozilla.com>
+# Date: 2024-07-04 16:09:52
+# Regressor Bug: 1893119
+# File Overlap Count: 1
+# Description:
+#   Bug 1893119: Part 20 - Move EndDragSession from nsIDragService to nsIDragSession r=gstoll,rkraesig,win-reviewers,geckoview-reviewers,m_kato
+#   
+#   This is a straightforward move.  It does take the liberty of breaking out an
+#   EndDragSessionImpl method, which will be needed later.
+#   
+# ==============================================================================
+
+diff -r 6c3ffc8c534c -r beeda5ef3712 widget/cocoa/nsChildView.mm
+--- a/widget/cocoa/nsChildView.mm	Thu Jul 04 07:48:10 2024 +0000
++++ b/widget/cocoa/nsChildView.mm	Thu Jul 04 07:48:11 2024 +0000
+@@ -4150,8 +4150,7 @@
+         nsCOMPtr<nsINode> sourceNode;
+         dragSession->GetSourceNode(getter_AddRefs(sourceNode));
+         if (!sourceNode) {
+-          nsCOMPtr<nsIDragService> dragService = mDragService;
+-          dragService->EndDragSession(
++          dragSession->EndDragSession(
+               false, nsCocoaUtils::ModifiersForEvent([NSApp currentEvent]));
+         }
+         return NSDragOperationNone;
+@@ -4212,8 +4211,7 @@
+           // initiated in a different app. End the drag session,
+           // since we're done with it for now (until the user
+           // drags back into mozilla).
+-          nsCOMPtr<nsIDragService> dragService = mDragService;
+-          dragService->EndDragSession(
++          dragSession->EndDragSession(
+               false, nsCocoaUtils::ModifiersForEvent([NSApp currentEvent]));
+         }
+         break;
+@@ -4307,10 +4305,6 @@
+   nsCOMPtr<nsIDragSession> session =
+       mDragService->GetCurrentSession(mGeckoChild);
+   if (session) {
+-    RefPtr<nsDragService> dragService =
+-        static_cast<nsDragService*>(mDragService);
+-    MOZ_ASSERT(dragService);
+-
+     // Set the dragend point from the current mouse location
+     // FIXME(emilio): Weird that we wouldn't use aPoint instead? Seems to work
+     // locally as well...
+@@ -4336,8 +4330,8 @@
+       }
+     }
+ 
+-    dragService->EndDragSession(true,
+-                                nsCocoaUtils::ModifiersForEvent(currentEvent));
++    session->EndDragSession(true,
++                            nsCocoaUtils::ModifiersForEvent(currentEvent));
+   }
+ 
+   session = nullptr;

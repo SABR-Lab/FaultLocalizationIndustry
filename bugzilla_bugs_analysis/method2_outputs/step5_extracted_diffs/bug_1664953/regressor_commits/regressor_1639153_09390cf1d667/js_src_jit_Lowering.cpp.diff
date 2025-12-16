@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/Lowering.cpp
+# Commit: 09390cf1d667
+# Full Hash: 09390cf1d66716146aeb3112f0ac640e317890d9
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-09-14 09:51:01
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 6.6: Add tls dependency for truncate i32. r=lth
+#   
+#   We generate builtin call for MTruncateToInt32 operation for floating points types,
+#   so we need to add a tls dependency.
+#   I inserted NYI for arm64 because Ion doesn't support arm64.
+# ==============================================================================
+
+diff -r 83a3ed07220d -r 09390cf1d667 js/src/jit/Lowering.cpp
+--- a/js/src/jit/Lowering.cpp	Mon Sep 14 04:00:18 2020 +0000
++++ b/js/src/jit/Lowering.cpp	Mon Sep 14 05:19:44 2020 +0000
+@@ -2357,6 +2357,16 @@
+   }
+ }
+ 
++void LIRGenerator::visitWasmBuiltinTruncateToInt32(
++    MWasmBuiltinTruncateToInt32* truncate) {
++  mozilla::DebugOnly<MDefinition*> opd = truncate->input();
++  MOZ_ASSERT(opd->type() == MIRType::Double || opd->type() == MIRType::Float32);
++
++  // May call into JS::ToInt32() on the slow OOL path.
++  gen->setNeedsStaticStackAlignment();
++  lowerWasmBuiltinTruncateToInt32(truncate);
++}
++
+ void LIRGenerator::visitWasmBoxValue(MWasmBoxValue* ins) {
+   LWasmBoxValue* lir = new (alloc()) LWasmBoxValue(useBox(ins->input()));
+   define(lir, ins);

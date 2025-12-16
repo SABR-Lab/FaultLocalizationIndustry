@@ -1,0 +1,65 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/MediaEngineWebRTCAudio.cpp
+# Commit: 8cb7b8231c98
+# Full Hash: 8cb7b8231c980aa7830fad2ecc34cb128417d511
+# Author: Chun-Min Chang <chun.m.chang@gmail.com>
+# Date: 2022-01-28 04:41:16
+# Regressor Bug: 1742655
+# File Overlap Count: 1
+# Description:
+#   Bug 1742655 - Open/Close audio input via NativeInputTrack r=pehrsons
+#   
+#   Move the audio-opening check logic and the creation of NativeInputTrack
+#   in one place instead of seperating them in different functions. This
+#   reduces the complexity of audio-opening logic in MediaTrackGraph and
+# ==============================================================================
+
+diff -r a1def130c105 -r 8cb7b8231c98 dom/media/webrtc/MediaEngineWebRTCAudio.cpp
+--- a/dom/media/webrtc/MediaEngineWebRTCAudio.cpp	Thu Jan 27 22:29:34 2022 +0000
++++ b/dom/media/webrtc/MediaEngineWebRTCAudio.cpp	Thu Jan 27 22:29:35 2022 +0000
+@@ -1330,13 +1330,20 @@
+   MOZ_ASSERT(!mInputListener);
+   MOZ_ASSERT(mDeviceId.isNothing());
+   mInputListener = aListener;
+-  NativeInputTrack* input =
+-      GraphImpl()->GetOrCreateDeviceTrack(aId, aPrincipal);
++  mDeviceId.emplace(aId);
++
++  auto r = NativeInputTrack::OpenAudio(GraphImpl(), aId, aPrincipal,
++                                       mInputListener.get());
++  if (r.isErr()) {
++    NS_WARNING("Failed to open audio device.");
++    return r.unwrapErr();
++  }
++  RefPtr<NativeInputTrack> input = r.unwrap();
+   MOZ_ASSERT(input);
+-  LOG("Open device %p (InputTrack=%p) for Mic source %p", aId, input, this);
+-  mPort = AllocateInputPort(input);
+-  mDeviceId.emplace(aId);
+-  return GraphImpl()->OpenAudioInput(aId, mInputListener.get());
++  LOG("Open device %p (InputTrack=%p) for Mic source %p", aId, input.get(),
++      this);
++  mPort = AllocateInputPort(input.get());
++  return NS_OK;
+ }
+ 
+ void AudioInputTrack::CloseAudioInput() {
+@@ -1347,11 +1354,13 @@
+   }
+   MOZ_ASSERT(mPort);
+   MOZ_ASSERT(mDeviceId.isSome());
+-  LOG("Close device %p (InputTrack=%p) for Mic source %p ", mDeviceId.value(),
+-      mPort->GetSource(), this);
++  RefPtr<NativeInputTrack> input(mPort->GetSource()->AsNativeInputTrack());
++  LOG("Close device %p (InputTrack=%p) for Mic source %p ", *mDeviceId,
++      input.get(), this);
+   mPort->Destroy();
+-  GraphImpl()->CloseAudioInput(mDeviceId.extract(), mInputListener);
++  NativeInputTrack::CloseAudio(std::move(input), mInputListener.get());
+   mInputListener = nullptr;
++  mDeviceId = Nothing();
+ }
+ 
+ Maybe<CubebUtils::AudioDeviceID> AudioInputTrack::DeviceId() const {

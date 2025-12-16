@@ -1,0 +1,69 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/angle/checkout/src/libANGLE/LoggingAnnotator.cpp
+# Commit: 3a91885d47e0
+# Full Hash: 3a91885d47e0ef7fba9749562d52300eea67c651
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2019-11-11 21:52:52
+# Regressor Bug: 1578576
+# File Overlap Count: 4
+# Description:
+#   Bug 1578576 - Part 2: Update to ANGLE 3865 r=jgilbert
+#   
+#   Depends on D44561
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44579
+# ==============================================================================
+
+diff -r 77cee77c0307 -r 3a91885d47e0 gfx/angle/checkout/src/libANGLE/LoggingAnnotator.cpp
+--- a/gfx/angle/checkout/src/libANGLE/LoggingAnnotator.cpp	Fri Nov 08 16:41:42 2019 +0000
++++ b/gfx/angle/checkout/src/libANGLE/LoggingAnnotator.cpp	Fri Nov 08 17:06:00 2019 +0000
+@@ -8,8 +8,7 @@
+ 
+ #include "libANGLE/LoggingAnnotator.h"
+ 
+-#include <platform/Platform.h>
+-#include "third_party/trace_event/trace_event.h"
++#include "libANGLE/trace.h"
+ 
+ namespace angle
+ {
+@@ -21,17 +20,17 @@
+ 
+ void LoggingAnnotator::beginEvent(const char *eventName, const char *eventMessage)
+ {
+-    TRACE_EVENT_BEGIN0("gpu.angle", eventName);
++    ANGLE_TRACE_EVENT_BEGIN0("gpu.angle", eventName);
+ }
+ 
+ void LoggingAnnotator::endEvent(const char *eventName)
+ {
+-    TRACE_EVENT_END0("gpu.angle", eventName);
++    ANGLE_TRACE_EVENT_END0("gpu.angle", eventName);
+ }
+ 
+ void LoggingAnnotator::setMarker(const char *markerName)
+ {
+-    TRACE_EVENT_INSTANT0("gpu.angle", markerName);
++    ANGLE_TRACE_EVENT_INSTANT0("gpu.angle", markerName);
+ }
+ 
+ void LoggingAnnotator::logMessage(const gl::LogMessage &msg) const
+@@ -41,12 +40,16 @@
+     {
+         switch (msg.getSeverity())
+         {
++            case gl::LOG_FATAL:
+             case gl::LOG_ERR:
+                 plat->logError(plat, msg.getMessage().c_str());
+                 break;
+             case gl::LOG_WARN:
+                 plat->logWarning(plat, msg.getMessage().c_str());
+                 break;
++            case gl::LOG_INFO:
++                plat->logInfo(plat, msg.getMessage().c_str());
++                break;
+             default:
+                 UNREACHABLE();
+         }

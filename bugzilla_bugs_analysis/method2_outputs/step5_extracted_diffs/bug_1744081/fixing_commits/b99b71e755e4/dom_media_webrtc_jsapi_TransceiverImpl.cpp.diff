@@ -1,0 +1,35 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/jsapi/TransceiverImpl.cpp
+# Commit: b99b71e755e4
+# Full Hash: b99b71e755e470a5dd152a5d6313f3002b2b9ba9
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-12-18 09:43:08
+# Description:
+#   Bug 1744081 - Move VideoConduit::Shutdown asyncness ownership into VideoConduit. r=bryce,ng
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D133933
+# ==============================================================================
+
+diff -r f69c775a1024 -r b99b71e755e4 dom/media/webrtc/jsapi/TransceiverImpl.cpp
+--- a/dom/media/webrtc/jsapi/TransceiverImpl.cpp	Fri Dec 17 20:29:15 2021 +0000
++++ b/dom/media/webrtc/jsapi/TransceiverImpl.cpp	Fri Dec 17 20:34:18 2021 +0000
+@@ -1044,14 +1044,9 @@
+   }
+ 
+   if (mCallWrapper) {
+-    InvokeAsync(mCallWrapper->mCallThread, __func__,
+-                [conduit = std::move(mConduit)]() mutable {
+-                  if (conduit) {
+-                    conduit->Shutdown();
+-                  }
+-                  return GenericPromise::CreateAndResolve(
+-                      true, "TransceiverImpl conduit stopped");
+-                })
++    auto conduit = std::move(mConduit);
++    (conduit ? conduit->Shutdown()
++             : GenericPromise::CreateAndResolve(true, __func__))
+         ->Then(mMainThread, __func__,
+                [pipeline = mTransmitPipeline, receiver = mReceiver]() mutable {
+                  // Shutdown pipelines when conduits are guaranteed shut down,

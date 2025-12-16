@@ -1,0 +1,115 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxDWriteFontList.cpp
+# Commit: a8b9260fbdef
+# Full Hash: a8b9260fbdef0f3600dc0b8e2e245cb0f82c3470
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2021-09-08 21:39:05
+# Regressor Bug: 1715501
+# File Overlap Count: 1
+# Description:
+#   Bug 1715501 - patch 2 - Pass the presContext to platform font lookup methods so they can query it for font visibility. r=emilio
+#   
+#   This does not in itself change user-visible behavior, but is a foundation for bug
+#   1715507 where we will make the behavior per-context instead of global. This is basically
+#   just plumbing, passing a pointer to the presContext that's asking for fonts to be
+# ==============================================================================
+
+diff -r bed82cc6a625 -r a8b9260fbdef gfx/thebes/gfxDWriteFontList.cpp
+--- a/gfx/thebes/gfxDWriteFontList.cpp	Wed Sep 08 12:18:17 2021 +0000
++++ b/gfx/thebes/gfxDWriteFontList.cpp	Wed Sep 08 12:18:17 2021 +0000
+@@ -884,10 +884,11 @@
+ //   Arial to avoid this.
+ 
+ FontFamily gfxDWriteFontList::GetDefaultFontForPlatform(
+-    const gfxFontStyle* aStyle, nsAtom* aLanguage) {
++    nsPresContext* aPresContext, const gfxFontStyle* aStyle,
++    nsAtom* aLanguage) {
+   // try Arial first
+   FontFamily ff;
+-  ff = FindFamily("Arial"_ns);
++  ff = FindFamily(aPresContext, "Arial"_ns);
+   if (!ff.IsNull()) {
+     return ff;
+   }
+@@ -899,17 +900,19 @@
+       ::SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0);
+ 
+   if (status) {
+-    ff = FindFamily(NS_ConvertUTF16toUTF8(ncm.lfMessageFont.lfFaceName));
++    ff = FindFamily(aPresContext,
++                    NS_ConvertUTF16toUTF8(ncm.lfMessageFont.lfFaceName));
+   }
+ 
+   return ff;
+ }
+ 
+ gfxFontEntry* gfxDWriteFontList::LookupLocalFont(
+-    const nsACString& aFontName, WeightRange aWeightForEntry,
+-    StretchRange aStretchForEntry, SlantStyleRange aStyleForEntry) {
++    nsPresContext* aPresContext, const nsACString& aFontName,
++    WeightRange aWeightForEntry, StretchRange aStretchForEntry,
++    SlantStyleRange aStyleForEntry) {
+   if (SharedFontList()) {
+-    return LookupInSharedFaceNameList(aFontName, aWeightForEntry,
++    return LookupInSharedFaceNameList(aPresContext, aFontName, aWeightForEntry,
+                                       aStretchForEntry, aStyleForEntry);
+   }
+ 
+@@ -1985,9 +1988,10 @@
+ }
+ 
+ bool gfxDWriteFontList::FindAndAddFamilies(
+-    StyleGenericFontFamily aGeneric, const nsACString& aFamily,
+-    nsTArray<FamilyAndGeneric>* aOutput, FindFamiliesFlags aFlags,
+-    gfxFontStyle* aStyle, nsAtom* aLanguage, gfxFloat aDevToCssSize) {
++    nsPresContext* aPresContext, StyleGenericFontFamily aGeneric,
++    const nsACString& aFamily, nsTArray<FamilyAndGeneric>* aOutput,
++    FindFamiliesFlags aFlags, gfxFontStyle* aStyle, nsAtom* aLanguage,
++    gfxFloat aDevToCssSize) {
+   nsAutoCString keyName(aFamily);
+   BuildKeyNameFromFontName(keyName);
+ 
+@@ -1998,7 +2002,9 @@
+     }
+   } else {
+     gfxFontFamily* ff = mFontSubstitutes.GetWeak(keyName);
+-    if (ff) {
++    FontVisibility level =
++        aPresContext ? aPresContext->GetFontVisibility() : FontVisibility::User;
++    if (ff && IsVisibleToCSS(*ff, level)) {
+       aOutput->AppendElement(FamilyAndGeneric(ff, aGeneric));
+       return true;
+     }
+@@ -2009,7 +2015,8 @@
+   }
+ 
+   return gfxPlatformFontList::FindAndAddFamilies(
+-      aGeneric, keyName, aOutput, aFlags, aStyle, aLanguage, aDevToCssSize);
++      aPresContext, aGeneric, keyName, aOutput, aFlags, aStyle, aLanguage,
++      aDevToCssSize);
+ }
+ 
+ void gfxDWriteFontList::AddSizeOfExcludingThis(MallocSizeOf aMallocSizeOf,
+@@ -2104,8 +2111,8 @@
+ }
+ 
+ gfxFontEntry* gfxDWriteFontList::PlatformGlobalFontFallback(
+-    const uint32_t aCh, Script aRunScript, const gfxFontStyle* aMatchStyle,
+-    FontFamily& aMatchedFamily) {
++    nsPresContext* aPresContext, const uint32_t aCh, Script aRunScript,
++    const gfxFontStyle* aMatchStyle, FontFamily& aMatchedFamily) {
+   HRESULT hr;
+ 
+   RefPtr<IDWriteFactory> dwFactory = Factory::GetDWriteFactory();
+@@ -2169,7 +2176,8 @@
+     return nullptr;
+   }
+ 
+-  FontFamily family = FindFamily(mFallbackRenderer->FallbackFamilyName());
++  FontFamily family =
++      FindFamily(aPresContext, mFallbackRenderer->FallbackFamilyName());
+   if (!family.IsNull()) {
+     gfxFontEntry* fontEntry = nullptr;
+     if (family.mIsShared) {

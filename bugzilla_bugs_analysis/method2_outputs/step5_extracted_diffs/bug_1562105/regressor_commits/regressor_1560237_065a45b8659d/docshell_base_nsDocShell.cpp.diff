@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/nsDocShell.cpp
+# Commit: 065a45b8659d
+# Full Hash: 065a45b8659dc25fb91738a7625dab916b76d0b6
+# Author: Hiroyuki Ikezoe <hikezoe@mozilla.com>
+# Date: 2019-06-27 09:34:48
+# Regressor Bug: 1560237
+# File Overlap Count: 1
+# Description:
+#   Bug 1560237 - Introduce nsIScrollableFrame::IsSmoothScroll. r=botond
+#   
+#   This is pretty much the same as ScrollStyles::IsSmoothScroll right now,
+#   but in the next commit, we will no longer propagate scroll-behavior on <body> to
+#   the root element so that nsIScrollableFrame::IsSmoothScroll will be changed
+# ==============================================================================
+
+diff -r 2b77a507ec05 -r 065a45b8659d docshell/base/nsDocShell.cpp
+--- a/docshell/base/nsDocShell.cpp	Wed Jun 26 21:21:55 2019 +0000
++++ b/docshell/base/nsDocShell.cpp	Wed Jun 26 20:59:01 2019 +0000
+@@ -5718,11 +5718,8 @@
+   nsIScrollableFrame* sf = GetRootScrollFrame();
+   NS_ENSURE_TRUE(sf, NS_ERROR_FAILURE);
+ 
+-  ScrollMode scrollMode = ScrollMode::Instant;
+-  if (sf->GetScrollStyles().mScrollBehavior ==
+-      NS_STYLE_SCROLL_BEHAVIOR_SMOOTH) {
+-    scrollMode = ScrollMode::SmoothMsd;
+-  }
++  ScrollMode scrollMode =
++      sf->IsSmoothScroll() ? ScrollMode::SmoothMsd : ScrollMode::Instant;
+ 
+   nsPoint targetPos(aCurHorizontalPos, aCurVerticalPos);
+   sf->ScrollTo(targetPos, scrollMode);

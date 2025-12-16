@@ -1,0 +1,81 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/ClientWebGLContext.cpp
+# Commit: e1b0906509ef
+# Full Hash: e1b0906509efa6433978b9f980ec639b7eafbc6d
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Fix non-webgl CI tests. r=handyman
+#   
+#   * Revert some partial webgl+oop+vr code.
+#   * More missing FuncScope.
+#   * Fix compile errors.
+# ==============================================================================
+
+diff -r 7e2a2b1b416f -r e1b0906509ef dom/canvas/ClientWebGLContext.cpp
+--- a/dom/canvas/ClientWebGLContext.cpp	Wed Jan 08 22:19:23 2020 +0000
++++ b/dom/canvas/ClientWebGLContext.cpp	Wed Jan 08 22:19:26 2020 +0000
+@@ -359,18 +359,13 @@
+   return;
+ }
+ 
+-// If we are running WebGL in this process then call the HostWebGLContext
+-// method directly.  Otherwise, dispatch over IPC.
+-template <
+-    typename MethodType, MethodType method,
+-    typename ReturnType = typename FunctionTypeTraits<MethodType>::ReturnType,
+-    size_t Id = WebGLMethodDispatcher::Id<MethodType, method>(),
+-    typename... Args>
+-ReturnType ClientWebGLContext::Run(Args&&... aArgs) const {
++template <typename MethodType, MethodType method, typename ReturnType,
++          size_t Id, typename... Args>
++ReturnType RunOn(const ClientWebGLContext& context, Args&&... aArgs) {
+   const auto notLost =
+-      mNotLost;  // Hold a strong-ref to prevent LoseContext=>UAF.
+-  if (!mNotLost) return DefaultOrVoid<ReturnType>();
+-  const auto& inProcessContext = mNotLost->inProcess;
++      context.mNotLost;  // Hold a strong-ref to prevent LoseContext=>UAF.
++  if (!notLost) return DefaultOrVoid<ReturnType>();
++  const auto& inProcessContext = notLost->inProcess;
+   if (inProcessContext) {
+     return ((inProcessContext.get())->*method)(std::forward<Args>(aArgs)...);
+   }
+@@ -379,6 +374,20 @@
+   //                                                           aArgs...);
+ }
+ 
++// If we are running WebGL in this process then call the HostWebGLContext
++// method directly.  Otherwise, dispatch over IPC.
++template <typename MethodType, MethodType method, typename ReturnType,
++          typename... Args>
++// template <
++//    typename MethodType, MethodType method,
++//    typename ReturnType, size_t Id,
++//    typename... Args>
++ReturnType ClientWebGLContext::Run(Args&&... aArgs) const {
++  return RunOn<MethodType, method, ReturnType,
++               WebGLMethodDispatcher::Id<MethodType, method>(), Args...>(
++      *this, std::forward<Args>(aArgs)...);
++}
++
+ // -------------------------------------------------------------------------
+ // Client-side helper methods.  Dispatch to a Host method.
+ // -------------------------------------------------------------------------
+@@ -446,7 +455,12 @@
+ 
+ void ClientWebGLContext::Present() { Run<RPROC(Present)>(); }
+ 
+-void ClientWebGLContext::ClearVRFrame() { Run<RPROC(ClearVRFrame)>(); }
++void ClientWebGLContext::ClearVRFrame() const { Run<RPROC(ClearVRFrame)>(); }
++
++RefPtr<layers::SharedSurfaceTextureClient> ClientWebGLContext::GetVRFrame()
++    const {
++  return Run<RPROC(GetVRFrame)>();
++}
+ 
+ already_AddRefed<layers::Layer> ClientWebGLContext::GetCanvasLayer(
+     nsDisplayListBuilder* builder, Layer* oldLayer, LayerManager* manager) {

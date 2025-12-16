@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/u2f/U2F.cpp
+# Commit: d28545793e92
+# Full Hash: d28545793e92c94cf8355690574ea578e3e8b1c9
+# Author: J.C. Jones <jjones@mozilla.com>
+# Date: 2019-04-02 08:35:12
+# Regressor Bug: 1448408
+# File Overlap Count: 2
+# Description:
+#   Bug 1540378 - Web Authentication: Fix teardown during cycle collection r=keeler,mccr8
+#   
+#   In Bug 1448408 ("Don't listen to visibility events"), it became possible to
+#   close a tab without a visibility event to cause transactions to cancel. This
+#   is a longstanding bug that was covered up by the visibility events. This patch
+# ==============================================================================
+
+diff -r dccd58970fb0 -r d28545793e92 dom/u2f/U2F.cpp
+--- a/dom/u2f/U2F.cpp	Tue Apr 02 00:30:57 2019 +0000
++++ b/dom/u2f/U2F.cpp	Mon Apr 01 23:13:26 2019 +0000
+@@ -51,8 +51,16 @@
+ NS_IMPL_ADDREF_INHERITED(U2F, WebAuthnManagerBase)
+ NS_IMPL_RELEASE_INHERITED(U2F, WebAuthnManagerBase)
+ 
+-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_INHERITED(U2F, WebAuthnManagerBase,
+-                                                mTransaction)
++NS_IMPL_CYCLE_COLLECTION_CLASS(U2F)
++NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(U2F, WebAuthnManagerBase)
++  NS_IMPL_CYCLE_COLLECTION_UNLINK(mTransaction)
++  NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER
++  tmp->ClearTransaction();
++NS_IMPL_CYCLE_COLLECTION_UNLINK_END
++NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(U2F, WebAuthnManagerBase)
++  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTransaction)
++NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
++NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(U2F)
+ 
+ /***********************************************************************
+  * Utility Functions
+@@ -513,7 +521,7 @@
+ }
+ 
+ void U2F::ClearTransaction() {
+-  if (!NS_WARN_IF(mTransaction.isNothing())) {
++  if (!mTransaction.isNothing()) {
+     StopListeningForVisibilityEvents();
+   }
+ 

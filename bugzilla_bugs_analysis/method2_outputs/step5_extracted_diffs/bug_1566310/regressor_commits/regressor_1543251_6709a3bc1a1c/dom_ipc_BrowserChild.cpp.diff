@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/BrowserChild.cpp
+# Commit: 6709a3bc1a1c
+# Full Hash: 6709a3bc1a1c4ac18dce0f6db78efe12b3e1f178
+# Author: Kashav Madan <kmadan@mozilla.com>
+# Date: 2019-07-15 21:39:46
+# Regressor Bug: 1543251
+# File Overlap Count: 1
+# Description:
+#   Bug 1543251 - Move hasBeforeUnload from PBrowser to PWindowGlobal, r=nika
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D37003
+# ==============================================================================
+
+diff -r 83881815f007 -r 6709a3bc1a1c dom/ipc/BrowserChild.cpp
+--- a/dom/ipc/BrowserChild.cpp	Mon Jul 15 11:01:04 2019 +0000
++++ b/dom/ipc/BrowserChild.cpp	Mon Jul 15 17:30:26 2019 +0000
+@@ -355,7 +355,6 @@
+       mChromeFlags(aChromeFlags),
+       mMaxTouchPoints(0),
+       mLayersId{0},
+-      mBeforeUnloadListeners(0),
+       mEffectsInfo{EffectsInfo::FullyHidden()},
+       mDidFakeShow(false),
+       mNotified(false),
+@@ -3435,26 +3434,6 @@
+   return NS_OK;
+ }
+ 
+-void BrowserChild::BeforeUnloadAdded() {
+-  // Don't bother notifying the parent if we don't have an IPC link open.
+-  if (mBeforeUnloadListeners == 0 && IPCOpen()) {
+-    SendSetHasBeforeUnload(true);
+-  }
+-
+-  mBeforeUnloadListeners++;
+-  MOZ_ASSERT(mBeforeUnloadListeners >= 0);
+-}
+-
+-void BrowserChild::BeforeUnloadRemoved() {
+-  mBeforeUnloadListeners--;
+-  MOZ_ASSERT(mBeforeUnloadListeners >= 0);
+-
+-  // Don't bother notifying the parent if we don't have an IPC link open.
+-  if (mBeforeUnloadListeners == 0 && IPCOpen()) {
+-    SendSetHasBeforeUnload(false);
+-  }
+-}
+-
+ NS_IMETHODIMP BrowserChild::BeginSendingWebProgressEventsToParent() {
+   mShouldSendWebProgressEventsToParent = true;
+   return NS_OK;

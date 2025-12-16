@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/base/guid.h
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 3
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/base/guid.h
+--- a/security/sandbox/chromium/base/guid.h	Wed Jun 12 21:55:59 2019 +1200
++++ b/security/sandbox/chromium/base/guid.h	Wed Jun 12 11:10:48 2019 +0100
+@@ -15,12 +15,14 @@
+ 
+ namespace base {
+ 
+-// Generate a 128-bit (pseudo) random GUID in the form of version 4 as described
+-// in RFC 4122, section 4.4.
++// Generate a 128-bit random GUID in the form of version 4 as described in
++// RFC 4122, section 4.4.
+ // The format of GUID version 4 must be xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx,
+ // where y is one of [8, 9, A, B].
+ // The hexadecimal values "a" through "f" are output as lower case characters.
+-// If GUID generation fails an empty string is returned.
++//
++// A cryptographically secure random source will be used, but consider using
++// UnguessableToken for greater type-safety if GUID format is unnecessary.
+ BASE_EXPORT std::string GenerateGUID();
+ 
+ // Returns true if the input string conforms to the version 4 GUID format.
+@@ -28,12 +30,13 @@
+ // are in lower case characters, as Version 4 RFC says onput they're
+ // case insensitive. (Use IsValidGUIDOutputString for checking if the
+ // given string is valid output string)
+-BASE_EXPORT bool IsValidGUID(const base::StringPiece& guid);
++BASE_EXPORT bool IsValidGUID(base::StringPiece guid);
++BASE_EXPORT bool IsValidGUID(base::StringPiece16 guid);
+ 
+ // Returns true if the input string is valid version 4 GUID output string.
+ // This also checks if the hexadecimal values "a" through "f" are in lower
+ // case characters.
+-BASE_EXPORT bool IsValidGUIDOutputString(const base::StringPiece& guid);
++BASE_EXPORT bool IsValidGUIDOutputString(base::StringPiece guid);
+ 
+ // For unit testing purposes only.  Do not use outside of tests.
+ BASE_EXPORT std::string RandomDataToGUIDString(const uint64_t bytes[2]);

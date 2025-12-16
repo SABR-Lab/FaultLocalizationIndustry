@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/JitActivation.h
+# Commit: b620533c6d63
+# Full Hash: b620533c6d633ef50c5e5cb3ecd0f398206eb271
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-06-17 21:52:06
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Refactor wasm::Frame to reduce number of gnarly casts. r=lth,wingo
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D79072
+# ==============================================================================
+
+diff -r f7ec4a920540 -r b620533c6d63 js/src/vm/JitActivation.h
+--- a/js/src/vm/JitActivation.h	Wed Jun 17 11:41:13 2020 +0000
++++ b/js/src/vm/JitActivation.h	Wed Jun 17 12:04:54 2020 +0000
+@@ -119,15 +119,17 @@
+ 
+   bool hasExitFP() const { return !!packedExitFP_; }
+   uint8_t* jsOrWasmExitFP() const {
+-    return (uint8_t*)(uintptr_t(packedExitFP_) & ~wasm::ExitOrJitEntryFPTag);
++    if (hasWasmExitFP()) {
++      return wasm::Frame::toJitEntryCaller(packedExitFP_);
++    }
++    return packedExitFP_;
+   }
+   static size_t offsetOfPackedExitFP() {
+     return offsetof(JitActivation, packedExitFP_);
+   }
+ 
+-  bool hasJSExitFP() const {
+-    return !(uintptr_t(packedExitFP_) & wasm::ExitOrJitEntryFPTag);
+-  }
++  bool hasJSExitFP() const { return !hasWasmExitFP(); }
++
+   uint8_t* jsExitFP() const {
+     MOZ_ASSERT(hasJSExitFP());
+     return packedExitFP_;
+@@ -205,17 +207,17 @@
+ 
+   // WebAssembly specific attributes.
+   bool hasWasmExitFP() const {
+-    return uintptr_t(packedExitFP_) & wasm::ExitOrJitEntryFPTag;
++    return wasm::Frame::isExitOrJitEntryFP(packedExitFP_);
+   }
+   wasm::Frame* wasmExitFP() const {
+     MOZ_ASSERT(hasWasmExitFP());
+-    return reinterpret_cast<wasm::Frame*>(uintptr_t(packedExitFP_) &
+-                                          ~wasm::ExitOrJitEntryFPTag);
++    return reinterpret_cast<wasm::Frame*>(
++        wasm::Frame::toJitEntryCaller(packedExitFP_));
+   }
+   void setWasmExitFP(const wasm::Frame* fp) {
+     if (fp) {
+-      MOZ_ASSERT(!(uintptr_t(fp) & wasm::ExitOrJitEntryFPTag));
+-      packedExitFP_ = (uint8_t*)(uintptr_t(fp) | wasm::ExitOrJitEntryFPTag);
++      MOZ_ASSERT(!wasm::Frame::isExitOrJitEntryFP(fp));
++      packedExitFP_ = wasm::Frame::addExitOrJitEntryFPTag(fp);
+       MOZ_ASSERT(hasWasmExitFP());
+     } else {
+       packedExitFP_ = nullptr;

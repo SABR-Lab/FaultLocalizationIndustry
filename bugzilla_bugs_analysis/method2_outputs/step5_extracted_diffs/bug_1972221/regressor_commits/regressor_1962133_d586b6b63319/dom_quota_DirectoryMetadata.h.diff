@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/DirectoryMetadata.h
+# Commit: d586b6b63319
+# Full Hash: d586b6b633191a7c6ff251361b0442d98d06c764
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2025-06-15 09:03:40
+# Regressor Bug: 1962133
+# File Overlap Count: 14
+# Description:
+#   Bug 1962133 - QM: Add accessed flag to FullOriginMetadata and persist it in the origin metadata file; r=dom-storage-reviewers,hsingh
+#   
+#   This patch introduces a new mAccessed field in OriginStateMetadata, which is
+#   inherited by FullOriginMetadata. One of the reserved 32-bit fields in the
+#   metadata header is now used as a bitfield, with one bit allocated to represent
+# ==============================================================================
+
+diff -r ca3bdda9fbfd -r d586b6b63319 dom/quota/DirectoryMetadata.h
+--- a/dom/quota/DirectoryMetadata.h	Sat Jun 14 02:29:19 2025 +0000
++++ b/dom/quota/DirectoryMetadata.h	Sat Jun 14 02:46:33 2025 +0000
+@@ -39,9 +39,19 @@
+  * - bool mPersisted
+  *     True if the origin is marked as persisted and should survive origin
+  *     eviction.
+- * - uint32_t reservedData1
+- *     Reserved for future use. Must be zero. Validation fails if nonzero.
+- * - uint32_t reservedData2
++ * - uint32_t flags
++ *     A bitfield of DirectoryMetadataFlags used to store boolean state flags.
++ *     This field currently maps only to mAccessed. The defined flags are:
++ *       - Initialized: Always set when writing metadata; indicates that this
++ *         field contains valid flag bits. Older files written before this
++ *         flag was introduced will have this field set to zero.
++ *       - Accessed: Indicates whether the origin has been accessed by a quota
++ *         client. This maps directly to the mAccessed field in memory.
++ *
++ *     If the Initialized flag is not set, the flags field is considered
++ *     invalid and mAccessed is conservatively set to true to ensure a full
++ *     initialization scan.
++ * - uint32_t reservedData
+  *     Reserved for future use. Currently ignored.
+  *
+  * Legacy fields (still written and read for backward compatibility, but no

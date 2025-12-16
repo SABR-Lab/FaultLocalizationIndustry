@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/antitracking/StorageAccess.cpp
+# Commit: f0760609c946
+# Full Hash: f0760609c9464c348b6e04774f4ada2a52d84fec
+# Author: Tim Huang <tihuang@mozilla.com>
+# Date: 2024-06-04 21:04:23
+# Regressor Bug: 1900565
+# File Overlap Count: 1
+# Description:
+#   Bug 1900565 - Don't immediately return from the ShouldAllowAccessFor(nsIChannel) if the channel doesn't have target browsing context. r=bvandersloot
+#   
+#   The patch modifies the ShouldAllowAccessFor(nsIChannel) to handle the
+#   channels that don't have target browsing context. For example, the
+#   channel for loading shared worker scripts won't have a associated
+# ==============================================================================
+
+diff -r bc020350da05 -r f0760609c946 toolkit/components/antitracking/StorageAccess.cpp
+--- a/toolkit/components/antitracking/StorageAccess.cpp	Tue Jun 04 14:04:55 2024 +0000
++++ b/toolkit/components/antitracking/StorageAccess.cpp	Tue Jun 04 14:14:04 2024 +0000
+@@ -778,12 +778,17 @@
+   if (!targetBC) {
+     rv = loadInfo->GetWorkerAssociatedBrowsingContext(getter_AddRefs(targetBC));
+   }
+-  if (!targetBC || NS_WARN_IF(NS_FAILED(rv))) {
++
++  // We could have no target BC for the channel if it's for loading the script
++  // for remote workers, i.e. shared workers and service workers. In this case,
++  // we also don't have document, so we can skip the sandbox and the document
++  // check.
++  if (!targetBC) {
+     LOG(("No browsing context is available for the channel."));
+-    return false;
+   }
+ 
+-  if (Document::StorageAccessSandboxed(targetBC->GetSandboxFlags())) {
++  if (targetBC &&
++      Document::StorageAccessSandboxed(targetBC->GetSandboxFlags())) {
+     LOG(("Our document is sandboxed"));
+     *aRejectedReason = blockedReason;
+     return false;
+@@ -797,6 +802,7 @@
+   aChannel->GetIsDocument(&isDocument);
+ 
+   if (isDocument) {
++    MOZ_ASSERT(targetBC);
+     nsCOMPtr<nsPIDOMWindowInner> inner =
+         AntiTrackingUtils::GetInnerWindow(targetBC);
+     if (inner && inner->UsingStorageAccess()) {

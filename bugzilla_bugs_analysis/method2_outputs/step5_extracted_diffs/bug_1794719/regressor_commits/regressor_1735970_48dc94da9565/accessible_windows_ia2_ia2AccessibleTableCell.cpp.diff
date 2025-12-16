@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/windows/ia2/ia2AccessibleTableCell.cpp
+# Commit: 48dc94da9565
+# Full Hash: 48dc94da9565d7f804092209a27821d729ccde60
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2022-04-02 09:44:13
+# Regressor Bug: 1735970
+# File Overlap Count: 1
+# Description:
+#   Bug 1735970 part 3: Add TableAccessibleBase and TableCellAccessibleBase. r=morgan
+#   
+#   These are needed to support RemoteAccessible tables.
+#   Stuff specific to LocalAccessible is still in TableAccessible and TableCellAccessible, which now inherit from the new Base classes.
+#   
+# ==============================================================================
+
+diff -r 477c59860bba -r 48dc94da9565 accessible/windows/ia2/ia2AccessibleTableCell.cpp
+--- a/accessible/windows/ia2/ia2AccessibleTableCell.cpp	Fri Apr 01 09:49:56 2022 +0000
++++ b/accessible/windows/ia2/ia2AccessibleTableCell.cpp	Fri Apr 01 09:49:57 2022 +0000
+@@ -74,7 +74,7 @@
+   TableCellAccessible* tableCell = CellAcc();
+   if (!tableCell) return CO_E_OBJNOTCONNECTED;
+ 
+-  AutoTArray<LocalAccessible*, 10> cells;
++  AutoTArray<Accessible*, 10> cells;
+   tableCell->ColHeaderCells(&cells);
+ 
+   *aNColumnHeaderCells = cells.Length();
+@@ -84,9 +84,7 @@
+   if (!*aCellAccessibles) return E_OUTOFMEMORY;
+ 
+   for (uint32_t i = 0; i < cells.Length(); i++) {
+-    AccessibleWrap* cell = static_cast<AccessibleWrap*>(cells[i]);
+-    RefPtr<IAccessible> iaCell;
+-    cell->GetNativeInterface(getter_AddRefs(iaCell));
++    RefPtr<IAccessible> iaCell = MsaaAccessible::GetFrom(cells[i]);
+     iaCell.forget(&(*aCellAccessibles)[i]);
+   }
+ 
+@@ -127,7 +125,7 @@
+   TableCellAccessible* tableCell = CellAcc();
+   if (!tableCell) return CO_E_OBJNOTCONNECTED;
+ 
+-  AutoTArray<LocalAccessible*, 10> cells;
++  AutoTArray<Accessible*, 10> cells;
+   tableCell->RowHeaderCells(&cells);
+ 
+   *aNRowHeaderCells = cells.Length();
+@@ -136,9 +134,7 @@
+   if (!*aCellAccessibles) return E_OUTOFMEMORY;
+ 
+   for (uint32_t i = 0; i < cells.Length(); i++) {
+-    AccessibleWrap* cell = static_cast<AccessibleWrap*>(cells[i]);
+-    RefPtr<IAccessible> iaCell;
+-    cell->GetNativeInterface(getter_AddRefs(iaCell));
++    RefPtr<IAccessible> iaCell = MsaaAccessible::GetFrom(cells[i]);
+     iaCell.forget(&(*aCellAccessibles)[i]);
+   }
+ 

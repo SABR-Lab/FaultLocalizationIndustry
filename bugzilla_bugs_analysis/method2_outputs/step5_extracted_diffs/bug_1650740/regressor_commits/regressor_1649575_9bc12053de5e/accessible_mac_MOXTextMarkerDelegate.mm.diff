@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/mac/MOXTextMarkerDelegate.mm
+# Commit: 9bc12053de5e
+# Full Hash: 9bc12053de5e6b071d41c81d82859d1567c80c42
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2020-07-03 03:56:55
+# Regressor Bug: 1649575
+# File Overlap Count: 2
+# Description:
+#   Bug 1649575 - Part 4: Introduce GeckoTextMarker and GeckoTextMarkerRange. r=morgan
+#   
+#   These classes do a few things:
+#   1. They implement and abstract common text operations, for example:
+#    (a) comparing two markers to know which one precedes the other.
+# ==============================================================================
+
+diff -r 0441d1553b6b -r 9bc12053de5e accessible/mac/MOXTextMarkerDelegate.mm
+--- a/accessible/mac/MOXTextMarkerDelegate.mm	Thu Jul 02 21:33:07 2020 +0000
++++ b/accessible/mac/MOXTextMarkerDelegate.mm	Thu Jul 02 21:35:05 2020 +0000
+@@ -46,11 +46,17 @@
+ }
+ 
+ - (id)moxStartTextMarker {
+-  return nil;
++  GeckoTextMarker geckoTextPoint(mGeckoDocAccessible, 0);
++  return geckoTextPoint.CreateAXTextMarker();
+ }
+ 
+ - (id)moxEndTextMarker {
+-  return nil;
++  uint32_t characterCount =
++      mGeckoDocAccessible.IsProxy()
++          ? mGeckoDocAccessible.AsProxy()->CharacterCount()
++          : mGeckoDocAccessible.AsAccessible()->Document()->AsHyperText()->CharacterCount();
++  GeckoTextMarker geckoTextPoint(mGeckoDocAccessible, characterCount);
++  return geckoTextPoint.CreateAXTextMarker();
+ }
+ 
+ - (NSString*)moxStringForTextMarkerRange:(id)textMarkerRange {
+@@ -62,7 +68,18 @@
+ }
+ 
+ - (id)moxTextMarkerRangeForUnorderedTextMarkers:(NSArray*)textMarkers {
+-  return nil;
++  if ([textMarkers count] != 2) {
++    // Don't allow anything but a two member array.
++    return nil;
++  }
++
++  GeckoTextMarker p1(mGeckoDocAccessible, textMarkers[0]);
++  GeckoTextMarker p2(mGeckoDocAccessible, textMarkers[1]);
++
++  bool ordered = p1 < p2;
++  GeckoTextMarkerRange range(ordered ? p1 : p2, ordered ? p2 : p1);
++
++  return range.CreateAXTextMarkerRange();
+ }
+ 
+ @end

@@ -1,0 +1,106 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/vr/ipc/VRLayerParent.cpp
+# Commit: 71c122ac0ca7
+# Full Hash: 71c122ac0ca73391866b1ef19f4f82bc2d28568b
+# Author: David Parks <davidp99@gmail.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Initial out-of-process WebGL implementation. r=mccr8,handyman
+#   
+#   Splits WebGLContext into ClientWebGLContext and HostWebGLContext.  The Client enables the JS-control of a WebGL context in a content procecss while the Host executes the WebGL graphics operations (via a WebGLContext that maintains much of the existing code) in the compositor process.  At this point, the cross-process behavior is disabled -- this series of patches is an incremental step toward that final goal.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D54018
+# ==============================================================================
+
+diff -r 5cbf5bb11c58 -r 71c122ac0ca7 gfx/vr/ipc/VRLayerParent.cpp
+--- a/gfx/vr/ipc/VRLayerParent.cpp	Wed Jan 08 21:52:03 2020 +0000
++++ b/gfx/vr/ipc/VRLayerParent.cpp	Wed Jan 08 22:19:14 2020 +0000
+@@ -5,8 +5,12 @@
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
+ #include "VRLayerParent.h"
++
++#include "mozilla/dom/WebGLParent.h"
++#include "mozilla/layers/CompositorThread.h"
+ #include "mozilla/Unused.h"
+-#include "mozilla/layers/CompositorThread.h"
++#include "SharedSurface.h"
++#include "SurfaceTypes.h"
+ 
+ namespace mozilla {
+ using namespace layers;
+@@ -39,15 +43,67 @@
+ }
+ 
+ mozilla::ipc::IPCResult VRLayerParent::RecvSubmitFrame(
+-    const layers::SurfaceDescriptor& aTexture, const uint64_t& aFrameId,
+-    const gfx::Rect& aLeftEyeRect, const gfx::Rect& aRightEyeRect) {
++    mozilla::dom::PWebGLParent* aPWebGLParent, const uint64_t& aFrameId,
++    const uint64_t& aLastFrameId, const gfx::Rect& aLeftEyeRect,
++    const gfx::Rect& aRightEyeRect) {
++  // Keep the SharedSurfaceTextureClient alive long enough for
++  // 1 extra frame, accomodating overlapped asynchronous rendering.
++  mLastFrameTexture = mThisFrameTexture;
++
++  auto webGLParent = static_cast<mozilla::dom::WebGLParent*>(aPWebGLParent);
++  if (!webGLParent) {
++    return IPC_OK();
++  }
++
++#if defined(MOZ_WIDGET_ANDROID)
++  /**
++   * Do not blit WebGL to a SurfaceTexture until the last submitted frame is
++   * already processed and the new frame poses are ready. SurfaceTextures need
++   * to be released in the VR render thread in order to allow to be used again
++   * in the WebGLContext GLScreenBuffer producer. Not doing so causes some
++   * freezes, crashes or other undefined behaviour.
++   * DLP: TODO: Umm... not even the same process as before so...
++   */
++  if (!mThisFrameTexture || aLastFrameId == mLastSubmittedFrameId) {
++    mThisFrameTexture = webGLParent->GetVRFrame();
++  }
++#else
++  mThisFrameTexture = webGLParent->GetVRFrame();
++#endif  // defined(MOZ_WIDGET_ANDROID)
++
++  if (!mThisFrameTexture) {
++    return IPC_OK();
++  }
++
++  // TODO: I killed all of the syncObject stuff rather than move it here
++  // cause my current understanding is that it isn't needed here.
++
++  gl::SharedSurface* surf = mThisFrameTexture->Surf();
++  if (surf->mType == gl::SharedSurfaceType::Basic) {
++    gfxCriticalError() << "SharedSurfaceType::Basic not supported for WebVR";
++    return IPC_OK();
++  }
++
++  layers::SurfaceDescriptor desc;
++  if (!surf->ToSurfaceDescriptor(&desc)) {
++    gfxCriticalError() << "SharedSurface::ToSurfaceDescriptor failed in "
++                          "VRLayerParent::SubmitFrame";
++    return IPC_OK();
++  }
++
+   if (mVRDisplayID) {
+     VRManager* vm = VRManager::Get();
+-    vm->SubmitFrame(this, aTexture, aFrameId, aLeftEyeRect, aRightEyeRect);
++    vm->SubmitFrame(this, desc, aFrameId, aLeftEyeRect, aRightEyeRect);
+   }
+ 
+   return IPC_OK();
+ }
+ 
++mozilla::ipc::IPCResult VRLayerParent::RecvClearSurfaces() {
++  mThisFrameTexture = nullptr;
++  mLastFrameTexture = nullptr;
++  return IPC_OK();
++}
++
+ }  // namespace gfx
+ }  // namespace mozilla

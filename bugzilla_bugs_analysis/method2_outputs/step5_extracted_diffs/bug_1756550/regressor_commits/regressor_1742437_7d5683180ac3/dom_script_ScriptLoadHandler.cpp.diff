@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/script/ScriptLoadHandler.cpp
+# Commit: 7d5683180ac3
+# Full Hash: 7d5683180ac3f9e7cc96d68dde27b8b48642a7ac
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-02-18 09:08:22
+# Regressor Bug: 1742437
+# File Overlap Count: 5
+# Description:
+#   Bug 1742437 - re-scope all generic module/script loader files under js/loader; r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D138133
+# ==============================================================================
+
+diff -r a48aff5f2555 -r 7d5683180ac3 dom/script/ScriptLoadHandler.cpp
+--- a/dom/script/ScriptLoadHandler.cpp	Thu Feb 17 15:57:52 2022 +0000
++++ b/dom/script/ScriptLoadHandler.cpp	Thu Feb 17 15:57:52 2022 +0000
+@@ -11,6 +11,7 @@
+ #include "ScriptLoader.h"
+ #include "ScriptTrace.h"
+ #include "js/Transcoding.h"
++#include "js/loader/ScriptLoadRequest.h"
+ #include "mozilla/Assertions.h"
+ #include "mozilla/CheckedInt.h"
+ #include "mozilla/DebugOnly.h"
+@@ -24,7 +25,6 @@
+ #include "mozilla/dom/Document.h"
+ #include "mozilla/dom/SRICheck.h"
+ #include "mozilla/dom/ScriptDecoding.h"
+-#include "mozilla/dom/ScriptLoadRequest.h"
+ #include "nsCOMPtr.h"
+ #include "nsContentUtils.h"
+ #include "nsDebug.h"
+@@ -50,7 +50,7 @@
+   MOZ_LOG_TEST(ScriptLoader::gScriptLoaderLog, mozilla::LogLevel::Debug)
+ 
+ ScriptLoadHandler::ScriptLoadHandler(
+-    ScriptLoader* aScriptLoader, ScriptLoadRequest* aRequest,
++    ScriptLoader* aScriptLoader, JS::loader::ScriptLoadRequest* aRequest,
+     UniquePtr<SRICheckDataVerifier>&& aSRIDataVerifier)
+     : mScriptLoader(aScriptLoader),
+       mRequest(aRequest),
+@@ -76,7 +76,7 @@
+   }
+ 
+   // Reference to the script source buffer which we will update.
+-  ScriptLoadRequest::ScriptTextBuffer<Unit>& scriptText =
++  JS::loader::ScriptLoadRequest::ScriptTextBuffer<Unit>& scriptText =
+       mRequest->ScriptText<Unit>();
+ 
+   uint32_t haveRead = scriptText.length();

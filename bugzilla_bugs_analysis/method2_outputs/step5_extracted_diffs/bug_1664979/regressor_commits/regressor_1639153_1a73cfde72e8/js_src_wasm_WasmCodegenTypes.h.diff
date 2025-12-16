@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmCodegenTypes.h
+# Commit: 1a73cfde72e8
+# Full Hash: 1a73cfde72e8f4d19bdcfdbffa9fbc78bba01e24
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2021-09-28 09:54:33
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Introduce indirect stubs to optimize call_indirect. r=lth
+#   
+#   This patch introduces indirect stubs.
+#   An indirect stub is a stub that takes care of any switching activities needed for call_indirect.
+#   Before this patch, we have to conservatively assume that any call_indirect's target can be from a foreign instance,
+# ==============================================================================
+
+diff -r da3c5d8492db -r 1a73cfde72e8 js/src/wasm/WasmCodegenTypes.h
+--- a/js/src/wasm/WasmCodegenTypes.h	Tue Sep 28 05:16:23 2021 +0000
++++ b/js/src/wasm/WasmCodegenTypes.h	Tue Sep 28 05:24:15 2021 +0000
+@@ -245,7 +245,9 @@
+     TrapExit,          // calls C++ to report and jumps to throw stub
+     DebugTrap,         // calls C++ to handle debug event
+     FarJumpIsland,     // inserted to connect otherwise out-of-range insns
+-    Throw              // special stack-unwinding stub jumped to by other stubs
++    Throw,             // special stack-unwinding stub jumped to by other stubs
++    IndirectStub,  // a stub that take care of switching instance specific state
++                   // at cross-instance boundaries
+   };
+ 
+  private:
+@@ -327,8 +329,9 @@
+   bool isJitEntry() const { return kind() == JitEntry; }
+   bool isInterpEntry() const { return kind() == InterpEntry; }
+   bool isEntry() const { return isInterpEntry() || isJitEntry(); }
++  bool isIndirectStub() const { return kind() == IndirectStub; }
+   bool hasFuncIndex() const {
+-    return isFunction() || isImportExit() || isEntry();
++    return isFunction() || isImportExit() || isEntry() || isIndirectStub();
+   }
+   uint32_t funcIndex() const {
+     MOZ_ASSERT(hasFuncIndex());
+@@ -410,7 +413,8 @@
+ 
+   enum Kind {
+     Func,        // pc-relative call to a specific function
+-    Dynamic,     // dynamic callee called via register
++    Import,      // wasm import call
++    Indirect,    // wasm indirect call
+     Symbolic,    // call to a single symbolic callee
+     EnterFrame,  // call to a enter frame handler
+     LeaveFrame,  // call to a leave frame handler
+@@ -427,7 +431,8 @@
+   }
+   uint32_t lineOrBytecode() const { return lineOrBytecode_; }
+   Kind kind() const { return Kind(kind_); }
+-  bool mightBeCrossInstance() const { return kind() == CallSiteDesc::Dynamic; }
++  bool isImportCall() const { return kind() == CallSiteDesc::Import; }
++  bool isIndirectCall() const { return kind() == CallSiteDesc::Indirect; }
+ };
+ 
+ class CallSite : public CallSiteDesc {

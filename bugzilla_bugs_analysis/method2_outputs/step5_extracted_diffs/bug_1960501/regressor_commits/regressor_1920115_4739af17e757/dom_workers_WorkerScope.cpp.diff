@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/WorkerScope.cpp
+# Commit: 4739af17e757
+# Full Hash: 4739af17e757724c0833a8564579833249389566
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2025-02-27 21:52:52
+# Regressor Bug: 1920115
+# File Overlap Count: 2
+# Description:
+#   Bug 1920115 - Allow high priority tasks to run before timers r=smaug
+#   
+#   In Gecko, unlike other runnables where the TaskController
+#   picks one each at a time, the TimeoutManager allows multiple
+#   timers to run sequentially without allowing other runnables
+# ==============================================================================
+
+diff -r 0773f669c498 -r 4739af17e757 dom/workers/WorkerScope.cpp
+--- a/dom/workers/WorkerScope.cpp	Thu Feb 27 16:17:36 2025 +0000
++++ b/dom/workers/WorkerScope.cpp	Thu Feb 27 16:17:36 2025 +0000
+@@ -771,6 +771,13 @@
+                                     Timeout::Reason::eTimeoutOrInterval, aRv);
+ }
+ 
++bool WorkerGlobalScope::HasScheduledNormalOrHighPriorityWebTasks() const {
++  if (!mWebTaskScheduler) {
++    return false;
++  }
++  return mWebTaskScheduler->HasScheduledNormalOrHighPriorityWebTasks();
++}
++
+ void WorkerGlobalScope::GetOrigin(nsAString& aOrigin) const {
+   AssertIsOnWorkerThread();
+   nsContentUtils::GetWebExposedOriginSerialization(

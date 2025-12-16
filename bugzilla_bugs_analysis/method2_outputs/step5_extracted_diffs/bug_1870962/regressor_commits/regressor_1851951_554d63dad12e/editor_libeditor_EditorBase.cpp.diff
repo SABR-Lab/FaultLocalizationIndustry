@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/EditorBase.cpp
+# Commit: 554d63dad12e
+# Full Hash: 554d63dad12e4d1f2560e99de1fafac9a97da026
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2023-09-27 09:02:41
+# Regressor Bug: 1851951
+# File Overlap Count: 1
+# Description:
+#   Bug 1851951 - Make `HTMLEditor` refer computed `display` instead of the HTML default style at considering block or inline element r=m_kato
+#   
+#   Blink [1] and WebKit [2] refers `display-outside` value when they consider whether an
+#   element is a block or an inline.
+#   
+# ==============================================================================
+
+diff -r 97dc7be3b93c -r 554d63dad12e editor/libeditor/EditorBase.cpp
+--- a/editor/libeditor/EditorBase.cpp	Wed Sep 27 02:50:33 2023 +0000
++++ b/editor/libeditor/EditorBase.cpp	Wed Sep 27 03:01:26 2023 +0000
+@@ -4060,6 +4060,8 @@
+     // of previous editable content.
+     nsIContent* previousEditableContent = HTMLEditUtils::GetPreviousContent(
+         *point.GetContainer(), {WalkTreeOption::IgnoreNonEditableNode},
++        IsTextEditor() ? BlockInlineCheck::UseHTMLDefaultStyle
++                       : BlockInlineCheck::UseComputedDisplayOutsideStyle,
+         anonymousDivOrEditingHost);
+     if (!previousEditableContent) {
+       NS_WARNING("There was no editable content before the collapsed range");
+@@ -4108,6 +4110,8 @@
+     // next editable content.
+     nsIContent* nextEditableContent = HTMLEditUtils::GetNextContent(
+         *point.GetContainer(), {WalkTreeOption::IgnoreNonEditableNode},
++        IsTextEditor() ? BlockInlineCheck::UseHTMLDefaultStyle
++                       : BlockInlineCheck::UseComputedDisplayOutsideStyle,
+         anonymousDivOrEditingHost);
+     if (!nextEditableContent) {
+       NS_WARNING("There was no editable content after the collapsed range");
+@@ -4175,9 +4179,11 @@
+         aHowToHandleCollapsedRange == HowToHandleCollapsedRange::ExtendBackward
+             ? HTMLEditUtils::GetPreviousContent(
+                   point, {WalkTreeOption::IgnoreNonEditableNode},
++                  BlockInlineCheck::UseComputedDisplayOutsideStyle,
+                   anonymousDivOrEditingHost)
+             : HTMLEditUtils::GetNextContent(
+                   point, {WalkTreeOption::IgnoreNonEditableNode},
++                  BlockInlineCheck::UseComputedDisplayOutsideStyle,
+                   anonymousDivOrEditingHost);
+     if (!editableContent) {
+       NS_WARNING("There was no editable content around the collapsed range");
+@@ -4191,9 +4197,11 @@
+                   HowToHandleCollapsedRange::ExtendBackward
+               ? HTMLEditUtils::GetPreviousContent(
+                     *editableContent, {WalkTreeOption::IgnoreNonEditableNode},
++                    BlockInlineCheck::UseComputedDisplayOutsideStyle,
+                     anonymousDivOrEditingHost)
+               : HTMLEditUtils::GetNextContent(
+                     *editableContent, {WalkTreeOption::IgnoreNonEditableNode},
++                    BlockInlineCheck::UseComputedDisplayOutsideStyle,
+                     anonymousDivOrEditingHost);
+     }
+     if (!editableContent) {

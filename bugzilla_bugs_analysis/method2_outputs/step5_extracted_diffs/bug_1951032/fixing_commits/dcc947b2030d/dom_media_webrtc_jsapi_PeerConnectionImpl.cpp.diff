@@ -1,0 +1,40 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/jsapi/PeerConnectionImpl.cpp
+# Commit: dcc947b2030d
+# Full Hash: dcc947b2030d4f00397dd7c58e1d8a0fdd6443a1
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2025-03-01 09:17:11
+# Description:
+#   Bug 1951032 - Hypothetical fix for unlink of RTCPeerConnection that failed to init. r=bwc
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D239994
+# ==============================================================================
+
+diff -r c8dfbf5b0342 -r dcc947b2030d dom/media/webrtc/jsapi/PeerConnectionImpl.cpp
+--- a/dom/media/webrtc/jsapi/PeerConnectionImpl.cpp	Fri Feb 28 13:44:06 2025 +0000
++++ b/dom/media/webrtc/jsapi/PeerConnectionImpl.cpp	Fri Feb 28 14:22:25 2025 +0000
+@@ -457,9 +457,9 @@
+ 
+   // We do callback handling on STS instead of main to avoid media jank.
+   // Someday, we may have a dedicated thread for this.
+-  mTransportHandler = MediaTransportHandler::Create(mSTSThread);
++  RefPtr transportHandler = MediaTransportHandler::Create(mSTSThread);
+   if (mPrivateWindow) {
+-    mTransportHandler->EnterPrivateMode();
++    transportHandler->EnterPrivateMode();
+   }
+ 
+   // Initialize NSS if we are in content process. For chrome process, NSS should
+@@ -500,6 +500,10 @@
+   res = PeerConnectionCtx::InitializeGlobal();
+   NS_ENSURE_SUCCESS(res, res);
+ 
++  // Only set mTransportHandler here, after the NS_ENSURE_ exit guards, to not
++  // leave it in an unusable state -- CreateIceCtx must have been called for
++  // other calls to work.
++  mTransportHandler = std::move(transportHandler);
+   mTransportHandler->CreateIceCtx("PC:" + GetName());
+ 
+   mJsepSession =

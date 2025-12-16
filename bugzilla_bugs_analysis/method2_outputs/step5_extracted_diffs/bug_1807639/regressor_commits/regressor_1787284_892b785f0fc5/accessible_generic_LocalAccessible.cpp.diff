@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/generic/LocalAccessible.cpp
+# Commit: 892b785f0fc5
+# Full Hash: 892b785f0fc5126b67898f2534789160b89e8744
+# Author: Morgan Rae Reschenberg <mreschenberg@mozilla.com>
+# Date: 2022-10-28 04:43:55
+# Regressor Bug: 1787284
+# File Overlap Count: 1
+# Description:
+#   Bug 1787284: [Part 2] Cache name and create radio name pivot rule r=eeejay
+#   
+#   Depends on D158892
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D159118
+# ==============================================================================
+
+diff -r d3d8e4d17161 -r 892b785f0fc5 accessible/generic/LocalAccessible.cpp
+--- a/accessible/generic/LocalAccessible.cpp	Thu Oct 27 20:32:17 2022 +0000
++++ b/accessible/generic/LocalAccessible.cpp	Thu Oct 27 20:32:18 2022 +0000
+@@ -3618,6 +3618,21 @@
+   }
+ 
+   if (aCacheDomain & CacheDomain::Relations && mContent) {
++    if (IsHTMLRadioButton()) {
++      // HTML radio buttons with the same name should be grouped
++      // and returned together when their MEMBER_OF relation is
++      // requested. We cache the name attribute, if it exists, here.
++      nsString name;
++      mContent->AsElement()->GetAttr(kNameSpaceID_None, nsGkAtoms::name, name);
++      if (!name.IsEmpty()) {
++        fields->SetAttribute(nsGkAtoms::radioLabel, std::move(name));
++      } else if (aUpdateType != CacheUpdateType::Initial) {
++        // It's possible we used to have a name and it's since been
++        // removed. Send a delete entry.
++        fields->SetAttribute(nsGkAtoms::radioLabel, DeleteEntry());
++      }
++    }
++
+     for (auto const& data : kRelationTypeAtoms) {
+       nsTArray<uint64_t> ids;
+       nsStaticAtom* const relAtom = data.mAtom;

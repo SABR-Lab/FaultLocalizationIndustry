@@ -1,0 +1,92 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/mac/MOXAccessibleBase.mm
+# Commit: 0441d1553b6b
+# Full Hash: 0441d1553b6bbf99d711300680eccd335e0b3545
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2020-07-03 03:56:55
+# Regressor Bug: 1649575
+# File Overlap Count: 1
+# Description:
+#   Bug 1649575 - Part 3: Introduce MOXTextMarkerDelegate. r=morgan
+#   
+#   The delegate is associated with accessible documents (either local or remote).
+#   
+#   I made a separate protocol for all the text marker stuff as it really is a seperate API.
+# ==============================================================================
+
+diff -r 65f8e705d730 -r 0441d1553b6b accessible/mac/MOXAccessibleBase.mm
+--- a/accessible/mac/MOXAccessibleBase.mm	Thu Jul 02 21:24:39 2020 +0000
++++ b/accessible/mac/MOXAccessibleBase.mm	Thu Jul 02 21:33:07 2020 +0000
+@@ -90,6 +90,11 @@
+       }
+     }
+ 
++    // If we have a delegate add all the text marker attributes.
++    if ([self moxTextMarkerDelegate]) {
++      [attributes addObjectsFromArray:[mac::TextAttributeGetters() allKeys]];
++    }
++
+     // We store a hash table with types as keys, and atttribute lists as values.
+     // This lets us cache the atttribute list of each subclass so we only
+     // need to gather its MOXAccessible methods once.
+@@ -115,6 +120,17 @@
+     if ([self isSelectorSupported:selector]) {
+       value = [self performSelector:selector];
+     }
++  } else if (id textMarkerDelegate = [self moxTextMarkerDelegate]) {
++    // If we have a delegate, check if attribute is a text marker
++    // attribute and call the associated selector on the delegate
++    // if so.
++    NSDictionary* textMarkerGetters = mac::TextAttributeGetters();
++    if (textMarkerGetters[attribute]) {
++      SEL selector = NSSelectorFromString(textMarkerGetters[attribute]);
++      if ([textMarkerDelegate respondsToSelector:selector]) {
++        value = [textMarkerDelegate performSelector:selector];
++      }
++    }
+   }
+ 
+   if ([value isMozAccessible]) {
+@@ -243,6 +259,11 @@
+     }
+   }
+ 
++  // If we have a delegate add all the text marker attributes.
++  if ([self moxTextMarkerDelegate]) {
++    [attributeNames addObjectsFromArray:[mac::ParameterizedTextAttributeGetters() allKeys]];
++  }
++
+   return attributeNames;
+ 
+   NS_OBJC_END_TRY_ABORT_BLOCK_NIL;
+@@ -261,6 +282,17 @@
+     if ([self isSelectorSupported:selector]) {
+       return [self performSelector:selector withObject:parameter];
+     }
++  } else if (id textMarkerDelegate = [self moxTextMarkerDelegate]) {
++    // If we have a delegate, check if attribute is a text marker
++    // attribute and call the associated selector on the delegate
++    // if so.
++    NSDictionary* textMarkerGetters = mac::ParameterizedTextAttributeGetters();
++    if (textMarkerGetters[attribute]) {
++      SEL selector = NSSelectorFromString(textMarkerGetters[attribute]);
++      if ([textMarkerDelegate respondsToSelector:selector]) {
++        return [textMarkerDelegate performSelector:selector withObject:parameter];
++      }
++    }
+   }
+ 
+   return nil;
+@@ -320,6 +352,10 @@
+   return NO;
+ }
+ 
++- (id<MOXTextMarkerSupport>)moxTextMarkerDelegate {
++  return nil;
++}
++
+ #pragma mark -
+ 
+ - (BOOL)isExpired {

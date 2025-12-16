@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/ActorsParent.cpp
+# Commit: d6c086ca5780
+# Full Hash: d6c086ca57803c699016d97f940c49619642b769
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2019-12-04 16:22:31
+# Regressor Bug: 1600906
+# File Overlap Count: 1
+# Description:
+#   Bug 1600906 - Make use of FlippedOnce in VersionChangeTransaction. r=dom-workers-and-storage-reviewers,ytausky
+#   
+#   Depends on D55081
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D55674
+# ==============================================================================
+
+diff -r 808799f11727 -r d6c086ca5780 dom/indexedDB/ActorsParent.cpp
+--- a/dom/indexedDB/ActorsParent.cpp	Wed Dec 04 09:00:36 2019 +0000
++++ b/dom/indexedDB/ActorsParent.cpp	Tue Dec 03 18:14:37 2019 +0000
+@@ -6463,7 +6463,7 @@
+   RefPtr<OpenDatabaseOp> mOpenDatabaseOp;
+   RefPtr<FullDatabaseMetadata> mOldMetadata;
+ 
+-  bool mActorWasAlive;
++  FlippedOnce<false> mActorWasAlive;
+ 
+  private:
+   // Only called by OpenDatabaseOp.
+@@ -14646,8 +14646,7 @@
+     OpenDatabaseOp* aOpenDatabaseOp)
+     : TransactionBase(aOpenDatabaseOp->mDatabase,
+                       IDBTransaction::Mode::VersionChange),
+-      mOpenDatabaseOp(aOpenDatabaseOp),
+-      mActorWasAlive(false) {
++      mOpenDatabaseOp(aOpenDatabaseOp) {
+   AssertIsOnBackgroundThread();
+   MOZ_ASSERT(aOpenDatabaseOp);
+ }
+@@ -14671,10 +14670,9 @@
+ 
+ void VersionChangeTransaction::SetActorAlive() {
+   AssertIsOnBackgroundThread();
+-  MOZ_ASSERT(!mActorWasAlive);
+   MOZ_ASSERT(!IsActorDestroyed());
+ 
+-  mActorWasAlive = true;
++  mActorWasAlive.Flip();
+ 
+   // This reference will be absorbed by IPDL and released when the actor is
+   // destroyed.

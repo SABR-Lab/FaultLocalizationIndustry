@@ -1,0 +1,34 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: accessible/base/nsAccUtils.cpp
+# Commit: 57434a88c266
+# Full Hash: 57434a88c266e90a7f4448f87c3c8ba882e383d1
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2022-11-29 21:47:49
+# Description:
+#   Bug 1801879: Don't cross document boundaries in nsAccUtils::GetSelectableContainer. r=eeejay,geckoview-reviewers,owlish
+#   
+#   Trying to access a local OuterDocAccessible from the Android UI thread was causing a crash.
+#   We shouldn't be crossing document boundaries anyway.
+#   
+# ==============================================================================
+
+diff -r 58bf4c34d5c2 -r 57434a88c266 accessible/base/nsAccUtils.cpp
+--- a/accessible/base/nsAccUtils.cpp	Tue Nov 29 05:15:07 2022 +0000
++++ b/accessible/base/nsAccUtils.cpp	Tue Nov 29 05:18:23 2022 +0000
+@@ -194,10 +194,13 @@
+   if (!aAccessible) return nullptr;
+ 
+   if (!(aState & states::SELECTABLE)) return nullptr;
++  MOZ_ASSERT(!aAccessible->IsDoc());
+ 
+   const Accessible* parent = aAccessible;
+   while ((parent = parent->Parent()) && !parent->IsSelect()) {
+-    if (parent->Role() == roles::PANE) return nullptr;
++    if (parent->IsDoc() || parent->Role() == roles::PANE) {
++      return nullptr;
++    }
+   }
+   return const_cast<Accessible*>(parent);
+ }

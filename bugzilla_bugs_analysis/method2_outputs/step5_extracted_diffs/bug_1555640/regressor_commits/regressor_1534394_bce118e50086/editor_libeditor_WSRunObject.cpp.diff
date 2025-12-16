@@ -1,0 +1,32 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/WSRunObject.cpp
+# Commit: bce118e50086
+# Full Hash: bce118e5008697bd366667c54b599d63baea9198
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2019-05-30 21:48:30
+# Regressor Bug: 1534394
+# File Overlap Count: 1
+# Description:
+#   Bug 1555640 - Check if `aPointAfterInsertedString` is nullptr when `WSRunObject::InsertText()` sets its value r=m_kato
+#   
+#   `aPointAfterInsertedString` of `WSRunObject::InsertText()` is optional (i.e.,
+#   may be nullptr).  However, the fix for bug 1534394 makes it always set to
+#   original insertion point when `InsertTextWithTransaction()` is failed.
+# ==============================================================================
+
+diff -r 1ecaa6d17535 -r bce118e50086 editor/libeditor/WSRunObject.cpp
+--- a/editor/libeditor/WSRunObject.cpp	Thu May 30 11:33:29 2019 +0000
++++ b/editor/libeditor/WSRunObject.cpp	Thu May 30 10:32:44 2019 +0000
+@@ -380,7 +380,9 @@
+                                       aPointAfterInsertedString);
+   if (NS_WARN_IF(NS_FAILED(rv))) {
+     // XXX Temporarily, set new insertion point to the original point.
+-    *aPointAfterInsertedString = pointToInsert;
++    if (aPointAfterInsertedString) {
++      *aPointAfterInsertedString = pointToInsert;
++    }
+     return NS_OK;
+   }
+   return NS_OK;

@@ -1,0 +1,82 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/html/HTMLPictureElement.cpp
+# Commit: 2b4d9516b882
+# Full Hash: 2b4d9516b882be621bcec24dc7310f32243c9549
+# Author: Boris Chiou <boris.chiou@gmail.com>
+# Date: 2022-08-23 02:46:57
+# Regressor Bug: 1694741
+# File Overlap Count: 1
+# Description:
+#   Bug 1694741 - Part 5: Update responsive image selector synchronously. r=emilio,edgar
+#   
+#   In order to make sure we are using the correct source element when
+#   flushing the style, it's necessary to update the responsive image selector
+#   synchronously (i.e. full selection for source element and re-resolve the
+# ==============================================================================
+
+diff -r a8f10a064b69 -r 2b4d9516b882 dom/html/HTMLPictureElement.cpp
+--- a/dom/html/HTMLPictureElement.cpp	Mon Aug 22 20:18:38 2022 +0000
++++ b/dom/html/HTMLPictureElement.cpp	Mon Aug 22 20:18:39 2022 +0000
+@@ -7,6 +7,7 @@
+ #include "mozilla/dom/HTMLPictureElement.h"
+ #include "mozilla/dom/HTMLPictureElementBinding.h"
+ #include "mozilla/dom/HTMLImageElement.h"
++#include "mozilla/dom/HTMLSourceElement.h"
+ 
+ // Expand NS_IMPL_NS_NEW_HTML_ELEMENT(Picture) to add pref check.
+ nsGenericHTMLElement* NS_NewHTMLPictureElement(
+@@ -28,19 +29,17 @@
+ NS_IMPL_ELEMENT_CLONE(HTMLPictureElement)
+ 
+ void HTMLPictureElement::RemoveChildNode(nsIContent* aKid, bool aNotify) {
+-  if (aKid && aKid->IsHTMLElement(nsGkAtoms::img)) {
+-    HTMLImageElement* img = HTMLImageElement::FromNode(aKid);
+-    if (img) {
+-      img->PictureSourceRemoved(aKid->AsContent());
+-    }
+-  } else if (aKid && aKid->IsHTMLElement(nsGkAtoms::source)) {
++  MOZ_ASSERT(aKid);
++
++  if (auto* img = HTMLImageElement::FromNode(aKid)) {
++    img->PictureSourceRemoved();
++  } else if (auto* source = HTMLSourceElement::FromNode(aKid)) {
+     // Find all img siblings after this <source> to notify them of its demise
+-    nsCOMPtr<nsIContent> nextSibling = aKid->GetNextSibling();
++    nsCOMPtr<nsIContent> nextSibling = source->GetNextSibling();
+     if (nextSibling && nextSibling->GetParentNode() == this) {
+       do {
+-        HTMLImageElement* img = HTMLImageElement::FromNode(nextSibling);
+-        if (img) {
+-          img->PictureSourceRemoved(aKid->AsContent());
++        if (auto* img = HTMLImageElement::FromNode(nextSibling)) {
++          img->PictureSourceRemoved(source);
+         }
+       } while ((nextSibling = nextSibling->GetNextSibling()));
+     }
+@@ -57,19 +56,15 @@
+     return;
+   }
+ 
+-  if (aKid->IsHTMLElement(nsGkAtoms::img)) {
+-    HTMLImageElement* img = HTMLImageElement::FromNode(aKid);
+-    if (img) {
+-      img->PictureSourceAdded(aKid->AsContent());
+-    }
+-  } else if (aKid->IsHTMLElement(nsGkAtoms::source)) {
++  if (auto* img = HTMLImageElement::FromNode(aKid)) {
++    img->PictureSourceAdded();
++  } else if (auto* source = HTMLSourceElement::FromNode(aKid)) {
+     // Find all img siblings after this <source> to notify them of its insertion
+     nsCOMPtr<nsIContent> nextSibling = aKid->GetNextSibling();
+     if (nextSibling && nextSibling->GetParentNode() == this) {
+       do {
+-        HTMLImageElement* img = HTMLImageElement::FromNode(nextSibling);
+-        if (img) {
+-          img->PictureSourceAdded(aKid->AsContent());
++        if (auto* img = HTMLImageElement::FromNode(nextSibling)) {
++          img->PictureSourceAdded(source);
+         }
+       } while ((nextSibling = nextSibling->GetNextSibling()));
+     }

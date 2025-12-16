@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/CanvasRenderingContext2D.cpp
+# Commit: 62f8ce89dce8
+# Full Hash: 62f8ce89dce8f1162ff2f57debdd9a756a11a2f9
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2020-04-03 01:02:14
+# Regressor Bug: 1619349
+# File Overlap Count: 1
+# Description:
+#   Bug 1619349 - patch 1 - Record statistics about font-matching behavior in the presContext. r=jwatt
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D67787
+# ==============================================================================
+
+diff -r bcbee7191130 -r 62f8ce89dce8 dom/canvas/CanvasRenderingContext2D.cpp
+--- a/dom/canvas/CanvasRenderingContext2D.cpp	Thu Apr 02 01:38:21 2020 +0000
++++ b/dom/canvas/CanvasRenderingContext2D.cpp	Thu Apr 02 01:38:18 2020 +0000
+@@ -2407,6 +2407,7 @@
+     params.language = mFontLanguage;
+     params.explicitLanguage = mExplicitLanguage;
+     params.textPerf = mPresContext->GetTextPerfMetrics();
++    params.fontStats = mPresContext->GetFontMatchingStats();
+     params.featureValueLookup = mPresContext->GetFontFeatureValuesLookup();
+     RefPtr<nsFontMetrics> fontMetrics = dc->GetMetricsFor(mFont, params);
+     return NSAppUnitsToFloatPixels(fontMetrics->XHeight(),
+@@ -3266,6 +3267,7 @@
+   params.explicitLanguage = fontStyle->mExplicitLanguage;
+   params.userFontSet = c->GetUserFontSet();
+   params.textPerf = c->GetTextPerfMetrics();
++  params.fontStats = c->GetFontMatchingStats();
+   RefPtr<nsFontMetrics> metrics =
+       c->DeviceContext()->GetMetricsFor(resizedFont, params);
+ 
+@@ -4041,15 +4043,17 @@
+       gfxFontStyle style;
+       style.size = kDefaultFontSize;
+       gfxTextPerfMetrics* tp = nullptr;
++      FontMatchingStats* fontStats = nullptr;
+       if (presShell && !presShell->IsDestroying()) {
+         tp = presShell->GetPresContext()->GetTextPerfMetrics();
++        fontStats = presShell->GetPresContext()->GetFontMatchingStats();
+       }
+       int32_t perDevPixel, perCSSPixel;
+       GetAppUnitsValues(&perDevPixel, &perCSSPixel);
+       gfxFloat devToCssSize = gfxFloat(perDevPixel) / gfxFloat(perCSSPixel);
+       CurrentState().fontGroup = gfxPlatform::GetPlatform()->CreateFontGroup(
+           FontFamilyList(StyleGenericFontFamily::SansSerif), &style, tp,
+-          nullptr, devToCssSize);
++          fontStats, nullptr, devToCssSize);
+       if (CurrentState().fontGroup) {
+         CurrentState().font = kDefaultFontStyle;
+       } else {

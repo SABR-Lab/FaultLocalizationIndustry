@@ -1,0 +1,68 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/windows/filedialog/WinFileDialogChild.h
+# Commit: af562cec3d70
+# Full Hash: af562cec3d706ee3ed605ffeade4d3ba982d2545
+# Author: Ray Kraesig <rkraesig@mozilla.com>
+# Date: 2023-10-27 04:08:13
+# Regressor Bug: 1837079
+# File Overlap Count: 2
+# Description:
+#   Bug 1837079 - [5/10] Create WinFileDialog IPDL protocol and implementation  r=gstoll,handyman,ipc-reviewers,nika,win-reviewers,mhowell
+#   
+#   Create and implement a new top-level IPC protocol, `PWinFileDialog`,
+#   using the primitives from bug 1833450 and the new sandboxing type from
+#   the previous commit.
+# ==============================================================================
+
+diff -r b5d52e5f75f2 -r af562cec3d70 widget/windows/filedialog/WinFileDialogChild.h
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/widget/windows/filedialog/WinFileDialogChild.h	Thu Oct 26 18:21:28 2023 +0000
+@@ -0,0 +1,46 @@
++/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
++/* vim: set ts=8 sts=2 et sw=2 tw=80: */
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++#ifndef widget_windows_filedialog_WinFileDialogChild_h__
++#define widget_windows_filedialog_WinFileDialogChild_h__
++
++#include "mozilla/widget/filedialog/PWinFileDialogChild.h"
++
++// forward declaration of native Windows interface-struct
++struct IFileDialog;
++
++namespace mozilla::widget::filedialog {
++
++class WinFileDialogChild : public PWinFileDialogChild {
++ public:
++  using Command = mozilla::widget::filedialog::Command;
++  using IPCResult = mozilla::ipc::IPCResult;
++  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(WinFileDialogChild, override);
++
++  WinFileDialogChild();
++
++ public:
++  using FileResolver = PWinFileDialogChild::ShowFileDialogResolver;
++  IPCResult RecvShowFileDialog(uintptr_t parentHwnd, FileDialogType,
++                               nsTArray<Command>, FileResolver&&);
++
++  using FolderResolver = PWinFileDialogChild::ShowFolderDialogResolver;
++  IPCResult RecvShowFolderDialog(uintptr_t parentHwnd, nsTArray<Command>,
++                                 FolderResolver&&);
++
++ private:
++  ~WinFileDialogChild();
++
++  // This flag properly _should_ be static (_i.e._, per-process) rather than
++  // per-instance; but we can't presently instantiate two separate utility
++  // processes with the same sandbox type, so we have to reuse the existing
++  // utility process if there is one.
++  bool mUsed = false;
++};
++
++}  // namespace mozilla::widget::filedialog
++
++#endif  // widget_windows_filedialog_WinFileDialogChild_h__

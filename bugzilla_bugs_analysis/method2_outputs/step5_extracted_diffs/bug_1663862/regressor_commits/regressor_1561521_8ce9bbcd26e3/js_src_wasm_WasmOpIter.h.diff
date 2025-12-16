@@ -1,0 +1,97 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmOpIter.h
+# Commit: 8ce9bbcd26e3
+# Full Hash: 8ce9bbcd26e343a8d845a817cea33fd875805541
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2020-08-19 10:01:16
+# Regressor Bug: 1561521
+# File Overlap Count: 2
+# Description:
+#   Bug 1561521 - Generalize table/element code for future reference-types. r=lth
+#   
+#   wasm::Table uses wasm::TableKind to determine the element type of the table,
+#   which makes it difficult to extend tables to support more reference types. This
+#   commit drops TableKind in favor of directly storing the element RefType, along
+# ==============================================================================
+
+diff -r 7805ddfe2bfa -r 8ce9bbcd26e3 js/src/wasm/WasmOpIter.h
+--- a/js/src/wasm/WasmOpIter.h	Tue Aug 18 16:58:32 2020 +0000
++++ b/js/src/wasm/WasmOpIter.h	Tue Aug 18 16:58:48 2020 +0000
+@@ -565,7 +565,7 @@
+   }
+ 
+   if (actual.isReference() && expected.isReference() &&
+-      env_.isRefSubtypeOf(actual, expected)) {
++      env_.isRefSubtypeOf(actual.refType(), expected.refType())) {
+     return true;
+   }
+ 
+@@ -1762,7 +1762,7 @@
+     }
+     return fail("table index out of range for call_indirect");
+   }
+-  if (env_.tables[*tableIndex].kind != TableKind::FuncRef) {
++  if (!env_.tables[*tableIndex].elemType.isFunc()) {
+     return fail("indirect calls must go through a table of 'funcref'");
+   }
+ 
+@@ -2007,8 +2007,8 @@
+         *srcMemOrTableIndex >= env_.tables.length()) {
+       return fail("table index out of range for table.copy");
+     }
+-    ValType dstElemType = ToElemValType(env_.tables[*dstMemOrTableIndex].kind);
+-    ValType srcElemType = ToElemValType(env_.tables[*srcMemOrTableIndex].kind);
++    ValType dstElemType = env_.tables[*dstMemOrTableIndex].elemType;
++    ValType srcElemType = env_.tables[*srcMemOrTableIndex].elemType;
+     if (!checkIsSubtypeOf(srcElemType, dstElemType)) {
+       return false;
+     }
+@@ -2138,8 +2138,8 @@
+     if (*segIndex >= env_.elemSegments.length()) {
+       return fail("table.init segment index out of range");
+     }
+-    if (!checkIsSubtypeOf(env_.elemSegments[*segIndex]->elemType(),
+-                          ToElemValType(env_.tables[*dstTableIndex].kind))) {
++    if (!checkIsSubtypeOf(env_.elemSegments[*segIndex]->elemType,
++                          env_.tables[*dstTableIndex].elemType)) {
+       return false;
+     }
+   }
+@@ -2162,7 +2162,7 @@
+   if (!popWithType(ValType::I32, len)) {
+     return false;
+   }
+-  if (!popWithType(ToElemValType(env_.tables[*tableIndex].kind), val)) {
++  if (!popWithType(env_.tables[*tableIndex].elemType, val)) {
+     return false;
+   }
+   if (!popWithType(ValType::I32, start)) {
+@@ -2187,7 +2187,7 @@
+     return false;
+   }
+ 
+-  infalliblePush(ToElemValType(env_.tables[*tableIndex].kind));
++  infalliblePush(env_.tables[*tableIndex].elemType);
+   return true;
+ }
+ 
+@@ -2206,7 +2206,7 @@
+   if (!popWithType(ValType::I32, delta)) {
+     return false;
+   }
+-  if (!popWithType(ToElemValType(env_.tables[*tableIndex].kind), initValue)) {
++  if (!popWithType(env_.tables[*tableIndex].elemType, initValue)) {
+     return false;
+   }
+ 
+@@ -2226,7 +2226,7 @@
+     return fail("table index out of range for table.set");
+   }
+ 
+-  if (!popWithType(ToElemValType(env_.tables[*tableIndex].kind), value)) {
++  if (!popWithType(env_.tables[*tableIndex].elemType, value)) {
+     return false;
+   }
+   if (!popWithType(ValType::I32, index)) {

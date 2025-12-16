@@ -1,0 +1,42 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/prim_store/mod.rs
+# Commit: b04340bad99d
+# Full Hash: b04340bad99d70638efda2e7d528e89df77e47c4
+# Author: Glenn Watson <git@intuitionlibrary.com>
+# Date: 2020-05-22 09:43:16
+# Description:
+#   Bug 1617524 - Fix crash in get_relative_transform edge case. r=jnicol
+#   
+#   Previously, WR would attempt to detect at the start of frame
+#   building if the spatial node of any picture cache contained
+#   a non-axis-aligned transform, and disable picture caching in
+# ==============================================================================
+
+diff -r fdfb16cb82a6 -r b04340bad99d gfx/wr/webrender/src/prim_store/mod.rs
+--- a/gfx/wr/webrender/src/prim_store/mod.rs	Thu May 21 18:23:11 2020 +0000
++++ b/gfx/wr/webrender/src/prim_store/mod.rs	Thu May 21 07:42:32 2020 +0000
+@@ -1906,12 +1906,20 @@
+ 
+                     // Push a new surface, supplying the list of clips that should be
+                     // ignored, since they are handled by clipping when drawing this surface.
+-                    frame_state.push_surface(surface_index, &tile_cache.shared_clips);
++                    frame_state.push_surface(
++                        surface_index,
++                        &tile_cache.shared_clips,
++                        frame_context.spatial_tree,
++                    );
+                     frame_state.tile_cache = Some(tile_cache);
+                 }
+                 _ => {
+                     if is_composite {
+-                        frame_state.push_surface(surface_index, &[]);
++                        frame_state.push_surface(
++                            surface_index,
++                            &[],
++                            frame_context.spatial_tree,
++                        );
+                     }
+                 }
+             }

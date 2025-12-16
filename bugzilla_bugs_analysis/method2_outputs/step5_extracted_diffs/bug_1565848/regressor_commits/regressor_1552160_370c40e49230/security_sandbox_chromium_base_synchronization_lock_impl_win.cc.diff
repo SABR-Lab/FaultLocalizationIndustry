@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/base/synchronization/lock_impl_win.cc
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 3
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/base/synchronization/lock_impl_win.cc
+--- a/security/sandbox/chromium/base/synchronization/lock_impl_win.cc	Wed Jun 12 21:55:59 2019 +1200
++++ b/security/sandbox/chromium/base/synchronization/lock_impl_win.cc	Wed Jun 12 11:10:48 2019 +0100
+@@ -6,6 +6,8 @@
+ 
+ #include "base/debug/activity_tracker.h"
+ 
++#include <windows.h>
++
+ namespace base {
+ namespace internal {
+ 
+@@ -14,12 +16,24 @@
+ LockImpl::~LockImpl() = default;
+ 
+ bool LockImpl::Try() {
+-  return !!::TryAcquireSRWLockExclusive(&native_handle_);
++  return !!::TryAcquireSRWLockExclusive(
++      reinterpret_cast<PSRWLOCK>(&native_handle_));
+ }
+ 
+ void LockImpl::Lock() {
++  // The ScopedLockAcquireActivity below is relatively expensive and so its
++  // actions can become significant due to the very large number of locks
++  // that tend to be used throughout the build. To avoid this cost in the
++  // vast majority of the calls, simply "try" the lock first and only do the
++  // (tracked) blocking call if that fails. Since "try" itself is a system
++  // call, and thus also somewhat expensive, don't bother with it unless
++  // tracking is actually enabled.
++  if (base::debug::GlobalActivityTracker::IsEnabled())
++    if (Try())
++      return;
++
+   base::debug::ScopedLockAcquireActivity lock_activity(this);
+-  ::AcquireSRWLockExclusive(&native_handle_);
++  ::AcquireSRWLockExclusive(reinterpret_cast<PSRWLOCK>(&native_handle_));
+ }
+ 
+ }  // namespace internal

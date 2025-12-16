@@ -1,0 +1,65 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/arm64/MacroAssembler-arm64.cpp
+# Commit: 6089b4360edc
+# Full Hash: 6089b4360edcfb3a4bda506e37be8ca75a9f15a6
+# Author: Lars T Hansen <lhansen@mozilla.com>
+# Date: 2021-10-18 16:09:29
+# Regressor Bug: 1727084
+# File Overlap Count: 6
+# Description:
+#   Bug 1727084 - Memory64 - Non-atomic-RMW baseline operations. r=yury
+#   
+#   Implement scalar, SIMD, and atomic loads and stores for the baseline
+#   compiler for x64, x86, arm64, and arm32.  Atomic RMW operations and
+#   wait/notify are in the next patch.
+# ==============================================================================
+
+diff -r b9d32ef0ad83 -r 6089b4360edc js/src/jit/arm64/MacroAssembler-arm64.cpp
+--- a/js/src/jit/arm64/MacroAssembler-arm64.cpp	Mon Oct 18 07:31:55 2021 +0000
++++ b/js/src/jit/arm64/MacroAssembler-arm64.cpp	Mon Oct 18 07:31:55 2021 +0000
+@@ -1767,26 +1767,24 @@
+ }
+ 
+ void MacroAssembler::wasmBoundsCheck32(Condition cond, Register index,
+-                                       Register boundsCheckLimit,
+-                                       Label* label) {
+-  branch32(cond, index, boundsCheckLimit, label);
++                                       Register boundsCheckLimit, Label* ok) {
++  branch32(cond, index, boundsCheckLimit, ok);
+   if (JitOptions.spectreIndexMasking) {
+     csel(ARMRegister(index, 32), vixl::wzr, ARMRegister(index, 32), cond);
+   }
+ }
+ 
+ void MacroAssembler::wasmBoundsCheck32(Condition cond, Register index,
+-                                       Address boundsCheckLimit, Label* label) {
+-  branch32(cond, index, boundsCheckLimit, label);
++                                       Address boundsCheckLimit, Label* ok) {
++  branch32(cond, index, boundsCheckLimit, ok);
+   if (JitOptions.spectreIndexMasking) {
+     csel(ARMRegister(index, 32), vixl::wzr, ARMRegister(index, 32), cond);
+   }
+ }
+ 
+ void MacroAssembler::wasmBoundsCheck64(Condition cond, Register64 index,
+-                                       Register64 boundsCheckLimit,
+-                                       Label* label) {
+-  branchPtr(cond, index.reg, boundsCheckLimit.reg, label);
++                                       Register64 boundsCheckLimit, Label* ok) {
++  branchPtr(cond, index.reg, boundsCheckLimit.reg, ok);
+   if (JitOptions.spectreIndexMasking) {
+     csel(ARMRegister(index.reg, 64), vixl::xzr, ARMRegister(index.reg, 64),
+          cond);
+@@ -1794,8 +1792,8 @@
+ }
+ 
+ void MacroAssembler::wasmBoundsCheck64(Condition cond, Register64 index,
+-                                       Address boundsCheckLimit, Label* label) {
+-  branchPtr(InvertCondition(cond), boundsCheckLimit, index.reg, label);
++                                       Address boundsCheckLimit, Label* ok) {
++  branchPtr(InvertCondition(cond), boundsCheckLimit, index.reg, ok);
+   if (JitOptions.spectreIndexMasking) {
+     csel(ARMRegister(index.reg, 64), vixl::xzr, ARMRegister(index.reg, 64),
+          cond);

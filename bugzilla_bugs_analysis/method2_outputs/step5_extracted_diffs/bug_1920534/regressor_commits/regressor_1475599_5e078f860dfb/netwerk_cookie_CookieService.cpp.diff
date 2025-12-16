@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/cookie/CookieService.cpp
+# Commit: 5e078f860dfb
+# Full Hash: 5e078f860dfb9368bd747e4a8c53d07c7e8809ee
+# Author: Andrea Marchesini <amarchesini@mozilla.com>
+# Date: 2024-09-13 04:28:43
+# Regressor Bug: 1475599
+# File Overlap Count: 1
+# Description:
+#   Bug 1475599 - part 2 - CookieStore API - IPDL, r=edgul,webidl,smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D215145
+# ==============================================================================
+
+diff -r d55b6525d7b2 -r 5e078f860dfb netwerk/cookie/CookieService.cpp
+--- a/netwerk/cookie/CookieService.cpp	Thu Sep 12 16:48:18 2024 +0000
++++ b/netwerk/cookie/CookieService.cpp	Thu Sep 12 16:48:19 2024 +0000
+@@ -1266,6 +1266,18 @@
+                                   JS::Handle<JS::Value> aOriginAttributes,
+                                   JSContext* aCx,
+                                   nsTArray<RefPtr<nsICookie>>& aResult) {
++  OriginAttributes attrs;
++  if (!aOriginAttributes.isObject() || !attrs.Init(aCx, aOriginAttributes)) {
++    return NS_ERROR_INVALID_ARG;
++  }
++
++  return GetCookiesFromHostNative(aHost, &attrs, aResult);
++}
++
++NS_IMETHODIMP
++CookieService::GetCookiesFromHostNative(const nsACString& aHost,
++                                        OriginAttributes* aAttrs,
++                                        nsTArray<RefPtr<nsICookie>>& aResult) {
+   // first, normalize the hostname, and fail if it contains illegal characters.
+   nsAutoCString host(aHost);
+   nsresult rv = NormalizeHost(host);
+@@ -1275,19 +1287,14 @@
+   rv = CookieCommons::GetBaseDomainFromHost(mTLDService, host, baseDomain);
+   NS_ENSURE_SUCCESS(rv, rv);
+ 
+-  OriginAttributes attrs;
+-  if (!aOriginAttributes.isObject() || !attrs.Init(aCx, aOriginAttributes)) {
+-    return NS_ERROR_INVALID_ARG;
+-  }
+-
+   if (!IsInitialized()) {
+     return NS_ERROR_NOT_AVAILABLE;
+   }
+ 
+-  CookieStorage* storage = PickStorage(attrs);
++  CookieStorage* storage = PickStorage(*aAttrs);
+ 
+   nsTArray<RefPtr<Cookie>> cookies;
+-  storage->GetCookiesFromHost(baseDomain, attrs, cookies);
++  storage->GetCookiesFromHost(baseDomain, *aAttrs, cookies);
+ 
+   if (cookies.IsEmpty()) {
+     return NS_OK;

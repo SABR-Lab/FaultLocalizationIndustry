@@ -1,0 +1,49 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmBaselineCompile.cpp
+# Commit: 90ef5c4f6349
+# Full Hash: 90ef5c4f6349447e72cfd2fc50ad103969a66464
+# Author: Andy Wingo <wingo@igalia.com>
+# Date: 2019-10-24 14:47:35
+# Description:
+#   Bug 1590920 - Fix popBlockResults(Empty) for jump to outer block r=lth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D50448
+# ==============================================================================
+
+diff -r 61a4022333fa -r 90ef5c4f6349 js/src/wasm/WasmBaselineCompile.cpp
+--- a/js/src/wasm/WasmBaselineCompile.cpp	Thu Oct 24 08:58:37 2019 +0000
++++ b/js/src/wasm/WasmBaselineCompile.cpp	Thu Oct 24 09:26:17 2019 +0000
+@@ -4150,15 +4150,22 @@
+ 
+   void popBlockResults(ResultType type, StackHeight stackBase,
+                        ContinuationKind kind) {
+-    if (type.empty()) {
+-      return;
+-    }
+-
+-    ABIResultIter iter(type);
+-    popRegisterResults(iter);
+-    if (!iter.done()) {
+-      popStackResults(iter, stackBase);
+-    } else if (kind == ContinuationKind::Jump) {
++    if (!type.empty()) {
++      ABIResultIter iter(type);
++      popRegisterResults(iter);
++      if (!iter.done()) {
++        popStackResults(iter, stackBase);
++        // Because popStackResults might clobber the stack, it leaves the stack
++        // pointer already in the right place for the continuation, whether the
++        // continuation is a jump or fallthrough.
++        return;
++      }
++    }
++    // We get here if there are no stack results.  For a fallthrough, the stack
++    // is already at the right height.  For a jump, we may need to pop the stack
++    // pointer if the continuation's stack height is lower than the current
++    // stack height.
++    if (kind == ContinuationKind::Jump) {
+       fr.popStackBeforeBranch(stackBase, type);
+     }
+   }

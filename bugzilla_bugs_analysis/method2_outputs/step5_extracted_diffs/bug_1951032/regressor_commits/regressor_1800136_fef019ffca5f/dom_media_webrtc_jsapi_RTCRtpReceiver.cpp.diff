@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/jsapi/RTCRtpReceiver.cpp
+# Commit: fef019ffca5f
+# Full Hash: fef019ffca5f8a98a0eab2f63ff7aa148afb2706
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2022-12-22 21:34:53
+# Regressor Bug: 1800136
+# File Overlap Count: 1
+# Description:
+#   Bug 1800136: Make RTCRtpSender::GetStats get ICE stats. r=ng
+#   
+#   Also fix bugs where we would get duplicate ICE stats. This mostly mattered to
+#   WebrtcGlobalInformation since RTCStatsReportInternal does not automatically
+#   remove duplicate ids like RTCStatsReport (RTCStatsReport is maplike).
+# ==============================================================================
+
+diff -r ab6eb1cfa9a0 -r fef019ffca5f dom/media/webrtc/jsapi/RTCRtpReceiver.cpp
+--- a/dom/media/webrtc/jsapi/RTCRtpReceiver.cpp	Thu Dec 22 15:29:02 2022 +0000
++++ b/dom/media/webrtc/jsapi/RTCRtpReceiver.cpp	Thu Dec 22 15:29:02 2022 +0000
+@@ -176,7 +176,8 @@
+   return promise.forget();
+ }
+ 
+-nsTArray<RefPtr<RTCStatsPromise>> RTCRtpReceiver::GetStatsInternal() {
++nsTArray<RefPtr<RTCStatsPromise>> RTCRtpReceiver::GetStatsInternal(
++    bool aSkipIceStats) {
+   MOZ_ASSERT(NS_IsMainThread());
+   nsTArray<RefPtr<RTCStatsPromise>> promises(3);
+ 
+@@ -514,7 +515,7 @@
+                                                         __func__);
+               }));
+ 
+-  if (GetJsepTransceiver().mTransport.mComponents) {
++  if (!aSkipIceStats && GetJsepTransceiver().mTransport.mComponents) {
+     promises.AppendElement(mTransportHandler->GetIceStats(
+         GetJsepTransceiver().mTransport.mTransportId,
+         mPipeline->GetTimestampMaker().GetNow()));

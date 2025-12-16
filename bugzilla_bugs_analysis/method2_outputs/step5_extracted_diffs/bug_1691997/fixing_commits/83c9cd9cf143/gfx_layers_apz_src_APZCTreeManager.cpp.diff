@@ -1,0 +1,31 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/apz/src/APZCTreeManager.cpp
+# Commit: 83c9cd9cf143
+# Full Hash: 83c9cd9cf14336f899350bf1704f2cf9400e47e0
+# Author: Hiroyuki Ikezoe <hikezoe.birchill@mozilla.com>
+# Date: 2021-02-22 17:34:52
+# Description:
+#   Bug 1691997 - Walk up the hit testing tree until we find an APZC different from the given |aApzc| in FindHandoffParent. r=botond
+#   
+#   So we can avoid an infinite loop in the function when we traverse malformed
+#   trees.
+#   
+# ==============================================================================
+
+diff -r 1ad746378bd9 -r 83c9cd9cf143 gfx/layers/apz/src/APZCTreeManager.cpp
+--- a/gfx/layers/apz/src/APZCTreeManager.cpp	Mon Feb 22 10:18:49 2021 +0000
++++ b/gfx/layers/apz/src/APZCTreeManager.cpp	Mon Feb 22 10:19:04 2021 +0000
+@@ -2892,7 +2892,10 @@
+   RefPtr<HitTestingTreeNode> node = GetTargetNode(aApzc->GetGuid(), nullptr);
+   while (node) {
+     if (auto* apzc = GetTargetApzcForNode(node->GetParent())) {
+-      return apzc;
++      // avoid infinite recursion in the overscroll handoff chain.
++      if (apzc != aApzc) {
++        return apzc;
++      }
+     }
+     node = node->GetParent();
+   }

@@ -1,0 +1,92 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsGlobalWindowOuter.cpp
+# Commit: e650c0acb702
+# Full Hash: e650c0acb7027d22d04aeb6525834e5f89eedd92
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2020-08-19 21:28:29
+# Regressor Bug: 1602410
+# File Overlap Count: 1
+# Description:
+#   Bug 1602410 - Make window.print() work with tab-modal printing. r=nika,geckoview-reviewers,agi
+#   
+#   Do this by spinning the event loop until we've done the clone for
+#   preview as appropriate.
+#   
+# ==============================================================================
+
+diff -r 1f9187fefcb6 -r e650c0acb702 dom/base/nsGlobalWindowOuter.cpp
+--- a/dom/base/nsGlobalWindowOuter.cpp	Tue Aug 18 21:33:15 2020 +0000
++++ b/dom/base/nsGlobalWindowOuter.cpp	Wed Aug 19 09:27:18 2020 +0000
+@@ -103,6 +103,7 @@
+ #include "mozilla/PresShell.h"
+ #include "mozilla/ProcessHangMonitor.h"
+ #include "mozilla/StaticPrefs_dom.h"
++#include "mozilla/StaticPrefs_print.h"
+ #include "mozilla/StaticPrefs_fission.h"
+ #include "mozilla/ThrottledEventQueue.h"
+ #include "AudioChannelService.h"
+@@ -5185,27 +5186,42 @@
+     return;
+   }
+ 
+-  nsCOMPtr<nsIPrintSettingsService> printSettingsService =
+-      do_GetService("@mozilla.org/gfx/printsettings-service;1");
+-  if (!printSettingsService) {
+-    // we currently return here in headless mode - should we?
+-    aError.Throw(NS_ERROR_NOT_AVAILABLE);
+-    return;
+-  }
+-
+-  nsCOMPtr<nsIWebBrowserPrint> webBrowserPrint =
+-      do_GetInterface(static_cast<nsIInterfaceRequestor*>(this));
+-  if (!webBrowserPrint) {
+-    aError.Throw(NS_ERROR_NOT_AVAILABLE);
+-    return;
+-  }
+-
+-  nsAutoSyncOperation sync(GetCurrentInnerWindowInternal()
+-                               ? GetCurrentInnerWindowInternal()->mDoc.get()
+-                               : nullptr);
++  RefPtr kungFuDeathGrip = this;
++  nsAutoSyncOperation sync(mDoc);
+   EnterModalState();
+-  webBrowserPrint->Print(nullptr, nullptr);
+-  LeaveModalState();
++  auto leave = MakeScopeExit([&] { LeaveModalState(); });
++
++  if (StaticPrefs::print_tab_modal_enabled()) {
++    RefPtr<BrowsingContext> bc = GetBrowsingContext();
++    if (!bc || bc->IsDiscarded()) {
++      return;
++    }
++
++    if (bc->IsAwaitingPrint()) {
++      // Already printing.
++      return;
++    }
++
++    MOZ_ALWAYS_SUCCEEDS(bc->SetIsAwaitingPrint(true));
++    SpinEventLoopUntil(
++        [&] { return bc->IsDiscarded() || !bc->IsAwaitingPrint(); });
++  } else {
++    nsCOMPtr<nsIPrintSettingsService> printSettingsService =
++        do_GetService("@mozilla.org/gfx/printsettings-service;1");
++    if (!printSettingsService) {
++      // we currently return here in headless mode - should we?
++      aError.Throw(NS_ERROR_NOT_AVAILABLE);
++      return;
++    }
++
++    nsCOMPtr<nsIWebBrowserPrint> webBrowserPrint =
++        do_GetInterface(static_cast<nsIInterfaceRequestor*>(this));
++    if (!webBrowserPrint) {
++      aError.Throw(NS_ERROR_NOT_AVAILABLE);
++      return;
++    }
++    webBrowserPrint->Print(nullptr, nullptr);
++  }
+ #endif  // NS_PRINTING
+ }
+ 

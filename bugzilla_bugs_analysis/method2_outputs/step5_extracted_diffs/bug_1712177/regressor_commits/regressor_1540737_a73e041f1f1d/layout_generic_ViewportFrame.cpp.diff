@@ -1,0 +1,32 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/ViewportFrame.cpp
+# Commit: a73e041f1f1d
+# Full Hash: a73e041f1f1dc2537292b5e3111efda0899b53af
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2021-05-18 09:45:31
+# Regressor Bug: 1540737
+# File Overlap Count: 1
+# Description:
+#   Bug 1540737 - Don't allow constructing an AutoBuildingDisplayList with a new frame without requiring explicit rects in the new coordinate space. r=miko
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D114675
+# ==============================================================================
+
+diff -r 81f1a9d1a5e1 -r a73e041f1f1d layout/generic/ViewportFrame.cpp
+--- a/layout/generic/ViewportFrame.cpp	Mon May 17 23:53:44 2021 +0000
++++ b/layout/generic/ViewportFrame.cpp	Mon May 17 23:53:44 2021 +0000
+@@ -229,8 +229,10 @@
+   if (topLayerList.IsEmpty()) {
+     return nullptr;
+   }
+-  nsDisplayListBuilder::AutoBuildingDisplayList buildingDisplayList(aBuilder,
+-                                                                    this);
++  nsPoint offset = aBuilder->GetCurrentFrame()->GetOffsetTo(this);
++  nsDisplayListBuilder::AutoBuildingDisplayList buildingDisplayList(
++      aBuilder, this, aBuilder->GetVisibleRect() + offset,
++      aBuilder->GetDirtyRect() + offset);
+   // Wrap the whole top layer in a single item with maximum z-index,
+   // and append it at the very end, so that it stays at the topmost.
+   nsDisplayWrapList* wrapList = MakeDisplayItemWithIndex<nsDisplayWrapList>(

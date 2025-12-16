@@ -1,0 +1,32 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/remoteworkers/RemoteWorkerChild.cpp
+# Commit: 18af3ac7686b
+# Full Hash: 18af3ac7686b947a75f45190c9d08f9f019d4982
+# Author: Perry Jiang <perry@mozilla.com>
+# Date: 2019-04-12 03:19:48
+# Description:
+#   Bug 1539535 - Add a (temporary) null check in RemoteWorkerChild::CloseWorkerOnMainThread r=asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D26794
+# ==============================================================================
+
+diff -r b69cb7f4f305 -r 18af3ac7686b dom/workers/remoteworkers/RemoteWorkerChild.cpp
+--- a/dom/workers/remoteworkers/RemoteWorkerChild.cpp	Wed Apr 10 10:29:49 2019 +0000
++++ b/dom/workers/remoteworkers/RemoteWorkerChild.cpp	Thu Apr 11 03:31:45 2019 +0000
+@@ -472,7 +472,13 @@
+ 
+   // The holder will be notified by this.
+   if (lock->mWorkerState == eRunning) {
+-    MOZ_RELEASE_ASSERT(lock->mWorkerPrivate);
++    // FIXME: mWorkerState transition and each state's associated data should
++    // be improved/fixed in bug 1231213. `!lock->mWorkerPrivate` implies that
++    // the worker state is effectively `eTerminated.`
++    if (!lock->mWorkerPrivate) {
++      return;
++    }
++
+     lock->mWorkerPrivate->Cancel();
+   }
+ }

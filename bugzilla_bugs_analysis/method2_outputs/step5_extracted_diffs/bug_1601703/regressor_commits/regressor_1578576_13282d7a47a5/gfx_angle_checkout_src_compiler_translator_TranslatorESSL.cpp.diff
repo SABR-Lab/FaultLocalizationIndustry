@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/angle/checkout/src/compiler/translator/TranslatorESSL.cpp
+# Commit: 13282d7a47a5
+# Full Hash: 13282d7a47a57a73be8d060efd9645b4d642f03e
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2019-09-08 09:46:52
+# Regressor Bug: 1578576
+# File Overlap Count: 4
+# Description:
+#   Bug 1578576 - Part 2: Update to ANGLE 3865 r=jgilbert
+#   
+#   Depends on D44561
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44579
+# ==============================================================================
+
+diff -r 3064469c073d -r 13282d7a47a5 gfx/angle/checkout/src/compiler/translator/TranslatorESSL.cpp
+--- a/gfx/angle/checkout/src/compiler/translator/TranslatorESSL.cpp	Sat Sep 07 13:36:46 2019 +0000
++++ b/gfx/angle/checkout/src/compiler/translator/TranslatorESSL.cpp	Sat Sep 07 13:38:36 2019 +0000
+@@ -84,11 +84,9 @@
+     // Write array bounds clamping emulation if needed.
+     getArrayBoundsClamper().OutputClampingFunctionDefinition(sink);
+ 
+-    if (getShaderType() == GL_COMPUTE_SHADER && isComputeShaderLocalSizeDeclared())
++    if (getShaderType() == GL_COMPUTE_SHADER)
+     {
+-        const sh::WorkGroupSize &localSize = getComputeShaderLocalSize();
+-        sink << "layout (local_size_x=" << localSize[0] << ", local_size_y=" << localSize[1]
+-             << ", local_size_z=" << localSize[2] << ") in;\n";
++        EmitWorkGroupSizeGLSL(*this, sink);
+     }
+ 
+     if (getShaderType() == GL_GEOMETRY_SHADER_EXT)
+@@ -129,7 +127,8 @@
+     {
+         if (iter->second != EBhUndefined)
+         {
+-            const bool isMultiview = (iter->first == TExtension::OVR_multiview2);
++            const bool isMultiview = (iter->first == TExtension::OVR_multiview) ||
++                                     (iter->first == TExtension::OVR_multiview2);
+             if (getResources().NV_shader_framebuffer_fetch &&
+                 iter->first == TExtension::EXT_shader_framebuffer_fetch)
+             {
+@@ -167,6 +166,12 @@
+                 ASSERT((compileOptions & SH_EMULATE_GL_DRAW_ID) != 0);
+                 continue;
+             }
++            else if (iter->first == TExtension::ANGLE_base_vertex_base_instance)
++            {
++                // Don't emit anything. This extension is emulated
++                ASSERT((compileOptions & SH_EMULATE_GL_BASE_VERTEX_BASE_INSTANCE) != 0);
++                continue;
++            }
+             else
+             {
+                 sink << "#extension " << GetExtensionNameString(iter->first) << " : "

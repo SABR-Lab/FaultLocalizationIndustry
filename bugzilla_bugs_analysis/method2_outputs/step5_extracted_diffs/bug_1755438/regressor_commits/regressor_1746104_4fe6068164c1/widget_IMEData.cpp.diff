@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/IMEData.cpp
+# Commit: 4fe6068164c1
+# Full Hash: 4fe6068164c1d3ceee832a161056e870d5417d2a
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-02-08 17:32:27
+# Regressor Bug: 1746104
+# File Overlap Count: 1
+# Description:
+#   Bug 1746104 - part 6-3: Wrap `ContentCache::mText` with `Maybe` r=m_kato
+#   
+#   For managing the state of text content cache independent from selection, it
+#   should be wrapped with `Maybe`.
+#   
+# ==============================================================================
+
+diff -r 88cd68e70502 -r 4fe6068164c1 widget/IMEData.cpp
+--- a/widget/IMEData.cpp	Mon Feb 07 22:33:40 2022 +0000
++++ b/widget/IMEData.cpp	Mon Feb 07 22:33:40 2022 +0000
+@@ -11,6 +11,8 @@
+ #include "gfxFontUtils.h"
+ #include "TextEvents.h"
+ 
++#include "mozilla/Maybe.h"
++#include "mozilla/ToString.h"
+ #include "mozilla/WritingModes.h"
+ 
+ #include "nsPrintfCString.h"
+@@ -18,6 +20,18 @@
+ 
+ namespace mozilla {
+ 
++template PrintStringDetail::PrintStringDetail(
++    const Maybe<nsString>& aMaybeString, uint32_t aMaxLength);
++
++template <typename StringType>
++PrintStringDetail::PrintStringDetail(const Maybe<StringType>& aMaybeString,
++                                     uint32_t aMaxLength /* = UINT32_MAX */)
++    : PrintStringDetail(aMaybeString.refOr(EmptyString()), aMaxLength) {
++  if (aMaybeString.isNothing()) {
++    AssignASCII(ToString(aMaybeString).c_str());
++  }
++}
++
+ PrintStringDetail::PrintStringDetail(const nsAString& aString,
+                                      uint32_t aMaxLength /* = UINT32_MAX */) {
+   Assign("\"");

@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/webscheduling/WebTaskSchedulerMainThread.cpp
+# Commit: 0773f669c498
+# Full Hash: 0773f669c4983032149421e810a114d573614c07
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2025-02-27 21:52:52
+# Regressor Bug: 1920115
+# File Overlap Count: 2
+# Description:
+#   Bug 1920115 - Allow selecting tasks from all existing web schedulers for main thread r=jjaschke,smaug
+#   
+#   This is a missing step in the current implementation. When we about
+#   to select a task, it should pick one from all scheduled tasks, including
+#   the ones scheduled by different schedulers.
+# ==============================================================================
+
+diff -r 4b579a1c9b46 -r 0773f669c498 dom/webscheduling/WebTaskSchedulerMainThread.cpp
+--- a/dom/webscheduling/WebTaskSchedulerMainThread.cpp	Thu Feb 27 16:17:35 2025 +0000
++++ b/dom/webscheduling/WebTaskSchedulerMainThread.cpp	Thu Feb 27 16:17:36 2025 +0000
+@@ -14,7 +14,7 @@
+ 
+ NS_IMETHODIMP WebTaskMainThreadRunnable::Run() {
+   if (mScheduler) {
+-    RefPtr<WebTask> task = mScheduler->GetNextTask();
++    RefPtr<WebTask> task = mScheduler->GetNextTask(true /* aIsMainThread */);
+     if (task) {
+       task->Run();
+     }

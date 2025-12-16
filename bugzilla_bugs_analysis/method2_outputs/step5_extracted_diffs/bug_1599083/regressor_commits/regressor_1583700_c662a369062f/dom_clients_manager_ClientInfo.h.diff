@@ -1,0 +1,29 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/clients/manager/ClientInfo.h
+# Commit: c662a369062f
+# Full Hash: c662a369062f3f46e1672a030a8fad49d4fdc588
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2019-10-22 09:46:06
+# Regressor Bug: 1583700
+# File Overlap Count: 1
+# Description:
+#   Bug 1583700 - Create a new ClientSource from a parent-allocated ClientInfo even for same-origin redirects, since there might have been a prior cross-origin redirect. r=perry,asuth
+#   
+#   We fail navigation-redirect.https.html?client without this (with the subtest to redirects to a cross-origin page and then redirects back again to a same-origin page). In this case the ClientChannelHelper running in the child only sees a same-origin redirect (the first URL to the final one), but we've still allocated a new ClientInfo in the parent and we want to create the corresponding ClientSource.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D49870
+# ==============================================================================
+
+diff -r dc9e317da307 -r c662a369062f dom/clients/manager/ClientInfo.h
+--- a/dom/clients/manager/ClientInfo.h	Mon Oct 21 02:03:24 2019 +0000
++++ b/dom/clients/manager/ClientInfo.h	Mon Oct 21 21:47:02 2019 +0000
+@@ -46,6 +46,7 @@
+   ~ClientInfo();
+ 
+   bool operator==(const ClientInfo& aRight) const;
++  bool operator!=(const ClientInfo& aRight) const;
+ 
+   // Get the unique identifier chosen at the time of the global's creation.
+   const nsID& Id() const;

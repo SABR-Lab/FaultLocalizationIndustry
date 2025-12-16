@@ -1,0 +1,34 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/StringType.cpp
+# Commit: fc6b50aec102
+# Full Hash: fc6b50aec102119bfa94e6706136256e4ad64289
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2024-04-30 09:47:38
+# Description:
+#   Bug 1893984 - Add pre write barrier for removal of GC edges when converting a string to an atom ref r=dthayer
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D208889
+# ==============================================================================
+
+diff -r a1193dacf65e -r fc6b50aec102 js/src/vm/StringType.cpp
+--- a/js/src/vm/StringType.cpp	Mon Apr 29 15:37:50 2024 +0000
++++ b/js/src/vm/StringType.cpp	Mon Apr 29 15:40:02 2024 +0000
+@@ -2542,6 +2542,16 @@
+     }
+   }
+ 
++  // Pre-barrier for d.s.u3 which is overwritten and d.s.u2 which is ignored
++  // for atom refs.
++  MOZ_ASSERT(isRope() || isLinear());
++  if (isRope()) {
++    PreWriteBarrier(d.s.u2.left);
++    PreWriteBarrier(d.s.u3.right);
++  } else if (isDependent()) {
++    PreWriteBarrier(d.s.u3.base);
++  }
++
+   uint32_t flags = INIT_ATOM_REF_FLAGS;
+   d.s.u3.atom = atom;
+   if (atom->hasLatin1Chars()) {

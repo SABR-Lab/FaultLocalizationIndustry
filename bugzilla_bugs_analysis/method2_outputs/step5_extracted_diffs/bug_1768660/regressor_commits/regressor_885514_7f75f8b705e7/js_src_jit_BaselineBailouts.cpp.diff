@@ -1,0 +1,119 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/BaselineBailouts.cpp
+# Commit: 7f75f8b705e7
+# Full Hash: 7f75f8b705e72090c3faa76aa8bac440c6d0fde6
+# Author: Iain Ireland <iireland@mozilla.com>
+# Date: 2022-03-31 09:35:41
+# Regressor Bug: 885514
+# File Overlap Count: 2
+# Description:
+#   Bug 885514: Support bailouts for finally r=jandem
+#   
+#   This is mostly modeled after the catch code. The main difference is that finally expects to resume in code where there are two additional values on the stack, so we store the exception in the ExceptionBailoutInfo and write it into the stack frame in BaselineStackBuilder.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D142118
+# ==============================================================================
+
+diff -r 8cd3f1a267ae -r 7f75f8b705e7 js/src/jit/BaselineBailouts.cpp
+--- a/js/src/jit/BaselineBailouts.cpp	Wed Mar 30 23:19:47 2022 +0000
++++ b/js/src/jit/BaselineBailouts.cpp	Wed Mar 30 23:19:47 2022 +0000
+@@ -179,6 +179,7 @@
+   [[nodiscard]] bool buildFixedSlots();
+   [[nodiscard]] bool fixUpCallerArgs(MutableHandleValueVector savedCallerArgs,
+                                      bool* fixedUp);
++  [[nodiscard]] bool buildFinallyException();
+   [[nodiscard]] bool buildExpressionStack();
+   [[nodiscard]] bool finishLastFrame();
+ 
+@@ -210,6 +211,11 @@
+            excInfo_->frameNo() == frameNo_;
+   }
+ 
++  // Returns true if we're bailing out to a finally block in this frame.
++  bool resumingInFinallyBlock() const {
++    return catchingException() && excInfo_->isFinally();
++  }
++
+   // Returns true if we're bailing out in place for debug mode
+   bool propagatingIonExceptionForDebugMode() const {
+     return excInfo_ && excInfo_->propagatingIonExceptionForDebugMode();
+@@ -894,6 +900,19 @@
+   return true;
+ }
+ 
++bool BaselineStackBuilder::buildFinallyException() {
++  MOZ_ASSERT(resumingInFinallyBlock());
++
++  if (!writeValue(excInfo_->finallyException(), "Exception")) {
++    return false;
++  }
++  if (!writeValue(BooleanValue(true), "throwing")) {
++    return false;
++  }
++
++  return true;
++}
++
+ bool BaselineStackBuilder::prepareForNextFrame(
+     HandleValueVector savedCallerArgs) {
+   const uint32_t frameSize = framePushed();
+@@ -1355,8 +1374,15 @@
+   MOZ_ASSERT(blFrame()->debugNumValueSlots() >= script_->nfixed());
+   MOZ_ASSERT(blFrame()->debugNumValueSlots() <= script_->nslots());
+ 
++  uint32_t expectedSlots = exprStackSlots();
++  if (resumingInFinallyBlock()) {
++    // If we are resuming in a finally block, we push two extra values on the
++    // stack (the exception, and |throwing|), so the depth at the resume PC
++    // should be the depth at the fault PC plus two.
++    expectedSlots += 2;
++  }
+   return AssertBailoutStackDepth(cx_, script_, pc_, resumeMode(),
+-                                 exprStackSlots());
++                                 expectedSlots);
+ }
+ #endif
+ 
+@@ -1516,8 +1542,13 @@
+     return false;
+   }
+ 
+-  if (!fixedUp && !buildExpressionStack()) {
+-    return false;
++  if (!fixedUp) {
++    if (!buildExpressionStack()) {
++      return false;
++    }
++    if (resumingInFinallyBlock() && !buildFinallyException()) {
++      return false;
++    }
+   }
+ 
+ #ifdef DEBUG
+@@ -1970,9 +2001,9 @@
+     act->removeRematerializedFrame(outerFp);
+   }
+ 
+-  // If we are catching an exception, we need to unwind scopes.
++  // If we are unwinding for an exception, we need to unwind scopes.
+   // See |SettleOnTryNote|
+-  if (cx->isExceptionPending() && bailoutInfo->faultPC) {
++  if (bailoutInfo->faultPC) {
+     EnvironmentIter ei(cx, topFrame, bailoutInfo->faultPC);
+     UnwindEnvironment(cx, ei, bailoutInfo->tryPC);
+   }
+@@ -2091,6 +2122,12 @@
+       }
+       break;
+ 
++    case BailoutKind::Finally:
++      // We are bailing out for a finally block. We will invalidate
++      // and disable recompilation if this happens too often.
++      action = BailoutAction::DisableIfFrequent;
++      break;
++
+     case BailoutKind::Inevitable:
+     case BailoutKind::Debugger:
+       // Do nothing.

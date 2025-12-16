@@ -1,0 +1,33 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: layout/svg/nsFilterInstance.cpp
+# Commit: 66d47e242915
+# Full Hash: 66d47e24291516e241763a33048590f73a65e220
+# Author: Kartikaya Gupta <kgupta@mozilla.com>
+# Date: 2019-04-06 10:57:50
+# Description:
+#   Bug 1541113 - Avoid crashing content process with giant drawtarget. r=mstange
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D25931
+# ==============================================================================
+
+diff -r 9a74392d5741 -r 66d47e242915 layout/svg/nsFilterInstance.cpp
+--- a/layout/svg/nsFilterInstance.cpp	Fri Apr 05 17:38:47 2019 +0000
++++ b/layout/svg/nsFilterInstance.cpp	Fri Apr 05 16:26:59 2019 +0000
+@@ -700,9 +700,13 @@
+     return;
+   }
+ 
+-  RefPtr<DrawTarget> offscreenDT = aDest->CreateSimilarDrawTargetForFilter(
+-      neededRect.Size(), SurfaceFormat::B8G8R8A8, aFilter, aSource, aSourceRect,
++  RefPtr<DrawTarget> offscreenDT;
++  SurfaceFormat format = SurfaceFormat::B8G8R8A8;
++  if (aDest->CanCreateSimilarDrawTarget(neededRect.Size(), format)) {
++    offscreenDT = aDest->CreateSimilarDrawTargetForFilter(
++      neededRect.Size(), format, aFilter, aSource, aSourceRect,
+       Point(0, 0));
++  }
+   if (!offscreenDT || !offscreenDT->IsValid()) {
+     return;
+   }

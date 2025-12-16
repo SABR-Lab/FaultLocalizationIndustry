@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/base/SelectionManager.h
+# Commit: 69d2ec7b4d6c
+# Full Hash: 69d2ec7b4d6ca35da23f14602cdf78d939da40cb
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2022-05-27 15:58:57
+# Regressor Bug: 1737919
+# File Overlap Count: 1
+# Description:
+#   Bug 1737919 part 4: Update cached spelling errors when a spelling error is added without the text changing. r=morgan,smaug
+#   
+#   We already have an nsISelectionListener, but that only tells us that a change happened somewhere in the selection, not which range changed.
+#   We don't want to push a cache update for all ranges when only one changed.
+#   Therefore, this patch adds an accessibility notification in mozInlineSpellChecker::AddRange.
+# ==============================================================================
+
+diff -r 388a15605114 -r 69d2ec7b4d6c accessible/base/SelectionManager.h
+--- a/accessible/base/SelectionManager.h	Fri May 27 10:56:41 2022 +0000
++++ b/accessible/base/SelectionManager.h	Fri May 27 10:56:41 2022 +0000
+@@ -9,6 +9,8 @@
+ #include "nsISelectionListener.h"
+ #include "mozilla/WeakPtr.h"
+ 
++class nsRange;
++
+ namespace mozilla {
+ 
+ class PresShell;
+@@ -106,6 +108,18 @@
+     mAccWithCaret = nullptr;
+   }
+ 
++  /**
++   * Called by mozInlineSpellChecker when a spell check range is added.
++   * nsISelectionListener isn't sufficient for spelling errors, since it only
++   * tells us that there was a change, not which range changed. We don't want
++   * to unnecessarily push a cache update for all Accessibles in the entire
++   * selection.
++   * We don't need an equivalent notification for removals because a spelling
++   * error correction is triggered by a text change and text changes trigger a
++   * cache update already.
++   */
++  void SpellCheckRangeAdded(const nsRange& aRange);
++
+   ~SelectionManager();
+ 
+  protected:

@@ -1,0 +1,36 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/CodeGenerator.cpp
+# Commit: 2ce0bfc8f05b
+# Full Hash: 2ce0bfc8f05bee15b935a2d71667353488f46ac9
+# Author: Iain Ireland <iireland@mozilla.com>
+# Date: 2023-04-05 09:36:23
+# Description:
+#   Bug 1825220: Don't crash on unreachable GetInlinedArgument r=jandem
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D174530
+# ==============================================================================
+
+diff -r 3344d8f2cd10 -r 2ce0bfc8f05b js/src/jit/CodeGenerator.cpp
+--- a/js/src/jit/CodeGenerator.cpp	Tue Apr 04 17:08:37 2023 +0000
++++ b/js/src/jit/CodeGenerator.cpp	Tue Apr 04 17:22:32 2023 +0000
+@@ -7594,7 +7594,17 @@
+                                            Register index,
+                                            ValueOperand output) {
+   uint32_t numActuals = lir->mir()->numActuals();
+-  MOZ_ASSERT(numActuals > 0 && numActuals <= ArgumentsObject::MaxInlinedArgs);
++  MOZ_ASSERT(numActuals <= ArgumentsObject::MaxInlinedArgs);
++
++  // The index has already been bounds-checked, so the code we
++  // generate here should be unreachable. We can end up in this
++  // situation in self-hosted code using GetArgument(), or in a
++  // monomorphically inlined function if we've inlined some CacheIR
++  // that was created for a different caller.
++  if (numActuals == 0) {
++    masm.assumeUnreachable("LGetInlinedArgument: invalid index");
++    return;
++  }
+ 
+   // Check the first n-1 possible indices.
+   Label done;

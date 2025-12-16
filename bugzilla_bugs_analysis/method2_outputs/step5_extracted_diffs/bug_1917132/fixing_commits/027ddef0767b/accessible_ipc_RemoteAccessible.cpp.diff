@@ -1,0 +1,37 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: accessible/ipc/RemoteAccessible.cpp
+# Commit: 027ddef0767b
+# Full Hash: 027ddef0767b43fa1f76ea7e56c1e04c64c27a88
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2024-09-06 21:37:32
+# Description:
+#   Bug 1917132: When clearing a RemoteAccessible's parent, set its cached IndexInParent to -1. r=nlapre
+#   
+#   We set the cached IndexInParent to -1 in RemoveChild, among other places.
+#   However, when a RemoteAccessible is moved, we clear its children array without calling RemoveChild (in DocAccessibleParent::ShutdownOrPrepareForMove).
+#   We already call SetParent(nullptr) on the children to clear the parent, so set the cached IndexInParent to -1 in SetParent when the supplied new parent is null.
+# ==============================================================================
+
+diff -r 94c97b3688bc -r 027ddef0767b accessible/ipc/RemoteAccessible.cpp
+--- a/accessible/ipc/RemoteAccessible.cpp	Fri Sep 06 09:39:03 2024 +0000
++++ b/accessible/ipc/RemoteAccessible.cpp	Fri Sep 06 09:54:46 2024 +0000
+@@ -94,7 +94,6 @@
+   // ClearChildDoc() even though mChildren.Length() == 1.
+   MOZ_ASSERT(mChildren.Length() <= 1);
+   mChildren.RemoveElement(aChildDoc);
+-  aChildDoc->mIndexInParent = -1;
+ }
+ 
+ uint32_t RemoteAccessible::EmbeddedChildCount() {
+@@ -159,6 +158,9 @@
+   MOZ_ASSERT(!IsDoc() || !aParent || aParent->IsOuterDoc(),
+              "Doc's parent must be OuterDoc");
+   mParent = aParent;
++  if (!aParent) {
++    mIndexInParent = -1;
++  }
+ }
+ 
+ RemoteAccessible* RemoteAccessible::RemoteParent() const {

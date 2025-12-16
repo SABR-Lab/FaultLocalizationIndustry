@@ -1,0 +1,34 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/EarlyHintPreloader.cpp
+# Commit: a6a5172b9746
+# Full Hash: a6a5172b9746011a379a5f0b603beb3f3d711315
+# Author: Manuel Bucher <manuel@mozilla.com>
+# Date: 2022-12-03 09:24:59
+# Regressor Bug: 1771867
+# File Overlap Count: 1
+# Description:
+#   Bug 1771867 - Early Hints Phase 2 - Part 9: Don't cancel redirects to insecure http early hint preloads r=necko-reviewers,valentin
+#   
+#   Previously those got cancelled to discourage http usage in new components.
+#   Preloading them now to make this preloader behave the same way as the
+#   preloader in the content process.
+# ==============================================================================
+
+diff -r 8575cd92e1d8 -r a6a5172b9746 netwerk/protocol/http/EarlyHintPreloader.cpp
+--- a/netwerk/protocol/http/EarlyHintPreloader.cpp	Fri Dec 02 16:15:56 2022 +0000
++++ b/netwerk/protocol/http/EarlyHintPreloader.cpp	Fri Dec 02 16:15:56 2022 +0000
+@@ -344,12 +344,6 @@
+     return NS_OK;
+   }
+ 
+-  // abort the request if redirecting to insecure context
+-  if (!newURI->SchemeIs("https")) {
+-    callback->OnRedirectVerifyCallback(NS_ERROR_ABORT);
+-    return NS_OK;
+-  }
+-
+   // HTTP request headers are not automatically forwarded to the new channel.
+   nsCOMPtr<nsIHttpChannel> httpChannel = do_QueryInterface(aNewChannel);
+   NS_ENSURE_STATE(httpChannel);

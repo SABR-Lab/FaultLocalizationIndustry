@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/angle/checkout/src/common/system_utils.h
+# Commit: 3a91885d47e0
+# Full Hash: 3a91885d47e0ef7fba9749562d52300eea67c651
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2019-11-11 21:52:52
+# Regressor Bug: 1578576
+# File Overlap Count: 4
+# Description:
+#   Bug 1578576 - Part 2: Update to ANGLE 3865 r=jgilbert
+#   
+#   Depends on D44561
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44579
+# ==============================================================================
+
+diff -r 77cee77c0307 -r 3a91885d47e0 gfx/angle/checkout/src/common/system_utils.h
+--- a/gfx/angle/checkout/src/common/system_utils.h	Fri Nov 08 16:41:42 2019 +0000
++++ b/gfx/angle/checkout/src/common/system_utils.h	Fri Nov 08 17:06:00 2019 +0000
+@@ -24,10 +24,13 @@
+ std::string GetEnvironmentVar(const char *variableName);
+ const char *GetPathSeparator();
+ bool PrependPathToEnvironmentVar(const char *variableName, const char *path);
++bool IsDirectory(const char *filename);
+ 
+ // Run an application and get the output.  Gets a nullptr-terminated set of args to execute the
+ // application with, and returns the stdout and stderr outputs as well as the exit code.
+ //
++// Pass nullptr for stdoutOut/stderrOut if you don't need to capture. exitCodeOut is required.
++//
+ // Returns false if it fails to actually execute the application.
+ bool RunApp(const std::vector<const char *> &args,
+             std::string *stdoutOut,
+@@ -48,7 +51,21 @@
+     }
+ };
+ 
+-Library *OpenSharedLibrary(const char *libraryName);
++// Use SYSTEM_DIR to bypass loading ANGLE libraries with the same name as system DLLS
++// (e.g. opengl32.dll)
++enum class SearchType
++{
++    ApplicationDir,
++    SystemDir
++};
++
++Library *OpenSharedLibrary(const char *libraryName, SearchType searchType);
++
++// Returns true if the process is currently being debugged.
++bool IsDebuggerAttached();
++
++// Calls system APIs to break into the debugger.
++void BreakDebugger();
+ }  // namespace angle
+ 
+ #endif  // COMMON_SYSTEM_UTILS_H_

@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/VideoConduit.cpp
+# Commit: c366748bd0bf
+# Full Hash: c366748bd0bfebdfb48fcf83c648c261142edfd0
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 2
+# Description:
+#   Bug 1654112 - Get contributing/synchronization sources working again. r=ng
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D106231
+# ==============================================================================
+
+diff -r d0b311007c03 -r c366748bd0bf dom/media/webrtc/libwebrtcglue/VideoConduit.cpp
+--- a/dom/media/webrtc/libwebrtcglue/VideoConduit.cpp	Fri Feb 19 15:56:41 2021 -0600
++++ b/dom/media/webrtc/libwebrtcglue/VideoConduit.cpp	Tue Feb 23 18:13:34 2021 -0600
+@@ -888,7 +888,12 @@
+       default:
+         MOZ_CRASH("Unexpected RTCRtpSourceEntryType");
+     }
+-    domEntry.mTimestamp = source.timestamp_ms();
++    // Fix up timestamp to be consistent with JS time. We assume that
++    // source.timestamp_ms() was not terribly long ago, and so clock drift
++    // between thje libwebrtc clock and our JS clock is not that significant.
++    double ago = webrtc::Clock::GetRealTimeClock()->TimeInMilliseconds() -
++                 source.timestamp_ms();
++    domEntry.mTimestamp = GetNow() - ago;
+     domEntry.mRtpTimestamp = source.rtp_timestamp();
+     outSources.AppendElement(std::move(domEntry));
+   }

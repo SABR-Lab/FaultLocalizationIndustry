@@ -1,0 +1,69 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/VideoConduit.cpp
+# Commit: 98e445343ef6
+# Full Hash: 98e445343ef6719764a3df74107d587d21fe7a58
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 1
+# Description:
+#   Bug 1654112 - Un-nest VideoConduit SetRemoteSSRC runnables. r=bwc
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D105766
+# ==============================================================================
+
+diff -r 260d6434bcc1 -r 98e445343ef6 dom/media/webrtc/libwebrtcglue/VideoConduit.cpp
+--- a/dom/media/webrtc/libwebrtcglue/VideoConduit.cpp	Fri Feb 12 09:59:14 2021 +0100
++++ b/dom/media/webrtc/libwebrtcglue/VideoConduit.cpp	Mon Feb 15 14:44:29 2021 +0100
+@@ -1471,28 +1471,27 @@
+       // we "switch" here immediately, but buffer until the queue is released
+       mRecvSSRC = header.ssrc;
+ 
+-      // Ensure lamba captures refs
+-      NS_DispatchToMainThread(NS_NewRunnableFunction(
+-          "WebrtcVideoConduit::SetRemoteSSRC",
+-          [this, self = RefPtr<WebrtcVideoConduit>(this),
+-           ssrc = header.ssrc]() mutable {
+-            // TODO: This is problematic with rtx enabled, we don't know if
+-            // new ssrc is for rtx or not. This is fixed in a later patch in
+-            // this series.
+-            SetRemoteSSRC(
+-                ssrc, 0);  // this will likely re-create the VideoReceiveStream
+-            // We want to unblock the queued packets on the original thread
+-            mStsThread->Dispatch(NS_NewRunnableFunction(
+-                "WebrtcVideoConduit::QueuedPacketsHandler",
+-                [this, self = RefPtr<WebrtcVideoConduit>(this),
+-                 ssrc]() mutable {
+-                  if (ssrc != mRecvSSRC) {
+-                    // this is an intermediate switch; another is in-flight
+-                    return;
+-                  }
+-                  mRtpPacketQueue.DequeueAll(this);
+-                }));
+-          }));
++      InvokeAsync(GetMainThreadSerialEventTarget(), __func__,
++                  [this, self = RefPtr<WebrtcVideoConduit>(this),
++                   ssrc = header.ssrc]() mutable {
++                    // TODO: This is problematic with rtx
++                    // enabled, we don't know if new ssrc is for
++                    // rtx or not. This will likely re-create the
++                    // VideoReceiveStream
++                    SetRemoteSSRC(ssrc, 0);
++                    return GenericPromise::CreateAndResolve(true, __func__);
++                  })
++          ->Then(mStsThread, __func__,
++                 [this, self = RefPtr<WebrtcVideoConduit>(this),
++                  ssrc = header.ssrc]() mutable {
++                   // We want to unblock the queued packets on the original
++                   // thread
++                   if (ssrc != mRecvSSRC) {
++                     // this is an intermediate switch; another is in-flight
++                     return;
++                   }
++                   mRtpPacketQueue.DequeueAll(this);
++                 });
+       return kMediaConduitNoError;
+     }
+   }

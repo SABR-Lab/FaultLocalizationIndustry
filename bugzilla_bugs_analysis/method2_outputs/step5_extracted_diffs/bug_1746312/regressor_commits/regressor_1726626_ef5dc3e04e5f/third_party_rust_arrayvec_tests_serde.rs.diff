@@ -1,0 +1,104 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/arrayvec/tests/serde.rs
+# Commit: ef5dc3e04e5f
+# Full Hash: ef5dc3e04e5f271eea0636ab3a495e95cc912f1d
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-09-04 09:40:24
+# Regressor Bug: 1726626
+# File Overlap Count: 3
+# Description:
+#   Bug 1726626 - Move gfx/wgpu into a 3rd party dependency r=jgilbert,bholley
+#   
+#   This update makes wgpu a vendored dependency instead of having it in gfx/wgpu.
+#   
+#   ## Notes
+# ==============================================================================
+
+diff --git a/third_party/rust/arrayvec/tests/serde.rs b/third_party/rust/arrayvec/tests/serde.rs
+--- a/third_party/rust/arrayvec/tests/serde.rs
++++ b/third_party/rust/arrayvec/tests/serde.rs
+@@ -4,76 +4,76 @@ extern crate serde_test;
+ 
+ mod array_vec {
+     use arrayvec::ArrayVec;
+ 
+     use serde_test::{Token, assert_tokens, assert_de_tokens_error};
+ 
+     #[test]
+     fn test_ser_de_empty() {
+-        let vec = ArrayVec::<[u32; 0]>::new();
++        let vec = ArrayVec::<u32, 0>::new();
+ 
+         assert_tokens(&vec, &[
+             Token::Seq { len: Some(0) },
+             Token::SeqEnd,
+         ]);
+     }
+ 
+ 
+     #[test]
+     fn test_ser_de() {
+-        let mut vec = ArrayVec::<[u32; 3]>::new();
++        let mut vec = ArrayVec::<u32, 3>::new();
+         vec.push(20);
+         vec.push(55);
+         vec.push(123);
+ 
+         assert_tokens(&vec, &[
+             Token::Seq { len: Some(3) },
+             Token::U32(20),
+             Token::U32(55),
+             Token::U32(123),
+             Token::SeqEnd,
+         ]);
+     }
+ 
+     #[test]
+     fn test_de_too_large() {
+-        assert_de_tokens_error::<ArrayVec<[u32; 2]>>(&[
++        assert_de_tokens_error::<ArrayVec<u32, 2>>(&[
+             Token::Seq { len: Some(3) },
+             Token::U32(13),
+             Token::U32(42),
+             Token::U32(68),
+         ], "invalid length 3, expected an array with no more than 2 items");
+     }
+ }
+ 
+ mod array_string {
+     use arrayvec::ArrayString;
+ 
+     use serde_test::{Token, assert_tokens, assert_de_tokens_error};
+ 
+     #[test]
+     fn test_ser_de_empty() {
+-        let string = ArrayString::<[u8; 0]>::new();
++        let string = ArrayString::<0>::new();
+ 
+         assert_tokens(&string, &[
+             Token::Str(""),
+         ]);
+     }
+ 
+ 
+     #[test]
+     fn test_ser_de() {
+-        let string = ArrayString::<[u8; 9]>::from("1234 abcd")
++        let string = ArrayString::<9>::from("1234 abcd")
+             .expect("expected exact specified capacity to be enough");
+ 
+         assert_tokens(&string, &[
+             Token::Str("1234 abcd"),
+         ]);
+     }
+ 
+     #[test]
+     fn test_de_too_large() {
+-        assert_de_tokens_error::<ArrayString<[u8; 2]>>(&[
++        assert_de_tokens_error::<ArrayString<2>>(&[
+             Token::Str("afd")
+         ], "invalid length 3, expected a string no more than 2 bytes long");
+     }
+ }

@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/WSRunObject.cpp
+# Commit: 71670cedaf26
+# Full Hash: 71670cedaf26214f3bcb8562a445cf1ef24f4db6
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2021-06-30 09:36:48
+# Regressor Bug: 1714914
+# File Overlap Count: 1
+# Description:
+#   Bug 1714914 - Make editor classes treat offset in parent node as uint32_t r=m_kato
+#   
+#   It should be treated as `uint32_t` since DOM API does so.  However, there are
+#   some exceptions:
+#   
+# ==============================================================================
+
+diff -r f5dcc2d793d6 -r 71670cedaf26 editor/libeditor/WSRunObject.cpp
+--- a/editor/libeditor/WSRunObject.cpp	Tue Jun 29 22:00:09 2021 +0000
++++ b/editor/libeditor/WSRunObject.cpp	Wed Jun 30 07:07:28 2021 +0000
+@@ -75,7 +75,7 @@
+ 
+ nsresult WhiteSpaceVisibilityKeeper::PrepareToSplitAcrossBlocks(
+     HTMLEditor& aHTMLEditor, nsCOMPtr<nsINode>* aSplitNode,
+-    int32_t* aSplitOffset) {
++    uint32_t* aSplitOffset) {
+   if (NS_WARN_IF(!aSplitNode) || NS_WARN_IF(!*aSplitNode) ||
+       NS_WARN_IF(!aSplitOffset)) {
+     return NS_ERROR_INVALID_ARG;
+@@ -2669,11 +2669,10 @@
+   return rv;
+ }
+ 
+-char16_t WSRunScanner::GetCharAt(Text* aTextNode, int32_t aOffset) const {
++char16_t WSRunScanner::GetCharAt(Text* aTextNode, uint32_t aOffset) const {
+   // return 0 if we can't get a char, for whatever reason
+-  if (NS_WARN_IF(!aTextNode) || NS_WARN_IF(aOffset < 0) ||
+-      NS_WARN_IF(aOffset >=
+-                 static_cast<int32_t>(aTextNode->TextDataLength()))) {
++  if (NS_WARN_IF(!aTextNode) ||
++      NS_WARN_IF(aOffset >= aTextNode->TextDataLength())) {
+     return 0;
+   }
+   return aTextNode->TextFragment().CharAt(aOffset);

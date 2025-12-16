@@ -1,0 +1,495 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/WorkerPrivate.cpp
+# Commit: 7802e5f1bd13
+# Full Hash: 7802e5f1bd1395f19f2d78636787c41f64192bd7
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2024-04-19 15:22:44
+# Regressor Bug: 1769913
+# File Overlap Count: 3
+# Description:
+#   Bug 1769913 - P3 Remove WorkerRunnable::mWorkerPrivate. r=dom-worker-reviewers,asuth
+#   
+#   WorkerRunnable no longer keeps a raw pointer(mWorkerPrivate) for the associated WorkerPrivate in this patch.
+#   Removing the WorkerRunnable::mWorkerPrivate needs to fix the following problems.
+#   
+# ==============================================================================
+
+diff -r ffc69aa8f2c3 -r 7802e5f1bd13 dom/workers/WorkerPrivate.cpp
+--- a/dom/workers/WorkerPrivate.cpp	Fri Apr 19 09:41:57 2024 +0000
++++ b/dom/workers/WorkerPrivate.cpp	Fri Apr 19 09:41:58 2024 +0000
+@@ -186,7 +186,7 @@
+  public:
+   ExternalRunnableWrapper(WorkerPrivate* aWorkerPrivate,
+                           nsIRunnable* aWrappedRunnable)
+-      : WorkerThreadRunnable(aWorkerPrivate, "ExternalRunnableWrapper"),
++      : WorkerThreadRunnable("ExternalRunnableWrapper"),
+         mWrappedRunnable(aWrappedRunnable) {
+     MOZ_ASSERT(aWorkerPrivate);
+     MOZ_ASSERT(aWrappedRunnable);
+@@ -250,7 +250,7 @@
+  public:
+   WorkerFinishedRunnable(WorkerPrivate* aWorkerPrivate,
+                          WorkerPrivate* aFinishedWorker)
+-      : WorkerControlRunnable(aWorkerPrivate, "WorkerFinishedRunnable"),
++      : WorkerControlRunnable("WorkerFinishedRunnable"),
+         mFinishedWorker(aFinishedWorker) {
+     aFinishedWorker->IncreaseWorkerFinishedRunnableCount();
+   }
+@@ -337,7 +337,7 @@
+                                  UniquePtr<SerializedStackHolder> aOriginStack,
+                                  const nsAString& aScriptURL,
+                                  const mozilla::Encoding* aDocumentEncoding)
+-      : WorkerDebuggeeRunnable(aWorkerPrivate, "CompileScriptRunnable"),
++      : WorkerDebuggeeRunnable("CompileScriptRunnable"),
+         mScriptURL(aScriptURL),
+         mDocumentEncoding(aDocumentEncoding),
+         mOriginStack(aOriginStack.release()) {}
+@@ -444,8 +444,7 @@
+ 
+  public:
+   NotifyRunnable(WorkerPrivate* aWorkerPrivate, WorkerStatus aStatus)
+-      : WorkerControlRunnable(aWorkerPrivate, "NotifyRunnable"),
+-        mStatus(aStatus) {
++      : WorkerControlRunnable("NotifyRunnable"), mStatus(aStatus) {
+     MOZ_ASSERT(aStatus == Closing || aStatus == Canceling ||
+                aStatus == Killing);
+   }
+@@ -473,7 +472,7 @@
+ class FreezeRunnable final : public WorkerControlRunnable {
+  public:
+   explicit FreezeRunnable(WorkerPrivate* aWorkerPrivate)
+-      : WorkerControlRunnable(aWorkerPrivate, "FreezeRunnable") {}
++      : WorkerControlRunnable("FreezeRunnable") {}
+ 
+  private:
+   virtual bool WorkerRun(JSContext* aCx,
+@@ -485,7 +484,7 @@
+ class ThawRunnable final : public WorkerControlRunnable {
+  public:
+   explicit ThawRunnable(WorkerPrivate* aWorkerPrivate)
+-      : WorkerControlRunnable(aWorkerPrivate, "ThawRunnable") {}
++      : WorkerControlRunnable("ThawRunnable") {}
+ 
+  private:
+   virtual bool WorkerRun(JSContext* aCx,
+@@ -500,8 +499,7 @@
+   explicit PropagateStorageAccessPermissionGrantedRunnable(
+       WorkerPrivate* aWorkerPrivate)
+       : WorkerControlRunnable(
+-            aWorkerPrivate, "PropagateStorageAccessPermissionGrantedRunnable") {
+-  }
++            "PropagateStorageAccessPermissionGrantedRunnable") {}
+ 
+  private:
+   bool WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override {
+@@ -528,7 +526,7 @@
+     if (aWorkerPrivate) {
+       RefPtr<ReportErrorToConsoleRunnable> runnable =
+           new ReportErrorToConsoleRunnable(aWorkerPrivate, aMessage, aParams);
+-      runnable->Dispatch();
++      runnable->Dispatch(aWorkerPrivate);
+       return;
+     }
+ 
+@@ -542,8 +540,7 @@
+   ReportErrorToConsoleRunnable(WorkerPrivate* aWorkerPrivate,
+                                const char* aMessage,
+                                const nsTArray<nsString>& aParams)
+-      : WorkerParentThreadRunnable(aWorkerPrivate,
+-                                   "ReportErrorToConsoleRunnable"),
++      : WorkerParentThreadRunnable("ReportErrorToConsoleRunnable"),
+         mMessage(aMessage),
+         mParams(aParams.Clone()) {}
+ 
+@@ -570,7 +567,7 @@
+   NS_DECL_ISUPPORTS_INHERITED
+ 
+   explicit RunExpiredTimoutsRunnable(WorkerPrivate* aWorkerPrivate)
+-      : WorkerThreadRunnable(aWorkerPrivate, "RunExpiredTimoutsRunnable") {}
++      : WorkerThreadRunnable("RunExpiredTimoutsRunnable") {}
+ 
+  private:
+   ~RunExpiredTimoutsRunnable() = default;
+@@ -606,7 +603,7 @@
+  public:
+   explicit DebuggerImmediateRunnable(WorkerPrivate* aWorkerPrivate,
+                                      dom::Function& aHandler)
+-      : WorkerThreadRunnable(aWorkerPrivate, "DebuggerImmediateRunnable"),
++      : WorkerThreadRunnable("DebuggerImmediateRunnable"),
+         mHandler(&aHandler) {}
+ 
+  private:
+@@ -667,7 +664,7 @@
+  public:
+   UpdateContextOptionsRunnable(WorkerPrivate* aWorkerPrivate,
+                                const JS::ContextOptions& aContextOptions)
+-      : WorkerControlRunnable(aWorkerPrivate, "UpdateContextOptionsRunnable"),
++      : WorkerControlRunnable("UpdateContextOptionsRunnable"),
+         mContextOptions(aContextOptions) {}
+ 
+  private:
+@@ -684,7 +681,7 @@
+  public:
+   UpdateLanguagesRunnable(WorkerPrivate* aWorkerPrivate,
+                           const nsTArray<nsString>& aLanguages)
+-      : WorkerThreadRunnable(aWorkerPrivate, "UpdateLanguagesRunnable"),
++      : WorkerThreadRunnable("UpdateLanguagesRunnable"),
+         mLanguages(aLanguages.Clone()) {}
+ 
+   virtual bool WorkerRun(JSContext* aCx,
+@@ -703,8 +700,7 @@
+   UpdateJSWorkerMemoryParameterRunnable(WorkerPrivate* aWorkerPrivate,
+                                         JSGCParamKey aKey,
+                                         Maybe<uint32_t> aValue)
+-      : WorkerControlRunnable(aWorkerPrivate,
+-                              "UpdateJSWorkerMemoryParameterRunnable"),
++      : WorkerControlRunnable("UpdateJSWorkerMemoryParameterRunnable"),
+         mValue(aValue),
+         mKey(aKey) {}
+ 
+@@ -724,7 +720,7 @@
+  public:
+   UpdateGCZealRunnable(WorkerPrivate* aWorkerPrivate, uint8_t aGCZeal,
+                        uint32_t aFrequency)
+-      : WorkerControlRunnable(aWorkerPrivate, "UpdateGCZealRunnable"),
++      : WorkerControlRunnable("UpdateGCZealRunnable"),
+         mGCZeal(aGCZeal),
+         mFrequency(aFrequency) {}
+ 
+@@ -742,8 +738,7 @@
+ 
+  public:
+   SetLowMemoryStateRunnable(WorkerPrivate* aWorkerPrivate, bool aState)
+-      : WorkerControlRunnable(aWorkerPrivate, "SetLowMemoryStateRunnable"),
+-        mState(aState) {}
++      : WorkerControlRunnable("SetLowMemoryStateRunnable"), mState(aState) {}
+ 
+  private:
+   virtual bool WorkerRun(JSContext* aCx,
+@@ -760,7 +755,7 @@
+  public:
+   GarbageCollectRunnable(WorkerPrivate* aWorkerPrivate, bool aShrinking,
+                          bool aCollectChildren)
+-      : WorkerControlRunnable(aWorkerPrivate, "GarbageCollectRunnable"),
++      : WorkerControlRunnable("GarbageCollectRunnable"),
+         mShrinking(aShrinking),
+         mCollectChildren(aCollectChildren) {}
+ 
+@@ -794,7 +789,7 @@
+ 
+  public:
+   CycleCollectRunnable(WorkerPrivate* aWorkerPrivate, bool aCollectChildren)
+-      : WorkerControlRunnable(aWorkerPrivate, "CycleCollectRunnable"),
++      : WorkerControlRunnable("CycleCollectRunnable"),
+         mCollectChildren(aCollectChildren) {}
+ 
+   bool WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override {
+@@ -806,7 +801,7 @@
+ class OfflineStatusChangeRunnable final : public WorkerThreadRunnable {
+  public:
+   OfflineStatusChangeRunnable(WorkerPrivate* aWorkerPrivate, bool aIsOffline)
+-      : WorkerThreadRunnable(aWorkerPrivate, "OfflineStatusChangeRunnable"),
++      : WorkerThreadRunnable("OfflineStatusChangeRunnable"),
+         mIsOffline(aIsOffline) {}
+ 
+   bool WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override {
+@@ -821,7 +816,7 @@
+ class MemoryPressureRunnable final : public WorkerControlRunnable {
+  public:
+   explicit MemoryPressureRunnable(WorkerPrivate* aWorkerPrivate)
+-      : WorkerControlRunnable(aWorkerPrivate, "MemoryPressureRunnable") {}
++      : WorkerControlRunnable("MemoryPressureRunnable") {}
+ 
+   bool WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override {
+     aWorkerPrivate->MemoryPressureInternal();
+@@ -852,8 +847,7 @@
+ class CancelingOnParentRunnable final : public WorkerParentDebuggeeRunnable {
+  public:
+   explicit CancelingOnParentRunnable(WorkerPrivate* aWorkerPrivate)
+-      : WorkerParentDebuggeeRunnable(aWorkerPrivate,
+-                                     "CancelingOnParentRunnable") {}
++      : WorkerParentDebuggeeRunnable("CancelingOnParentRunnable") {}
+ 
+   bool WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override {
+     aWorkerPrivate->Cancel();
+@@ -866,8 +860,7 @@
+     : public WorkerParentControlRunnable {
+  public:
+   explicit CancelingWithTimeoutOnParentRunnable(WorkerPrivate* aWorkerPrivate)
+-      : WorkerParentControlRunnable(aWorkerPrivate,
+-                                    "CancelingWithTimeoutOnParentRunnable") {}
++      : WorkerParentControlRunnable("CancelingWithTimeoutOnParentRunnable") {}
+ 
+   bool WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override {
+     aWorkerPrivate->AssertIsOnParentThread();
+@@ -915,7 +908,7 @@
+     // Now we can cancel the this worker from the parent process.
+     RefPtr<CancelingOnParentRunnable> r =
+         new CancelingOnParentRunnable(workerPrivate);
+-    r->Dispatch();
++    r->Dispatch(workerPrivate);
+ 
+     return NS_OK;
+   }
+@@ -1241,7 +1234,7 @@
+                                           aAnonymize, path);
+   }
+ 
+-  if (!runnable->Dispatch()) {
++  if (!runnable->Dispatch(mWorkerPrivate)) {
+     return NS_ERROR_UNEXPECTED;
+   }
+ 
+@@ -1251,7 +1244,7 @@
+ WorkerPrivate::MemoryReporter::CollectReportsRunnable::CollectReportsRunnable(
+     WorkerPrivate* aWorkerPrivate, nsIHandleReportCallback* aHandleReport,
+     nsISupports* aHandlerData, bool aAnonymize, const nsACString& aPath)
+-    : MainThreadWorkerControlRunnable(aWorkerPrivate),
++    : MainThreadWorkerControlRunnable("CollectReportsRunnable"),
+       mFinishCollectRunnable(new FinishCollectRunnable(
+           aHandleReport, aHandlerData, aAnonymize, aPath)),
+       mAnonymize(aAnonymize) {}
+@@ -1687,7 +1680,7 @@
+     already_AddRefed<WorkerRunnable> aWorkerRunnable) {
+   // May be called on any thread!
+   RefPtr<WorkerRunnable> runnable(aWorkerRunnable);
+-  MOZ_ASSERT(runnable && runnable->IsControlRunnable());
++  MOZ_ASSERT_DEBUG_OR_FUZZING(runnable && runnable->IsControlRunnable());
+ 
+   LOG(WorkerLog(), ("WorkerPrivate::DispatchControlRunnable [%p] runnable %p",
+                     this, runnable.get()));
+@@ -1799,6 +1792,8 @@
+     mCancellationCallback = nullptr;
+   }
+ 
++  mParentRef->DropWorkerPrivate();
++
+   if (pending) {
+ #ifdef DEBUG
+     {
+@@ -1833,7 +1828,7 @@
+   }
+ 
+   RefPtr<NotifyRunnable> runnable = new NotifyRunnable(this, aStatus);
+-  return runnable->Dispatch();
++  return runnable->Dispatch(this);
+ }
+ 
+ bool WorkerPrivate::Freeze(const nsPIDOMWindowInner* aWindow) {
+@@ -1871,7 +1866,7 @@
+   DisableDebugger();
+ 
+   RefPtr<FreezeRunnable> runnable = new FreezeRunnable(this);
+-  return runnable->Dispatch();
++  return runnable->Dispatch(this);
+ }
+ 
+ bool WorkerPrivate::Thaw(const nsPIDOMWindowInner* aWindow) {
+@@ -1913,7 +1908,7 @@
+   EnableDebugger();
+ 
+   RefPtr<ThawRunnable> runnable = new ThawRunnable(this);
+-  return runnable->Dispatch();
++  return runnable->Dispatch(this);
+ }
+ 
+ void WorkerPrivate::ParentWindowPaused() {
+@@ -1975,7 +1970,7 @@
+ 
+   RefPtr<PropagateStorageAccessPermissionGrantedRunnable> runnable =
+       new PropagateStorageAccessPermissionGrantedRunnable(this);
+-  Unused << NS_WARN_IF(!runnable->Dispatch());
++  Unused << NS_WARN_IF(!runnable->Dispatch(this));
+ }
+ 
+ void WorkerPrivate::NotifyStorageKeyUsed() {
+@@ -2043,7 +2038,7 @@
+ 
+   RefPtr<UpdateContextOptionsRunnable> runnable =
+       new UpdateContextOptionsRunnable(this, aContextOptions);
+-  if (!runnable->Dispatch()) {
++  if (!runnable->Dispatch(this)) {
+     NS_WARNING("Failed to update worker context options!");
+   }
+ }
+@@ -2053,7 +2048,7 @@
+ 
+   RefPtr<UpdateLanguagesRunnable> runnable =
+       new UpdateLanguagesRunnable(this, aLanguages);
+-  if (!runnable->Dispatch()) {
++  if (!runnable->Dispatch(this)) {
+     NS_WARNING("Failed to update worker languages!");
+   }
+ }
+@@ -2072,7 +2067,7 @@
+   if (changed) {
+     RefPtr<UpdateJSWorkerMemoryParameterRunnable> runnable =
+         new UpdateJSWorkerMemoryParameterRunnable(this, aKey, aValue);
+-    if (!runnable->Dispatch()) {
++    if (!runnable->Dispatch(this)) {
+       NS_WARNING("Failed to update memory parameter!");
+     }
+   }
+@@ -2090,7 +2085,7 @@
+ 
+   RefPtr<UpdateGCZealRunnable> runnable =
+       new UpdateGCZealRunnable(this, aGCZeal, aFrequency);
+-  if (!runnable->Dispatch()) {
++  if (!runnable->Dispatch(this)) {
+     NS_WARNING("Failed to update worker gczeal!");
+   }
+ }
+@@ -2101,7 +2096,7 @@
+ 
+   RefPtr<SetLowMemoryStateRunnable> runnable =
+       new SetLowMemoryStateRunnable(this, aState);
+-  if (!runnable->Dispatch()) {
++  if (!runnable->Dispatch(this)) {
+     NS_WARNING("Failed to set low memory state!");
+   }
+ }
+@@ -2111,7 +2106,7 @@
+ 
+   RefPtr<GarbageCollectRunnable> runnable = new GarbageCollectRunnable(
+       this, aShrinking, /* aCollectChildren = */ true);
+-  if (!runnable->Dispatch()) {
++  if (!runnable->Dispatch(this)) {
+     NS_WARNING("Failed to GC worker!");
+   }
+ }
+@@ -2121,7 +2116,7 @@
+ 
+   RefPtr<CycleCollectRunnable> runnable =
+       new CycleCollectRunnable(this, /* aCollectChildren = */ true);
+-  if (!runnable->Dispatch()) {
++  if (!runnable->Dispatch(this)) {
+     NS_WARNING("Failed to CC worker!");
+   }
+ }
+@@ -2131,7 +2126,7 @@
+ 
+   RefPtr<OfflineStatusChangeRunnable> runnable =
+       new OfflineStatusChangeRunnable(this, aIsOffline);
+-  if (!runnable->Dispatch()) {
++  if (!runnable->Dispatch(this)) {
+     NS_WARNING("Failed to dispatch offline status change event!");
+   }
+ }
+@@ -2174,7 +2169,7 @@
+   AssertIsOnParentThread();
+ 
+   RefPtr<MemoryPressureRunnable> runnable = new MemoryPressureRunnable(this);
+-  Unused << NS_WARN_IF(!runnable->Dispatch());
++  Unused << NS_WARN_IF(!runnable->Dispatch(this));
+ }
+ 
+ RefPtr<WorkerPrivate::JSMemoryUsagePromise> WorkerPrivate::GetJSMemoryUsage() {
+@@ -2717,6 +2712,7 @@
+   // must keep ourself alive. We can now only be cleared by
+   // ClearSelfAndParentEventTargetRef().
+   worker->mSelfRef = worker;
++  worker->mParentRef = MakeRefPtr<WorkerParentRef>(worker);
+ 
+   worker->EnableDebugger();
+ 
+@@ -2737,7 +2733,7 @@
+ 
+   RefPtr<CompileScriptRunnable> compiler = new CompileScriptRunnable(
+       worker, std::move(stack), aScriptURL, aDocumentEncoding);
+-  if (!compiler->Dispatch()) {
++  if (!compiler->Dispatch(worker)) {
+     aRv.Throw(NS_ERROR_UNEXPECTED);
+     return nullptr;
+   }
+@@ -3588,7 +3584,7 @@
+ nsresult WorkerPrivate::DispatchDebuggeeToMainThread(
+     already_AddRefed<WorkerRunnable> aRunnable, uint32_t aFlags) {
+   RefPtr<WorkerRunnable> debuggeeRunnable = std::move(aRunnable);
+-  MOZ_ASSERT(debuggeeRunnable->IsDebuggeeRunnable());
++  MOZ_ASSERT_DEBUG_OR_FUZZING(debuggeeRunnable->IsDebuggeeRunnable());
+   return mMainThreadDebuggeeEventTarget->Dispatch(debuggeeRunnable.forget(),
+                                                   aFlags);
+ }
+@@ -3974,7 +3970,7 @@
+   if (WorkerPrivate* parent = GetParent()) {
+     RefPtr<WorkerFinishedRunnable> runnable =
+         new WorkerFinishedRunnable(parent, this);
+-    if (!runnable->Dispatch()) {
++    if (!runnable->Dispatch(parent)) {
+       NS_WARNING("Failed to dispatch runnable!");
+     }
+   } else {
+@@ -4386,6 +4382,11 @@
+   mWorkerHybridEventTarget->ForgetWorkerPrivate(this);
+ }
+ 
++RefPtr<WorkerParentRef> WorkerPrivate::GetWorkerParentRef() const {
++  RefPtr<WorkerParentRef> ref(mParentRef);
++  return ref;
++}
++
+ void WorkerPrivate::AdjustNonblockingCCBackgroundActorCount(int32_t aCount) {
+   AssertIsOnWorkerThread();
+   auto data = mWorkerThreadAccessible.Access();
+@@ -4763,7 +4764,7 @@
+                     this));
+   RefPtr<CancelingWithTimeoutOnParentRunnable> rr =
+       new CancelingWithTimeoutOnParentRunnable(this);
+-  rr->Dispatch();
++  rr->Dispatch(this);
+ }
+ 
+ void WorkerPrivate::ReportUseCounters() {
+@@ -4925,7 +4926,7 @@
+     return;
+   }
+ 
+-  if (!runnable->Dispatch()) {
++  if (!runnable->Dispatch(this)) {
+     aRv = NS_ERROR_FAILURE;
+   }
+ }
+@@ -5025,7 +5026,7 @@
+ 
+   RefPtr<DebuggerImmediateRunnable> runnable =
+       new DebuggerImmediateRunnable(this, aHandler);
+-  if (!runnable->Dispatch()) {
++  if (!runnable->Dispatch(this)) {
+     aRv.Throw(NS_ERROR_FAILURE);
+   }
+ }
+@@ -6288,5 +6289,32 @@
+   data->mCurrentEventLoopGlobal = std::move(mOldEventLoopGlobal);
+ }
+ 
++// -----------------------------------------------------------------------------
++// WorkerParentRef
++WorkerParentRef::WorkerParentRef(RefPtr<WorkerPrivate>& aWorkerPrivate)
++    : mWorkerPrivate(aWorkerPrivate) {
++  LOGV(("WorkerParentRef::WorkerParentRef [%p] aWorkerPrivate %p", this,
++        aWorkerPrivate.get()));
++  MOZ_ASSERT(mWorkerPrivate);
++  mWorkerPrivate->AssertIsOnParentThread();
++}
++
++const RefPtr<WorkerPrivate>& WorkerParentRef::Private() const {
++  if (mWorkerPrivate) {
++    mWorkerPrivate->AssertIsOnParentThread();
++  }
++  return mWorkerPrivate;
++}
++
++void WorkerParentRef::DropWorkerPrivate() {
++  LOGV(("WorkerParentRef::DropWorkerPrivate [%p]", this));
++  if (mWorkerPrivate) {
++    mWorkerPrivate->AssertIsOnParentThread();
++    mWorkerPrivate = nullptr;
++  }
++}
++
++WorkerParentRef::~WorkerParentRef() = default;
++
+ }  // namespace dom
+ }  // namespace mozilla

@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/OriginOperations.cpp
+# Commit: b12a2f55233f
+# Full Hash: b12a2f55233fade8f2e3411295ff3d362df9e359
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-10-09 21:46:09
+# Regressor Bug: 1866402
+# File Overlap Count: 1
+# Description:
+#   Bug 1866402 - Change nsIQuotaManagerService::ResetStoragesForPrincipal to support resetting of entire origins only; r=dom-storage-reviewers,jari
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D195510
+# ==============================================================================
+
+diff -r 6a90f36c8bf5 -r b12a2f55233f dom/quota/OriginOperations.cpp
+--- a/dom/quota/OriginOperations.cpp	Wed Oct 09 11:59:34 2024 +0000
++++ b/dom/quota/OriginOperations.cpp	Wed Oct 09 11:59:35 2024 +0000
+@@ -695,13 +695,11 @@
+   PrincipalMetadata mPrincipalMetadata;
+   RefPtr<UniversalDirectoryLock> mDirectoryLock;
+   const PersistenceScope mPersistenceScope;
+-  const Nullable<Client::Type> mClientType;
+ 
+  public:
+   ShutdownOriginOp(MovingNotNull<RefPtr<QuotaManager>> aQuotaManager,
+                    mozilla::Maybe<PersistenceType> aPersistenceType,
+-                   const PrincipalInfo& aPrincipalInfo,
+-                   mozilla::Maybe<Client::Type> aClientType);
++                   const PrincipalInfo& aPrincipalInfo);
+ 
+  private:
+   ~ShutdownOriginOp() = default;
+@@ -988,10 +986,9 @@
+ RefPtr<ResolvableNormalOriginOp<bool>> CreateShutdownOriginOp(
+     MovingNotNull<RefPtr<QuotaManager>> aQuotaManager,
+     Maybe<PersistenceType> aPersistenceType,
+-    const mozilla::ipc::PrincipalInfo& aPrincipalInfo,
+-    Maybe<Client::Type> aClientType) {
+-  return MakeRefPtr<ShutdownOriginOp>(
+-      std::move(aQuotaManager), aPersistenceType, aPrincipalInfo, aClientType);
++    const mozilla::ipc::PrincipalInfo& aPrincipalInfo) {
++  return MakeRefPtr<ShutdownOriginOp>(std::move(aQuotaManager),
++                                      aPersistenceType, aPrincipalInfo);
+ }
+ 
+ RefPtr<ResolvableNormalOriginOp<bool>> CreateShutdownClientOp(
+@@ -2672,16 +2669,13 @@
+ ShutdownOriginOp::ShutdownOriginOp(
+     MovingNotNull<RefPtr<QuotaManager>> aQuotaManager,
+     mozilla::Maybe<PersistenceType> aPersistenceType,
+-    const PrincipalInfo& aPrincipalInfo,
+-    mozilla::Maybe<Client::Type> aClientType)
++    const PrincipalInfo& aPrincipalInfo)
+     : ResolvableNormalOriginOp(std::move(aQuotaManager),
+                                "dom::quota::ShutdownOriginOp"),
+       mPrincipalInfo(aPrincipalInfo),
+       mPersistenceScope(aPersistenceType ? PersistenceScope::CreateFromValue(
+                                                *aPersistenceType)
+-                                         : PersistenceScope::CreateFromNull()),
+-      mClientType(aClientType ? Nullable<Client::Type>(*aClientType)
+-                              : Nullable<Client::Type>()) {
++                                         : PersistenceScope::CreateFromNull()) {
+   AssertIsOnOwningThread();
+ }
+ 
+@@ -2702,7 +2696,7 @@
+ 
+   mDirectoryLock = mQuotaManager->CreateDirectoryLockInternal(
+       mPersistenceScope, OriginScope::FromOrigin(mPrincipalMetadata.mOrigin),
+-      mClientType, /* aExclusive */ true);
++      Nullable<Client::Type>(), /* aExclusive */ true);
+ 
+   return mDirectoryLock->Acquire();
+ }

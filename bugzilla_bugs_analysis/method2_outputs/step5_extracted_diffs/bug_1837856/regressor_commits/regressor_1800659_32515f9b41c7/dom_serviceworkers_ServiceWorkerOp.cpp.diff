@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/serviceworkers/ServiceWorkerOp.cpp
+# Commit: 32515f9b41c7
+# Full Hash: 32515f9b41c77d6ccd5831eed28953037c4fb319
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2023-06-07 03:30:33
+# Regressor Bug: 1800659
+# File Overlap Count: 1
+# Description:
+#   Bug 1800659 - P2 remove nsICancelableRunnable inheriting form WorkerRunnable. r=asuth
+#   
+#   This patch is only remove the inheriting, but keeping Cancel() implmentation.
+#   The Cancel() is needed in some special cases, such as Worker enters Canceling when WorkerScope is not created.
+#   
+# ==============================================================================
+
+diff -r 910dabb8545d -r 32515f9b41c7 dom/serviceworkers/ServiceWorkerOp.cpp
+--- a/dom/serviceworkers/ServiceWorkerOp.cpp	Tue Jun 06 06:36:50 2023 +0000
++++ b/dom/serviceworkers/ServiceWorkerOp.cpp	Tue Jun 06 06:36:50 2023 +0000
+@@ -301,10 +301,6 @@
+   }
+ 
+   nsresult Cancel() override {
+-    // We need to check first if cancel is permitted
+-    nsresult rv = WorkerRunnable::Cancel();
+-    NS_ENSURE_SUCCESS(rv, rv);
+-
+     MOZ_ASSERT(mOwner);
+ 
+     mOwner->RejectAll(NS_ERROR_DOM_ABORT_ERR);
+@@ -550,7 +546,7 @@
+       mOwner->RejectAll(NS_ERROR_DOM_ABORT_ERR);
+       mOwner = nullptr;
+ 
+-      return MainThreadWorkerControlRunnable::Cancel();
++      return NS_OK;
+     }
+ 
+     RefPtr<UpdateServiceWorkerStateOp> mOwner;

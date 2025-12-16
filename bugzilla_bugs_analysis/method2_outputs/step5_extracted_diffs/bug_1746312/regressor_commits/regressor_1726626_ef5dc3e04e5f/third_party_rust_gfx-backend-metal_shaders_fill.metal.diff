@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/gfx-backend-metal/shaders/fill.metal
+# Commit: ef5dc3e04e5f
+# Full Hash: ef5dc3e04e5f271eea0636ab3a495e95cc912f1d
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-09-04 09:40:24
+# Regressor Bug: 1726626
+# File Overlap Count: 3
+# Description:
+#   Bug 1726626 - Move gfx/wgpu into a 3rd party dependency r=jgilbert,bholley
+#   
+#   This update makes wgpu a vendored dependency instead of having it in gfx/wgpu.
+#   
+#   ## Notes
+# ==============================================================================
+
+diff --git a/third_party/rust/gfx-backend-metal/shaders/fill.metal b/third_party/rust/gfx-backend-metal/shaders/fill.metal
+deleted file mode 100644
+--- a/third_party/rust/gfx-backend-metal/shaders/fill.metal
++++ /dev/null
+@@ -1,33 +0,0 @@
+-#include <metal_stdlib>
+-using namespace metal;
+-
+-typedef struct {
+-    uint value;
+-    uint length;
+-} FillBufferValue;
+-
+-kernel void cs_fill_buffer(
+-    device uint *buffer [[ buffer(0) ]],
+-    constant FillBufferValue &fill [[ buffer(1) ]],
+-    uint index [[ thread_position_in_grid ]]
+-) {
+-    if (index < fill.length) {
+-        buffer[index] = fill.value;
+-    }
+-}
+-
+-typedef struct {
+-    uint size;
+-    uint offsets;
+-} CopyBufferRange;
+-
+-kernel void cs_copy_buffer(
+-    device uchar *dest [[ buffer(0) ]],
+-    device uchar *source [[ buffer(1) ]],
+-    constant CopyBufferRange &range [[ buffer(2) ]],
+-    uint index [[ thread_position_in_grid ]]
+-) {
+-    if (index < range.size) {
+-        dest[(range.offsets>>16) + index] = source[(range.offsets & 0xFFFF) + index];
+-    }
+-}

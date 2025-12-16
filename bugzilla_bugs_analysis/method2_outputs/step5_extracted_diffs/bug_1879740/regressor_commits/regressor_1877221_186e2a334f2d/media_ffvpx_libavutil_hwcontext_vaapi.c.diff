@@ -1,0 +1,78 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/ffvpx/libavutil/hwcontext_vaapi.c
+# Commit: 186e2a334f2d
+# Full Hash: 186e2a334f2deb37b29f44b28bc8c83babeeb9a4
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2024-02-09 09:37:17
+# Regressor Bug: 1877221
+# File Overlap Count: 1
+# Description:
+#   Bug 1877221 - Pull in new ffmpeg code, reapply patch. r=media-playback-reviewers,chunmin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D199909
+# ==============================================================================
+
+diff -r c5920de78d16 -r 186e2a334f2d media/ffvpx/libavutil/hwcontext_vaapi.c
+--- a/media/ffvpx/libavutil/hwcontext_vaapi.c	Thu Feb 08 10:39:53 2024 +0000
++++ b/media/ffvpx/libavutil/hwcontext_vaapi.c	Thu Feb 08 10:39:54 2024 +0000
+@@ -217,7 +217,7 @@
+             return 0;
+         }
+     }
+-    return AVERROR(EINVAL);
++    return AVERROR(ENOSYS);
+ }
+ 
+ static int vaapi_frames_get_constraints(AVHWDeviceContext *hwdev,
+@@ -817,7 +817,7 @@
+     err = vaapi_get_image_format(hwfc->device_ctx, dst->format, &image_format);
+     if (err < 0) {
+         // Requested format is not a valid output format.
+-        return AVERROR(EINVAL);
++        return err;
+     }
+ 
+     map = av_malloc(sizeof(*map));
+@@ -992,7 +992,7 @@
+     if (dst->format != AV_PIX_FMT_NONE) {
+         err = vaapi_get_image_format(hwfc->device_ctx, dst->format, NULL);
+         if (err < 0)
+-            return AVERROR(ENOSYS);
++            return err;
+     }
+ 
+     err = vaapi_map_frame(hwfc, dst, src, flags);
+@@ -1048,6 +1048,9 @@
+ #if defined(VA_FOURCC_Y412) && defined(DRM_FORMAT_XVYU12_16161616)
+     DRM_MAP(Y412, 1, DRM_FORMAT_XVYU12_16161616),
+ #endif
++#if defined(VA_FOURCC_X2R10G10B10) && defined(DRM_FORMAT_XRGB2101010)
++    DRM_MAP(X2R10G10B10, 1, DRM_FORMAT_XRGB2101010),
++#endif
+ };
+ #undef DRM_MAP
+ 
+@@ -1730,8 +1733,19 @@
+                          "/dev/dri/renderD%d", 128 + n);
+                 priv->drm_fd = open(path, O_RDWR);
+                 if (priv->drm_fd < 0) {
+-                    av_log(ctx, AV_LOG_VERBOSE, "Cannot open "
+-                           "DRM render node for device %d.\n", n);
++                    if (errno == ENOENT) {
++                        if (n != max_devices - 1) {
++                            av_log(ctx, AV_LOG_VERBOSE,
++                                   "No render device %s, try next device for "
++                                   "DRM render node.\n", path);
++                            continue;
++                        }
++
++                        av_log(ctx, AV_LOG_VERBOSE, "No available render device "
++                               "for DRM render node.\n");
++                    } else
++                        av_log(ctx, AV_LOG_VERBOSE, "Cannot open "
++                               "DRM render node for device %d.\n", n);
+                     break;
+                 }
+ #if CONFIG_LIBDRM

@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/batch.rs
+# Commit: 3e4cc0d312d0
+# Full Hash: 3e4cc0d312d0d4c953484a964a0ef8ecb3201601
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2019-05-05 21:39:08
+# Regressor Bug: 1540200
+# File Overlap Count: 1
+# Description:
+#   Bug 1540200 - Part 1. Move picture local rect calculation to update visibility. r=kvark
+#   
+#   We currently calculate a picture's local rect when we are doing the
+#   first picture traversal. It was composed of the union of the clipped
+#   local rects of its children. However the true local rect of a picture is
+# ==============================================================================
+
+diff -r 7921024c9fa6 -r 3e4cc0d312d0 gfx/wr/webrender/src/batch.rs
+--- a/gfx/wr/webrender/src/batch.rs	Fri May 03 12:59:56 2019 +0200
++++ b/gfx/wr/webrender/src/batch.rs	Wed Apr 10 12:35:20 2019 -0400
+@@ -978,7 +978,7 @@
+                 let prim_cache_address = gpu_cache.get_address(&ctx.globals.default_image_handle);
+ 
+                 let prim_header = PrimitiveHeader {
+-                    local_rect: picture.local_rect,
++                    local_rect: picture.snapped_local_rect,
+                     local_clip_rect: prim_info.combined_local_clip_rect,
+                     task_address,
+                     specific_prim_address: prim_cache_address,
+@@ -1016,7 +1016,7 @@
+                             ).unwrap_or(OPAQUE_TASK_ADDRESS);
+ 
+                             let prim_header = PrimitiveHeader {
+-                                local_rect: pic.local_rect,
++                                local_rect: pic.snapped_local_rect,
+                                 local_clip_rect: prim_info.combined_local_clip_rect,
+                                 task_address,
+                                 specific_prim_address: GpuCacheAddress::invalid(),
+@@ -1131,7 +1131,7 @@
+                                 // the local bounds of the picture extend to within the edge tiles.
+                                 let local_clip_rect = prim_info
+                                     .combined_local_clip_rect
+-                                    .intersection(&picture.local_rect)
++                                    .intersection(&picture.snapped_local_rect)
+                                     .and_then(|rect| {
+                                         rect.intersection(&tile_cache.local_clip_rect)
+                                     });
+@@ -1643,7 +1643,7 @@
+                                 };
+ 
+                                 let prim_header = PrimitiveHeader {
+-                                    local_rect: picture.local_rect,
++                                    local_rect: picture.snapped_local_rect,
+                                     local_clip_rect: prim_info.combined_local_clip_rect,
+                                     task_address,
+                                     specific_prim_address: prim_cache_address,

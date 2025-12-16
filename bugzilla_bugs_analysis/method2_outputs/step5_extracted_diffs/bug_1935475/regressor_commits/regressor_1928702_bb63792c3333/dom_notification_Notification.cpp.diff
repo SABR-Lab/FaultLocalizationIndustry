@@ -1,0 +1,82 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/notification/Notification.cpp
+# Commit: bb63792c3333
+# Full Hash: bb63792c3333a7911bdfad9e9e9ec58bb48bad93
+# Author: Kagami Sascha Rosylight <saschanaz@outlook.com>
+# Date: 2024-11-08 04:19:40
+# Regressor Bug: 1928702
+# File Overlap Count: 1
+# Description:
+#   Bug 1928702 - Part 2: Create PNotification via PBackground r=asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D227687
+# ==============================================================================
+
+diff -r 93937caf6d13 -r bb63792c3333 dom/notification/Notification.cpp
+--- a/dom/notification/Notification.cpp	Thu Nov 07 17:32:03 2024 +0000
++++ b/dom/notification/Notification.cpp	Thu Nov 07 17:32:03 2024 +0000
+@@ -30,6 +30,9 @@
+ #include "mozilla/dom/WorkerRunnable.h"
+ #include "mozilla/dom/WorkerScope.h"
+ #include "mozilla/dom/quota/ResultExtensions.h"
++#include "mozilla/ipc/BackgroundChild.h"
++#include "mozilla/ipc/BackgroundUtils.h"
++#include "mozilla/ipc/PBackgroundChild.h"
+ #include "Navigator.h"
+ #include "NotificationUtils.h"
+ #include "nsComponentManagerUtils.h"
+@@ -2237,6 +2240,52 @@
+   return notification.forget();
+ }
+ 
++bool Notification::CreateActor(Promise* aPromise) {
++  mozilla::ipc::PBackgroundChild* backgroundActor =
++      mozilla::ipc::BackgroundChild::GetOrCreateForCurrentThread();
++  IPCNotificationOptions options(mTitle, mDir, mLang, mBody, mTag, mIconUrl,
++                                 mRequireInteraction, mSilent, mVibrate,
++                                 mDataAsBase64, mBehavior);
++
++  // Note: We are not using the typical PBackground managed actor here as we
++  // want the actor to be in the main thread of the main process. Instead we
++  // pass the endpoint to PBackground, it dispatches a runnable to the main
++  // thread, and the endpoint is bound there.
++
++  mozilla::ipc::Endpoint<notification::PNotificationParent> parentEndpoint;
++  mozilla::ipc::Endpoint<notification::PNotificationChild> childEndpoint;
++  notification::PNotification::CreateEndpoints(&parentEndpoint, &childEndpoint);
++
++  mActor = new notification::NotificationChild();
++  if (!childEndpoint.Bind(mActor)) {
++    return false;
++  }
++
++  nsIPrincipal* principal;
++  nsIPrincipal* effectiveStoragePrincipal;
++  bool isSecureContext;
++
++  // TODO: Should get nsIGlobalObject methods for each method
++  if (WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate()) {
++    principal = workerPrivate->GetPrincipal();
++    effectiveStoragePrincipal = workerPrivate->GetEffectiveStoragePrincipal();
++    isSecureContext = workerPrivate->IsSecureContext();
++  } else {
++    nsGlobalWindowInner* win = GetOwnerWindow();
++    NS_ENSURE_TRUE(win, false);
++    principal = win->GetPrincipal();
++    effectiveStoragePrincipal = win->GetEffectiveStoragePrincipal();
++    isSecureContext = win->IsSecureContext();
++  }
++
++  (void)backgroundActor->SendCreateNotificationParent(
++      std::move(parentEndpoint), WrapNotNull(principal),
++      WrapNotNull(effectiveStoragePrincipal), isSecureContext, mID, mScope,
++      options);
++
++  return true;
++}
++
+ /* static */
+ nsresult Notification::RemovePermission(nsIPrincipal* aPrincipal) {
+   MOZ_ASSERT(XRE_IsParentProcess());

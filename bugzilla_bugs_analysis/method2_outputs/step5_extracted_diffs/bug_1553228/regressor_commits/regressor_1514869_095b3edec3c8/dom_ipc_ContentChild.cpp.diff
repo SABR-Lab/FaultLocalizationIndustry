@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentChild.cpp
+# Commit: 095b3edec3c8
+# Full Hash: 095b3edec3c8ba9318c71d0acc91e10ce57818dc
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2019-04-29 21:53:38
+# Regressor Bug: 1514869
+# File Overlap Count: 1
+# Description:
+#   Bug 1514869 - patch 2 - Adapt platform-font-list code to work with either the existing in-process font list or cross-process shared font list. r=jwatt
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D22938
+# ==============================================================================
+
+diff -r 21ef00977ab6 -r 095b3edec3c8 dom/ipc/ContentChild.cpp
+--- a/dom/ipc/ContentChild.cpp	Sat Apr 27 15:37:29 2019 +0000
++++ b/dom/ipc/ContentChild.cpp	Sat Apr 27 15:37:58 2019 +0000
+@@ -250,6 +250,7 @@
+ #include "GMPServiceChild.h"
+ #include "GfxInfoBase.h"
+ #include "gfxPlatform.h"
++#include "gfxPlatformFontList.h"
+ #include "nscore.h"  // for NS_FREE_PERMANENT_DATA
+ #include "VRManagerChild.h"
+ #include "private/pprio.h"
+@@ -2460,6 +2461,12 @@
+   return IPC_OK();
+ }
+ 
++mozilla::ipc::IPCResult ContentChild::RecvFontListChanged() {
++  gfxPlatformFontList::PlatformFontList()->FontListChanged();
++
++  return IPC_OK();
++}
++
+ mozilla::ipc::IPCResult ContentChild::RecvGeolocationUpdate(
+     nsIDOMGeoPosition* aPosition) {
+   RefPtr<nsGeolocationService> gs =
+@@ -2496,6 +2503,11 @@
+   return IPC_OK();
+ }
+ 
++mozilla::ipc::IPCResult ContentChild::RecvRebuildFontList() {
++  gfxPlatform::GetPlatform()->UpdateFontList();
++  return IPC_OK();
++}
++
+ mozilla::ipc::IPCResult ContentChild::RecvUpdateAppLocales(
+     nsTArray<nsCString>&& aAppLocales) {
+   LocaleService::GetInstance()->AssignAppLocales(aAppLocales);

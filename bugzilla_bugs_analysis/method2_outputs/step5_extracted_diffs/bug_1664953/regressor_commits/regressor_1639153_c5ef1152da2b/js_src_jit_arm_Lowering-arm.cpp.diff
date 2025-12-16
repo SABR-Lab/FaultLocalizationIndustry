@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/arm/Lowering-arm.cpp
+# Commit: c5ef1152da2b
+# Full Hash: c5ef1152da2bd1de3d98b51daa635ac42ff0a153
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-10-02 04:10:47
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 6.2: Establish dependency from tls for x86 callWithABI div/mod i64. r=lth
+#   
+#   x86 has few register so to do div/mod for i64 it call the runtime
+#   and clobber almost all gp registers including WasmTlsReg.
+#   To be able to call c++ runtime via Builtin thunk we need to set up WasmTlsReg.
+# ==============================================================================
+
+diff -r f0f44cfd6a07 -r c5ef1152da2b js/src/jit/arm/Lowering-arm.cpp
+--- a/js/src/jit/arm/Lowering-arm.cpp	Thu Oct 01 07:52:07 2020 +0000
++++ b/js/src/jit/arm/Lowering-arm.cpp	Thu Oct 01 07:52:24 2020 +0000
+@@ -419,6 +419,10 @@
+   defineReturn(lir, div);
+ }
+ 
++void LIRGeneratorARM::lowerWasmBuiltinDivI64(MWasmBuiltinDivI64* div) {
++  MOZ_CRASH("We don't use runtime div for this architecture");
++}
++
+ void LIRGeneratorARM::lowerModI64(MMod* mod) {
+   if (mod->isUnsigned()) {
+     lowerUModI64(mod);
+@@ -430,6 +434,10 @@
+   defineReturn(lir, mod);
+ }
+ 
++void LIRGeneratorARM::lowerWasmBuiltinModI64(MWasmBuiltinModI64* mod) {
++  MOZ_CRASH("We don't use runtime mod for this architecture");
++}
++
+ void LIRGeneratorARM::lowerUDivI64(MDiv* div) {
+   LUDivOrModI64* lir = new (alloc()) LUDivOrModI64(
+       useInt64RegisterAtStart(div->lhs()), useInt64RegisterAtStart(div->rhs()));

@@ -1,0 +1,31 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/WindowGlobalChild.cpp
+# Commit: 6c5ad42069d0
+# Full Hash: 6c5ad42069d09a8bc8d8306ab4b21c00230091ec
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2019-07-09 03:44:14
+# Description:
+#   Bug 1563542 - Correctly align usage of mIsDiscarded and mClosed for BrowsingContext, r=peterv
+#   
+#   In the bug which introduced mIsDiscarded, the code was changed to not set
+#   mClosed during Detach, and only set mIsDiscarded. This was a mistake because a
+#   bunch of places are only reading mClosed. Specifically when creating a
+# ==============================================================================
+
+diff -r db4c8cbf463e -r 6c5ad42069d0 dom/ipc/WindowGlobalChild.cpp
+--- a/dom/ipc/WindowGlobalChild.cpp	Fri Jul 05 22:08:13 2019 +0000
++++ b/dom/ipc/WindowGlobalChild.cpp	Mon Jul 08 17:27:27 2019 +0000
+@@ -70,9 +70,9 @@
+ 
+   RefPtr<WindowGlobalChild> wgc = new WindowGlobalChild(aWindow, bc);
+ 
+-  // If we have already closed our browsing context, return a pre-closed
++  // If we have already closed our browsing context, return a pre-destroyed
+   // WindowGlobalChild actor.
+-  if (bc->GetClosed()) {
++  if (bc->IsDiscarded()) {
+     wgc->ActorDestroy(FailedConstructor);
+     return wgc.forget();
+   }

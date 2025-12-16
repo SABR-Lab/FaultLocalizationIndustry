@@ -1,0 +1,28 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/PrintTargetPDF.cpp
+# Commit: eacd5f2e5aec
+# Full Hash: eacd5f2e5aec6687ab5c0587943c7d0a10534e71
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2022-04-08 09:45:06
+# Description:
+#   Bug 1763679 - Null-check in PrintTargetPDF, rather than relying on the caller to do so. r=hiro
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D143245
+# ==============================================================================
+
+diff -r 4df162c33af5 -r eacd5f2e5aec gfx/thebes/PrintTargetPDF.cpp
+--- a/gfx/thebes/PrintTargetPDF.cpp	Fri Apr 08 00:54:59 2022 +0000
++++ b/gfx/thebes/PrintTargetPDF.cpp	Fri Apr 08 01:00:32 2022 +0000
+@@ -49,6 +49,10 @@
+ /* static */
+ already_AddRefed<PrintTargetPDF> PrintTargetPDF::CreateOrNull(
+     nsIOutputStream* aStream, const IntSize& aSizeInPoints) {
++  if (NS_WARN_IF(!aStream)) {
++    return nullptr;
++  }
++
+   cairo_surface_t* surface = cairo_pdf_surface_create_for_stream(
+       write_func, (void*)aStream, aSizeInPoints.width, aSizeInPoints.height);
+   if (cairo_surface_status(surface)) {

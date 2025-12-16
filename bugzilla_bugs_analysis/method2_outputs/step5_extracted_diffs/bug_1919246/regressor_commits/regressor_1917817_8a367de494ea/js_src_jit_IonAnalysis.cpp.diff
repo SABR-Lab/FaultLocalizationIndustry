@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/IonAnalysis.cpp
+# Commit: 8a367de494ea
+# Full Hash: 8a367de494ea9133d9e485b3cb1eb2066250b6e3
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2024-09-16 16:16:39
+# Regressor Bug: 1917817
+# File Overlap Count: 1
+# Description:
+#   Bug 1917817 part 1 - Support loops with OSR in MakeLoopsContiguous. r=nbp
+#   
+#   For the function below we'll now move the return-block after the outer
+#   loop also if we enter the inner loop through OSR.
+#   
+# ==============================================================================
+
+diff -r 910b0d26c26f -r 8a367de494ea js/src/jit/IonAnalysis.cpp
+--- a/js/src/jit/IonAnalysis.cpp	Mon Sep 16 11:01:23 2024 +0000
++++ b/js/src/jit/IonAnalysis.cpp	Mon Sep 16 11:42:01 2024 +0000
+@@ -5081,13 +5081,6 @@
+       continue;
+     }
+ 
+-    // If there's an OSR block entering the loop in the middle, it's tricky,
+-    // so don't try to handle it, for now.
+-    if (canOsr) {
+-      UnmarkLoopBlocks(graph, header);
+-      continue;
+-    }
+-
+     // Move all blocks between header and backedge that aren't marked to
+     // the end of the loop, making the loop itself contiguous.
+     MakeLoopContiguous(graph, header, numMarked);

@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/QuotaManager.h
+# Commit: 43016310e23e
+# Full Hash: 43016310e23eefdeeda7e060b0192b675bb28cec
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2021-01-05 21:56:58
+# Regressor Bug: 1588512
+# File Overlap Count: 2
+# Description:
+#   Bug 1588512 - Avoid blocking progress during a clear operation on failure to remove a directory. r=dom-workers-and-storage-reviewers,janv
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D100093
+# ==============================================================================
+
+diff -r 936591fa4a69 -r 43016310e23e dom/quota/QuotaManager.h
+--- a/dom/quota/QuotaManager.h	Tue Jan 05 09:48:24 2021 +0000
++++ b/dom/quota/QuotaManager.h	Tue Jan 05 10:13:14 2021 +0000
+@@ -425,9 +425,13 @@
+ 
+   void NotifyStoragePressure(uint64_t aUsage);
+ 
++  // Record a quota client shutdown step, if shutting down.
+   void MaybeRecordShutdownStep(Client::Type aClientType,
+                                const nsACString& aStepDescription);
+ 
++  // Record a quota manager shutdown step, if shutting down.
++  void MaybeRecordQuotaManagerShutdownStep(const nsACString& aStepDescription);
++
+   static void GetStorageId(PersistenceType aPersistenceType,
+                            const nsACString& aOrigin, Client::Type aClientType,
+                            nsACString& aDatabaseId);
+@@ -573,6 +577,9 @@
+ 
+   int64_t GenerateDirectoryLockId();
+ 
++  void MaybeRecordShutdownStep(Maybe<Client::Type> aClientType,
++                               const nsACString& aStepDescription);
++
+   // Thread on which IO is performed.
+   nsCOMPtr<nsIThread> mIOThread;
+ 
+@@ -583,6 +590,10 @@
+ 
+   EnumeratedArray<Client::Type, Client::TYPE_MAX, nsCString> mShutdownSteps;
+   LazyInitializedOnce<const TimeStamp> mShutdownStartedAt;
++  Atomic<bool> mShutdownStarted;
++
++  // Accesses to mQuotaManagerShutdownSteps must be protected by mQuotaMutex.
++  nsCString mQuotaManagerShutdownSteps;
+ 
+   mozilla::Mutex mQuotaMutex;
+ 

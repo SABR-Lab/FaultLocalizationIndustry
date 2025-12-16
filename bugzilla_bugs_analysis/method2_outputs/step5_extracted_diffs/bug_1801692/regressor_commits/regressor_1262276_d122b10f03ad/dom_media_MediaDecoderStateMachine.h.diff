@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/MediaDecoderStateMachine.h
+# Commit: d122b10f03ad
+# Full Hash: d122b10f03adffafc05b4effa0f2522428df0318
+# Author: alwu <alwu@mozilla.com>
+# Date: 2022-11-05 21:53:50
+# Regressor Bug: 1262276
+# File Overlap Count: 1
+# Description:
+#   Bug 1262276 - part9 : don't adjust looping timestamp until the longest track duration is known. r=padenot
+#   
+#   When adjusting data's timestamp, if playback has both tracks, we should
+#   adjust timestamp based on the longer duration between two tracks,
+#   otherwise it would eventually cause a/v unsync.
+# ==============================================================================
+
+diff -r e807704e1c9b -r d122b10f03ad dom/media/MediaDecoderStateMachine.h
+--- a/dom/media/MediaDecoderStateMachine.h	Sat Nov 05 02:23:31 2022 +0000
++++ b/dom/media/MediaDecoderStateMachine.h	Sat Nov 05 02:23:32 2022 +0000
+@@ -511,8 +511,15 @@
+   // If media was in looping and had reached to the end before, then we need
+   // to adjust sample time from clock time to media time.
+   void AdjustByLooping(media::TimeUnit& aTime) const;
+-  Maybe<media::TimeUnit> mAudioDecodedDuration;
+-  Maybe<media::TimeUnit> mVideoDecodedDuration;
++
++  // These are used for seamless looping. When looping has been enable at least
++  // once, `mOriginalDecodedDuration` would be set to the larger duration
++  // between two tracks.
++  media::TimeUnit mOriginalDecodedDuration;
++  Maybe<media::TimeUnit> mAudioTrackDecodedDuration;
++  Maybe<media::TimeUnit> mVideoTrackDecodedDuration;
++
++  bool HasLastDecodedData(MediaData::Type aType);
+ 
+   // Current playback position in the stream in bytes.
+   int64_t mPlaybackOffset = 0;

@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fs/parent/FileSystemManagerParent.cpp
+# Commit: a2f6102fc8ea
+# Full Hash: a2f6102fc8ea11d4d9b3f2183ef6b8641e0ceeb5
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2022-08-31 21:54:47
+# Regressor Bug: 1786465
+# File Overlap Count: 3
+# Description:
+#   Bug 1786465 - Start using FileSystemDataManager in FileSystemManagerParent; r=dom-storage-reviewers,jesup
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D155552
+# ==============================================================================
+
+diff -r 37b7616c8b42 -r a2f6102fc8ea dom/fs/parent/FileSystemManagerParent.cpp
+--- a/dom/fs/parent/FileSystemManagerParent.cpp	Wed Aug 31 09:34:54 2022 +0000
++++ b/dom/fs/parent/FileSystemManagerParent.cpp	Wed Aug 31 09:34:55 2022 +0000
+@@ -23,9 +23,12 @@
+ 
+ namespace mozilla::dom {
+ 
+-FileSystemManagerParent::FileSystemManagerParent(TaskQueue* aTaskQueue,
+-                                                 const EntryId& aRootEntry)
+-    : mTaskQueue(aTaskQueue), mRootEntry(aRootEntry) {}
++FileSystemManagerParent::FileSystemManagerParent(
++    TaskQueue* aTaskQueue, RefPtr<fs::data::FileSystemDataManager> aDataManager,
++    const EntryId& aRootEntry)
++    : mTaskQueue(aTaskQueue),
++      mDataManager(std::move(aDataManager)),
++      mRootEntry(aRootEntry) {}
+ 
+ IPCResult FileSystemManagerParent::RecvGetRootHandleMsg(
+     GetRootHandleMsgResolver&& aResolver) {
+@@ -121,6 +124,12 @@
+   if (mTaskQueue) {
+     mTaskQueue->BeginShutdown();
+   }
++
++  nsCOMPtr<nsISerialEventTarget> target =
++      mDataManager->MutableBackgroundTargetPtr();
++
++  NS_ProxyRelease("ReleaseFileSystemDataManager", target,
++                  mDataManager.forget());
+ }
+ 
+ }  // namespace mozilla::dom

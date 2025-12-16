@@ -1,0 +1,74 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/base/LoadInfo.h
+# Commit: 41de9ac734d6
+# Full Hash: 41de9ac734d69d754ea3f13db6933343b62ea1b8
+# Author: Dan Glastonbury <dan.glastonbury@gmail.com>
+# Date: 2020-07-21 09:42:41
+# Regressor Bug: 1646899
+# File Overlap Count: 1
+# Description:
+#   Bug 1646899 - P4: Handle object & embed via DocumentChannel. r=mattwoodrow,jya
+#   
+#   Pass internal content policy type to DLL and switch behavior depending on type
+#   being loaded. This implementation immediately redirects channel back to the
+#   content process for further handling.
+# ==============================================================================
+
+diff -r 64e118a38c1d -r 41de9ac734d6 netwerk/base/LoadInfo.h
+--- a/netwerk/base/LoadInfo.h	Tue Jul 21 01:01:03 2020 +0000
++++ b/netwerk/base/LoadInfo.h	Tue Jul 21 01:01:05 2020 +0000
+@@ -73,6 +73,12 @@
+       nsIPrincipal* aTriggeringPrincipal, nsSecurityFlags aSecurityFlags,
+       uint32_t aSandboxFlags);
+ 
++  // Use for non-{TYPE_DOCUMENT|TYPE_FRAME|TYPE_IFRAME} load.
++  static already_AddRefed<LoadInfo> CreateForNonDocument(
++      dom::WindowGlobalParent* aParentWGP, nsIPrincipal* aTriggeringPrincipal,
++      nsContentPolicyType aContentPolicyType, nsSecurityFlags aSecurityFlags,
++      uint32_t aSandboxFlags);
++
+   // aLoadingPrincipal MUST NOT BE NULL.
+   LoadInfo(nsIPrincipal* aLoadingPrincipal, nsIPrincipal* aTriggeringPrincipal,
+            nsINode* aLoadingContext, nsSecurityFlags aSecurityFlags,
+@@ -90,12 +96,6 @@
+            nsISupports* aContextForTopLevelLoad, nsSecurityFlags aSecurityFlags,
+            uint32_t aSandboxFlags);
+ 
+-  // Used for loads initiated by DocumentLoadListener.
+-  LoadInfo(dom::WindowGlobalParent* aParentWGP,
+-           nsIPrincipal* aTriggeringPrincipal,
+-           nsContentPolicyType aContentPolicyType,
+-           nsSecurityFlags aSecurityFlags, uint32_t aSandboxFlags);
+-
+  private:
+   // Use factory function CreateForDocument
+   // Used for TYPE_DOCUMENT load.
+@@ -110,6 +110,13 @@
+            nsIPrincipal* aTriggeringPrincipal, nsSecurityFlags aSecurityFlags,
+            uint32_t aSandboxFlags);
+ 
++  // Used for loads initiated by DocumentLoadListener that are not TYPE_DOCUMENT
++  // | TYPE_FRAME | TYPE_FRAME.
++  LoadInfo(dom::WindowGlobalParent* aParentWGP,
++           nsIPrincipal* aTriggeringPrincipal,
++           nsContentPolicyType aContentPolicyType,
++           nsSecurityFlags aSecurityFlags, uint32_t aSandboxFlags);
++
+  public:
+   // Compute a list of ancestor principals and BrowsingContext IDs.
+   // See methods AncestorPrincipals and AncestorBrowsingContextIDs
+@@ -132,6 +139,12 @@
+   // when a separate request is made with the same security properties.
+   already_AddRefed<nsILoadInfo> CloneForNewRequest() const;
+ 
++  // The `nsContentPolicyType GetExternalContentPolicyType()` version in the
++  // base class is hidden by the implementation of
++  // `GetExternalContentPolicyType(nsContentPolicyType* aResult)` in
++  // LoadInfo.cpp. Explicit mark it visible.
++  using nsILoadInfo::GetExternalContentPolicyType;
++
+   void SetIsPreflight();
+   void SetUpgradeInsecureRequests(bool aValue);
+   void SetBrowserUpgradeInsecureRequests();

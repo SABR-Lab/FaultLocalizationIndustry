@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/ipc/RDDProcessManager.cpp
+# Commit: d158b20d9a65
+# Full Hash: d158b20d9a65cd05dd69a586473216b800523083
+# Author: Dan Glastonbury <dan.glastonbury@gmail.com>
+# Date: 2020-10-21 09:51:28
+# Regressor Bug: 1595994
+# File Overlap Count: 1
+# Description:
+#   Bug 1595994 - PD: Allow WMF decoding inside RDD process. r=mattwoodrow
+#   
+#   This assumes that access to Windows WMF and DirectX is allowed from RDD process.
+#   
+#   Depends on D91699
+# ==============================================================================
+
+diff -r d0c9c64867cc -r d158b20d9a65 dom/media/ipc/RDDProcessManager.cpp
+--- a/dom/media/ipc/RDDProcessManager.cpp	Tue Oct 20 23:26:49 2020 +0000
++++ b/dom/media/ipc/RDDProcessManager.cpp	Tue Oct 20 23:26:52 2020 +0000
+@@ -255,7 +255,10 @@
+     return false;
+   }
+ 
+-  mRDDChild->SendInitVideoBridge(std::move(childPipe));
++  ContentDeviceData contentDeviceData;
++  gfxPlatform::GetPlatform()->BuildContentDeviceData(&contentDeviceData);
++
++  mRDDChild->SendInitVideoBridge(std::move(childPipe), contentDeviceData);
+   if (gpuProcessPid != -1) {
+     gpuManager->InitVideoBridge(std::move(parentPipe));
+   } else {

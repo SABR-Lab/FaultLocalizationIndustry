@@ -1,0 +1,75 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/TypedArrayObject.cpp
+# Commit: 23cc649c6e14
+# Full Hash: 23cc649c6e14647072116e6d2396cb615996aa61
+# Author: Steve Fink <sfink@mozilla.com>
+# Date: 2021-08-13 09:27:46
+# Regressor Bug: 1720422
+# File Overlap Count: 1
+# Description:
+#   Bug 1720422 - Move js::Scalar -> JS::Scalar for public API, but alias it as js::Scalar r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D120292
+# ==============================================================================
+
+diff -r 16695064a637 -r 23cc649c6e14 js/src/vm/TypedArrayObject.cpp
+--- a/js/src/vm/TypedArrayObject.cpp	Thu Aug 12 20:44:17 2021 +0000
++++ b/js/src/vm/TypedArrayObject.cpp	Thu Aug 12 20:44:18 2021 +0000
+@@ -33,7 +33,7 @@
+ #include "js/experimental/TypedData.h"  // JS_GetArrayBufferViewType, JS_GetTypedArray{Length,ByteOffset,ByteLength}, JS_IsTypedArrayObject
+ #include "js/friend/ErrorMessages.h"    // js::GetErrorMessage, JSMSG_*
+ #include "js/PropertySpec.h"
+-#include "js/ScalarType.h"  // js::Scalar::Type
++#include "js/ScalarType.h"  // JS::Scalar::Type
+ #include "js/UniquePtr.h"
+ #include "js/Wrapper.h"
+ #include "util/DifferentialTesting.h"
+@@ -2650,7 +2650,7 @@
+     if (!tarr) {                                                              \
+       return nullptr;                                                         \
+     }                                                                         \
+-    return JS::TypedArray<js::Scalar::Name>::fromObject(tarr)                 \
++    return JS::TypedArray<JS::Scalar::Name>::fromObject(tarr)                 \
+         .getLengthAndData(length, isSharedMemory, nogc);                      \
+   }                                                                           \
+                                                                               \
+@@ -2713,7 +2713,7 @@
+   return tarr->isSharedMemory();
+ }
+ 
+-JS_PUBLIC_API js::Scalar::Type JS_GetArrayBufferViewType(JSObject* obj) {
++JS_PUBLIC_API JS::Scalar::Type JS_GetArrayBufferViewType(JSObject* obj) {
+   ArrayBufferViewObject* view = obj->maybeUnwrapAs<ArrayBufferViewObject>();
+   if (!view) {
+     return Scalar::MaxTypedArrayViewType;
+@@ -2737,7 +2737,7 @@
+ const JSClass* const TypedArray_base::classes = TypedArrayObject::classes;
+ 
+ #define INSTANTIATE(ExternalType, NativeType, Name) \
+-  template class TypedArray<js::Scalar::Name>;
++  template class TypedArray<JS::Scalar::Name>;
+ JS_FOR_EACH_TYPED_ARRAY(INSTANTIATE)
+ #undef INSTANTIATE
+ 
+@@ -2768,7 +2768,7 @@
+ 
+ // Template getLengthAndData function for TypedArrays, implemented here because
+ // it requires internal APIs.
+-template <js::Scalar::Type EType>
++template <JS::Scalar::Type EType>
+ typename TypedArray<EType>::DataType* TypedArray<EType>::getLengthAndData(
+     size_t* length, bool* isSharedMemory, const AutoRequireNoGC&) {
+   using ExternalType = TypedArray<EType>::DataType;
+@@ -2790,8 +2790,8 @@
+ // build, the header contains a call to this function so it will always be
+ // emitted.)
+ #define INSTANTIATE_GET_DATA(a, b, Name)                    \
+-  template typename TypedArray<js::Scalar::Name>::DataType* \
+-  TypedArray<js::Scalar::Name>::getLengthAndData(           \
++  template typename TypedArray<JS::Scalar::Name>::DataType* \
++  TypedArray<JS::Scalar::Name>::getLengthAndData(           \
+       size_t* length, bool* isSharedMemory, const AutoRequireNoGC&);
+ JS_FOR_EACH_TYPED_ARRAY(INSTANTIATE_GET_DATA)
+ #undef INSTANTIATE_GET_DATA

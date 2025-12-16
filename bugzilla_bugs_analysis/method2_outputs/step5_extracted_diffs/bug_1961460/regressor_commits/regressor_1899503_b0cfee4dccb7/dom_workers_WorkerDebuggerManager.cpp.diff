@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/WorkerDebuggerManager.cpp
+# Commit: b0cfee4dccb7
+# Full Hash: b0cfee4dccb70dbb0fd958d7430e1d0ce11fbdd8
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2025-03-18 21:32:34
+# Regressor Bug: 1899503
+# File Overlap Count: 4
+# Description:
+#   Bug 1899503 - P3 PRemoteWorkerDebugger binding implementation. r=asuth
+#   
+#   This patch implements the PRemoteWorkerDebugger binding.
+#   
+#   We are trying to keep the same logic debugger registration/unregistration to minimize the difference between the local debugger(the debugger on the content process main thread)
+# ==============================================================================
+
+diff -r 8973242af52a -r b0cfee4dccb7 dom/workers/WorkerDebuggerManager.cpp
+--- a/dom/workers/WorkerDebuggerManager.cpp	Tue Mar 18 12:10:53 2025 +0000
++++ b/dom/workers/WorkerDebuggerManager.cpp	Tue Mar 18 12:10:54 2025 +0000
+@@ -349,8 +349,10 @@
+   MOZ_ASSERT_DEBUG_OR_FUZZING(!aWorkerId.IsEmpty());
+   for (auto debugger : mDebuggers) {
+     nsAutoString workerId;
++    bool isRemote;
+     debugger->GetId(workerId);
+-    if (workerId.Equals(aWorkerId)) {
++    debugger->GetIsRemote(&isRemote);
++    if (workerId.Equals(aWorkerId) && isRemote) {
+       return debugger;
+     }
+   }

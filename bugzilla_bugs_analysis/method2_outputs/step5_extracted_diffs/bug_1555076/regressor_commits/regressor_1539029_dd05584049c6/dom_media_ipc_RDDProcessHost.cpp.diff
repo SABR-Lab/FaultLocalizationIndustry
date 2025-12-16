@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/ipc/RDDProcessHost.cpp
+# Commit: dd05584049c6
+# Full Hash: dd05584049c6e6138dd7dfe6067ebd03e1219782
+# Author: Michael Froman <mfroman@mozilla.com>
+# Date: 2019-04-10 09:58:56
+# Regressor Bug: 1539029
+# File Overlap Count: 1
+# Description:
+#   Bug 1539029 - pt 4 - add shared pref serializer/deserializer to RDD process. r=kmag
+#   
+#   Depends on D26568
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D26569
+# ==============================================================================
+
+diff -r fcab7823cf27 -r dd05584049c6 dom/media/ipc/RDDProcessHost.cpp
+--- a/dom/media/ipc/RDDProcessHost.cpp	Tue Apr 09 21:07:47 2019 +0000
++++ b/dom/media/ipc/RDDProcessHost.cpp	Tue Apr 09 21:08:00 2019 +0000
+@@ -9,6 +9,7 @@
+ #include "mozilla/Preferences.h"
+ #include "mozilla/StaticPrefs.h"
+ 
++#include "ProcessUtils.h"
+ #include "RDDChild.h"
+ 
+ #if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
+@@ -51,6 +52,12 @@
+   MOZ_ASSERT(mLaunchPhase == LaunchPhase::Unlaunched);
+   MOZ_ASSERT(!mRDDChild);
+ 
++  mPrefSerializer = MakeUnique<ipc::SharedPreferenceSerializer>();
++  if (!mPrefSerializer->SerializeToSharedMemory()) {
++    return false;
++  }
++  mPrefSerializer->AddSharedPrefCmdLineArgs(*this, aExtraOpts);
++
+ #if defined(XP_WIN) && defined(MOZ_SANDBOX)
+   mSandboxLevel = Preferences::GetInt("security.sandbox.rdd.level");
+ #endif
+@@ -139,6 +146,7 @@
+   MOZ_ASSERT(!mRDDChild);
+ 
+   mLaunchPhase = LaunchPhase::Complete;
++  mPrefSerializer = nullptr;
+ 
+   if (aSucceeded) {
+     mProcessToken = ++sRDDProcessTokenCounter;

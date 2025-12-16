@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: ipc/chromium/src/chrome/common/ipc_message.h
+# Commit: 7b7819250f79
+# Full Hash: 7b7819250f7965227783233af6de0e4e1b789af6
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2021-06-23 09:53:24
+# Regressor Bug: 1706374
+# File Overlap Count: 1
+# Description:
+#   Bug 1706374 - Part 11: Add NodeController component bridging IPC and Ports, r=handyman
+#   
+#   The NodeController and NodeChannel types act as the backbone connecting the
+#   existing IPC logic and driving the ports routing code. Individual NodeChannel
+#   objects wrap and respond to messages from IPC::Channel, and the NodeController
+# ==============================================================================
+
+diff -r 8bdac5eedf78 -r 7b7819250f79 ipc/chromium/src/chrome/common/ipc_message.h
+--- a/ipc/chromium/src/chrome/common/ipc_message.h	Tue Jun 22 18:17:21 2021 +0000
++++ b/ipc/chromium/src/chrome/common/ipc_message.h	Tue Jun 22 18:17:22 2021 +0000
+@@ -11,6 +11,7 @@
+ 
+ #include "base/basictypes.h"
+ #include "base/pickle.h"
++#include "mojo/core/ports/user_message.h"
+ #include "mozilla/RefPtr.h"
+ #include "mozilla/TimeStamp.h"
+ 
+@@ -44,8 +45,10 @@
+ #endif
+ struct LogData;
+ 
+-class Message : public Pickle {
++class Message : public mojo::core::ports::UserMessage, public Pickle {
+  public:
++  static const TypeInfo kUserMessageTypeInfo;
++
+   typedef uint32_t msgid_t;
+ 
+   enum NestedLevel {
+@@ -275,6 +278,9 @@
+   // We should not be sending messages that are smaller than our header size.
+   void AssertAsLargeAsHeader() const;
+ 
++  // UserMessage implementation
++  size_t GetSizeIfSerialized() const override { return size(); }
++
+   void WriteFooter(const void* data, uint32_t data_len);
+   [[nodiscard]] bool ReadFooter(void* buffer, uint32_t buffer_len);
+   uint32_t FooterSize() const;

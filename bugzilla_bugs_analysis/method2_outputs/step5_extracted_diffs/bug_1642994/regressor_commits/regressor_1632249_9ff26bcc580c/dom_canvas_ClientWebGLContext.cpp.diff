@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/ClientWebGLContext.cpp
+# Commit: 9ff26bcc580c
+# Full Hash: 9ff26bcc580cf8e25559f9911a9fc860baf8d4fc
+# Author: Imanol Fernandez <mortimergoro@gmail.com>
+# Date: 2020-06-09 09:21:34
+# Regressor Bug: 1632249
+# File Overlap Count: 1
+# Description:
+#   Bug 1632249 - Create a separate WebGLContext::PresentInto function for WebXR. r=jgilbert
+#   
+#   - Do not apply mIsCanvasDirty bailout when presenting from a opaque FBO back buffer.
+#   - Create a separate WebGLContext::PresentInto with more specific XR validations and logic.
+#   - Use the Opaque FBO backbuffer as source when calling BlitBackbufferToCurDriverFB
+# ==============================================================================
+
+diff -r 16d84439756f -r 9ff26bcc580c dom/canvas/ClientWebGLContext.cpp
+--- a/dom/canvas/ClientWebGLContext.cpp	Mon Jun 08 20:36:14 2020 +0000
++++ b/dom/canvas/ClientWebGLContext.cpp	Mon Jun 08 20:35:38 2020 +0000
+@@ -419,7 +419,7 @@
+ 
+ void ClientWebGLContext::Present(WebGLFramebufferJS* const fb,
+                                  const layers::TextureType type) {
+-  if (!mIsCanvasDirty) return;
++  if (!mIsCanvasDirty && !fb) return;
+   mIsCanvasDirty = false;
+   mFrontBufferSnapshot = nullptr;
+ 

@@ -1,0 +1,125 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/HttpBaseChannel.cpp
+# Commit: 74f99033251c
+# Full Hash: 74f99033251cd6c36eb6b0b5a4713eb6b5c793fa
+# Author: Jonathan Kingston <jkt@mozilla.com>
+# Date: 2019-02-13 09:48:26
+# Regressor Bug: 1520868
+# File Overlap Count: 1
+# Description:
+#   Bug 1520868 - Replacing AsyncOpen2 with AsyncOpen always r=valentin
+#   
+#   Replacing js and text occurences of asyncOpen2
+#   Replacing open2 with open
+#   
+# ==============================================================================
+
+diff -r 3378fd5f4f22 -r 74f99033251c netwerk/protocol/http/HttpBaseChannel.cpp
+--- a/netwerk/protocol/http/HttpBaseChannel.cpp	Tue Feb 12 17:58:19 2019 +0100
++++ b/netwerk/protocol/http/HttpBaseChannel.cpp	Tue Feb 12 16:08:25 2019 +0000
+@@ -293,7 +293,6 @@
+   arrayToRelease.AppendElement(mPrincipal.forget());
+   arrayToRelease.AppendElement(mTopWindowURI.forget());
+   arrayToRelease.AppendElement(mListener.forget());
+-  arrayToRelease.AppendElement(mListenerContext.forget());
+   arrayToRelease.AppendElement(mCompressListener.forget());
+ 
+   if (mAddedAsNonTailRequest) {
+@@ -741,19 +740,7 @@
+ }
+ 
+ NS_IMETHODIMP
+-HttpBaseChannel::Open(nsIInputStream** aResult) {
+-  NS_ENSURE_TRUE(!mWasOpened, NS_ERROR_IN_PROGRESS);
+-
+-  if (!gHttpHandler->Active()) {
+-    LOG(("HttpBaseChannel::Open after HTTP shutdown..."));
+-    return NS_ERROR_NOT_AVAILABLE;
+-  }
+-
+-  return NS_ImplementChannelOpen(this, aResult);
+-}
+-
+-NS_IMETHODIMP
+-HttpBaseChannel::Open2(nsIInputStream** aStream) {
++HttpBaseChannel::Open(nsIInputStream** aStream) {
+   if (!gHttpHandler->Active()) {
+     LOG(("HttpBaseChannel::Open after HTTP shutdown..."));
+     return NS_ERROR_NOT_AVAILABLE;
+@@ -763,7 +750,15 @@
+   nsresult rv =
+       nsContentSecurityManager::doContentSecurityCheck(this, listener);
+   NS_ENSURE_SUCCESS(rv, rv);
+-  return Open(aStream);
++
++  NS_ENSURE_TRUE(!mWasOpened, NS_ERROR_IN_PROGRESS);
++
++  if (!gHttpHandler->Active()) {
++    LOG(("HttpBaseChannel::Open after HTTP shutdown..."));
++    return NS_ERROR_NOT_AVAILABLE;
++  }
++
++  return NS_ImplementChannelOpen(this, aStream);
+ }
+ 
+ //-----------------------------------------------------------------------------
+@@ -1087,7 +1082,6 @@
+   }
+ 
+   mListener = aListener;
+-  mListenerContext = aContext;
+   mAsyncOpenWaitingForStreamLength = true;
+   return true;
+ }
+@@ -1103,12 +1097,9 @@
+   nsCOMPtr<nsIStreamListener> listener;
+   listener.swap(mListener);
+ 
+-  nsCOMPtr<nsISupports> context;
+-  context.swap(mListenerContext);
+-
+   mAsyncOpenWaitingForStreamLength = false;
+ 
+-  nsresult rv = AsyncOpen(listener, context);
++  nsresult rv = AsyncOpen(listener);
+   if (NS_WARN_IF(NS_FAILED(rv))) {
+     DoAsyncAbort(rv);
+   }
+@@ -1134,8 +1125,7 @@
+ 
+ nsresult HttpBaseChannel::DoApplyContentConversions(
+     nsIStreamListener* aNextListener, nsIStreamListener** aNewNextListener) {
+-  return DoApplyContentConversions(aNextListener, aNewNextListener,
+-                                   mListenerContext);
++  return DoApplyContentConversions(aNextListener, aNewNextListener, nullptr);
+ }
+ 
+ // create a listener chain that looks like this
+@@ -3263,7 +3253,6 @@
+   MOZ_ASSERT(NS_IsMainThread(), "Should only be called on the main thread.");
+ 
+   mListener = nullptr;
+-  mListenerContext = nullptr;
+   mCallbacks = nullptr;
+   mProgressSink = nullptr;
+   mCompressListener = nullptr;
+@@ -3284,7 +3273,7 @@
+                "We should not call OnStartRequest twice");
+ 
+     nsCOMPtr<nsIStreamListener> listener = mListener;
+-    listener->OnStartRequest(this, mListenerContext);
++    listener->OnStartRequest(this, nullptr);
+ 
+     mOnStartRequestCalled = true;
+   }
+@@ -3298,7 +3287,7 @@
+     MOZ_ASSERT(!mOnStopRequestCalled, "We should not call OnStopRequest twice");
+ 
+     nsCOMPtr<nsIStreamListener> listener = mListener;
+-    listener->OnStopRequest(this, mListenerContext, mStatus);
++    listener->OnStopRequest(this, nullptr, mStatus);
+ 
+     mOnStopRequestCalled = true;
+   }

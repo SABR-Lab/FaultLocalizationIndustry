@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/xul/nsBoxFrame.cpp
+# Commit: 1f86740dbf1a
+# Full Hash: 1f86740dbf1a19596fd07fbaf3b1100383f76876
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2021-05-19 08:32:22
+# Regressor Bug: 1540737
+# File Overlap Count: 1
+# Description:
+#   Bug 1540737 - Implement Paint() for all display items, and nsDisplayList so that we can paint without using FrameLayerBuilder. r=miko
+#   
+#   This creates a new leaf nsDisplayWrapper item for consumers that just want an empty wrapper, with a Paint method that asserts. This lets us leaves Paint pure-virtual on nsDisplayWrapList, and lets the compiler force us to implement it for the other leaf types.
+#   
+#   It also disables flattening of transform/opacity items. This is because they flatten the items even when used with FlattenedDisplayItemIterator, even though this doesn't add markers to replace them (only FLB does this). We could in theory fix this, but I don't think FLB performance matters much any more.
+# ==============================================================================
+
+diff -r fdee5a641aee -r 1f86740dbf1a layout/xul/nsBoxFrame.cpp
+--- a/layout/xul/nsBoxFrame.cpp	Wed May 19 01:11:32 2021 +0000
++++ b/layout/xul/nsBoxFrame.cpp	Wed May 19 01:11:32 2021 +0000
+@@ -1043,6 +1043,10 @@
+   virtual bool ShouldFlattenAway(nsDisplayListBuilder* aBuilder) override {
+     return false;
+   }
++  void Paint(nsDisplayListBuilder* aBuilder, gfxContext* aCtx) override {
++    GetChildren()->Paint(aBuilder, aCtx,
++                         mFrame->PresContext()->AppUnitsPerDevPixel());
++  }
+   NS_DISPLAY_DECL_NAME("XULEventRedirector", TYPE_XUL_EVENT_REDIRECTOR)
+  private:
+   nsIFrame* mTargetFrame;
+@@ -1083,7 +1087,7 @@
+   }
+ }
+ 
+-class nsXULEventRedirectorWrapper final : public nsDisplayWrapper {
++class nsXULEventRedirectorWrapper final : public nsDisplayItemWrapper {
+  public:
+   explicit nsXULEventRedirectorWrapper(nsIFrame* aTargetFrame)
+       : mTargetFrame(aTargetFrame) {}

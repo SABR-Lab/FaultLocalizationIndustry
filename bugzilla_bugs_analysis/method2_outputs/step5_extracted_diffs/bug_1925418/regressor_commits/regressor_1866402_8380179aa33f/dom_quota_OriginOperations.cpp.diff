@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/OriginOperations.cpp
+# Commit: 8380179aa33f
+# Full Hash: 8380179aa33f282702b219de98afa653539edac1
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-10-10 09:22:33
+# Regressor Bug: 1866402
+# File Overlap Count: 1
+# Description:
+#   Bug 1866402 - Implement origin initialization status tracking on the owning thread; r=dom-storage-reviewers,jari
+#   
+#   Origin initialization tracking on the owning thread is needed for covering
+#   origin initialization in QuotaManager::OpenClientDirectory.
+#   
+# ==============================================================================
+
+diff -r e18f8613cd79 -r 8380179aa33f dom/quota/OriginOperations.cpp
+--- a/dom/quota/OriginOperations.cpp	Wed Oct 09 22:16:51 2024 +0000
++++ b/dom/quota/OriginOperations.cpp	Wed Oct 09 22:16:52 2024 +0000
+@@ -1140,6 +1140,17 @@
+ void FinalizeOriginEvictionOp::UnblockOpen() {
+   AssertIsOnOwningThread();
+ 
++  nsTArray<OriginMetadata> origins;
++
++  std::transform(mLocks.cbegin(), mLocks.cend(), MakeBackInserter(origins),
++                 [](const auto& lock) { return lock->OriginMetadata(); });
++
++  MOZ_ALWAYS_SUCCEEDS(NS_DispatchToCurrentThread(NS_NewRunnableFunction(
++      "dom::quota::FinalizeOriginEvictionOp::UnblockOpen",
++      [quotaManager = mQuotaManager, origins = std::move(origins)]() {
++        quotaManager->NoteUninitializedOrigins(origins);
++      })));
++
+   for (const auto& lock : mLocks) {
+     lock->Drop();
+   }

@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/test/browser/browser_mock_https_rr.js
+# Commit: af0f14eed70e
+# Full Hash: af0f14eed70edb2abb1ecd3cae4928387287d3e1
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2024-06-14 20:49:45
+# Regressor Bug: 1901990
+# File Overlap Count: 2
+# Description:
+#   Bug 1901990 - Introduce a pref for setting a mock HTTPS RR, r=necko-reviewers,valentin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D213559
+# ==============================================================================
+
+diff -r 9f913cbd60ee -r af0f14eed70e netwerk/test/browser/browser_mock_https_rr.js
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/netwerk/test/browser/browser_mock_https_rr.js	Fri Jun 14 09:11:49 2024 +0000
+@@ -0,0 +1,35 @@
++// This test verifies that Firefox correctly upgrades an HTTP request to HTTPS
++// when the request's domain name matches network.dns.mock_HTTPS_RR_domain.
++
++"use strict";
++
++const testPathUpgradeable = getRootDirectory(gTestPath).replace(
++  "chrome://mochitests/content",
++  // eslint-disable-next-line @microsoft/sdl/no-insecure-url
++  "http://example.org"
++);
++
++const kTestURI = testPathUpgradeable + "dummy.html";
++
++add_task(async function () {
++  // Set the mock_HTTPS_RR_domain and tell necko to use HTTPS RR.
++  await SpecialPowers.pushPrefEnv({
++    set: [
++      ["network.dns.mock_HTTPS_RR_domain", "example.org"],
++      ["network.dns.force_use_https_rr", true],
++    ],
++  });
++
++  await BrowserTestUtils.withNewTab("about:blank", async function (browser) {
++    const loaded = BrowserTestUtils.browserLoaded(browser, false, null, true);
++    // The page should be upgraded to HTTPS.
++    BrowserTestUtils.startLoadingURIString(browser, kTestURI);
++    await loaded;
++    await ContentTask.spawn(browser, {}, async () => {
++      ok(
++        content.document.location.href.startsWith("https://"),
++        "Should be https"
++      );
++    });
++  });
++});

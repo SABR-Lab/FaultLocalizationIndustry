@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/content/widgets/menulist.js
+# Commit: f11c529b2407
+# Full Hash: f11c529b240799df93c4dd8c17ecd8636f9b10de
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-01-04 09:43:05
+# Regressor Bug: 1805414
+# File Overlap Count: 2
+# Description:
+#   Bug 1805414 - Remove nsMenuFrame and nsMenuParent. r=smaug,Jamie,desktop-theme-reviewers,settings-reviewers,dao
+#   
+#   Move most the event handling stuff to the DOM. I've left nsMenuBarFrame
+#   for now, but I will be removing that in the future.
+#   
+# ==============================================================================
+
+diff -r 11d72eaa9cd9 -r f11c529b2407 toolkit/content/widgets/menulist.js
+--- a/toolkit/content/widgets/menulist.js	Tue Jan 03 21:55:14 2023 +0000
++++ b/toolkit/content/widgets/menulist.js	Tue Jan 03 22:06:01 2023 +0000
+@@ -7,6 +7,9 @@
+ // This is loaded into all XUL windows. Wrap in a block to prevent
+ // leaking to window scope.
+ {
++  const { AppConstants } = ChromeUtils.importESModule(
++    "resource://gre/modules/AppConstants.sys.mjs"
++  );
+   const MozXULMenuElement = MozElements.MozElementMixin(XULMenuElement);
+   const MenuBaseControl = MozElements.BaseControlMixin(MozXULMenuElement);
+ 
+@@ -38,20 +41,35 @@
+       this.addEventListener(
+         "keypress",
+         event => {
+-          if (event.altKey || event.ctrlKey || event.metaKey) {
++          if (
++            event.defaultPrevented ||
++            event.altKey ||
++            event.ctrlKey ||
++            event.metaKey
++          ) {
+             return;
+           }
+ 
+           if (
+-            !event.defaultPrevented &&
++            AppConstants.platform === "macosx" &&
++            !this.open &&
+             (event.keyCode == KeyEvent.DOM_VK_UP ||
+-              event.keyCode == KeyEvent.DOM_VK_DOWN ||
+-              event.keyCode == KeyEvent.DOM_VK_PAGE_UP ||
+-              event.keyCode == KeyEvent.DOM_VK_PAGE_DOWN ||
+-              event.keyCode == KeyEvent.DOM_VK_HOME ||
+-              event.keyCode == KeyEvent.DOM_VK_END ||
+-              event.keyCode == KeyEvent.DOM_VK_BACK_SPACE ||
+-              event.charCode > 0)
++              event.keyCode == KeyEvent.DOM_VK_DOWN)
++          ) {
++            // This should open the menulist on macOS, see
++            // XULButtonElement::PostHandleEvent.
++            return;
++          }
++
++          if (
++            event.keyCode == KeyEvent.DOM_VK_UP ||
++            event.keyCode == KeyEvent.DOM_VK_DOWN ||
++            event.keyCode == KeyEvent.DOM_VK_PAGE_UP ||
++            event.keyCode == KeyEvent.DOM_VK_PAGE_DOWN ||
++            event.keyCode == KeyEvent.DOM_VK_HOME ||
++            event.keyCode == KeyEvent.DOM_VK_END ||
++            event.keyCode == KeyEvent.DOM_VK_BACK_SPACE ||
++            event.charCode > 0
+           ) {
+             // Moving relative to an item: start from the currently selected item
+             this.activeChild = this.mSelectedInternal;

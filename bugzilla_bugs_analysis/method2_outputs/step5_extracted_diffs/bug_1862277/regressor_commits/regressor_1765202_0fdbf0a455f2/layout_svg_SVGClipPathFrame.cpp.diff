@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/svg/SVGClipPathFrame.cpp
+# Commit: 0fdbf0a455f2
+# Full Hash: 0fdbf0a455f26afa0a7a0390d6a380e318fce9d4
+# Author: Robert Longson <longsonr@gmail.com>
+# Date: 2023-10-24 03:54:44
+# Regressor Bug: 1765202
+# File Overlap Count: 1
+# Description:
+#   Bug 1765202 part 3 - ignore clip-path and mask properties that don't point to clipPath and mask elements r=emilio
+#   
+#   This refactors the logic for testing whether something has a clip-path or mask and what to do about it in one place rather than using many overlapping functions.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D190767
+# ==============================================================================
+
+diff -r 2a8d11fcc746 -r 0fdbf0a455f2 layout/svg/SVGClipPathFrame.cpp
+--- a/layout/svg/SVGClipPathFrame.cpp	Mon Oct 23 20:32:20 2023 +0000
++++ b/layout/svg/SVGClipPathFrame.cpp	Mon Oct 23 20:32:37 2023 +0000
+@@ -143,6 +143,9 @@
+   if (MOZ_UNLIKELY(!refChainGuard.Reference())) {
+     return;  // Break reference chain
+   }
++  if (!IsValid()) {
++    return;
++  }
+ 
+   DrawTarget* maskDT = aMaskContext.GetDrawTarget();
+   MOZ_ASSERT(maskDT->GetFormat() == SurfaceFormat::A8);
+@@ -250,6 +253,9 @@
+   if (MOZ_UNLIKELY(!refChainGuard.Reference())) {
+     return false;  // Break reference chain
+   }
++  if (!IsValid()) {
++    return false;
++  }
+ 
+   gfxMatrix matrix = GetClipPathTransform(aClippedFrame);
+   if (!matrix.Invert()) {
+@@ -329,17 +335,6 @@
+ }
+ 
+ bool SVGClipPathFrame::IsValid() {
+-  static int16_t sRefChainLengthCounter = AutoReferenceChainGuard::noChain;
+-
+-  // A clipPath can reference another clipPath, creating a chain of clipPaths
+-  // that must all be applied.  We re-enter this method for each clipPath in a
+-  // chain, so we need to protect against reference chain related crashes etc.:
+-  AutoReferenceChainGuard refChainGuard(this, &mIsBeingProcessed,
+-                                        &sRefChainLengthCounter);
+-  if (MOZ_UNLIKELY(!refChainGuard.Reference())) {
+-    return false;  // Break reference chain
+-  }
+-
+   if (SVGObserverUtils::GetAndObserveClipPath(this, nullptr) ==
+       SVGObserverUtils::eHasRefsSomeInvalid) {
+     return false;

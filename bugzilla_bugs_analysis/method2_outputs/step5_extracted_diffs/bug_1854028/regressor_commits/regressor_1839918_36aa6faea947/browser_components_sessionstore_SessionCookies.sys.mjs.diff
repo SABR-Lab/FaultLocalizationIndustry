@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: browser/components/sessionstore/SessionCookies.sys.mjs
+# Commit: 36aa6faea947
+# Full Hash: 36aa6faea9477a13b6d94e396596697e56675018
+# Author: Paul Zuehlcke <pbz@mozilla.com>
+# Date: 2023-09-19 03:53:26
+# Regressor Bug: 1839918
+# File Overlap Count: 6
+# Description:
+#   Bug 1839918 - Refactor "cookie-changed" notifications to use nsICookieNotification. r=extension-reviewers,cookie-reviewers,sessionstore-reviewers,bvandersloot,edgul,robwu
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D185300
+# ==============================================================================
+
+diff -r 905592ffa91d -r 36aa6faea947 browser/components/sessionstore/SessionCookies.sys.mjs
+--- a/browser/components/sessionstore/SessionCookies.sys.mjs	Mon Sep 18 11:25:24 2023 +0000
++++ b/browser/components/sessionstore/SessionCookies.sys.mjs	Mon Sep 18 11:55:08 2023 +0000
+@@ -91,22 +91,32 @@
+    * Handles observers notifications that are sent whenever cookies are added,
+    * changed, or removed. Ensures that the storage is updated accordingly.
+    */
+-  observe(subject, topic, data) {
+-    switch (data) {
+-      case "added":
+-        this._addCookie(subject);
++  observe(subject) {
++    let notification = subject.QueryInterface(Ci.nsICookieNotification);
++
++    let {
++      COOKIE_DELETED,
++      COOKIE_ADDED,
++      COOKIE_CHANGED,
++      ALL_COOKIES_CLEARED,
++      COOKIES_BATCH_DELETED,
++    } = Ci.nsICookieNotification;
++
++    switch (notification.action) {
++      case COOKIE_ADDED:
++        this._addCookie(notification.cookie);
+         break;
+-      case "changed":
+-        this._updateCookie(subject);
++      case COOKIE_CHANGED:
++        this._updateCookie(notification.cookie);
+         break;
+-      case "deleted":
+-        this._removeCookie(subject);
++      case COOKIE_DELETED:
++        this._removeCookie(notification.cookie);
+         break;
+-      case "cleared":
++      case ALL_COOKIES_CLEARED:
+         CookieStore.clear();
+         break;
+-      case "batch-deleted":
+-        this._removeCookies(subject);
++      case COOKIES_BATCH_DELETED:
++        this._removeCookies(notification.batchDeletedCookies);
+         break;
+       default:
+         throw new Error("Unhandled session-cookie-changed notification.");

@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/mac/GeckoTextMarker.h
+# Commit: 10a97d7a432d
+# Full Hash: 10a97d7a432dc762d63e4a66c05ed89175342b6f
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2020-07-03 03:56:55
+# Regressor Bug: 1649575
+# File Overlap Count: 2
+# Description:
+#   Bug 1649575 - Part 5: Implement string building for GeckoTextMarkerRange. r=morgan
+#   
+#   This is a seperate patch because of the complexity.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D81761
+# ==============================================================================
+
+diff -r 9bc12053de5e -r 10a97d7a432d accessible/mac/GeckoTextMarker.h
+--- a/accessible/mac/GeckoTextMarker.h	Thu Jul 02 21:35:05 2020 +0000
++++ b/accessible/mac/GeckoTextMarker.h	Thu Jul 02 21:57:55 2020 +0000
+@@ -48,12 +48,37 @@
+ 
+   id CreateAXTextMarkerRange();
+ 
+-  bool IsValid() const {
+-    return !mStart.mContainer.IsNull() && !mEnd.mContainer.IsNull();
+-  };
++  bool IsValid() const { return !mStart.mContainer.IsNull() && !mEnd.mContainer.IsNull(); };
++
++  /**
++   * Return text enclosed by the range.
++   */
++  NSString* Text() const;
+ 
+   GeckoTextMarker mStart;
+   GeckoTextMarker mEnd;
++
++ private:
++  int32_t StartOffset(const AccessibleOrProxy& aChild) const;
++
++  int32_t EndOffset(const AccessibleOrProxy& aChild) const;
++
++  int32_t LinkCount(const AccessibleOrProxy& aContainer) const;
++
++  AccessibleOrProxy LinkAt(const AccessibleOrProxy& aContainer, uint32_t aIndex) const;
++
++  void AppendTextTo(const AccessibleOrProxy& aContainer, nsAString& aText, uint32_t aStartOffset,
++                    uint32_t aEndOffset) const;
++
++  /**
++   * Text() method helper.
++   * @param  aText            [in,out] calculated text
++   * @param  aCurrent         [in] currently traversed node
++   * @param  aStartIntlOffset [in] start offset if current node is a text node
++   * @return                   true if calculation is not finished yet
++   */
++  bool TextInternal(nsAString& aText, AccessibleOrProxy aCurrent,
++                    int32_t aStartIntlOffset) const;
+ };
+ 
+ }  // namespace a11y

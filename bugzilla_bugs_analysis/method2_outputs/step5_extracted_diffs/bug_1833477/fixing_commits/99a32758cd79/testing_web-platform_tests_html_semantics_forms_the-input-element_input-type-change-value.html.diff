@@ -1,0 +1,53 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: testing/web-platform/tests/html/semantics/forms/the-input-element/input-type-change-value.html
+# Commit: 99a32758cd79
+# Full Hash: 99a32758cd79b97f5c4f9444f4b860d1870b3446
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-05-24 09:41:21
+# Description:
+#   Bug 1833477 - Make type attribute changes follow the spec more closely. r=smaug,masayuki
+#   
+#   The issue here is that the SetValueInternal call made us go from empty
+#   value to non-empty due to color's specialness of returning black always,
+#   but since the value dirty flag wasn't set, the non-empty value actually
+# ==============================================================================
+
+diff -r e6916184642e -r 99a32758cd79 testing/web-platform/tests/html/semantics/forms/the-input-element/input-type-change-value.html
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/testing/web-platform/tests/html/semantics/forms/the-input-element/input-type-change-value.html	Tue May 23 15:18:03 2023 +0000
+@@ -0,0 +1,33 @@
++<!doctype html>
++<meta charset="utf-8">
++<title>Input type switch from / to color</title>
++<link rel="author" href="mailto:emilio@crisal.io" title="Emilio Cobos Álvarez">
++<link rel="author" href="https://mozilla.org" title="Mozilla">
++<link rel="help" href="https://html.spec.whatwg.org/#input-type-change">
++<link rel="help" href="https://bugzilla.mozilla.org/show_bug.cgi?id=1833477">
++<script src="/resources/testharness.js"></script>
++<script src="/resources/testharnessreport.js"></script>
++<body>
++<script>
++function runTest(focus) {
++  let input = document.createElement("input");
++  input.type = "color";
++  document.body.appendChild(input);
++  if (focus) {
++    input.focus();
++  }
++  assert_equals(input.value, "#000000", "Invalid color should return a non-empty sanitized value");
++  input.type = "text";
++  assert_equals(input.value, "", "Value dirty flag should remain false");
++  input.type = "color";
++  input.value = "#ffffff";
++  assert_equals(input.value, "#ffffff", "Valid color is returned");
++  input.type = "text";
++  assert_equals(input.value, "#ffffff", "Value dirty flag should remain true");
++  if (focus) {
++    assert_equals(document.activeElement, input, "Focus is preserved");
++  }
++}
++test(() => runTest(false), "Without focus");
++test(() => runTest(true), "With focus");
++</script>

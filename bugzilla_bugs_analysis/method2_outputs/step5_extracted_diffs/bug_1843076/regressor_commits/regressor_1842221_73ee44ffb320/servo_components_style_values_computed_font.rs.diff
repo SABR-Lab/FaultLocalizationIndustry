@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: servo/components/style/values/computed/font.rs
+# Commit: 73ee44ffb320
+# Full Hash: 73ee44ffb32056a47a020486d3f8d1ba5dfe381f
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-07-12 21:49:07
+# Regressor Bug: 1842221
+# File Overlap Count: 1
+# Description:
+#   Bug 1842221 - Simplify ThinArc and friends. r=boris
+#   
+#   ThinArc is way more complex than it needs to be, and miri complains
+#   about various things when using the selectors crate with it.
+#   
+# ==============================================================================
+
+diff -r c32acbd14a56 -r 73ee44ffb320 servo/components/style/values/computed/font.rs
+--- a/servo/components/style/values/computed/font.rs	Wed Jul 12 07:03:02 2023 +0000
++++ b/servo/components/style/values/computed/font.rs	Wed Jul 12 07:17:25 2023 +0000
+@@ -367,7 +367,7 @@
+         generic_font_family!(MOZ_EMOJI, MozEmoji);
+         generic_font_family!(SYSTEM_UI, SystemUi);
+ 
+-        match generic {
++        let family = match generic {
+             GenericFontFamily::None => {
+                 debug_assert!(false, "Bogus caller!");
+                 &*SERIF
+@@ -379,7 +379,9 @@
+             GenericFontFamily::Fantasy => &*FANTASY,
+             GenericFontFamily::MozEmoji => &*MOZ_EMOJI,
+             GenericFontFamily::SystemUi => &*SYSTEM_UI,
+-        }
++        };
++        debug_assert_eq!(*family.families.iter().next().unwrap(), SingleFontFamily::Generic(generic));
++        family
+     }
+ }
+ 

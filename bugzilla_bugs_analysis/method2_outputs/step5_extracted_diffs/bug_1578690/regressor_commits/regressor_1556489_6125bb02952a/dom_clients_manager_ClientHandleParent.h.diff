@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/clients/manager/ClientHandleParent.h
+# Commit: 6125bb02952a
+# Full Hash: 6125bb02952aff71c0d757e238a7752101b2d6c2
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2019-09-03 04:06:20
+# Regressor Bug: 1556489
+# File Overlap Count: 1
+# Description:
+#   Bug 1556489 - P23 - Only create new ClientSource objects in the content, but use the recreated info from redirects in the parent. r=asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D42260
+# ==============================================================================
+
+diff -r 06529d12b589 -r 6125bb02952a dom/clients/manager/ClientHandleParent.h
+--- a/dom/clients/manager/ClientHandleParent.h	Mon Aug 26 12:18:57 2019 +1000
++++ b/dom/clients/manager/ClientHandleParent.h	Tue Aug 27 08:53:37 2019 +1000
+@@ -14,10 +14,21 @@
+ class ClientManagerService;
+ class ClientSourceParent;
+ 
++typedef MozPromise<ClientSourceParent*, nsresult, /* IsExclusive = */ false>
++    SourcePromise;
++
+ class ClientHandleParent final : public PClientHandleParent {
+   RefPtr<ClientManagerService> mService;
+   ClientSourceParent* mSource;
+ 
++  nsID mClientId;
++  PrincipalInfo mPrincipalInfo;
++
++  // A promise for HandleOps that want to access our ClientSourceParent.
++  // Resolved once FoundSource is called and we have a ClientSourceParent
++  // available.
++  RefPtr<SourcePromise::Private> mSourcePromise;
++
+   // PClientHandleParent interface
+   mozilla::ipc::IPCResult RecvTeardown() override;
+ 
+@@ -38,7 +49,11 @@
+ 
+   void Init(const IPCClientInfo& aClientInfo);
+ 
++  void FoundSource(ClientSourceParent* aSource);
++
+   ClientSourceParent* GetSource() const;
++
++  RefPtr<SourcePromise> EnsureSource();
+ };
+ 
+ }  // namespace dom

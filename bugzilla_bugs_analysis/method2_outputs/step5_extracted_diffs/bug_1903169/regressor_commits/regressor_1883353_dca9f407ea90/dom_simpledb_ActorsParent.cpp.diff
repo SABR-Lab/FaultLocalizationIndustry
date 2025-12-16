@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/simpledb/ActorsParent.cpp
+# Commit: dca9f407ea90
+# Full Hash: dca9f407ea90a83ae23be6c48aab8ce3f0f6e23e
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-06-14 20:49:45
+# Regressor Bug: 1883353
+# File Overlap Count: 1
+# Description:
+#   Bug 1883353 - Require to always drop directory locks explicitly; r=dom-storage-reviewers,jari
+#   
+#   Until now, directory locks were dropped when the last strong reference was
+#   removed or after calling Drop explicitly. The dependency on ref-counting makes
+#   it less obvious when directory locks are dropped for real and it's also
+# ==============================================================================
+
+diff -r a82c4a895b9d -r dca9f407ea90 dom/simpledb/ActorsParent.cpp
+--- a/dom/simpledb/ActorsParent.cpp	Wed Jun 12 15:12:34 2024 +0000
++++ b/dom/simpledb/ActorsParent.cpp	Fri Jun 14 07:21:24 2024 +0000
+@@ -37,6 +37,7 @@
+ #include "mozilla/dom/quota/Client.h"
+ #include "mozilla/dom/quota/ClientImpl.h"
+ #include "mozilla/dom/quota/DirectoryLock.h"
++#include "mozilla/dom/quota/DirectoryLockInlines.h"
+ #include "mozilla/dom/quota/FileStreams.h"
+ #include "mozilla/dom/quota/QuotaCommon.h"
+ #include "mozilla/dom/quota/QuotaManager.h"
+@@ -718,7 +719,9 @@
+ 
+   mOrigin.Truncate();
+   mName.Truncate();
+-  mDirectoryLock = nullptr;
++
++  DropDirectoryLock(mDirectoryLock);
++
+   mFileRandomAccessStream = nullptr;
+   mOpen = false;
+ 
+@@ -1267,7 +1270,8 @@
+   MOZ_ASSERT(mFileRandomAccessStream);
+   MOZ_ASSERT(mFileRandomAccessStreamOpen);
+ 
+-  mDirectoryLock = nullptr;
++  DropDirectoryLock(mDirectoryLock);
++
+   mFileRandomAccessStream = nullptr;
+   mFileRandomAccessStreamOpen = false;
+ }
+@@ -1325,10 +1329,10 @@
+         new StreamHelper(mFileRandomAccessStream, callback);
+     helper->AsyncClose();
+   } else {
+-    MOZ_ASSERT(!mFileRandomAccessStreamOpen);
++    SafeDropDirectoryLock(mDirectoryLock);
+ 
+-    mDirectoryLock = nullptr;
+     mFileRandomAccessStream = nullptr;
++    MOZ_ASSERT(!mFileRandomAccessStreamOpen);
+   }
+ 
+   ConnectionOperationBase::Cleanup();

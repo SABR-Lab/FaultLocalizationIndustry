@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/VideoStreamFactory.cpp
+# Commit: 7d270e96dfbf
+# Full Hash: 7d270e96dfbfcc5992f9a1704e7d2229d1a645f3
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 4
+# Description:
+#   Bug 1654112 - Adapt VideoConduit to the new libwebrtc version. r=ng,bwc
+#   
+#   This hooks up VideoReceiveStream::Config with a decoder factory and
+#   VideoSendStream::Config with both a bitrate allocator factory and an encoder
+#   factory.
+# ==============================================================================
+
+diff -r 2f1e8f5b2fc2 -r 7d270e96dfbf dom/media/webrtc/libwebrtcglue/VideoStreamFactory.cpp
+--- a/dom/media/webrtc/libwebrtcglue/VideoStreamFactory.cpp	Mon Feb 08 17:23:44 2021 +0100
++++ b/dom/media/webrtc/libwebrtcglue/VideoStreamFactory.cpp	Mon Feb 08 18:15:07 2021 +0100
+@@ -39,8 +39,9 @@
+         // clang-format on
+ };
+ 
+-static VideoStreamFactory::ResolutionAndBitrateLimits GetLimitsFor(
+-    unsigned int aWidth, unsigned int aHeight, int aCapBps = 0) {
++auto VideoStreamFactory::GetLimitsFor(unsigned int aWidth, unsigned int aHeight,
++                                      int aCapBps /* = 0 */)
++    -> ResolutionAndBitrateLimits {
+   // max bandwidth should be proportional (not linearly!) to resolution, and
+   // proportional (perhaps linearly, or close) to current frame rate.
+   int fs = MB_OF(aWidth, aHeight);
+@@ -77,7 +78,7 @@
+   int& out_max = aVideoStream.max_bitrate_bps;
+ 
+   VideoStreamFactory::ResolutionAndBitrateLimits resAndLimits =
+-      GetLimitsFor(width, height);
++      VideoStreamFactory::GetLimitsFor(width, height);
+   out_min = MinIgnoreZero(resAndLimits.min_bitrate_bps, cap);
+   out_start = MinIgnoreZero(resAndLimits.start_bitrate_bps, cap);
+   out_max = MinIgnoreZero(resAndLimits.max_bitrate_bps, cap);
+@@ -218,6 +219,7 @@
+                    mStartBitrate, encoding.constraints.maxBr, mPrefMaxBitrate,
+                    mNegotiatedMaxBitrate, video_stream);
+ 
++    video_stream.bitrate_priority = config.bitrate_priority;
+     video_stream.max_qp = kQpMax;
+ 
+     if (streamCount > 1) {

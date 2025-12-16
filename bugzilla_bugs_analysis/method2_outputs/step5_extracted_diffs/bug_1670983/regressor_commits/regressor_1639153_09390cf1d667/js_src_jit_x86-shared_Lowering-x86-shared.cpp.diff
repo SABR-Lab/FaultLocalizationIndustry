@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/x86-shared/Lowering-x86-shared.cpp
+# Commit: 09390cf1d667
+# Full Hash: 09390cf1d66716146aeb3112f0ac640e317890d9
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-09-14 09:51:01
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 6.6: Add tls dependency for truncate i32. r=lth
+#   
+#   We generate builtin call for MTruncateToInt32 operation for floating points types,
+#   so we need to add a tls dependency.
+#   I inserted NYI for arm64 because Ion doesn't support arm64.
+# ==============================================================================
+
+diff -r 83a3ed07220d -r 09390cf1d667 js/src/jit/x86-shared/Lowering-x86-shared.cpp
+--- a/js/src/jit/x86-shared/Lowering-x86-shared.cpp	Mon Sep 14 04:00:18 2020 +0000
++++ b/js/src/jit/x86-shared/Lowering-x86-shared.cpp	Mon Sep 14 05:19:44 2020 +0000
+@@ -450,6 +450,27 @@
+   define(lir, mir);
+ }
+ 
++void LIRGeneratorX86Shared::lowerWasmBuiltinTruncateToInt32(
++    MWasmBuiltinTruncateToInt32* ins) {
++  MDefinition* opd = ins->input();
++  MOZ_ASSERT(opd->type() == MIRType::Double || opd->type() == MIRType::Float32);
++
++  LDefinition maybeTemp =
++      Assembler::HasSSE3() ? LDefinition::BogusTemp() : tempDouble();
++  if (opd->type() == MIRType::Double) {
++    define(new (alloc()) LWasmBuiltinTruncateDToInt32(
++               useRegister(opd), useFixedAtStart(ins->tls(), WasmTlsReg),
++               maybeTemp),
++           ins);
++    return;
++  }
++
++  define(
++      new (alloc()) LWasmBuiltinTruncateFToInt32(
++          useRegister(opd), useFixedAtStart(ins->tls(), WasmTlsReg), maybeTemp),
++      ins);
++}
++
+ void LIRGeneratorX86Shared::lowerTruncateDToInt32(MTruncateToInt32* ins) {
+   MDefinition* opd = ins->input();
+   MOZ_ASSERT(opd->type() == MIRType::Double);

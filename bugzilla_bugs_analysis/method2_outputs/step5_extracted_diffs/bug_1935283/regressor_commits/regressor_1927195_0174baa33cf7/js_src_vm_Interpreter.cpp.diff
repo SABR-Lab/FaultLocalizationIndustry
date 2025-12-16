@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/Interpreter.cpp
+# Commit: 0174baa33cf7
+# Full Hash: 0174baa33cf7cd6fd0db96c4f1411e57eccd2bf0
+# Author: Debadree Chatterjee <debadree333@gmail.com>
+# Date: 2024-11-03 21:45:44
+# Regressor Bug: 1927195
+# File Overlap Count: 1
+# Description:
+#   Bug 1927195 - Part 4: Prevent parsing using & await using syntax based on pref. r=arai
+#   
+#   Depends on D226993
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D226994
+# ==============================================================================
+
+diff -r c0cc438b2397 -r 0174baa33cf7 js/src/vm/Interpreter.cpp
+--- a/js/src/vm/Interpreter.cpp	Sun Nov 03 08:32:26 2024 +0000
++++ b/js/src/vm/Interpreter.cpp	Sun Nov 03 08:32:27 2024 +0000
+@@ -2174,6 +2174,9 @@
+ 
+ #ifdef ENABLE_EXPLICIT_RESOURCE_MANAGEMENT
+     CASE(AddDisposable) {
++      MOZ_ASSERT(JS::Prefs::experimental_explicit_resource_management(),
++                 "AddDisposable opcode should not be present without the "
++                 "explicit resource management feature flag");
+       ReservedRooted<JSObject*> env(&rootObject0,
+                                     REGS.fp()->environmentChain());
+ 
+@@ -2196,6 +2199,9 @@
+     END_CASE(AddDisposable)
+ 
+     CASE(TakeDisposeCapability) {
++      MOZ_ASSERT(JS::Prefs::experimental_explicit_resource_management(),
++                 "TakeDisposeCapability opcode should not be present without "
++                 "the explicit resource management feature flag");
+       ReservedRooted<JSObject*> env(&rootObject0,
+                                     REGS.fp()->environmentChain());
+       JS::Value maybeDisposables =
+@@ -2213,6 +2219,9 @@
+     END_CASE(TakeDisposeCapability)
+ 
+     CASE(CreateSuppressedError) {
++      MOZ_ASSERT(JS::Prefs::experimental_explicit_resource_management(),
++                 "CreateSuppressedError opcode should not be present without "
++                 "the explicit resource management feature flag");
+       ReservedRooted<JS::Value> error(&rootValue0);
+       ReservedRooted<JS::Value> suppressed(&rootValue1);
+       POP_COPY_TO(suppressed);

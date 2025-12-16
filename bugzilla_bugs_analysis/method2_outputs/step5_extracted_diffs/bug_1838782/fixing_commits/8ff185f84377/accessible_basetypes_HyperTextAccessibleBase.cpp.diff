@@ -1,0 +1,36 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: accessible/basetypes/HyperTextAccessibleBase.cpp
+# Commit: 8ff185f84377
+# Full Hash: 8ff185f84377808c981e71eee8f5ceeebde7e7f5
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2023-06-21 04:00:08
+# Description:
+#   Bug 1838782: Add null checks in HyperTextAccessibleBase::OffsetAtPoint. r=morgan
+#   
+#   1. nsAccUtils::DocumentFor might return null if the Accessible is being moved and a client queried it during the move.
+#   2. ChildAtPoint might return null if the point can't be located at all.
+#   
+# ==============================================================================
+
+diff -r 164d2d7fd026 -r 8ff185f84377 accessible/basetypes/HyperTextAccessibleBase.cpp
+--- a/accessible/basetypes/HyperTextAccessibleBase.cpp	Tue Jun 20 21:17:24 2023 +0000
++++ b/accessible/basetypes/HyperTextAccessibleBase.cpp	Tue Jun 20 22:02:40 2023 +0000
+@@ -298,10 +298,12 @@
+     if (aCoordType != nsIAccessibleCoordinateType::COORDTYPE_SCREEN_RELATIVE) {
+       p = nsAccUtils::ConvertToScreenCoords(aX, aY, aCoordType, thisAcc);
+     }
+-    Accessible* hittestMatch = nsAccUtils::DocumentFor(thisAcc)->ChildAtPoint(
+-        p.x, p.y, Accessible::EWhichChildAtPoint::DeepestChild);
+-    if (thisAcc == hittestMatch->Parent()) {
+-      return 0;
++    if (Accessible* doc = nsAccUtils::DocumentFor(thisAcc)) {
++      Accessible* hittestMatch = doc->ChildAtPoint(
++          p.x, p.y, Accessible::EWhichChildAtPoint::DeepestChild);
++      if (hittestMatch && thisAcc == hittestMatch->Parent()) {
++        return 0;
++      }
+     }
+     return -1;
+   }

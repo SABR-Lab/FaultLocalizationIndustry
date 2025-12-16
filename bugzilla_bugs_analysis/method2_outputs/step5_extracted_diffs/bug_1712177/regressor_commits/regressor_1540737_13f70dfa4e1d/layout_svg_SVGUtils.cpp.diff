@@ -1,0 +1,105 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/svg/SVGUtils.cpp
+# Commit: 13f70dfa4e1d
+# Full Hash: 13f70dfa4e1d1d2c0f00b851ca655529f624fddd
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2021-05-16 09:17:48
+# Regressor Bug: 1540737
+# File Overlap Count: 1
+# Description:
+#   Bug 1540737 - Allow filter painting to take a callback for painting children. r=miko
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D114670
+# ==============================================================================
+
+diff -r 10dacf71ccbe -r 13f70dfa4e1d layout/svg/SVGUtils.cpp
+--- a/layout/svg/SVGUtils.cpp	Sun May 16 02:28:40 2021 +0300
++++ b/layout/svg/SVGUtils.cpp	Sun May 16 03:55:29 2021 +0000
+@@ -28,7 +28,6 @@
+ #include "nsStyleStruct.h"
+ #include "nsStyleTransformMatrix.h"
+ #include "SVGAnimatedLength.h"
+-#include "SVGFilterPaintCallback.h"
+ #include "SVGPaintServerFrame.h"
+ #include "nsTextFrame.h"
+ #include "mozilla/CSSClipPathInstance.h"
+@@ -382,37 +381,6 @@
+ 
+ // ************************************************************
+ 
+-class SVGPaintCallback : public SVGFilterPaintCallback {
+- public:
+-  virtual void Paint(gfxContext& aContext, nsIFrame* aTarget,
+-                     const gfxMatrix& aTransform, const nsIntRect* aDirtyRect,
+-                     imgDrawingParams& aImgParams) override {
+-    ISVGDisplayableFrame* svgFrame = do_QueryFrame(aTarget);
+-    NS_ASSERTION(svgFrame, "Expected SVG frame here");
+-
+-    nsIntRect* dirtyRect = nullptr;
+-    nsIntRect tmpDirtyRect;
+-
+-    // aDirtyRect is in user-space pixels, we need to convert to
+-    // outer-SVG-frame-relative device pixels.
+-    if (aDirtyRect) {
+-      gfxMatrix userToDeviceSpace = aTransform;
+-      if (userToDeviceSpace.IsSingular()) {
+-        return;
+-      }
+-      gfxRect dirtyBounds = userToDeviceSpace.TransformBounds(gfxRect(
+-          aDirtyRect->x, aDirtyRect->y, aDirtyRect->width, aDirtyRect->height));
+-      dirtyBounds.RoundOut();
+-      if (gfxUtils::GfxRectToIntRect(dirtyBounds, &tmpDirtyRect)) {
+-        dirtyRect = &tmpDirtyRect;
+-      }
+-    }
+-
+-    svgFrame->PaintSVG(aContext, SVGUtils::GetCSSPxToDevPxMatrix(aTarget),
+-                       aImgParams, dirtyRect);
+-  }
+-};
+-
+ float SVGUtils::ComputeOpacity(nsIFrame* aFrame, bool aHandleOpacity) {
+   float opacity = aFrame->StyleEffects()->mOpacity;
+ 
+@@ -790,9 +758,36 @@
+     target->SetMatrixDouble(reverseScaleMatrix * aTransform *
+                             target->CurrentMatrixDouble());
+ 
+-    SVGPaintCallback paintCallback;
+-    FilterInstance::PaintFilteredFrame(aFrame, target, &paintCallback,
+-                                       dirtyRegion, aImgParams);
++    auto callback = [](gfxContext& aContext, nsIFrame* aTarget,
++                       const gfxMatrix& aTransform, const nsIntRect* aDirtyRect,
++                       imgDrawingParams& aImgParams) {
++      ISVGDisplayableFrame* svgFrame = do_QueryFrame(aTarget);
++      NS_ASSERTION(svgFrame, "Expected SVG frame here");
++
++      nsIntRect* dirtyRect = nullptr;
++      nsIntRect tmpDirtyRect;
++
++      // aDirtyRect is in user-space pixels, we need to convert to
++      // outer-SVG-frame-relative device pixels.
++      if (aDirtyRect) {
++        gfxMatrix userToDeviceSpace = aTransform;
++        if (userToDeviceSpace.IsSingular()) {
++          return;
++        }
++        gfxRect dirtyBounds = userToDeviceSpace.TransformBounds(
++            gfxRect(aDirtyRect->x, aDirtyRect->y, aDirtyRect->width,
++                    aDirtyRect->height));
++        dirtyBounds.RoundOut();
++        if (gfxUtils::GfxRectToIntRect(dirtyBounds, &tmpDirtyRect)) {
++          dirtyRect = &tmpDirtyRect;
++        }
++      }
++
++      svgFrame->PaintSVG(aContext, SVGUtils::GetCSSPxToDevPxMatrix(aTarget),
++                         aImgParams, dirtyRect);
++    };
++    FilterInstance::PaintFilteredFrame(aFrame, target, callback, dirtyRegion,
++                                       aImgParams);
+   } else {
+     svgFrame->PaintSVG(*target, aTransform, aImgParams, aDirtyRect);
+   }

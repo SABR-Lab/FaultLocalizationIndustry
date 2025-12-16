@@ -1,0 +1,37 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/TextEditor.cpp
+# Commit: db49d0ca59cb
+# Full Hash: db49d0ca59cb923c14a975c86c8a754ac99b7de1
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2025-03-14 21:11:55
+# Description:
+#   Bug 1953933 - Make `TextEditor::IsEmpty()` return `true` if it's not been initialized yet r=m_kato
+#   
+#   `GetTextNode()` requires that the instance has already been initialized since
+#   it requires the native anonymous `<div>`.  And `IsEmpty()` is a public method.
+#   Therefore, it should return `true` if there is no editor root, i.e., when it's
+# ==============================================================================
+
+diff -r b67cacc3cdf8 -r db49d0ca59cb editor/libeditor/TextEditor.cpp
+--- a/editor/libeditor/TextEditor.cpp	Fri Mar 14 06:25:03 2025 +0000
++++ b/editor/libeditor/TextEditor.cpp	Fri Mar 14 06:41:47 2025 +0000
+@@ -480,6 +480,17 @@
+ }
+ 
+ bool TextEditor::IsEmpty() const {
++  // This is a public method.  Therefore, it might have not been initialized yet
++  // when this is called.  Let's return true in such case, but warn it because
++  // it may return different value than actual value which is stored by the
++  // text control element.
++  MOZ_ASSERT_IF(mInitSucceeded, GetRoot());
++  if (NS_WARN_IF(!GetRoot())) {
++    NS_ASSERTION(false,
++                 "Make the root caller stop doing that before initializing or "
++                 "after destroying the TextEditor");
++    return true;
++  }
+   const Text* const textNode = GetTextNode();
+   MOZ_DIAGNOSTIC_ASSERT_IF(textNode,
+                            !Text::FromNodeOrNull(textNode->GetNextSibling()));

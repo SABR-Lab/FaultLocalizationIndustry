@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/clients/manager/ClientSourceParent.cpp
+# Commit: fb720435215f
+# Full Hash: fb720435215fa5be3b2bd2101f3a54382954b70c
+# Author: Andrew Sutherland <asutherland@asutherland.org>
+# Date: 2024-10-24 09:44:34
+# Regressor Bug: 1544232
+# File Overlap Count: 4
+# Description:
+#   Bug 1544232 - Limit lifetime extension of SWs by SWs to the sender's lifetime. r=edenchuang
+#   
+#   This patch introduces an explicit concept of lifetimes with mechanisms
+#   in place so that actions taken by Clients (windows or non-ServiceWorker
+#   orkers) will extend the lifetime of a ServiceWorker, but a ServiceWorker
+# ==============================================================================
+
+diff -r 25452f6623a0 -r fb720435215f dom/clients/manager/ClientSourceParent.cpp
+--- a/dom/clients/manager/ClientSourceParent.cpp	Thu Oct 24 03:02:41 2024 +0000
++++ b/dom/clients/manager/ClientSourceParent.cpp	Thu Oct 24 03:02:42 2024 +0000
+@@ -148,8 +148,9 @@
+ ClientSourceParent::ClientSourceParent(
+     const ClientSourceConstructorArgs& aArgs,
+     const Maybe<ContentParentId>& aContentParentId)
+-    : mClientInfo(aArgs.id(), aArgs.type(), aArgs.principalInfo(),
+-                  aArgs.creationTime()),
++    : mClientInfo(aArgs.id(), aArgs.agentClusterId(), aArgs.type(),
++                  aArgs.principalInfo(), aArgs.creationTime(), aArgs.url(),
++                  aArgs.frameType()),
+       mContentParentId(aContentParentId),
+       mService(ClientManagerService::GetOrCreateInstance()),
+       mExecutionReady(false),

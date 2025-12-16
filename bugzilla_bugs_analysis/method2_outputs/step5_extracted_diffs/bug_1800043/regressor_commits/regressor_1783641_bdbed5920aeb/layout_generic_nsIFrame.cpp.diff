@@ -1,0 +1,31 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/nsIFrame.cpp
+# Commit: bdbed5920aeb
+# Full Hash: bdbed5920aeb2adc75f03ac0f6c427b3ac456395
+# Author: Jan-Niklas Jaeschke <jjaschke@mozilla.com>
+# Date: 2022-10-26 03:47:46
+# Regressor Bug: 1783641
+# File Overlap Count: 2
+# Description:
+#   Bug 1783641: Deleting a selected word deletes surrounding whitespace on MacOS. r=masayuki
+#   
+#   Native behaviour on MacOS dictates one whitespace being removed after double-clicking a word and pressing delete.
+#   This behaviour is achieved by saving the information that the selection is created by doubleclick to the `nsFrameSelection`
+#   and using it in the `DeleteRangeTransaction`, where the range is extended by one whitespace character before or after the range.
+# ==============================================================================
+
+diff -r a32dbcfbd95f -r bdbed5920aeb layout/generic/nsIFrame.cpp
+--- a/layout/generic/nsIFrame.cpp	Tue Oct 25 07:00:26 2022 +0000
++++ b/layout/generic/nsIFrame.cpp	Tue Oct 25 07:00:26 2022 +0000
+@@ -5000,6 +5000,9 @@
+   if (NS_FAILED(rv)) {
+     return rv;
+   }
++  if (aAmountBack == eSelectWord) {
++    frameSelection->SetIsDoubleClickSelection(true);
++  }
+ 
+   // maintain selection
+   return frameSelection->MaintainSelection(aAmountBack);

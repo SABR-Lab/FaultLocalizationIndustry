@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/MediaTrackList.h
+# Commit: c54cb3c10992
+# Full Hash: c54cb3c109922bc15fb6d0ca67e5f2a05980c1a5
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2019-07-31 15:46:43
+# Regressor Bug: 1493613
+# File Overlap Count: 2
+# Description:
+#   Bug 1493613 - Move MediaStream control from DOMMediaStream to MediaStreamTrack. r=padenot
+#   
+#   This is inherently large, because modifying these bits of DOMMediaStream and
+#   MediaStreamTrack affects all consumers and producers of all DOMMediaStreams and
+#   MediaStreamTracks.
+# ==============================================================================
+
+diff -r 0b03dd9d20ac -r c54cb3c10992 dom/media/MediaTrackList.h
+--- a/dom/media/MediaTrackList.h	Wed Jul 31 09:35:06 2019 +0000
++++ b/dom/media/MediaTrackList.h	Wed Jul 31 07:58:17 2019 +0000
+@@ -14,13 +14,14 @@
+ 
+ namespace dom {
+ 
++class AudioStreamTrack;
++class AudioTrack;
++class AudioTrackList;
+ class HTMLMediaElement;
+ class MediaTrack;
+-class AudioTrackList;
++class VideoStreamTrack;
++class VideoTrack;
+ class VideoTrackList;
+-class AudioTrack;
+-class VideoTrack;
+-class VideoStreamTrack;
+ 
+ /**
+  * Base class of AudioTrackList and VideoTrackList. The AudioTrackList and
+@@ -53,10 +54,13 @@
+ 
+   void RemoveTracks();
+ 
++  // For the case of src of HTMLMediaElement is non-MediaStream, leave the
++  // aAudioTrack as default(nullptr).
+   static already_AddRefed<AudioTrack> CreateAudioTrack(
+       nsIGlobalObject* aOwnerGlobal, const nsAString& aId,
+       const nsAString& aKind, const nsAString& aLabel,
+-      const nsAString& aLanguage, bool aEnabled);
++      const nsAString& aLanguage, bool aEnabled,
++      AudioStreamTrack* aAudioTrack = nullptr);
+ 
+   // For the case of src of HTMLMediaElement is non-MediaStream, leave the
+   // aVideoTrack as default(nullptr).

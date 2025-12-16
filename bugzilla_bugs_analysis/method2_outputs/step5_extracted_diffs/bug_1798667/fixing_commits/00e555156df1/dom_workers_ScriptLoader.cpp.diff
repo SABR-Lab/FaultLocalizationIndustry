@@ -1,0 +1,27 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/ScriptLoader.cpp
+# Commit: 00e555156df1
+# Full Hash: 00e555156df1b498565fae94f2b04357baabca24
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-11-05 09:23:50
+# Description:
+#   Bug 1798667 - clear cache when finished with service worker scripts; r=asuth
+#   
+#   I was over eager in introducing the strong pointers to WorkerLoadContext. It turns out that
+#   previously when we were cycle collecting our ScriptLoadRequests, we were also cleaning up everything
+#   related to WorkerLoadContext. Also, in an attempt to fix the cancellation for workers, We
+# ==============================================================================
+
+diff -r dce99b798fd5 -r 00e555156df1 dom/workers/ScriptLoader.cpp
+--- a/dom/workers/ScriptLoader.cpp	Fri Nov 04 14:55:16 2022 +0000
++++ b/dom/workers/ScriptLoader.cpp	Fri Nov 04 15:04:27 2022 +0000
+@@ -734,6 +734,7 @@
+       if (!loadContext->mLoadingFinished) {
+         shouldDispatch = true;
+       }
++      loadContext->ClearCacheCreator();
+     }
+     if (shouldDispatch) {
+       DispatchAbruptShutdown();

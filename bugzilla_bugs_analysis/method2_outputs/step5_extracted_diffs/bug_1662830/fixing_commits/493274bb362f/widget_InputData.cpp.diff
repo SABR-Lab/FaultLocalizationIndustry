@@ -1,0 +1,43 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: widget/InputData.cpp
+# Commit: 493274bb362f
+# Full Hash: 493274bb362f2c701849bc7cc7425bcba53f35be
+# Author: Edgar Chen <echen@mozilla.com>
+# Date: 2020-09-07 15:34:13
+# Description:
+#   Bug 1662830 - Initialize mExitFrom in MouseInput::ToWidgetMouseEvent; r=smaug
+#   
+#   This is missed in https://phabricator.services.mozilla.com/D88225.
+#   MouseInput::ToWidgetMouseEvent is used only in Android.
+#   
+# ==============================================================================
+
+diff -r c143b57f2a76 -r 493274bb362f widget/InputData.cpp
+--- a/widget/InputData.cpp	Mon Sep 07 09:23:06 2020 +0000
++++ b/widget/InputData.cpp	Mon Sep 07 09:32:47 2020 +0000
+@@ -315,6 +315,7 @@
+ 
+   EventMessage msg = eVoidEvent;
+   uint32_t clickCount = 0;
++  Maybe<WidgetMouseEvent::ExitFrom> exitFrom;
+   switch (mType) {
+     case MOUSE_MOVE:
+       msg = eMouseMove;
+@@ -338,6 +339,7 @@
+       break;
+     case MOUSE_WIDGET_EXIT:
+       msg = eMouseExitFromWidget;
++      exitFrom = Some(WidgetMouseEvent::eChild);
+       break;
+     case MOUSE_HITTEST:
+       msg = eMouseHitTest;
+@@ -381,6 +383,7 @@
+   event.mClickCount = clickCount;
+   event.mInputSource = mInputSource;
+   event.mFocusSequenceNumber = mFocusSequenceNumber;
++  event.mExitFrom = exitFrom;
+ 
+   return event;
+ }

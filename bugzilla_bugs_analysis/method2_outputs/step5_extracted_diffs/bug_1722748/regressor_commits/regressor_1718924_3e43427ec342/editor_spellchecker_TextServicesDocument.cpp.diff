@@ -1,0 +1,142 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/spellchecker/TextServicesDocument.cpp
+# Commit: 3e43427ec342
+# Full Hash: 3e43427ec342907de56a5eab541dbe725a201eab
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2021-07-13 21:42:32
+# Regressor Bug: 1718924
+# File Overlap Count: 1
+# Description:
+#   Bug 1718924 - part 4: Add `OffsetEntry::EndOffsetInTextNode()` r=m_kato
+#   
+#   Depends on D119150
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D119151
+# ==============================================================================
+
+diff -r 3857f3a91edb -r 3e43427ec342 editor/spellchecker/TextServicesDocument.cpp
+--- a/editor/spellchecker/TextServicesDocument.cpp	Tue Jul 13 08:20:13 2021 +0000
++++ b/editor/spellchecker/TextServicesDocument.cpp	Tue Jul 13 08:35:32 2021 +0000
+@@ -50,6 +50,8 @@
+         mIsInsertedText(false),
+         mIsValid(true) {}
+ 
++  uint32_t EndOffsetInTextNode() const { return mOffsetInTextNode + mLength; }
++
+   OwningNonNull<Text> mTextNode;
+   uint32_t mOffsetInTextNode;
+   uint32_t mStrOffset;
+@@ -1087,7 +1089,7 @@
+       // We didn't find an inserted text offset entry, so
+       // create one.
+       itEntry = new OffsetEntry(entry->mTextNode, *mSelStartOffset, 0);
+-      itEntry->mOffsetInTextNode = entry->mOffsetInTextNode + entry->mLength;
++      itEntry->mOffsetInTextNode = entry->EndOffsetInTextNode();
+       itEntry->mIsInsertedText = true;
+       // XXX(Bug 1631371) Check if this should use a fallible operation as it
+       // pretended earlier.
+@@ -1109,8 +1111,7 @@
+     }
+ 
+     OwningNonNull<Text> textNode = itEntry->mTextNode;
+-    rv = selection->CollapseInLimiter(
+-        textNode, itEntry->mOffsetInTextNode + itEntry->mLength);
++    rv = selection->CollapseInLimiter(textNode, itEntry->EndOffsetInTextNode());
+     if (NS_FAILED(rv)) {
+       return rv;
+     }
+@@ -1128,7 +1129,7 @@
+     OffsetEntry* itEntry =
+         new OffsetEntry(entry->mTextNode, *mSelStartOffset, strLength);
+     itEntry->mIsInsertedText = true;
+-    itEntry->mOffsetInTextNode = entry->mOffsetInTextNode + entry->mLength;
++    itEntry->mOffsetInTextNode = entry->EndOffsetInTextNode();
+     // XXX(Bug 1631371) Check if this should use a fallible operation as it
+     // pretended earlier.
+     mOffsetTable.InsertElementAt(++(*mSelStartIndex), itEntry);
+@@ -1590,7 +1591,7 @@
+         // match exactly!
+         if (entry->mStrOffset == aOffset) {
+           startTextNode = entry->mTextNode;
+-          startNodeOffset = entry->mOffsetInTextNode + entry->mLength;
++          startNodeOffset = entry->EndOffsetInTextNode();
+         }
+       } else if (aOffset >= entry->mStrOffset) {
+         bool foundEntry = false;
+@@ -1666,7 +1667,7 @@
+           // If the selection ends on an inserted text offset entry,
+           // the selection includes the entire entry!
+           endTextNode = entry->mTextNode;
+-          endNodeOffset = entry->mOffsetInTextNode + entry->mLength;
++          endNodeOffset = entry->EndOffsetInTextNode();
+         }
+       } else if (endOffset >= entry->mStrOffset &&
+                  endOffset <= entry->mStrOffset + entry->mLength) {
+@@ -1754,8 +1755,8 @@
+     eEnd = eStart;
+   }
+ 
+-  uint32_t eStartOffset = eStart->mOffsetInTextNode;
+-  uint32_t eEndOffset = eEnd->mOffsetInTextNode + eEnd->mLength;
++  const uint32_t eStartOffset = eStart->mOffsetInTextNode;
++  const uint32_t eEndOffset = eEnd->EndOffsetInTextNode();
+ 
+   RefPtr<const nsRange> range = selection->GetRangeAt(0);
+   NS_ENSURE_STATE(range);
+@@ -1792,7 +1793,7 @@
+ 
+       if (entry->mTextNode == parent->AsText() &&
+           entry->mOffsetInTextNode <= offset &&
+-          offset <= entry->mOffsetInTextNode + entry->mLength) {
++          offset <= entry->EndOffsetInTextNode()) {
+         *aSelStatus = BlockSelectionStatus::eBlockContains;
+         *aSelOffset = entry->mStrOffset + (offset - entry->mOffsetInTextNode);
+         *aSelLength = 0;
+@@ -1901,7 +1902,7 @@
+     NS_ENSURE_TRUE(entry, NS_ERROR_FAILURE);
+ 
+     if (entry->mTextNode == textNode && entry->mOffsetInTextNode <= offset &&
+-        offset <= entry->mOffsetInTextNode + entry->mLength) {
++        offset <= entry->EndOffsetInTextNode()) {
+       *aSelStatus = BlockSelectionStatus::eBlockContains;
+       *aSelOffset = entry->mStrOffset + (offset - entry->mOffsetInTextNode);
+       *aSelLength = 0;
+@@ -1948,7 +1949,7 @@
+   }
+ 
+   const uint32_t eStartOffset = eStart->mOffsetInTextNode;
+-  const uint32_t eEndOffset = eEnd->mOffsetInTextNode + eEnd->mLength;
++  const uint32_t eEndOffset = eEnd->EndOffsetInTextNode();
+ 
+   const uint32_t rangeCount = selection->RangeCount();
+   MOZ_ASSERT(rangeCount);
+@@ -2113,10 +2114,10 @@
+     NS_ENSURE_TRUE(entry, NS_ERROR_FAILURE);
+     if (!found) {
+       if (entry->mTextNode == p1.get() && entry->mOffsetInTextNode <= o1 &&
+-          o1 <= entry->mOffsetInTextNode + entry->mLength) {
++          o1 <= entry->EndOffsetInTextNode()) {
+         *aSelOffset = entry->mStrOffset + (o1 - entry->mOffsetInTextNode);
+         if (p1 == p2 && entry->mOffsetInTextNode <= o2 &&
+-            o2 <= entry->mOffsetInTextNode + entry->mLength) {
++            o2 <= entry->EndOffsetInTextNode()) {
+           // The start and end of the range are in the same offset
+           // entry. Calculate the length of the range then we're done.
+           *aSelLength = o2 - o1;
+@@ -2124,12 +2125,12 @@
+         }
+         // Add the length of the sub string in this offset entry
+         // that follows the start of the range.
+-        *aSelLength = entry->mLength - (o1 - entry->mOffsetInTextNode);
++        *aSelLength = entry->EndOffsetInTextNode() - o1;
+         found = true;
+       }
+     } else {  // Found.
+       if (entry->mTextNode == p2.get() && entry->mOffsetInTextNode <= o2 &&
+-          o2 <= entry->mOffsetInTextNode + entry->mLength) {
++          o2 <= entry->EndOffsetInTextNode()) {
+         // We found the end of the range. Calculate the length of the
+         // sub string that is before the end of the range, then we're done.
+         *aSelLength += o2 - entry->mOffsetInTextNode;

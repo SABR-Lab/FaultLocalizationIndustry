@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: devtools/client/storage/test/browser_storage_dfpi.js
+# Commit: 6180f2e753bd
+# Full Hash: 6180f2e753bd2efb4905c6a70eb6607144807d5b
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-10-11 10:49:37
+# Regressor Bug: 1866402
+# File Overlap Count: 1
+# Description:
+#   Bug 1866402 - Add support for initializing corresponding origin to QuotaManager::OpenClientDirectory; r=devtools-reviewers,nchevobbe
+#   
+#   QuotaManager::OpenClientDirectory can now get initialization status of
+#   corresponding origin and initialize the origin if it's needed.
+#   
+# ==============================================================================
+
+diff -r f25dfc157ef7 -r 6180f2e753bd devtools/client/storage/test/browser_storage_dfpi.js
+--- a/devtools/client/storage/test/browser_storage_dfpi.js	Fri Oct 11 00:06:08 2024 +0000
++++ b/devtools/client/storage/test/browser_storage_dfpi.js	Fri Oct 11 00:06:09 2024 +0000
+@@ -15,6 +15,7 @@
+ const PREFIX = "https://sub1.test1.example";
+ const ORIGIN = `${PREFIX}.org`;
+ const ORIGIN_THIRD_PARTY = `${PREFIX}.com`;
++const ORIGIN_PARTITIONED = `${ORIGIN_THIRD_PARTY}^partitionKey=%28https%2Cexample.org%29`;
+ const TEST_URL = `${ORIGIN}/${PATH}storage-dfpi.html`;
+ 
+ function listOrigins() {
+@@ -45,17 +46,24 @@
+   // To ensure more accurate results, try choosing a uncommon origin for PREFIX.
+   const EXISTING_ORIGINS = await listOrigins();
+   ok(!EXISTING_ORIGINS.includes(ORIGIN), `${ORIGIN} doesn't exist`);
++  ok(
++    !EXISTING_ORIGINS.includes(ORIGIN_PARTITIONED),
++    `${ORIGIN_PARTITIONED} doesn't exist`
++  );
+ 
+   await openTabAndSetupStorage(TEST_URL);
+ 
+   const origins = await listOrigins();
+   for (const origin of origins) {
+     ok(
+-      EXISTING_ORIGINS.includes(origin) || origin === ORIGIN,
++      EXISTING_ORIGINS.includes(origin) ||
++        origin === ORIGIN ||
++        origin == ORIGIN_PARTITIONED,
+       `check origin: ${origin}`
+     );
+   }
+   ok(origins.includes(ORIGIN), `${ORIGIN} is added`);
++  ok(origins.includes(ORIGIN_PARTITIONED), `${ORIGIN_PARTITIONED} is added`);
+ 
+   BrowserTestUtils.removeTab(gBrowser.selectedTab);
+ });

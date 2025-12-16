@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxPlatform.cpp
+# Commit: 4d0b3e4d35b9
+# Full Hash: 4d0b3e4d35b99b99f65c8e7308d314054ab33a8d
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2023-12-20 04:10:48
+# Regressor Bug: 1829026
+# File Overlap Count: 1
+# Description:
+#   Bug 1829026 - Don't force sync for async-present if GL not thread-safe. r=aosmond
+#   
+#   If GL is not thread-safe, then the check for whether we use the canvas render thread
+#   is not accurate. The thread-safe check takes precedence, and if we are not thread-safe,
+#   we are actually on the render thread. It should be safe to not force sync here since
+# ==============================================================================
+
+diff -r b1c8877fa4c8 -r 4d0b3e4d35b9 gfx/thebes/gfxPlatform.cpp
+--- a/gfx/thebes/gfxPlatform.cpp	Tue Dec 19 20:29:45 2023 +0000
++++ b/gfx/thebes/gfxPlatform.cpp	Tue Dec 19 20:44:27 2023 +0000
+@@ -3046,7 +3046,7 @@
+   gfxVars::SetUseCanvasRenderThread(feature.IsEnabled());
+ 
+   bool webglOopAsyncPresentForceSync =
+-      !gfxVars::UseCanvasRenderThread() ||
++      (threadsafeGL && !gfxVars::UseCanvasRenderThread()) ||
+       StaticPrefs::webgl_out_of_process_async_present_force_sync();
+   gfxVars::SetWebglOopAsyncPresentForceSync(webglOopAsyncPresentForceSync);
+ 

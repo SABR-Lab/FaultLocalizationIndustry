@@ -1,0 +1,147 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/nsWindow.h
+# Commit: a9a38191e649
+# Full Hash: a9a38191e6498be260fec63fc186388405c7bf27
+# Author: stransky <stransky@redhat.com>
+# Date: 2024-12-17 05:09:10
+# Regressor Bug: 1934497
+# File Overlap Count: 2
+# Description:
+#   Bug 1934497 [Wayland] Make nsWindow to use WaylandSurface and new VSync interface r=emilio
+#   
+#   - Make nsWindow own WaylandSurface which makes sure we don't release it too early as is reffed
+#   - Always get scale factor from parent nsWindow for popups, don't try to guess
+#   - Simplify VSync management
+# ==============================================================================
+
+diff -r 5343854a37e5 -r a9a38191e649 widget/gtk/nsWindow.h
+--- a/widget/gtk/nsWindow.h	Mon Dec 16 20:12:15 2024 +0000
++++ b/widget/gtk/nsWindow.h	Mon Dec 16 20:12:15 2024 +0000
+@@ -13,7 +13,7 @@
+ 
+ #include "CompositorWidget.h"
+ #include "MozContainer.h"
+-#include "MozContainerSurfaceLock.h"
++#include "WaylandSurfaceLock.h"
+ #include "VsyncSource.h"
+ #include "mozilla/EventForwards.h"
+ #include "mozilla/Maybe.h"
+@@ -47,6 +47,9 @@
+ 
+ #ifdef MOZ_LOGGING
+ 
++#  undef LOG
++#  undef LOGVERBOSE
++
+ #  include "mozilla/Logging.h"
+ #  include "nsTArray.h"
+ #  include "Units.h"
+@@ -61,13 +64,18 @@
+     MOZ_LOG(IsPopup() ? gWidgetPopupLog : gWidgetLog, \
+             mozilla::LogLevel::Debug,                 \
+             ("%s: " str, GetDebugTag().get(), ##__VA_ARGS__))
++#  define LOGVERBOSE(str, ...)                        \
++    MOZ_LOG(IsPopup() ? gWidgetPopupLog : gWidgetLog, \
++            mozilla::LogLevel::Verbose,               \
++            ("%s: " str, GetDebugTag().get(), ##__VA_ARGS__))
+ #  define LOGW(...) MOZ_LOG(gWidgetLog, mozilla::LogLevel::Debug, (__VA_ARGS__))
+ #  define LOGDRAG(...) \
+     MOZ_LOG(gWidgetDragLog, mozilla::LogLevel::Debug, (__VA_ARGS__))
+ #  define LOG_POPUP(...) \
+     MOZ_LOG(gWidgetPopupLog, mozilla::LogLevel::Debug, (__VA_ARGS__))
+-#  define LOG_VSYNC(...) \
+-    MOZ_LOG(gWidgetVsync, mozilla::LogLevel::Debug, (__VA_ARGS__))
++#  define LOG_VSYNC(str, ...)                       \
++    MOZ_LOG(gWidgetVsync, mozilla::LogLevel::Debug, \
++            ("%s: " str, GetDebugTag().get(), ##__VA_ARGS__))
+ #  define LOG_ENABLED()                                         \
+     (MOZ_LOG_TEST(gWidgetPopupLog, mozilla::LogLevel::Debug) || \
+      MOZ_LOG_TEST(gWidgetLog, mozilla::LogLevel::Debug))
+@@ -77,6 +85,7 @@
+ #else
+ 
+ #  define LOG(...)
++#  define LOGVERBOSE(...)
+ #  define LOGW(...)
+ #  define LOGDRAG(...)
+ #  define LOG_POPUP(...)
+@@ -133,6 +142,8 @@
+ namespace widget {
+ class DBusMenuBar;
+ class Screen;
++class WaylandSurface;
++class WaylandSurfaceLock;
+ }  // namespace widget
+ }  // namespace mozilla
+ 
+@@ -296,8 +307,16 @@
+   void OnDPIChanged();
+   void OnCheckResize();
+   void OnCompositedChanged();
+-  void OnScaleChanged(bool aNotify);
+   void DispatchResized();
++  void OnScaleEvent();
++
++  // Load new scale from system.
++
++  // aRefreshScreen means notify layout that scale was changed and
++  //  it should load correct values.
++  // Set aRefreshScreen to false if we operate on hidden window
++  // or if we're going to repaint.
++  void RefreshScale(bool aRefreshScreen);
+ 
+   static guint32 sLastButtonPressTime;
+ 
+@@ -428,7 +447,7 @@
+ 
+   static nsWindow* GetFocusedWindow();
+ 
+-  mozilla::UniquePtr<MozContainerSurfaceLock> LockSurface();
++  mozilla::UniquePtr<mozilla::widget::WaylandSurfaceLock> LockSurface();
+ 
+ #ifdef MOZ_WAYLAND
+   // Use xdg-activation protocol to transfer focus from gFocusWindow to aWindow.
+@@ -496,9 +515,6 @@
+ 
+   void RegisterTouchWindow() override;
+ 
+-  mozilla::Atomic<int, mozilla::Relaxed> mCeiledScaleFactor{1};
+-  double mFractionalScaleFactor = 0.0;
+-
+   void NativeMoveResize(bool aMoved, bool aResized);
+ 
+   void NativeShow(bool aAction);
+@@ -564,6 +580,9 @@
+   GtkWidget* mShell = nullptr;
+   MozContainer* mContainer = nullptr;
+   GdkWindow* mGdkWindow = nullptr;
++#ifdef MOZ_WAYLAND
++  RefPtr<mozilla::widget::WaylandSurface> mSurface;
++#endif
+   mozilla::Maybe<GdkPoint> mGdkWindowOrigin;
+   mozilla::Maybe<GdkPoint> mGdkWindowRootOrigin;
+ 
+@@ -586,6 +605,10 @@
+   mozilla::Maybe<GtkOrientation> mAspectResizer;
+   LayoutDeviceIntPoint mLastResizePoint;
+ 
++  // Keep in sync with WaylandSurface::sNoScale
++  constexpr static const int sNoScale = -1;
++  int mCeiledScaleFactor = sNoScale;
++
+   // The size requested, which might not be reflected in mBounds.  Used in
+   // WaylandPopupSetDirectPosition() to remember intended size for popup
+   // positioning, in LockAspect() to remember the intended aspect ratio, and
+@@ -1017,10 +1040,6 @@
+   nsCString mWindowActivationTokenFromEnv;
+   mozilla::widget::WindowSurfaceProvider mSurfaceProvider;
+   GdkDragContext* mSourceDragContext = nullptr;
+-#if MOZ_LOGGING
+-  LayoutDeviceIntRect mLastLoggedBoundSize;
+-  int mLastLoggedScale = -1;
+-#endif
+   mozilla::Sides mResizableEdges{mozilla::SideBits::eAll};
+   // Running in kiosk mode and requested to stay on specified monitor.
+   // If monitor is removed minimize the window.

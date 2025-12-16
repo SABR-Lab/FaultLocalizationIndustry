@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/platforms/PDMFactory.cpp
+# Commit: c5dac46ef11d
+# Full Hash: c5dac46ef11d44762d5eb61610e58f4d52aec88d
+# Author: Dan Glastonbury <dan.glastonbury@gmail.com>
+# Date: 2020-10-21 09:51:28
+# Regressor Bug: 1595994
+# File Overlap Count: 1
+# Description:
+#   Bug 1595994 - PA: Delete GPUDecoderModule wrapper. r=mattwoodrow
+#   
+#   Moved support logic into WMFDecoderModule.
+#   
+#   Depends on D54882
+# ==============================================================================
+
+diff -r fca05e774f88 -r c5dac46ef11d dom/media/platforms/PDMFactory.cpp
+--- a/dom/media/platforms/PDMFactory.cpp	Tue Oct 20 23:26:33 2020 +0000
++++ b/dom/media/platforms/PDMFactory.cpp	Tue Oct 20 23:26:38 2020 +0000
+@@ -19,7 +19,6 @@
+ #include "VPXDecoder.h"
+ #include "mozilla/CDMProxy.h"
+ #include "mozilla/ClearOnShutdown.h"
+-#include "mozilla/GpuDecoderModule.h"
+ #include "mozilla/RemoteDecoderManagerChild.h"
+ #include "mozilla/RemoteDecoderModule.h"
+ #include "mozilla/SharedThreadPool.h"
+@@ -374,16 +373,14 @@
+ #ifdef XP_WIN
+   if (StaticPrefs::media_wmf_enabled() && !IsWin7AndPre2000Compatible()) {
+     RefPtr<WMFDecoderModule> m = MakeAndAddRef<WMFDecoderModule>();
+-    StartupPDM(MakeAndAddRef<GpuDecoderModule>(m));
+     if (!StartupPDM(m.forget())) {
+       mFailureFlags += DecoderDoctorDiagnostics::Flags::WMFFailedToLoad;
+     }
+-  } else {
+-    if (StaticPrefs::media_decoder_doctor_wmf_disabled_is_failure()) {
+-      mFailureFlags += DecoderDoctorDiagnostics::Flags::WMFFailedToLoad;
+-    }
++  } else if (StaticPrefs::media_decoder_doctor_wmf_disabled_is_failure()) {
++    mFailureFlags += DecoderDoctorDiagnostics::Flags::WMFFailedToLoad;
+   }
+ #endif
++
+ #ifdef MOZ_APPLEMEDIA
+   CreateAndStartupPDM<AppleDecoderModule>();
+ #endif

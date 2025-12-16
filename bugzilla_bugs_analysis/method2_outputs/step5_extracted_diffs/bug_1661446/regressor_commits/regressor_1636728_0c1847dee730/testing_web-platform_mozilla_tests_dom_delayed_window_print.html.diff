@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: testing/web-platform/mozilla/tests/dom/delayed_window_print.html
+# Commit: 0c1847dee730
+# Full Hash: 0c1847dee730f55b184459f5578c67ab45b611c1
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2020-08-26 03:24:37
+# Regressor Bug: 1636728
+# File Overlap Count: 1
+# Description:
+#   Bug 1636728 - Make calling window.print() before load keep deferring the actual printing and closing the window until load. r=smaug
+#   
+#   Other engines also do this, but with my previous patch breaks it
+#   (because we only hit print() on the print-content-viewer _after_ doing
+#   the clone).
+# ==============================================================================
+
+diff -r 93e3344dd1f7 -r 0c1847dee730 testing/web-platform/mozilla/tests/dom/delayed_window_print.html
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/testing/web-platform/mozilla/tests/dom/delayed_window_print.html	Tue Aug 25 17:45:24 2020 +0000
+@@ -0,0 +1,39 @@
++<!doctype html>
++<meta charset=utf-8>
++<title>Test for delaying window.print() before load</title>
++<script src=/resources/testharness.js></script>
++<script src=/resources/testharnessreport.js></script>
++<body>
++<script>
++let t = async_test("Delayed print before load");
++let beforePrintCalled = false;
++window.addEventListener("beforeprint", t.step_func(function() {
++  assert_false(beforePrintCalled, "Should only call beforeprint once");
++  beforePrintCalled = true;
++  assert_true(
++    !!document.getElementById("before-load"),
++    "Should show contents that get added before load"
++  );
++  assert_true(
++    !!document.getElementById("during-load"),
++    "Should show contents that get added during load"
++  );
++  setTimeout(function() { t.done(); }, 0);
++}));
++
++window.print();
++
++{
++  let div = document.createElement("div");
++  div.id = "before-load";
++  document.body.appendChild(div);
++}
++
++window.addEventListener("load", t.step_func(function() {
++  window.print();
++
++  let div = document.createElement("div");
++  div.id = "during-load";
++  document.body.appendChild(div);
++}));
++</script>

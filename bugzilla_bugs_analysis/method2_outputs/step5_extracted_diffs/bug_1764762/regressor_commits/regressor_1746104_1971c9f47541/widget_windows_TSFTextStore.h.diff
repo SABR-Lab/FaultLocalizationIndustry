@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/windows/TSFTextStore.h
+# Commit: 1971c9f47541
+# Full Hash: 1971c9f475412cdc3cbbfbb1d7fea6baa034a390
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-02-08 17:32:27
+# Regressor Bug: 1746104
+# File Overlap Count: 1
+# Description:
+#   Bug 1746104 - part 1-3: Wrap `TSFTextStore::mPendingSelectionChangeData` with `Maybe` r=m_kato
+#   
+#   It needs to have a state whether it's set or unset, and whether there is at
+#   least one selection range or no selection range.  Currently, its valid state
+#   represents both of them, but it'll has no selection state in the following
+# ==============================================================================
+
+diff -r ff44b008f146 -r 1971c9f47541 widget/windows/TSFTextStore.h
+--- a/widget/windows/TSFTextStore.h	Mon Feb 07 22:33:31 2022 +0000
++++ b/widget/windows/TSFTextStore.h	Mon Feb 07 22:33:31 2022 +0000
+@@ -368,7 +368,7 @@
+   // mPendingSelectionChangeData stores selection change data until notifying
+   // TSF of selection change.  If two or more selection changes occur, this
+   // stores the latest selection change data because only it is necessary.
+-  SelectionChangeData mPendingSelectionChangeData;
++  Maybe<SelectionChangeData> mPendingSelectionChangeData;
+ 
+   // mPendingTextChangeData stores one or more text change data until notifying
+   // TSF of text change.  If two or more text changes occur, this merges
+@@ -584,6 +584,18 @@
+     }
+ 
+     bool SetSelection(const SelectionChangeDataBase& aSelectionChangeData) {
++      // XXX Treat invalid SelectionChangeData means as there is no selection
++      //     rather than an unexpected case.
++      if (!aSelectionChangeData.IsValid()) {
++        if (mACP.isNothing()) {
++          return false;
++        }
++        mACP.reset();
++        // Let's keep the WritingMode because users don't want to change the UI
++        // of TIP temporarily since no selection case is created only by web
++        // apps, but they or TIP would restore selection at last point later.
++        return true;
++      }
+       return SetSelection(aSelectionChangeData.mOffset,
+                           aSelectionChangeData.Length(),
+                           aSelectionChangeData.mReversed,

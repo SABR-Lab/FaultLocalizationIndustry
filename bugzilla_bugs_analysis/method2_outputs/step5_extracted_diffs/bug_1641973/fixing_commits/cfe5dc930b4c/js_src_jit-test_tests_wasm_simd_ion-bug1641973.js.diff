@@ -1,0 +1,31 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit-test/tests/wasm/simd/ion-bug1641973.js
+# Commit: cfe5dc930b4c
+# Full Hash: cfe5dc930b4c234f60d064abac3cb052c98ab65e
+# Author: Lars T Hansen <lhansen@mozilla.com>
+# Date: 2020-06-03 04:20:58
+# Description:
+#   Bug 1641973 - Make sure to check inDeadCode. r=bbouvier
+#   
+#   Several of the SIMD instruction emitters in WasmIonCompile did not
+#   check the dead-code flag, and some might therefore access null pointers
+#   resulting from popping the value stack in dead code regions.
+# ==============================================================================
+
+diff -r 400db4104b94 -r cfe5dc930b4c js/src/jit-test/tests/wasm/simd/ion-bug1641973.js
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/js/src/jit-test/tests/wasm/simd/ion-bug1641973.js	Tue Jun 02 09:58:25 2020 +0000
+@@ -0,0 +1,11 @@
++// Fuzz test case.  The initial unreachable will result in the subsequent
++// v8x16.shuffle popping null pointers off the value stack.  Due to a missing
++// isDeadCode() check in WasmIonCompile.cpp the compiler would dereference those
++// null pointers.
++new WebAssembly.Module(wasmTextToBinary(`
++(module
++  (func (result v128)
++    (unreachable)
++    (v8x16.shuffle 0 0 23 0 4 4 4 4 4 16 1 0 4 4 4 4)))
++`))
++

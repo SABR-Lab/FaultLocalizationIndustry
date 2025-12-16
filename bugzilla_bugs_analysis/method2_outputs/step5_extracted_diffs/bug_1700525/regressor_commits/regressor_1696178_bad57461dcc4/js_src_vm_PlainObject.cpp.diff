@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/PlainObject.cpp
+# Commit: bad57461dcc4
+# Full Hash: bad57461dcc4c6c52064bf985ee737d8abbc183b
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2021-03-23 21:43:59
+# Regressor Bug: 1696178
+# File Overlap Count: 1
+# Description:
+#   Bug 1696178 part 5 - Add ObjectFlag::HasNonWritableOrAccessorExcludingProto. r=jonco
+#   
+#   This will be used by the next patch to optimize Object.assign.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D108407
+# ==============================================================================
+
+diff -r 12574c8b209d -r bad57461dcc4 js/src/vm/PlainObject.cpp
+--- a/js/src/vm/PlainObject.cpp	Tue Mar 23 12:43:56 2021 +0000
++++ b/js/src/vm/PlainObject.cpp	Tue Mar 23 12:43:57 2021 +0000
+@@ -53,3 +53,32 @@
+ 
+   return res;
+ }
++
++#ifdef DEBUG
++void PlainObject::assertHasNoNonWritableOrAccessorPropExclProto() const {
++  // Check the most recent MaxCount properties to not slow down debug builds too
++  // much.
++  static constexpr size_t MaxCount = 8;
++
++  size_t count = 0;
++  PropertyName* protoName = runtimeFromMainThread()->commonNames->proto;
++
++  for (Shape::Range<NoGC> r(lastProperty()); !r.empty(); r.popFront()) {
++    Shape& propShape = r.front();
++    jsid id = propShape.propidRaw();
++
++    // __proto__ is always allowed.
++    if (JSID_IS_ATOM(id, protoName)) {
++      continue;
++    }
++
++    MOZ_ASSERT(propShape.isDataProperty());
++    MOZ_ASSERT(propShape.writable());
++
++    count++;
++    if (count > MaxCount) {
++      return;
++    }
++  }
++}
++#endif

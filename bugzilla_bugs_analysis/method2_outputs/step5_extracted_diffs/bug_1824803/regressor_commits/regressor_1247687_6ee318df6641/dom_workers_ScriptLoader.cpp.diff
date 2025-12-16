@@ -1,0 +1,66 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/ScriptLoader.cpp
+# Commit: 6ee318df6641
+# Full Hash: 6ee318df664183094387ff4cde3ee8437df0240e
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-12-15 09:27:59
+# Regressor Bug: 1247687
+# File Overlap Count: 1
+# Description:
+#   Bug 1247687 - Disallow ImportScripts from module workers; r=jonco
+#   
+#   ImportScripts should be disallowed for module works, which are initialized in the following way:
+#   `new Worker("url", { module:true})`. We set the WorkerType for workers accordingly, and can use that
+#   to detect if import scripts are being incorrectly used.
+# ==============================================================================
+
+diff -r 6c129bd72b61 -r 6ee318df6641 dom/workers/ScriptLoader.cpp
+--- a/dom/workers/ScriptLoader.cpp	Wed Dec 14 14:55:35 2022 +0000
++++ b/dom/workers/ScriptLoader.cpp	Wed Dec 14 14:55:35 2022 +0000
+@@ -258,7 +258,12 @@
+     return;
+   }
+ 
+-  loader->CreateScriptRequests(aScriptURLs, aDocumentEncoding, aIsMainScript);
++  bool ok = loader->CreateScriptRequests(aScriptURLs, aDocumentEncoding,
++                                         aIsMainScript);
++
++  if (!ok) {
++    return;
++  }
+ 
+   if (loader->DispatchLoadScripts()) {
+     syncLoop.Run();
+@@ -427,14 +432,29 @@
+       ->InitModuleLoader(moduleLoader);
+ }
+ 
+-void WorkerScriptLoader::CreateScriptRequests(
++bool WorkerScriptLoader::CreateScriptRequests(
+     const nsTArray<nsString>& aScriptURLs,
+     const mozilla::Encoding* aDocumentEncoding, bool aIsMainScript) {
++  // If a worker has been loaded as a module worker, ImportScripts calls are
++  // disallowed -- then the operation is invalid.
++  //
++  // 10.3.1 Importing scripts and libraries.
++  // Step 1. If worker global scope's type is "module", throw a TypeError
++  //         exception.
++  if (!aIsMainScript &&
++      mWorkerRef->Private()->WorkerType() == WorkerType::Module) {
++    mRv.ThrowTypeError(
++        "Using `ImportScripts` inside a Module Worker is "
++        "disallowed.");
++    return false;
++  }
+   for (const nsString& scriptURL : aScriptURLs) {
+     RefPtr<ScriptLoadRequest> request =
+         CreateScriptLoadRequest(scriptURL, aDocumentEncoding, aIsMainScript);
+     mLoadingRequests.AppendElement(request);
+   }
++
++  return true;
+ }
+ 
+ nsTArray<RefPtr<ThreadSafeRequestHandle>> WorkerScriptLoader::GetLoadingList() {

@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/animation/EffectCompositor.cpp
+# Commit: 63603267402e
+# Full Hash: 63603267402ee93d6551ef60c35191d99aaee06b
+# Author: Zach Hoffman <zach@zrhoffman.net>
+# Date: 2023-12-18 17:17:57
+# Regressor Bug: 1846516
+# File Overlap Count: 3
+# Description:
+#   Bug 1846516 - [css-properties-values-api] Introduce AnimatedPropertyID/AnimatedPropertIDSet. r=firefox-animation-reviewers,firefox-style-system-reviewers,layout-reviewers,emilio,hiro
+#   
+#   This will make possible to animate custom properties on Gecko side. For now, the
+#   animation code keeps only dealing with nsCSSPropertyID, so behavior is unchanged.
+#   
+# ==============================================================================
+
+diff -r 753bc39f59ff -r 63603267402e dom/animation/EffectCompositor.cpp
+--- a/dom/animation/EffectCompositor.cpp	Mon Dec 18 09:24:07 2023 +0000
++++ b/dom/animation/EffectCompositor.cpp	Mon Dec 18 09:24:08 2023 +0000
+@@ -608,11 +608,11 @@
+     nsCSSPropertyIDSet propertiesToTrackAsSet;
+     for (KeyframeEffect* effect : aEffectSet) {
+       for (const AnimationProperty& property : effect->Properties()) {
+-        if (nsCSSProps::PropHasFlags(property.mProperty,
++        if (nsCSSProps::PropHasFlags(property.mProperty.mID,
+                                      CSSPropFlags::CanAnimateOnCompositor) &&
+-            !propertiesToTrackAsSet.HasProperty(property.mProperty)) {
+-          propertiesToTrackAsSet.AddProperty(property.mProperty);
+-          propertiesToTrack.AppendElement(property.mProperty);
++            !propertiesToTrackAsSet.HasProperty(property.mProperty.mID)) {
++          propertiesToTrackAsSet.AddProperty(property.mProperty.mID);
++          propertiesToTrack.AppendElement(property.mProperty.mID);
+         }
+       }
+       // Skip iterating over the rest of the effects if we've already
+@@ -684,16 +684,16 @@
+     CascadeLevel cascadeLevel = effect->GetAnimation()->CascadeLevel();
+ 
+     for (const AnimationProperty& prop : effect->Properties()) {
+-      if (overriddenProperties.HasProperty(prop.mProperty)) {
+-        propertiesWithImportantRules.AddProperty(prop.mProperty);
++      if (overriddenProperties.HasProperty(prop.mProperty.mID)) {
++        propertiesWithImportantRules.AddProperty(prop.mProperty.mID);
+       }
+ 
+       switch (cascadeLevel) {
+         case EffectCompositor::CascadeLevel::Animations:
+-          propertiesForAnimationsLevel.AddProperty(prop.mProperty);
++          propertiesForAnimationsLevel.AddProperty(prop.mProperty.mID);
+           break;
+         case EffectCompositor::CascadeLevel::Transitions:
+-          propertiesForTransitionsLevel.AddProperty(prop.mProperty);
++          propertiesForTransitionsLevel.AddProperty(prop.mProperty.mID);
+           break;
+       }
+     }
+@@ -912,7 +912,7 @@
+   }
+   sortedEffectList.Sort(EffectCompositeOrderComparator());
+ 
+-  nsCSSPropertyIDSet setProperties;
++  AnimatedPropertyIDSet setProperties;
+ 
+   // Iterate in reverse
+   for (auto iter = sortedEffectList.rbegin(); iter != sortedEffectList.rend();
+@@ -925,7 +925,7 @@
+         effect.GetPropertySet().IsSubsetOf(setProperties)) {
+       animation.Remove();
+     } else if (animation.IsReplaceable()) {
+-      setProperties |= effect.GetPropertySet();
++      setProperties.AddProperties(effect.GetPropertySet());
+     }
+   }
+ }

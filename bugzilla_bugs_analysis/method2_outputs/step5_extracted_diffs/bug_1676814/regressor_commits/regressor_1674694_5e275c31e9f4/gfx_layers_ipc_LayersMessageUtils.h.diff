@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/LayersMessageUtils.h
+# Commit: 5e275c31e9f4
+# Full Hash: 5e275c31e9f42def8437d7c8a87cf4cf7aabf0c6
+# Author: Hiroyuki Ikezoe <hikezoe.birchill@mozilla.com>
+# Date: 2020-11-11 09:55:06
+# Regressor Bug: 1674694
+# File Overlap Count: 1
+# Description:
+#   Bug 1674694 - Change APZEventResult::mHandledByRootApzc to Maybe<APZHandledResult>. r=botond
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D96331
+# ==============================================================================
+
+diff -r 279eb8cf0dcd -r 5e275c31e9f4 gfx/layers/ipc/LayersMessageUtils.h
+--- a/gfx/layers/ipc/LayersMessageUtils.h	Sat Nov 07 03:43:53 2020 +0000
++++ b/gfx/layers/ipc/LayersMessageUtils.h	Wed Nov 11 00:33:20 2020 +0000
+@@ -562,6 +562,13 @@
+                                       nsEventStatus_eSentinel> {};
+ 
+ template <>
++struct ParamTraits<mozilla::layers::APZHandledResult>
++    : public ContiguousEnumSerializer<
++          mozilla::layers::APZHandledResult,
++          mozilla::layers::APZHandledResult::Unhandled,
++          mozilla::layers::APZHandledResult::Last> {};
++
++template <>
+ struct ParamTraits<mozilla::layers::APZEventResult> {
+   typedef mozilla::layers::APZEventResult paramType;
+ 
+@@ -569,7 +576,7 @@
+     WriteParam(aMsg, aParam.mStatus);
+     WriteParam(aMsg, aParam.mTargetGuid);
+     WriteParam(aMsg, aParam.mInputBlockId);
+-    WriteParam(aMsg, aParam.mHandledByRootApzc);
++    WriteParam(aMsg, aParam.mHandledResult);
+   }
+ 
+   static bool Read(const Message* aMsg, PickleIterator* aIter,
+@@ -577,7 +584,7 @@
+     return (ReadParam(aMsg, aIter, &aResult->mStatus) &&
+             ReadParam(aMsg, aIter, &aResult->mTargetGuid) &&
+             ReadParam(aMsg, aIter, &aResult->mInputBlockId) &&
+-            ReadParam(aMsg, aIter, &aResult->mHandledByRootApzc));
++            ReadParam(aMsg, aIter, &aResult->mHandledResult));
+   }
+ };
+ 

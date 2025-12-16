@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/gamepad/ipc/GamepadEventChannelParent.cpp
+# Commit: f737176fe4c7
+# Full Hash: f737176fe4c7c6bb742315b5fcc44acc7e75af3d
+# Author: Chris Martin <cmartin@mozilla.com>
+# Date: 2020-12-17 21:49:27
+# Regressor Bug: 1657404
+# File Overlap Count: 3
+# Description:
+#   Bug 1657404 - Back out changeset 6792f28b99bd keeping 349854c5ad56 r=handyman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D100031
+# ==============================================================================
+
+diff -r 6ba9c08d4be6 -r f737176fe4c7 dom/gamepad/ipc/GamepadEventChannelParent.cpp
+--- a/dom/gamepad/ipc/GamepadEventChannelParent.cpp	Thu Dec 17 18:24:50 2020 +0000
++++ b/dom/gamepad/ipc/GamepadEventChannelParent.cpp	Thu Dec 17 18:21:06 2020 +0000
+@@ -49,20 +49,20 @@
+ 
+   mBackgroundEventTarget = GetCurrentEventTarget();
+ 
+-  GamepadPlatformService::AddChannelParent(
+-      RefPtr<GamepadEventChannelParent>(this));
++  RefPtr<GamepadPlatformService> service =
++      GamepadPlatformService::GetParentService();
++  MOZ_ASSERT(service);
++
++  service->AddChannelParent(this);
+ }
+ 
+ void GamepadEventChannelParent::ActorDestroy(ActorDestroyReason aWhy) {
+   AssertIsOnBackgroundThread();
+ 
+-  // TODO - This is here because I suspect that IPDL is calling ActorDestroy
+-  // multiple times. If this fixes the random crashes in Bug 1681750, it might
+-  // be worth investigating further.
+-  if (!mShutdown) {
+-    GamepadPlatformService::RemoveChannelParent(this);
+-    mShutdown = true;
+-  }
++  RefPtr<GamepadPlatformService> service =
++      GamepadPlatformService::GetParentService();
++  MOZ_ASSERT(service);
++  service->RemoveChannelParent(this);
+ }
+ 
+ mozilla::ipc::IPCResult GamepadEventChannelParent::RecvVibrateHaptic(

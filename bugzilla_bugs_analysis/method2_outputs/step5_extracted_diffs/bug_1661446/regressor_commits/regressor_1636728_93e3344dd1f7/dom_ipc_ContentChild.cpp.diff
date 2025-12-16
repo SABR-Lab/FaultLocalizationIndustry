@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentChild.cpp
+# Commit: 93e3344dd1f7
+# Full Hash: 93e3344dd1f7454dc46c1553dd05e5e3bc78c349
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2020-08-26 03:24:37
+# Regressor Bug: 1636728
+# File Overlap Count: 1
+# Description:
+#   Bug 1636728 - Centralize printing entry points in nsGlobalWindowOuter, and move cloning out of nsPrintJob. r=jwatt,geckoview-reviewers,smaug,agi
+#   
+#   This centralizes our print and preview setup in nsGlobalWindowOuter so
+#   that we never re-clone a clone, and so that we reuse the window.open()
+#   codepath to create the browsing context to clone into.
+# ==============================================================================
+
+diff -r 2969f3de028f -r 93e3344dd1f7 dom/ipc/ContentChild.cpp
+--- a/dom/ipc/ContentChild.cpp	Tue Aug 25 02:58:57 2020 +0000
++++ b/dom/ipc/ContentChild.cpp	Tue Aug 25 17:45:12 2020 +0000
+@@ -886,7 +886,8 @@
+   // load in the current process.
+   bool loadInDifferentProcess =
+       aForceNoOpener && StaticPrefs::dom_noopener_newprocess_enabled() &&
+-      !useRemoteSubframes && !sandboxFlagsPropagate;
++      !useRemoteSubframes && !sandboxFlagsPropagate &&
++      !aOpenWindowInfo->GetIsForPrinting();
+   if (!loadInDifferentProcess && aURI) {
+     // Only special-case cross-process loads if Fission is disabled. With
+     // Fission enabled, the initial in-process load will automatically be
+@@ -1123,8 +1124,9 @@
+   }
+ 
+   SendCreateWindow(aTabOpener, parent, newChild, aChromeFlags, aCalledFromJS,
+-                   aWidthSpecified, aURI, features, fullZoom,
+-                   Principal(triggeringPrincipal), csp, referrerInfo,
++                   aWidthSpecified, aOpenWindowInfo->GetIsForPrinting(),
++                   aOpenWindowInfo->GetIsForPrintPreview(), aURI, features,
++                   fullZoom, Principal(triggeringPrincipal), csp, referrerInfo,
+                    aOpenWindowInfo->GetOriginAttributes(), std::move(resolve),
+                    std::move(reject));
+ 

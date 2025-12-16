@@ -1,0 +1,31 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/VideoConduit.cpp
+# Commit: 8c904d1fcdf3
+# Full Hash: 8c904d1fcdf3aa59578b7de3e843393715a67e50
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 2
+# Description:
+#   Bug 1654112 - Reinstate usage of mLockScaling in VideoConduit. r=ng
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D112849
+# ==============================================================================
+
+diff -r 7057437ddf19 -r 8c904d1fcdf3 dom/media/webrtc/libwebrtcglue/VideoConduit.cpp
+--- a/dom/media/webrtc/libwebrtcglue/VideoConduit.cpp	Wed Apr 07 09:44:33 2021 +0200
++++ b/dom/media/webrtc/libwebrtcglue/VideoConduit.cpp	Wed Apr 07 09:45:07 2021 +0200
+@@ -1194,7 +1194,10 @@
+       ConstrainPreservingAspectRatio(max_width, max_height, &width, &height);
+     }
+ 
+-    int max_fs = mVideoBroadcaster.wants().max_pixel_count;
++    int max_fs = std::numeric_limits<int>::max();
++    if (!mLockScaling) {
++      max_fs = mVideoBroadcaster.wants().max_pixel_count;
++    }
+     // Limit resolution to max-fs
+     if (mCurSendCodecConfig->mEncodingConstraints.maxFs) {
+       // max-fs is in macroblocks, convert to pixels

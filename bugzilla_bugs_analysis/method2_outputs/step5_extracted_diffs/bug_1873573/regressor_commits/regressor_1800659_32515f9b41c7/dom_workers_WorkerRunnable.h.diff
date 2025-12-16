@@ -1,0 +1,82 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/WorkerRunnable.h
+# Commit: 32515f9b41c7
+# Full Hash: 32515f9b41c77d6ccd5831eed28953037c4fb319
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2023-06-07 03:30:33
+# Regressor Bug: 1800659
+# File Overlap Count: 2
+# Description:
+#   Bug 1800659 - P2 remove nsICancelableRunnable inheriting form WorkerRunnable. r=asuth
+#   
+#   This patch is only remove the inheriting, but keeping Cancel() implmentation.
+#   The Cancel() is needed in some special cases, such as Worker enters Canceling when WorkerScope is not created.
+#   
+# ==============================================================================
+
+diff -r 910dabb8545d -r 32515f9b41c7 dom/workers/WorkerRunnable.h
+--- a/dom/workers/WorkerRunnable.h	Tue Jun 06 06:36:50 2023 +0000
++++ b/dom/workers/WorkerRunnable.h	Tue Jun 06 06:36:50 2023 +0000
+@@ -15,7 +15,6 @@
+ #include "mozilla/dom/WorkerRef.h"
+ #include "mozilla/dom/WorkerStatus.h"
+ #include "nsCOMPtr.h"
+-#include "nsICancelableRunnable.h"
+ #include "nsIRunnable.h"
+ #include "nsISupports.h"
+ #include "nsStringFwd.h"
+@@ -37,7 +36,7 @@
+ // Use this runnable to communicate from the worker to its parent or vice-versa.
+ // The busy count must be taken into consideration and declared at construction
+ // time.
+-class WorkerRunnable : public nsIRunnable, public nsICancelableRunnable {
++class WorkerRunnable : public nsIRunnable {
+  public:
+   enum TargetAndBusyBehavior {
+     // Target the main thread for top-level workers, otherwise target the
+@@ -62,10 +61,6 @@
+   // See above.
+   TargetAndBusyBehavior mBehavior;
+ 
+-  // It's unclear whether or not Cancel() is supposed to work when called on any
+-  // thread. To be safe we're using an atomic but it's likely overkill.
+-  Atomic<uint32_t> mCanceled;
+-
+  private:
+   // Whether or not Cancel() is currently being called from inside the Run()
+   // method. Avoids infinite recursion when a subclass calls Run() from inside
+@@ -75,23 +70,12 @@
+  public:
+   NS_DECL_THREADSAFE_ISUPPORTS
+ 
+-  // If you override Cancel() then you'll need to either call the base class
+-  // Cancel() method or override IsCanceled() so that the Run() method bails out
+-  // appropriately.
+-  // Cancel() should not be called more than once and we throw
+-  // NS_ERROR_UNEXPECTED if it is. If you override it, ensure to call the base
+-  // class method first and bail out on failure to avoid unexpected side
+-  // effects.
+-  nsresult Cancel() override;
++  virtual nsresult Cancel();
+ 
+   // The return value is true if and only if both PreDispatch and
+   // DispatchInternal return true.
+   bool Dispatch();
+ 
+-  // See above note about Cancel().
+-  // TODO: Check if we can remove the possibility to override IsCanceled.
+-  virtual bool IsCanceled() const { return mCanceled != 0; }
+-
+   // True if this runnable is handled by running JavaScript in some global that
+   // could possibly be a debuggee, and thus needs to be deferred when the target
+   // is paused in the debugger, until the JavaScript invocation in progress has
+@@ -113,7 +97,6 @@
+ #else
+       : mWorkerPrivate(aWorkerPrivate),
+         mBehavior(aBehavior),
+-        mCanceled(0),
+         mCallingCancelWithinRun(false) {
+   }
+ #endif

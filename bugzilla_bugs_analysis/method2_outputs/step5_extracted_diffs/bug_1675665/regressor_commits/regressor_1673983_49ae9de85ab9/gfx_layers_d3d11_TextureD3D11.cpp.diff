@@ -1,0 +1,70 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/d3d11/TextureD3D11.cpp
+# Commit: 49ae9de85ab9
+# Full Hash: 49ae9de85ab90bf13b9c6bc2c8b6bb540140c90d
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2020-11-06 04:14:34
+# Regressor Bug: 1673983
+# File Overlap Count: 2
+# Description:
+#   Bug 1673983 - Support using D3D11 textures as external compositor surfaces with D3D11 compositor. r=lsalzman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D95800
+# ==============================================================================
+
+diff -r 91d8f0f829fd -r 49ae9de85ab9 gfx/layers/d3d11/TextureD3D11.cpp
+--- a/gfx/layers/d3d11/TextureD3D11.cpp	Thu Nov 05 20:18:13 2020 +0000
++++ b/gfx/layers/d3d11/TextureD3D11.cpp	Thu Nov 05 19:27:23 2020 +0000
+@@ -1060,6 +1060,11 @@
+     return;
+   }
+ 
++  bool supportsExternalCompositing = false;
++  if (gfx::gfxVars::UseSoftwareWebRender()) {
++    supportsExternalCompositing = true;
++  }
++
+   switch (GetFormat()) {
+     case gfx::SurfaceFormat::R8G8B8X8:
+     case gfx::SurfaceFormat::R8G8B8A8:
+@@ -1069,7 +1074,7 @@
+       aBuilder.PushImage(aBounds, aClip, true, aFilter, aImageKeys[0],
+                          !(mFlags & TextureFlags::NON_PREMULTIPLIED),
+                          wr::ColorF{1.0f, 1.0f, 1.0f, 1.0f},
+-                         preferCompositorSurface);
++                         preferCompositorSurface, supportsExternalCompositing);
+       break;
+     }
+     case gfx::SurfaceFormat::P010:
+@@ -1251,7 +1256,7 @@
+ void DXGIYCbCrTextureHostD3D11::CreateRenderTexture(
+     const wr::ExternalImageId& aExternalImageId) {
+   RefPtr<wr::RenderTextureHost> texture = new wr::RenderDXGIYCbCrTextureHost(
+-      mHandles, mYUVColorSpace, mColorDepth, mSizeY, mSizeCbCr);
++      mHandles, mYUVColorSpace, mColorDepth, mColorRange, mSizeY, mSizeCbCr);
+ 
+   wr::RenderThread::Get()->RegisterExternalImage(wr::AsUint64(aExternalImageId),
+                                                  texture.forget());
+@@ -1304,13 +1309,19 @@
+     return;
+   }
+ 
++  bool supportsExternalCompositing = false;
++  if (gfx::gfxVars::UseSoftwareWebRender()) {
++    supportsExternalCompositing = true;
++  }
++
+   MOZ_ASSERT(aImageKeys.length() == 3);
+ 
+   aBuilder.PushYCbCrPlanarImage(
+       aBounds, aClip, true, aImageKeys[0], aImageKeys[1], aImageKeys[2],
+       wr::ToWrColorDepth(mColorDepth), wr::ToWrYuvColorSpace(mYUVColorSpace),
+       wr::ToWrColorRange(mColorRange), aFilter,
+-      aFlags.contains(PushDisplayItemFlag::PREFER_COMPOSITOR_SURFACE));
++      aFlags.contains(PushDisplayItemFlag::PREFER_COMPOSITOR_SURFACE),
++      supportsExternalCompositing);
+ }
+ 
+ bool DXGIYCbCrTextureHostD3D11::AcquireTextureSource(

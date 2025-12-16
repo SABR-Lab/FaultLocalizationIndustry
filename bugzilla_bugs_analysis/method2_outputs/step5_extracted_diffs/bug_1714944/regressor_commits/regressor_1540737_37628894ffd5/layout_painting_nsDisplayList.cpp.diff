@@ -1,0 +1,34 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/painting/nsDisplayList.cpp
+# Commit: 37628894ffd5
+# Full Hash: 37628894ffd55456ce7d3c04acc6e36040ad79df
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2021-05-18 09:45:31
+# Regressor Bug: 1540737
+# File Overlap Count: 1
+# Description:
+#   Bug 1540737 - Override the building rect for nsDisplayCaret since the overflow rect of the frame doesn't include it. r=tnikkel
+#   
+#   Depends on D114676
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D115175
+# ==============================================================================
+
+diff -r 4b5f53d5127b -r 37628894ffd5 layout/painting/nsDisplayList.cpp
+--- a/layout/painting/nsDisplayList.cpp	Mon May 17 23:53:45 2021 +0000
++++ b/layout/painting/nsDisplayList.cpp	Mon May 17 23:53:45 2021 +0000
+@@ -4984,6 +4984,12 @@
+       mCaret(aBuilder->GetCaret()),
+       mBounds(aBuilder->GetCaretRect() + ToReferenceFrame()) {
+   MOZ_COUNT_CTOR(nsDisplayCaret);
++  // The presence of a caret doesn't change the overflow rect
++  // of the owning frame, so the normal building rect might not
++  // include the caret at all. We use MarkFrameForDisplay to ensure
++  // we build this item, and here we override the building rect
++  // to cover the pixels we're going to draw.
++  SetBuildingRect(mBounds);
+ }
+ 
+ #ifdef NS_BUILD_REFCNT_LOGGING

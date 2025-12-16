@@ -1,0 +1,77 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/BrowserChild.cpp
+# Commit: fde2d124a1b1
+# Full Hash: fde2d124a1b15877570390c7c69f5fcf6770640d
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-04-08 03:36:50
+# Regressor Bug: 1616353
+# File Overlap Count: 1
+# Description:
+#   Bug 1616353 - Part 7.2: Create and use nsOpenWindowInfo types in nsWindowWatcher logic, r=kmag
+#   
+#   This patch builds on top of part 7.1 by creating this object within
+#   nsWindowWatcher and ContentParent to carry the relevant information through
+#   provider interfaces when creating new content windows. The nsOpenWindowInfo
+# ==============================================================================
+
+diff -r 7ccbbb127b7f -r fde2d124a1b1 dom/ipc/BrowserChild.cpp
+--- a/dom/ipc/BrowserChild.cpp	Tue Apr 07 21:39:24 2020 +0000
++++ b/dom/ipc/BrowserChild.cpp	Tue Apr 07 21:39:32 2020 +0000
+@@ -116,6 +116,7 @@
+ #include "nsIWebProgress.h"
+ #include "nsLayoutUtils.h"
+ #include "nsNetUtil.h"
++#include "nsIOpenWindowInfo.h"
+ #include "nsPIDOMWindow.h"
+ #include "nsPIWindowRoot.h"
+ #include "nsPointerHashKeys.h"
+@@ -868,19 +869,21 @@
+ }
+ 
+ NS_IMETHODIMP
+-BrowserChild::ProvideWindow(mozIDOMWindowProxy* aParent, uint32_t aChromeFlags,
+-                            bool aCalledFromJS, bool aWidthSpecified,
+-                            nsIURI* aURI, const nsAString& aName,
+-                            const nsACString& aFeatures, bool aForceNoOpener,
+-                            bool aForceNoReferrer,
++BrowserChild::ProvideWindow(nsIOpenWindowInfo* aOpenWindowInfo,
++                            uint32_t aChromeFlags, bool aCalledFromJS,
++                            bool aWidthSpecified, nsIURI* aURI,
++                            const nsAString& aName, const nsACString& aFeatures,
++                            bool aForceNoOpener, bool aForceNoReferrer,
+                             nsDocShellLoadState* aLoadState, bool* aWindowIsNew,
+                             BrowsingContext** aReturn) {
+   *aReturn = nullptr;
+ 
+-  // If aParent is inside an <iframe mozbrowser> and this isn't a request to
++  RefPtr<BrowsingContext> parent = aOpenWindowInfo->GetParent();
++
++  // If parent is inside an <iframe mozbrowser> and this isn't a request to
+   // open a modal-type window, we're going to create a new <iframe mozbrowser>
+   // and return its window here.
+-  nsCOMPtr<nsIDocShell> docshell = do_GetInterface(aParent);
++  nsCOMPtr<nsIDocShell> docshell = parent->GetDocShell();
+   bool iframeMoz =
+       (docshell && docshell->GetIsInMozBrowser() &&
+        !(aChromeFlags & (nsIWebBrowserChrome::CHROME_MODAL |
+@@ -889,8 +892,7 @@
+ 
+   if (!iframeMoz) {
+     int32_t openLocation = nsWindowWatcher::GetWindowOpenLocation(
+-        nsPIDOMWindowOuter::From(aParent), aChromeFlags, aCalledFromJS,
+-        aWidthSpecified);
++        parent->GetDOMWindow(), aChromeFlags, aCalledFromJS, aWidthSpecified);
+ 
+     // If it turns out we're opening in the current browser, just hand over the
+     // current browser's docshell.
+@@ -912,7 +914,7 @@
+   // open window call was canceled.  It's important that we pass this error
+   // code back to our caller.
+   ContentChild* cc = ContentChild::GetSingleton();
+-  return cc->ProvideWindowCommon(this, aParent, iframeMoz, aChromeFlags,
++  return cc->ProvideWindowCommon(this, aOpenWindowInfo, iframeMoz, aChromeFlags,
+                                  aCalledFromJS, aWidthSpecified, aURI, aName,
+                                  aFeatures, aForceNoOpener, aForceNoReferrer,
+                                  aLoadState, aWindowIsNew, aReturn);

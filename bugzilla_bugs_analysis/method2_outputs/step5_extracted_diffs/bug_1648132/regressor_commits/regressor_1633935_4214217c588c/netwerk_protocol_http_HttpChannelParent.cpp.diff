@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/HttpChannelParent.cpp
+# Commit: 4214217c588c
+# Full Hash: 4214217c588cd8f5a21acf197698905528f1ea17
+# Author: Junior Hsu <juhsu@mozilla.com>
+# Date: 2020-06-30 10:00:42
+# Regressor Bug: 1633935
+# File Overlap Count: 1
+# Description:
+#   Bug 1633935 - P5 allow OnProgress/OnStatus going thru pBg IPC, r=mayhemer,necko-reviewers
+#   
+#   Depends on D76971
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D76972
+# ==============================================================================
+
+diff -r e6c12eec1cef -r 4214217c588c netwerk/protocol/http/HttpChannelParent.cpp
+--- a/netwerk/protocol/http/HttpChannelParent.cpp	Tue Jun 30 00:33:01 2020 +0000
++++ b/netwerk/protocol/http/HttpChannelParent.cpp	Tue Jun 30 00:33:19 2020 +0000
+@@ -1830,10 +1830,14 @@
+     return NS_OK;
+   }
+ 
++  // If IPC channel is open, background channel should be ready to send
++  // OnProgress.
++  MOZ_ASSERT(mBgParent);
++
+   // Send OnProgress events to the child for data upload progress notifications
+   // (i.e. status == NS_NET_STATUS_SENDING_TO) or if the channel has
+   // LOAD_BACKGROUND set.
+-  if (!SendOnProgress(aProgress, aProgressMax)) {
++  if (!mBgParent || !mBgParent->OnProgress(aProgress, aProgressMax)) {
+     return NS_ERROR_UNEXPECTED;
+   }
+ 
+@@ -1862,8 +1866,12 @@
+     return NS_OK;
+   }
+ 
++  // If IPC channel is open, background channel should be ready to send
++  // OnStatus.
++  MOZ_ASSERT(mIPCClosed || mBgParent);
++
+   // Otherwise, send to child now
+-  if (!SendOnStatus(aStatus)) {
++  if (!mBgParent || !mBgParent->OnStatus(aStatus)) {
+     return NS_ERROR_UNEXPECTED;
+   }
+ 

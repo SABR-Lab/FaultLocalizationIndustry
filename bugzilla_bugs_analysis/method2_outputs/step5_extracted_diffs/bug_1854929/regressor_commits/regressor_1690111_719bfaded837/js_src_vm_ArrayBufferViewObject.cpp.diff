@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/ArrayBufferViewObject.cpp
+# Commit: 719bfaded837
+# Full Hash: 719bfaded83792edabbeb852a60fe75febf9e65c
+# Author: Steve Fink <sfink@mozilla.com>
+# Date: 2023-09-21 03:21:32
+# Regressor Bug: 1690111
+# File Overlap Count: 1
+# Description:
+#   Bug 1690111 - Implement the ability to pin lengths (prevent changes to length, eg via detaching) for ArrayBuffers and their views. r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D131301
+# ==============================================================================
+
+diff -r 9497d4dcd737 -r 719bfaded837 js/src/vm/ArrayBufferViewObject.cpp
+--- a/js/src/vm/ArrayBufferViewObject.cpp	Wed Sep 20 09:41:58 2023 +0000
++++ b/js/src/vm/ArrayBufferViewObject.cpp	Wed Sep 20 09:41:59 2023 +0000
+@@ -56,6 +56,7 @@
+ void ArrayBufferViewObject::notifyBufferDetached() {
+   MOZ_ASSERT(!isSharedMemory());
+   MOZ_ASSERT(hasBuffer());
++  MOZ_ASSERT(!bufferUnshared()->isLengthPinned());
+ 
+   setFixedSlot(LENGTH_SLOT, PrivateValue(size_t(0)));
+   setFixedSlot(BYTEOFFSET_SLOT, PrivateValue(size_t(0)));
+@@ -98,7 +99,12 @@
+ 
+   initFixedSlot(BYTEOFFSET_SLOT, PrivateValue(byteOffset));
+   initFixedSlot(LENGTH_SLOT, PrivateValue(length));
+-  initFixedSlot(BUFFER_SLOT, ObjectOrNullValue(buffer));
++  if (buffer) {
++    initFixedSlot(BUFFER_SLOT, ObjectValue(*buffer));
++  } else {
++    MOZ_ASSERT(!isSharedMemory());
++    initFixedSlot(BUFFER_SLOT, JS::FalseValue());
++  }
+ 
+   if (buffer) {
+     SharedMem<uint8_t*> ptr = buffer->dataPointerEither();
+@@ -317,3 +323,18 @@
+   return false;
+ #endif
+ }
++
++JS_PUBLIC_API bool JS::PinArrayBufferOrViewLength(JSObject* obj, bool pin) {
++  ArrayBufferObjectMaybeShared* buffer =
++      obj->maybeUnwrapIf<ArrayBufferObjectMaybeShared>();
++  if (buffer) {
++    return buffer->pinLength(pin);
++  }
++
++  ArrayBufferViewObject* view = obj->maybeUnwrapAs<ArrayBufferViewObject>();
++  if (view) {
++    return view->pinLength(pin);
++  }
++
++  return false;
++}

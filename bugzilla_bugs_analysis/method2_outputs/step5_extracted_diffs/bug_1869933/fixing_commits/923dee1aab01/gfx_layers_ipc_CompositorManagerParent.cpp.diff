@@ -1,0 +1,48 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/CompositorManagerParent.cpp
+# Commit: 923dee1aab01
+# Full Hash: 923dee1aab0128ea4ff60b876a8626af322084d8
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2023-12-15 05:00:55
+# Description:
+#   Bug 1869933 - Avoid allocating external image ID until ready for sharing with compositor process. r=gfx-reviewers,lsalzman
+#   
+#   There are some error paths where we could allocate an external image ID
+#   for a SourceSurfaceSharedData before we are able to finish sharing it.
+#   This patch makes it so that we defer allocating the ID until the last
+# ==============================================================================
+
+diff -r ef864a709ce1 -r 923dee1aab01 gfx/layers/ipc/CompositorManagerParent.cpp
+--- a/gfx/layers/ipc/CompositorManagerParent.cpp	Thu Dec 14 23:17:37 2023 +0200
++++ b/gfx/layers/ipc/CompositorManagerParent.cpp	Thu Dec 14 20:08:59 2023 +0000
+@@ -270,6 +270,28 @@
+   return nullptr;
+ }
+ 
++/* static */ void CompositorManagerParent::AddSharedSurface(
++    const wr::ExternalImageId& aId, gfx::SourceSurfaceSharedData* aSurface) {
++  MOZ_ASSERT(XRE_IsParentProcess());
++
++  StaticMonitorAutoLock lock(sMonitor);
++  if (NS_WARN_IF(!sInstance)) {
++    return;
++  }
++
++  if (NS_WARN_IF(!sInstance->OwnsExternalImageId(aId))) {
++    MOZ_ASSERT_UNREACHABLE("Wrong namespace?");
++    return;
++  }
++
++  SharedSurfacesParent::AddSameProcess(aId, aSurface);
++
++  uint32_t resourceId = static_cast<uint32_t>(wr::AsUint64(aId));
++  MOZ_RELEASE_ASSERT(sInstance->mLastSharedSurfaceResourceId < resourceId);
++  sInstance->mLastSharedSurfaceResourceId = resourceId;
++  sMonitor.NotifyAll();
++}
++
+ mozilla::ipc::IPCResult CompositorManagerParent::RecvAddSharedSurface(
+     const wr::ExternalImageId& aId, SurfaceDescriptorShared&& aDesc) {
+   if (NS_WARN_IF(!OwnsExternalImageId(aId))) {

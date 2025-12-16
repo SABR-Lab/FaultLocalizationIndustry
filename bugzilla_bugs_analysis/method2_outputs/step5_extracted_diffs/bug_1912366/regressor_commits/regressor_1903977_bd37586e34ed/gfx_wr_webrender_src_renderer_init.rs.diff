@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/renderer/init.rs
+# Commit: bd37586e34ed
+# Full Hash: bd37586e34edc0cbed96810cfb3ca4cc26a5beca
+# Author: Nicolas Silva <nsilva@mozilla.com>
+# Date: 2024-08-07 16:09:36
+# Regressor Bug: 1903977
+# File Overlap Count: 1
+# Description:
+#   Bug 1903977 - Add a blob tile pool. r=gfx-reviewers,gw
+#   
+#   The tile pool keeps a strong reference to all of its allocations and reuses them when their reference count gets down to one.
+#   Jemalloc only uses thread-local arenas for small allocations (<496 bytes) so it does not matter what thread the blob tiles which are typically much larger, are deallocated in.
+#   
+# ==============================================================================
+
+diff -r b5fdb1567624 -r bd37586e34ed gfx/wr/webrender/src/renderer/init.rs
+--- a/gfx/wr/webrender/src/renderer/init.rs	Wed Aug 07 07:13:59 2024 +0000
++++ b/gfx/wr/webrender/src/renderer/init.rs	Wed Aug 07 07:17:19 2024 +0000
+@@ -2,7 +2,7 @@
+  * License, v. 2.0. If a copy of the MPL was not distributed with this
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
+-use api::{BlobImageHandler, ColorF, IdNamespace, DocumentId, CrashAnnotator};
++use api::{BlobImageHandler, ColorF, CrashAnnotator, DocumentId, IdNamespace};
+ use api::{VoidPtrToSizeFn, FontRenderMode, ImageFormat};
+ use api::{RenderNotifier, ImageBufferKind};
+ use api::units::*;
+@@ -617,6 +617,8 @@
+         let lp_builder = LowPrioritySceneBuilderThread {
+             rx: low_priority_scene_rx,
+             tx: scene_tx.clone(),
++            // TODO: hard-coded tile size.
++            tile_pool: api::BlobTilePool::new(),
+         };
+ 
+         thread::Builder::new().name(lp_scene_thread_name.clone()).spawn(move || {

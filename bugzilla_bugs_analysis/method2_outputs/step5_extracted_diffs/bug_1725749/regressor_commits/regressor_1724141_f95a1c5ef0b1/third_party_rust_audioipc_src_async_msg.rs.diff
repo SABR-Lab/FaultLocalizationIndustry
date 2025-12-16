@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/audioipc/src/async_msg.rs
+# Commit: f95a1c5ef0b1
+# Full Hash: f95a1c5ef0b1652e911f6ff96c6c38796856e70e
+# Author: Matthew Gregan <kinetik@flim.org>
+# Date: 2021-08-13 09:27:46
+# Regressor Bug: 1724141
+# File Overlap Count: 6
+# Description:
+#   Bug 1724141 - Update audioipc to 8bb1a227.  r=chunmin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D121826
+# ==============================================================================
+
+diff -r c9c0a125e6b2 -r f95a1c5ef0b1 third_party/rust/audioipc/src/async_msg.rs
+--- a/third_party/rust/audioipc/src/async_msg.rs	Thu Aug 12 21:12:32 2021 +0000
++++ b/third_party/rust/audioipc/src/async_msg.rs	Thu Aug 12 21:28:03 2021 +0000
+@@ -8,9 +8,7 @@
+ #[cfg(unix)]
+ use crate::msg::{RecvMsg, SendMsg};
+ use bytes::{Buf, BufMut};
+-#[cfg(unix)]
+-use futures::Async;
+-use futures::Poll;
++use futures::{Async, Poll};
+ #[cfg(unix)]
+ use iovec::IoVec;
+ #[cfg(unix)]
+@@ -166,3 +164,31 @@
+         }
+     }
+ }
++
++// AsyncRecvMsg/AsyncSendMsg are implemented for convenience on Windows and don't use the _cmsg parameter.
++#[cfg(windows)]
++impl AsyncRecvMsg for super::AsyncMessageStream {
++    fn recv_msg_buf<B>(&mut self, buf: &mut B, _cmsg: &mut B) -> Poll<(usize, i32), io::Error>
++    where
++        B: BufMut,
++    {
++        // _cmsg unused on Windows.  Pass through to read_buf.
++        match <super::AsyncMessageStream>::read_buf(self, buf) {
++            Ok(Async::Ready(n)) => Ok(Async::Ready((n, 0))),
++            Ok(Async::NotReady) => Ok(Async::NotReady),
++            Err(e) => Err(e),
++        }
++    }
++}
++
++#[cfg(windows)]
++impl AsyncSendMsg for super::AsyncMessageStream {
++    fn send_msg_buf<B, C>(&mut self, buf: &mut B, _cmsg: &C) -> Poll<usize, io::Error>
++    where
++        B: Buf,
++        C: Buf,
++    {
++        // _cmsg unused on Windows.  Pass through to write_buf.
++        <super::AsyncMessageStream>::write_buf(self, buf)
++    }
++}

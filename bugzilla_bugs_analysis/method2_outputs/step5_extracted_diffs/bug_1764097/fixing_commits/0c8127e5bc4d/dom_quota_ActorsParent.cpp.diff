@@ -1,0 +1,39 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/ActorsParent.cpp
+# Commit: 0c8127e5bc4d
+# Full Hash: 0c8127e5bc4dd5c6a90feea689ce4a7e84dfdfda
+# Author: Jens Stutte <jstutte@mozilla.com>
+# Date: 2022-04-28 21:47:15
+# Description:
+#   Bug 1764097: Try to add pending operations annotation only if we have some. r=dom-storage-reviewers,janv
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D144705
+# ==============================================================================
+
+diff -r c9baea28c7fb -r 0c8127e5bc4d dom/quota/ActorsParent.cpp
+--- a/dom/quota/ActorsParent.cpp	Thu Apr 28 12:14:10 2022 +0000
++++ b/dom/quota/ActorsParent.cpp	Thu Apr 28 12:18:06 2022 +0000
+@@ -3847,9 +3847,7 @@
+       }
+     }
+ 
+-    {
+-      MutexAutoLock lock(quotaManager->mQuotaMutex);
+-
++    if (gNormalOriginOps) {
+       annotation.AppendPrintf("QM: %zu normal origin ops pending\n",
+                               gNormalOriginOps->Length());
+ #ifdef MOZ_COLLECTING_RUNNABLE_TELEMETRY
+@@ -3859,6 +3857,10 @@
+         annotation.AppendPrintf("Op: %s pending\n", name.get());
+       }
+ #endif
++    }
++    {
++      MutexAutoLock lock(quotaManager->mQuotaMutex);
++
+       annotation.AppendPrintf("Intermediate steps:\n%s\n",
+                               quotaManager->mQuotaManagerShutdownSteps.get());
+     }

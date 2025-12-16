@@ -1,0 +1,44 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentParent.cpp
+# Commit: 7229926a45c2
+# Full Hash: 7229926a45c2e43136c7f8f597a92776658edbd5
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-10-14 09:52:12
+# Description:
+#   Bug 1660539 - Make StructuredCloneData args optional in JSActor RawMessage, r=kmag
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D93122
+# ==============================================================================
+
+diff -r 1aa2dc4b280e -r 7229926a45c2 dom/ipc/ContentParent.cpp
+--- a/dom/ipc/ContentParent.cpp	Tue Oct 13 16:57:32 2020 +0000
++++ b/dom/ipc/ContentParent.cpp	Tue Oct 13 17:43:56 2020 +0000
+@@ -7188,13 +7188,19 @@
+   return NS_OK;
+ }
+ 
+-IPCResult ContentParent::RecvRawMessage(const JSActorMessageMeta& aMeta,
+-                                        const ClonedMessageData& aData,
+-                                        const ClonedMessageData& aStack) {
+-  StructuredCloneData data;
+-  data.BorrowFromClonedMessageDataForParent(aData);
+-  StructuredCloneData stack;
+-  stack.BorrowFromClonedMessageDataForParent(aStack);
++IPCResult ContentParent::RecvRawMessage(
++    const JSActorMessageMeta& aMeta, const Maybe<ClonedMessageData>& aData,
++    const Maybe<ClonedMessageData>& aStack) {
++  Maybe<StructuredCloneData> data;
++  if (aData) {
++    data.emplace();
++    data->BorrowFromClonedMessageDataForParent(*aData);
++  }
++  Maybe<StructuredCloneData> stack;
++  if (aStack) {
++    stack.emplace();
++    stack->BorrowFromClonedMessageDataForParent(*aStack);
++  }
+   ReceiveRawMessage(aMeta, std::move(data), std::move(stack));
+   return IPC_OK();
+ }

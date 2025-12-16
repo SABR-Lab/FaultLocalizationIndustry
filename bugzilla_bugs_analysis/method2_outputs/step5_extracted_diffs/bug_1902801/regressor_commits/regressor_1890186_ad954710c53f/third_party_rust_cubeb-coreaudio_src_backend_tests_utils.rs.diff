@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/cubeb-coreaudio/src/backend/tests/utils.rs
+# Commit: ad954710c53f
+# Full Hash: ad954710c53fa84879169b4f3d7994bb5f2ab714
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2024-06-03 16:07:28
+# Regressor Bug: 1890186
+# File Overlap Count: 5
+# Description:
+#   Bug 1890186: Update cubeb-coreaudio-rs to 1796ace5bd. r=cubeb-reviewers,padenot
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D212311
+# ==============================================================================
+
+diff -r 8952a815f4b4 -r ad954710c53f third_party/rust/cubeb-coreaudio/src/backend/tests/utils.rs
+--- a/third_party/rust/cubeb-coreaudio/src/backend/tests/utils.rs	Mon Jun 03 13:31:38 2024 +0300
++++ b/third_party/rust/cubeb-coreaudio/src/backend/tests/utils.rs	Mon Jun 03 10:03:39 2024 +0000
+@@ -293,6 +293,7 @@
+ 
+ pub enum DeviceFilter {
+     ExcludeCubebAggregateAndVPIO,
++    ExcludeVPIO,
+     IncludeAll,
+ }
+ pub fn test_get_all_devices(filter: DeviceFilter) -> Vec<AudioObjectID> {
+@@ -354,6 +355,16 @@
+                     }
+                 });
+             }
++            DeviceFilter::ExcludeVPIO => {
++                devices.retain(|&device| {
++                    if let Ok(uid) = get_device_global_uid(device) {
++                        let uid = uid.into_string();
++                        !uid.contains(VOICEPROCESSING_AGGREGATE_DEVICE_NAME)
++                    } else {
++                        true
++                    }
++                });
++            }
+             _ => {}
+         }
+ 

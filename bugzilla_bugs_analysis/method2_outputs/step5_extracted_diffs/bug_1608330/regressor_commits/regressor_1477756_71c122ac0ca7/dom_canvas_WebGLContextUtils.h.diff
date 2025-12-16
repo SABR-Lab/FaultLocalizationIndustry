@@ -1,0 +1,82 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLContextUtils.h
+# Commit: 71c122ac0ca7
+# Full Hash: 71c122ac0ca73391866b1ef19f4f82bc2d28568b
+# Author: David Parks <davidp99@gmail.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Initial out-of-process WebGL implementation. r=mccr8,handyman
+#   
+#   Splits WebGLContext into ClientWebGLContext and HostWebGLContext.  The Client enables the JS-control of a WebGL context in a content procecss while the Host executes the WebGL graphics operations (via a WebGLContext that maintains much of the existing code) in the compositor process.  At this point, the cross-process behavior is disabled -- this series of patches is an incremental step toward that final goal.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D54018
+# ==============================================================================
+
+diff -r 5cbf5bb11c58 -r 71c122ac0ca7 dom/canvas/WebGLContextUtils.h
+--- a/dom/canvas/WebGLContextUtils.h	Wed Jan 08 21:52:03 2020 +0000
++++ b/dom/canvas/WebGLContextUtils.h	Wed Jan 08 22:19:14 2020 +0000
+@@ -10,6 +10,7 @@
+ 
+ #include "mozilla/Assertions.h"
+ #include "mozilla/dom/BindingUtils.h"
++#include "mozilla/dom/TypedArray.h"
+ 
+ #include "WebGLStrongTypes.h"
+ 
+@@ -29,9 +30,6 @@
+ // Returns GL_NONE if passed an invalid texture image target
+ TexTarget TexImageTargetToTexTarget(TexImageTarget texImageTarget);
+ 
+-// Helper function to create a JS::Value from a C string
+-JS::Value StringValue(JSContext* cx, const char* str, ErrorResult& rv);
+-
+ struct GLComponents {
+   unsigned char mComponents;
+ 
+@@ -53,42 +51,12 @@
+   bool IsSubsetOf(const GLComponents& other) const;
+ };
+ 
+-template <typename WebGLObjectType>
+-JS::Value WebGLContext::WebGLObjectAsJSValue(JSContext* cx,
+-                                             const WebGLObjectType* object,
+-                                             ErrorResult& rv) const {
+-  if (!object) return JS::NullValue();
+-
+-  MOZ_ASSERT(this == object->mContext);
+-  JS::Rooted<JS::Value> v(cx);
+-  JS::Rooted<JSObject*> wrapper(cx, GetWrapper());
+-  JSAutoRealm ar(cx, wrapper);
+-  if (!dom::GetOrCreateDOMReflector(cx, const_cast<WebGLObjectType*>(object),
+-                                    &v)) {
+-    rv.Throw(NS_ERROR_FAILURE);
+-    return JS::NullValue();
+-  }
+-  return v;
+-}
+-
+-template <typename WebGLObjectType>
+-JSObject* WebGLContext::WebGLObjectAsJSObject(JSContext* cx,
+-                                              const WebGLObjectType* object,
+-                                              ErrorResult& rv) const {
+-  JS::Value v = WebGLObjectAsJSValue(cx, object, rv);
+-  if (v.isNull()) return nullptr;
+-
+-  return &v.toObject();
+-}
+-
+ /**
+  * Return the displayable name for the texture function that is the
+  * source for validation.
+  */
+ const char* InfoFrom(WebGLTexImageFunc func, WebGLTexDimensions dims);
+ 
+-JS::Value StringValue(JSContext* cx, const nsAString& str, ErrorResult& er);
+-
+ }  // namespace mozilla
+ 
+ #endif  // WEBGL_CONTEXT_UTILS_H_

@@ -1,0 +1,37 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmIonCompile.cpp
+# Commit: f999994ff312
+# Full Hash: f999994ff31263695f15c5313b29c7e8b3b01441
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-09-18 15:11:18
+# Description:
+#   Bug 1664953 - Fast fix for null pointer dereference in EmitTruncate. r=lth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D90242
+# ==============================================================================
+
+diff -r bb5d1f8f84de -r f999994ff312 js/src/wasm/WasmIonCompile.cpp
+--- a/js/src/wasm/WasmIonCompile.cpp	Wed Sep 16 08:19:17 2020 +0000
++++ b/js/src/wasm/WasmIonCompile.cpp	Thu Sep 17 16:36:04 2020 +0000
+@@ -2775,7 +2775,7 @@
+ static bool EmitTruncate(FunctionCompiler& f, ValType operandType,
+                          ValType resultType, bool isUnsigned,
+                          bool isSaturating) {
+-  MDefinition* input;
++  MDefinition* input = nullptr;
+   if (!f.iter().readConversion(operandType, resultType, &input)) {
+     return false;
+   }
+@@ -2789,8 +2789,8 @@
+   }
+   if (resultType == ValType::I32) {
+     if (f.env().isAsmJS()) {
+-      if (input->type() == MIRType::Double ||
+-          input->type() == MIRType::Float32) {
++      if (input && (input->type() == MIRType::Double ||
++                    input->type() == MIRType::Float32)) {
+         f.iter().setResult(f.unary<MWasmBuiltinTruncateToInt32>(input));
+       } else {
+         f.iter().setResult(f.unary<MTruncateToInt32>(input));

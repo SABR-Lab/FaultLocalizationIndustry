@@ -1,0 +1,38 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/Instrumentation.cpp
+# Commit: bd40be9cdcd5
+# Full Hash: bd40be9cdcd5d732a07f744b91d892470eaca264
+# Author: Brian Hackett <bhackett1024@gmail.com>
+# Date: 2019-08-09 03:49:20
+# Description:
+#   Bug 1571169 - Watch for dead object proxies for debugger objects, r=tcampbell.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D41235
+# ==============================================================================
+
+diff -r 6986569d4443 -r bd40be9cdcd5 js/src/vm/Instrumentation.cpp
+--- a/js/src/vm/Instrumentation.cpp	Thu Aug 08 00:51:39 2019 +0000
++++ b/js/src/vm/Instrumentation.cpp	Thu Aug 08 16:09:44 2019 +0000
+@@ -9,6 +9,7 @@
+ #include "jsapi.h"
+ 
+ #include "debugger/DebugAPI.h"
++#include "proxy/DeadObjectProxy.h"
+ 
+ #include "vm/JSObject-inl.h"
+ 
+@@ -232,6 +233,12 @@
+   RealmInstrumentation* instrumentation = GetInstrumentation(holder);
+ 
+   RootedObject dbgObject(cx, UncheckedUnwrap(instrumentation->dbgObject));
++
++  if (IsDeadProxyObject(dbgObject)) {
++    JS_ReportErrorASCII(cx, "Instrumentation debugger object is dead");
++    return false;
++  }
++
+   AutoRealm ar(cx, dbgObject);
+ 
+   RootedValue idValue(cx);

@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmIonCompile.cpp
+# Commit: 659b24c3626c
+# Full Hash: 659b24c3626c6a299ef34ce4a0109fca2e2a9112
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-09-11 21:38:12
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 6.4: Add tls dependency for WasmTruncateToInt64 and Int64ToFloatingPoint for arm. r=lth
+#   
+#   In this patch we add a tls dependency for the remaining nodes which use
+#   BuiltinThunk to call c++ runtime. By ABI requirements WasmTlsReg should
+#   be set.
+# ==============================================================================
+
+diff -r 473f1cb675ea -r 659b24c3626c js/src/wasm/WasmIonCompile.cpp
+--- a/js/src/wasm/WasmIonCompile.cpp	Fri Sep 11 05:37:42 2020 +0000
++++ b/js/src/wasm/WasmIonCompile.cpp	Fri Sep 11 12:02:42 2020 +0000
+@@ -603,8 +603,13 @@
+     if (inDeadCode()) {
+       return nullptr;
+     }
++#if defined(JS_CODEGEN_ARM)
++    auto* ins = MBuiltinInt64ToFloatingPoint::New(
++        alloc(), op, tlsPointer_, type, bytecodeOffset(), isUnsigned);
++#else
+     auto* ins = MInt64ToFloatingPoint::New(alloc(), op, type, bytecodeOffset(),
+                                            isUnsigned);
++#endif
+     curBlock_->add(ins);
+     return ins;
+   }
+@@ -629,6 +634,16 @@
+     return ins;
+   }
+ 
++  MDefinition* truncateWithTls(MDefinition* op, TruncFlags flags) {
++    if (inDeadCode()) {
++      return nullptr;
++    }
++    auto* ins = MWasmBuiltinTruncateToInt64::New(alloc(), op, tlsPointer_,
++                                                 flags, bytecodeOffset());
++    curBlock_->add(ins);
++    return ins;
++  }
++
+   MDefinition* compare(MDefinition* lhs, MDefinition* rhs, JSOp op,
+                        MCompare::CompareType type) {
+     if (inDeadCode()) {
+@@ -2770,7 +2785,11 @@
+   } else {
+     MOZ_ASSERT(resultType == ValType::I64);
+     MOZ_ASSERT(!f.env().isAsmJS());
++#if defined(JS_CODEGEN_ARM)
++    f.iter().setResult(f.truncateWithTls(input, flags));
++#else
+     f.iter().setResult(f.truncate<MWasmTruncateToInt64>(input, flags));
++#endif
+   }
+   return true;
+ }

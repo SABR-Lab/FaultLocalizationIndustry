@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/Document.cpp
+# Commit: 675785853d7a
+# Full Hash: 675785853d7a40123826e1b47c49d68f87bd4bd0
+# Author: Tim Huang <tihuang@mozilla.com>
+# Date: 2024-12-17 17:00:49
+# Regressor Bug: 1915355
+# File Overlap Count: 1
+# Description:
+#   Bug 1915355 - Part 5: Exempt third-party cookie blocking if the channel is on the exception list. r=cookie-reviewers,bvandersloot,valentin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D223384
+# ==============================================================================
+
+diff -r de6a26d3e3df -r 675785853d7a dom/base/Document.cpp
+--- a/dom/base/Document.cpp	Tue Dec 17 08:57:31 2024 +0000
++++ b/dom/base/Document.cpp	Tue Dec 17 08:57:31 2024 +0000
+@@ -6641,6 +6641,10 @@
+     return;
+   }
+ 
++  nsCOMPtr<nsILoadInfo> loadInfo =
++      GetChannel() ? GetChannel()->LoadInfo() : nullptr;
++  bool on3pcbException = loadInfo && loadInfo->GetIsOn3PCBExceptionList();
++
+   for (auto& principal : principals) {
+     nsAutoCString baseDomain;
+     nsresult rv = CookieCommons::GetBaseDomain(principal, baseDomain);
+@@ -6685,9 +6689,10 @@
+         continue;
+       }
+ 
+-      if (thirdParty && !CookieCommons::ShouldIncludeCrossSiteCookie(
+-                            cookie, CookieJarSettings()->GetPartitionForeign(),
+-                            IsInPrivateBrowsing(), UsingStorageAccess())) {
++      if (thirdParty &&
++          !CookieCommons::ShouldIncludeCrossSiteCookie(
++              cookie, CookieJarSettings()->GetPartitionForeign(),
++              IsInPrivateBrowsing(), UsingStorageAccess(), on3pcbException)) {
+         continue;
+       }
+ 
+@@ -6822,9 +6827,14 @@
+                                                  nullptr, &thirdParty);
+   }
+ 
+-  if (thirdParty && !CookieCommons::ShouldIncludeCrossSiteCookie(
+-                        cookie, CookieJarSettings()->GetPartitionForeign(),
+-                        IsInPrivateBrowsing(), UsingStorageAccess())) {
++  nsCOMPtr<nsILoadInfo> loadInfo =
++      GetChannel() ? GetChannel()->LoadInfo() : nullptr;
++  bool on3pcbException = loadInfo && loadInfo->GetIsOn3PCBExceptionList();
++
++  if (thirdParty &&
++      !CookieCommons::ShouldIncludeCrossSiteCookie(
++          cookie, CookieJarSettings()->GetPartitionForeign(),
++          IsInPrivateBrowsing(), UsingStorageAccess(), on3pcbException)) {
+     return;
+   }
+ 

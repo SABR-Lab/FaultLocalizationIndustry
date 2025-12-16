@@ -1,0 +1,95 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/Shape.cpp
+# Commit: d5d3cb487914
+# Full Hash: d5d3cb487914252191142a99089e629e38a3c442
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2021-03-06 09:33:16
+# Regressor Bug: 1689413
+# File Overlap Count: 1
+# Description:
+#   Bug 1689413 part 3 - Simplify NativeObject::removeProperty a bit. r=jonco
+#   
+#   The `BaseShape::get` call is redundant. Reusing the BaseShape from the previous
+#   last-property is equivalent and infallible, and lets us simplify the code a bit.
+#   
+# ==============================================================================
+
+diff -r e9c2f256240a -r d5d3cb487914 js/src/vm/Shape.cpp
+--- a/js/src/vm/Shape.cpp	Sat Mar 06 01:05:19 2021 +0000
++++ b/js/src/vm/Shape.cpp	Sat Mar 06 01:05:20 2021 +0000
+@@ -126,10 +126,7 @@
+ 
+ void Shape::handoffTableTo(Shape* shape) {
+   MOZ_ASSERT(inDictionary() && shape->inDictionary());
+-
+-  if (this == shape) {
+-    return;
+-  }
++  MOZ_ASSERT(this != shape);
+ 
+   ShapeTable* table = cache_.getTablePointer();
+   shape->setTable(table);
+@@ -1191,12 +1188,14 @@
+     return true;
+   }
+ 
++  const bool removingLastProperty = (shape == obj->lastProperty());
++
+   /*
+    * If shape is not the last property added, or the last property cannot
+    * be removed, switch to dictionary mode.
+    */
+   if (!obj->inDictionaryMode() &&
+-      (shape != obj->lastProperty() || !obj->canRemoveLastProperty())) {
++      (!removingLastProperty || !obj->canRemoveLastProperty())) {
+     if (!toDictionaryMode(cx, obj)) {
+       return false;
+     }
+@@ -1221,20 +1220,6 @@
+       return false;
+     }
+     new (spare) Shape(shape->base(), 0);
+-    if (shape == obj->lastProperty()) {
+-      /*
+-       * Get an up to date base shape for the new last property when removing
+-       * the dictionary's last property. Information in base shapes for non-last
+-       * properties may be out of sync with the object's state.
+-       */
+-      RootedShape previous(cx, obj->lastProperty()->parent);
+-      StackBaseShape base(obj->lastProperty()->base());
+-      BaseShape* nbase = BaseShape::get(cx, base);
+-      if (!nbase) {
+-        return false;
+-      }
+-      previous->setBase(nbase);
+-    }
+   }
+ 
+   /* If shape has a slot, free its slot number. */
+@@ -1272,12 +1257,20 @@
+     }
+ 
+     {
+-      /* Remove shape from its non-circular doubly linked list. */
+-      Shape* oldLastProp = obj->lastProperty();
++      // Remove shape from its non-circular doubly linked list.
++      MOZ_ASSERT(removingLastProperty == (shape == obj->lastProperty()));
+       shape->removeFromDictionary(obj);
+ 
+-      /* Hand off table from the old to new last property. */
+-      oldLastProp->handoffTableTo(obj->lastProperty());
++      // If we just removed the object's last property, move its ShapeTable and
++      // BaseShape to the new last property. Information in BaseShapes for
++      // non-last properties may be out of sync with the object's state.
++      // Updating the shape's BaseShape is sound because we generate a new shape
++      // for the object right after this.
++      if (removingLastProperty) {
++        MOZ_ASSERT(obj->lastProperty() != shape);
++        shape->handoffTableTo(obj->lastProperty());
++        obj->lastProperty()->setBase(shape->base());
++      }
+     }
+ 
+     /* Generate a new shape for the object, infallibly. */

@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/IonTypes.h
+# Commit: 13ee9674ee35
+# Full Hash: 13ee9674ee356acb36f3badb5ab2043d3f608eb1
+# Author: Lars T Hansen <lhansen@mozilla.com>
+# Date: 2021-10-18 16:09:29
+# Regressor Bug: 1727084
+# File Overlap Count: 1
+# Description:
+#   Bug 1727084 - Memory64 - Bulk memory operations. r=yury
+#   
+#   Implement all bulk memory operations on 64-bit memories.  Only
+#   out-of-line paths are supported for memory.copy and memory.fill, for
+#   now.
+# ==============================================================================
+
+diff -r b658cfe4b173 -r 13ee9674ee35 js/src/jit/IonTypes.h
+--- a/js/src/jit/IonTypes.h	Mon Oct 18 09:58:14 2021 +0000
++++ b/js/src/jit/IonTypes.h	Mon Oct 18 09:58:14 2021 +0000
+@@ -912,6 +912,23 @@
+       ArgType_General, {ArgType_General, ArgType_Int32, ArgType_Int32}),
+   Args_General_GeneralInt32General = detail::MakeABIFunctionType(
+       ArgType_General, {ArgType_General, ArgType_Int32, ArgType_General}),
++  Args_Int32_GeneralInt64Int32Int32Int32 = detail::MakeABIFunctionType(
++      ArgType_Int32, {ArgType_General, ArgType_Int64, ArgType_Int32,
++                      ArgType_Int32, ArgType_Int32}),
++  Args_Int32_GeneralInt64Int32Int64General = detail::MakeABIFunctionType(
++      ArgType_Int32, {ArgType_General, ArgType_Int64, ArgType_Int32,
++                      ArgType_Int64, ArgType_General}),
++  Args_Int32_GeneralInt64Int64Int64General = detail::MakeABIFunctionType(
++      ArgType_Int32, {ArgType_General, ArgType_Int64, ArgType_Int64,
++                      ArgType_Int64, ArgType_General}),
++
++  // Functions that return Int64 are tricky because SpiderMonkey's ReturnRegI64
++  // does not match the ABI int64 return register on x86.  Wasm only!
++  Args_Int64_General = detail::MakeABIFunctionType(
++      ArgType_Int64, {ArgType_General}),
++  Args_Int64_GeneralInt64 = detail::MakeABIFunctionType(
++      ArgType_Int64, {ArgType_General, ArgType_Int64}),
++
+ };
+ 
+ static constexpr ABIFunctionType MakeABIFunctionType(

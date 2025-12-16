@@ -1,0 +1,97 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmBCClass.h
+# Commit: 44b0c0bed8a6
+# Full Hash: 44b0c0bed8a6b4debb950e7e1c69190883c65d60
+# Author: Lars T Hansen <lhansen@mozilla.com>
+# Date: 2021-10-18 16:09:29
+# Regressor Bug: 1727084
+# File Overlap Count: 1
+# Description:
+#   Bug 1727084 - Memory64 - Atomic-rmw baseline operations. r=yury
+#   
+#   Atomic ADD, SUB, AND, OR, XOR, XCHG, CMPXCHG, as well as WAIT and
+#   NOTIFY for the baseline compiler.
+#   
+# ==============================================================================
+
+diff -r fb02656bb788 -r 44b0c0bed8a6 js/src/wasm/WasmBCClass.h
+--- a/js/src/wasm/WasmBCClass.h	Mon Oct 18 09:58:15 2021 +0000
++++ b/js/src/wasm/WasmBCClass.h	Mon Oct 18 09:58:15 2021 +0000
+@@ -1025,6 +1025,16 @@
+   inline void branchTo(Assembler::Condition c, RegRef lhs, ImmWord rhs,
+                        Label* l);
+ 
++#ifdef JS_CODEGEN_X86
++  // Store r in tls scratch storage after first loading the tls from the frame
++  // into the regForTls.  regForTls must be neither of the registers in r.
++  void stashI64(RegPtr regForTls, RegI64 r);
++
++  // Load r from the tls scratch storage after first loading the tls from the
++  // frame into the regForTls.  regForTls can be one of the registers in r.
++  void unstashI64(RegPtr regForTls, RegI64 r);
++#endif
++
+   //////////////////////////////////////////////////////////////////////
+   //
+   // Code generators for actual operations.
+@@ -1086,14 +1096,17 @@
+   void boundsCheckBelow4GBAccess(RegPtr tls, RegI64 ptr, Label* ok);
+ 
+ #if defined(RABALDR_HAS_HEAPREG)
++  template <typename RegIndexType>
+   BaseIndex prepareAtomicMemoryAccess(MemoryAccessDesc* access,
+                                       AccessCheck* check, RegPtr tls,
+-                                      RegI32 ptr);
++                                      RegIndexType ptr);
+ #else
+   // Some consumers depend on the returned Address not incorporating tls, as tls
+   // may be the scratch register.
++  template <typename RegIndexType>
+   Address prepareAtomicMemoryAccess(MemoryAccessDesc* access,
+-                                    AccessCheck* check, RegPtr tls, RegI32 ptr);
++                                    AccessCheck* check, RegPtr tls,
++                                    RegIndexType ptr);
+ #endif
+ 
+   template <typename RegIndexType>
+@@ -1136,15 +1149,29 @@
+                    ValType resultType);
+ 
+   void atomicLoad(MemoryAccessDesc* access, ValType type);
++#if !defined(JS_64BIT)
++  template <typename RegIndexType>
++  void atomicLoad64(MemoryAccessDesc* desc);
++#endif
++
+   void atomicStore(MemoryAccessDesc* access, ValType type);
++
+   void atomicRMW(MemoryAccessDesc* access, ValType type, AtomicOp op);
++  template <typename RegIndexType>
+   void atomicRMW32(MemoryAccessDesc* access, ValType type, AtomicOp op);
++  template <typename RegIndexType>
+   void atomicRMW64(MemoryAccessDesc* access, ValType type, AtomicOp op);
++
+   void atomicXchg(MemoryAccessDesc* desc, ValType type);
++  template <typename RegIndexType>
+   void atomicXchg64(MemoryAccessDesc* access, WantResult wantResult);
++  template <typename RegIndexType>
+   void atomicXchg32(MemoryAccessDesc* access, ValType type);
++
+   void atomicCmpXchg(MemoryAccessDesc* access, ValType type);
++  template <typename RegIndexType>
+   void atomicCmpXchg32(MemoryAccessDesc* access, ValType type);
++  template <typename RegIndexType>
+   void atomicCmpXchg64(MemoryAccessDesc* access, ValType type);
+ 
+   template <typename RegType>
+@@ -1152,8 +1179,6 @@
+   template <typename RegType>
+   RegType popMemoryAccess(MemoryAccessDesc* access, AccessCheck* check);
+ 
+-  RegI32 popMemory32Access(MemoryAccessDesc* access, AccessCheck* check);
+-
+   void pushHeapBase();
+ 
+   ////////////////////////////////////////////////////////////////////////////

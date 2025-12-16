@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/ipc/SocketProcessParent.cpp
+# Commit: 6e1eba5c88ad
+# Full Hash: 6e1eba5c88ad47f0a2a3aa37b4c2cae9f31c2ef3
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2019-09-18 21:49:27
+# Regressor Bug: 1569183
+# File Overlap Count: 1
+# Description:
+#   Bug 1569183: Stop doing a proxy lookup to determine whether we're configured to use a proxy (for the proxy_only_if_behind_proxy pref), and instead look at whether we loaded the doc using a proxy. r=mjf,mayhemer,jld
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D45289
+# ==============================================================================
+
+diff -r c43589fd0f90 -r 6e1eba5c88ad netwerk/ipc/SocketProcessParent.cpp
+--- a/netwerk/ipc/SocketProcessParent.cpp	Tue Sep 17 18:18:33 2019 +0000
++++ b/netwerk/ipc/SocketProcessParent.cpp	Wed Sep 18 14:27:42 2019 +0000
+@@ -12,7 +12,6 @@
+ #ifdef MOZ_WEBRTC
+ #  include "mozilla/dom/ContentProcessManager.h"
+ #  include "mozilla/dom/BrowserParent.h"
+-#  include "mozilla/net/ProxyConfigLookupParent.h"
+ #  include "mozilla/net/WebrtcTCPSocketParent.h"
+ #endif
+ 
+@@ -164,35 +163,6 @@
+   return true;
+ }
+ 
+-PProxyConfigLookupParent* SocketProcessParent::AllocPProxyConfigLookupParent() {
+-#ifdef MOZ_WEBRTC
+-  RefPtr<ProxyConfigLookupParent> actor = new ProxyConfigLookupParent();
+-  return actor.forget().take();
+-#else
+-  return nullptr;
+-#endif
+-}
+-
+-mozilla::ipc::IPCResult SocketProcessParent::RecvPProxyConfigLookupConstructor(
+-    PProxyConfigLookupParent* aActor) {
+-#ifdef MOZ_WEBRTC
+-  ProxyConfigLookupParent* actor =
+-      static_cast<ProxyConfigLookupParent*>(aActor);
+-  actor->DoProxyLookup();
+-#endif
+-  return IPC_OK();
+-}
+-
+-bool SocketProcessParent::DeallocPProxyConfigLookupParent(
+-    PProxyConfigLookupParent* aActor) {
+-#ifdef MOZ_WEBRTC
+-  RefPtr<ProxyConfigLookupParent> actor =
+-      dont_AddRef(static_cast<ProxyConfigLookupParent*>(aActor));
+-  MOZ_ASSERT(actor);
+-#endif
+-  return true;
+-}
+-
+ // To ensure that IPDL is finished before SocketParent gets deleted.
+ class DeferredDeleteSocketProcessParent : public Runnable {
+  public:

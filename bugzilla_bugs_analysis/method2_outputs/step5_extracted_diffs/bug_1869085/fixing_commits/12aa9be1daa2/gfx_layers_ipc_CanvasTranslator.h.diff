@@ -1,0 +1,56 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/CanvasTranslator.h
+# Commit: 12aa9be1daa2
+# Full Hash: 12aa9be1daa25a0f455c799f62cb5391971792d3
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2023-12-10 09:36:11
+# Description:
+#   Bug 1869085 - Make CanvasManagerParent use content parent ID for recording textures. r=bobowen
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D195957
+# ==============================================================================
+
+diff -r 19967878c4b0 -r 12aa9be1daa2 gfx/layers/ipc/CanvasTranslator.h
+--- a/gfx/layers/ipc/CanvasTranslator.h	Sat Dec 09 19:49:22 2023 +0000
++++ b/gfx/layers/ipc/CanvasTranslator.h	Sat Dec 09 20:16:02 2023 +0000
+@@ -10,6 +10,7 @@
+ #include <unordered_map>
+ #include <vector>
+ 
++#include "mozilla/dom/ipc/IdType.h"
+ #include "mozilla/gfx/InlineTranslator.h"
+ #include "mozilla/gfx/RecordedEvent.h"
+ #include "CanvasChild.h"
+@@ -36,7 +37,11 @@
+ 
+   friend class PProtocolParent;
+ 
+-  CanvasTranslator();
++  CanvasTranslator(const dom::ContentParentId& aContentId, uint32_t aManagerId);
++
++  const dom::ContentParentId& GetContentId() const { return mContentId; }
++
++  uint32_t GetManagerId() const { return mManagerId; }
+ 
+   /**
+    * Dispatches a runnable to the preferred task queue or thread.
+@@ -291,7 +296,7 @@
+   RefPtr<ID3D11Device> mDevice;
+ #endif
+ 
+-  size_t mDefaultBufferSize;
++  size_t mDefaultBufferSize = 0;
+   uint32_t mMaxSpinCount;
+   TimeDuration mNextEventTimeout;
+ 
+@@ -316,6 +321,8 @@
+   UniquePtr<CrossProcessSemaphore> mReaderSemaphore;
+   TextureType mTextureType = TextureType::Unknown;
+   UniquePtr<TextureData> mReferenceTextureData;
++  dom::ContentParentId mContentId;
++  uint32_t mManagerId;
+   // Sometimes during device reset our reference DrawTarget can be null, so we
+   // hold the BackendType separately.
+   gfx::BackendType mBackendType = gfx::BackendType::NONE;

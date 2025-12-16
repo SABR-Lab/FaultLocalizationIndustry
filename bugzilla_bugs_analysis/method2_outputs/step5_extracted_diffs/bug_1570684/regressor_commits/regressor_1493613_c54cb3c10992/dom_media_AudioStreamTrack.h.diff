@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/AudioStreamTrack.h
+# Commit: c54cb3c10992
+# Full Hash: c54cb3c109922bc15fb6d0ca67e5f2a05980c1a5
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2019-07-31 15:46:43
+# Regressor Bug: 1493613
+# File Overlap Count: 2
+# Description:
+#   Bug 1493613 - Move MediaStream control from DOMMediaStream to MediaStreamTrack. r=padenot
+#   
+#   This is inherently large, because modifying these bits of DOMMediaStream and
+#   MediaStreamTrack affects all consumers and producers of all DOMMediaStreams and
+#   MediaStreamTracks.
+# ==============================================================================
+
+diff -r 0b03dd9d20ac -r c54cb3c10992 dom/media/AudioStreamTrack.h
+--- a/dom/media/AudioStreamTrack.h	Wed Jul 31 09:35:06 2019 +0000
++++ b/dom/media/AudioStreamTrack.h	Wed Jul 31 07:58:17 2019 +0000
+@@ -15,25 +15,29 @@
+ class AudioStreamTrack : public MediaStreamTrack {
+  public:
+   AudioStreamTrack(
+-      DOMMediaStream* aStream, TrackID aTrackID, TrackID aInputTrackID,
++      nsPIDOMWindowInner* aWindow, MediaStream* aInputStream, TrackID aTrackID,
+       MediaStreamTrackSource* aSource,
+       const MediaTrackConstraints& aConstraints = MediaTrackConstraints())
+-      : MediaStreamTrack(aStream, aTrackID, aInputTrackID, aSource,
++      : MediaStreamTrack(aWindow, aInputStream, aTrackID, aSource,
+                          aConstraints) {}
+ 
+   AudioStreamTrack* AsAudioStreamTrack() override { return this; }
+   const AudioStreamTrack* AsAudioStreamTrack() const override { return this; }
+ 
++  void AddAudioOutput(void* aKey);
++  void RemoveAudioOutput(void* aKey);
++  void SetAudioOutputVolume(void* aKey, float aVolume);
++
+   // WebIDL
+   void GetKind(nsAString& aKind) override { aKind.AssignLiteral("audio"); }
+ 
+   void GetLabel(nsAString& aLabel, CallerType aCallerType) override;
+ 
+  protected:
+-  already_AddRefed<MediaStreamTrack> CloneInternal(
+-      DOMMediaStream* aOwningStream, TrackID aTrackID) override {
+-    return do_AddRef(new AudioStreamTrack(
+-        aOwningStream, aTrackID, mInputTrackID, mSource, mConstraints));
++  already_AddRefed<MediaStreamTrack> CloneInternal() override {
++    return do_AddRef(
++        new AudioStreamTrack(mWindow, Ended() ? nullptr : mInputStream.get(),
++                             mTrackID, mSource, mConstraints));
+   }
+ };
+ 

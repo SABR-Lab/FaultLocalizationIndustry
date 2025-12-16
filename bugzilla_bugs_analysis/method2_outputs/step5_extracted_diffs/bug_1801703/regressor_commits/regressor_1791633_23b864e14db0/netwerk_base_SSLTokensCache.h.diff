@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/base/SSLTokensCache.h
+# Commit: 23b864e14db0
+# Full Hash: 23b864e14db0cf874d0e126b6299c8c44922dde3
+# Author: Dana Keeler <dkeeler@mozilla.com>
+# Date: 2022-11-16 09:31:06
+# Regressor Bug: 1791633
+# File Overlap Count: 1
+# Description:
+#   Bug 1791633 - separate nsITLSSocketControl from nsITransportSecurityInfo r=necko-reviewers,kershaw,jschanck
+#   
+#   Depends on D160311
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D160313
+# ==============================================================================
+
+diff -r 0bcba3375ec0 -r 23b864e14db0 netwerk/base/SSLTokensCache.h
+--- a/netwerk/base/SSLTokensCache.h	Tue Nov 15 20:03:29 2022 +0000
++++ b/netwerk/base/SSLTokensCache.h	Tue Nov 15 20:03:29 2022 +0000
+@@ -6,17 +6,19 @@
+ #define SSLTokensCache_h_
+ 
+ #include "CertVerifier.h"  // For EVStatus
+-#include "TransportSecurityInfo.h"
+ #include "mozilla/Maybe.h"
+ #include "mozilla/StaticMutex.h"
+ #include "mozilla/StaticPrefs_network.h"
+ #include "mozilla/StaticPtr.h"
+ #include "nsClassHashtable.h"
+ #include "nsIMemoryReporter.h"
++#include "nsITransportSecurityInfo.h"
+ #include "nsTArray.h"
+ #include "nsTHashMap.h"
+ #include "nsXULAppAPI.h"
+ 
++class CommonSocketControl;
++
+ namespace mozilla {
+ namespace net {
+ 
+@@ -44,9 +46,9 @@
+   static nsresult Shutdown();
+ 
+   static nsresult Put(const nsACString& aKey, const uint8_t* aToken,
+-                      uint32_t aTokenLen, nsITransportSecurityInfo* aSecInfo);
++                      uint32_t aTokenLen, CommonSocketControl* aSocketControl);
+   static nsresult Put(const nsACString& aKey, const uint8_t* aToken,
+-                      uint32_t aTokenLen, nsITransportSecurityInfo* aSecInfo,
++                      uint32_t aTokenLen, CommonSocketControl* aSocketControl,
+                       PRUint32 aExpirationTime);
+   static nsresult Get(const nsACString& aKey, nsTArray<uint8_t>& aToken,
+                       SessionCacheInfo& aResult, uint64_t* aTokenId = nullptr);

@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/ipc/RemoteAccessibleBase.h
+# Commit: e12dbde5824b
+# Full Hash: e12dbde5824b03fe31e2ce71d183edcc162cc2e9
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2022-05-03 09:42:08
+# Regressor Bug: 1766794
+# File Overlap Count: 2
+# Description:
+#   Bug 1766794: Lazily cache HyperText offsets for RemoteAccessibles.
+#   
+#   We already have a similar cache in local HyperTextAccessible.
+#   Unfortunately, we can't use common code here because we don't want to waste memory having a member variable on all RemoteAccessibles, but local HyperTextAccessibles don't have mCachedFields.
+#   This improves performance significantly when walking the text attributes of a container with a large number of text leaf children, such as is encountered when using view source.
+# ==============================================================================
+
+diff -r 6a2ad49b2630 -r e12dbde5824b accessible/ipc/RemoteAccessibleBase.h
+--- a/accessible/ipc/RemoteAccessibleBase.h	Mon May 02 22:38:07 2022 +0000
++++ b/accessible/ipc/RemoteAccessibleBase.h	Mon May 02 22:40:43 2022 +0000
+@@ -289,6 +289,9 @@
+   virtual void DOMNodeID(nsString& aID) const override;
+ 
+   // HyperTextAccessibleBase
++  virtual int32_t GetChildOffset(uint32_t aChildIndex,
++                                 bool aInvalidateAfter = false) const override;
++  virtual int32_t GetChildIndexAtOffset(uint32_t aOffset) const override;
+   virtual already_AddRefed<AccAttributes> DefaultTextAttributes() override;
+ 
+  protected:
+@@ -332,6 +335,8 @@
+   nsAtom* GetPrimaryAction() const;
+ 
+  private:
++  const nsTArray<int32_t>& CachedHyperTextOffsets() const;
++
+   uintptr_t mParent;
+   static const uintptr_t kNoParent = UINTPTR_MAX;
+ 

@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/svg/FilterInstance.cpp
+# Commit: 13f70dfa4e1d
+# Full Hash: 13f70dfa4e1d1d2c0f00b851ca655529f624fddd
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2021-05-16 09:17:48
+# Regressor Bug: 1540737
+# File Overlap Count: 1
+# Description:
+#   Bug 1540737 - Allow filter painting to take a callback for painting children. r=miko
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D114670
+# ==============================================================================
+
+diff -r 10dacf71ccbe -r 13f70dfa4e1d layout/svg/FilterInstance.cpp
+--- a/layout/svg/FilterInstance.cpp	Sun May 16 02:28:40 2021 +0300
++++ b/layout/svg/FilterInstance.cpp	Sun May 16 03:55:29 2021 +0000
+@@ -29,7 +29,6 @@
+ #include "mozilla/SVGFilterInstance.h"
+ #include "mozilla/SVGUtils.h"
+ #include "CSSFilterInstance.h"
+-#include "SVGFilterPaintCallback.h"
+ #include "SVGIntegrationUtils.h"
+ 
+ using namespace mozilla::dom;
+@@ -60,12 +59,10 @@
+   return MakeUnique<NonSVGFrameUserSpaceMetrics>(aFrame);
+ }
+ 
+-void FilterInstance::PaintFilteredFrame(nsIFrame* aFilteredFrame,
+-                                        gfxContext* aCtx,
+-                                        SVGFilterPaintCallback* aPaintCallback,
+-                                        const nsRegion* aDirtyArea,
+-                                        imgDrawingParams& aImgParams,
+-                                        float aOpacity) {
++void FilterInstance::PaintFilteredFrame(
++    nsIFrame* aFilteredFrame, gfxContext* aCtx,
++    const SVGFilterPaintCallback& aPaintCallback, const nsRegion* aDirtyArea,
++    imgDrawingParams& aImgParams, float aOpacity) {
+   auto filterChain = aFilteredFrame->StyleEffects()->mFilters.AsSpan();
+   UniquePtr<UserSpaceMetrics> metrics =
+       UserSpaceMetricsForFrame(aFilteredFrame);
+@@ -437,7 +434,7 @@
+ FilterInstance::FilterInstance(
+     nsIFrame* aTargetFrame, nsIContent* aTargetContent,
+     const UserSpaceMetrics& aMetrics, Span<const StyleFilter> aFilterChain,
+-    bool aFilterInputIsTainted, SVGFilterPaintCallback* aPaintCallback,
++    bool aFilterInputIsTainted, const SVGFilterPaintCallback& aPaintCallback,
+     const gfxMatrix& aPaintTransform, const nsRegion* aPostFilterDirtyRegion,
+     const nsRegion* aPreFilterDirtyRegion,
+     const nsRect* aPreFilterInkOverflowRectOverride,
+@@ -733,7 +730,7 @@
+     imageFlags &= ~imgIContainer::FLAG_HIGH_QUALITY_SCALING;
+   }
+   imgDrawingParams imgParams(imageFlags);
+-  mPaintCallback->Paint(*ctx, mTargetFrame, mPaintTransform, &dirty, imgParams);
++  mPaintCallback(*ctx, mTargetFrame, mPaintTransform, &dirty, imgParams);
+   aImgParams.result = imgParams.result;
+ 
+   mSourceGraphic.mSourceSurface = offscreenDT->Snapshot();

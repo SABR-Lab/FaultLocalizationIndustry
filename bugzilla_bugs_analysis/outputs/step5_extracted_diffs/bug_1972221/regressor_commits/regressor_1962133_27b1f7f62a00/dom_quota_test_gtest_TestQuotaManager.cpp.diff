@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/test/gtest/TestQuotaManager.cpp
+# Commit: 27b1f7f62a00
+# Full Hash: 27b1f7f62a00d003b61e7d3265ec1c7587f221fa
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2025-06-11 18:38:51
+# Regressor Bug: 1962133
+# File Overlap Count: 10
+# Overlapping Files: dom/quota/CommonMetadata.h, dom/quota/test/gtest/TestQuotaManager.cpp, dom/quota/OriginInfo.cpp, dom/quota/QuotaManager.h, dom/quota/test/gtest/QuotaManagerTestHelpers.cpp
+# Description:
+#   Bug 1962133 - QM: Introduce OriginStateMetadata struct for origin metadata header; r=dom-storage-reviewers,hsingh
+#   
+#   This patch introduces a new OriginStateMetadata struct to represent origin
+#   state separately from the other OriginMetadata fields. This prepares the origin
+#   metadata loading and saving code for adding a new field like the accessed flag.
+# ==============================================================================
+
+diff -r 2d9e785ad3e5 -r 27b1f7f62a00 dom/quota/test/gtest/TestQuotaManager.cpp
+--- a/dom/quota/test/gtest/TestQuotaManager.cpp	Wed Jun 11 07:39:03 2025 +0000
++++ b/dom/quota/test/gtest/TestQuotaManager.cpp	Wed Jun 11 07:47:39 2025 +0000
+@@ -3093,6 +3093,40 @@
+   ASSERT_NO_FATAL_FAILURE(ShutdownStorage());
+ }
+ 
++TEST_F(TestQuotaManager, GetOriginStateMetadata_EmptyRepository) {
++  ASSERT_NO_FATAL_FAILURE(ShutdownStorage());
++
++  ASSERT_NO_FATAL_FAILURE(InitializeStorage());
++  ASSERT_NO_FATAL_FAILURE(InitializeTemporaryStorage());
++
++  const auto maybeOriginStateMetadata =
++      GetOriginStateMetadata(GetTestOriginMetadata());
++  ASSERT_FALSE(maybeOriginStateMetadata);
++
++  ASSERT_NO_FATAL_FAILURE(ShutdownStorage());
++}
++
++TEST_F(TestQuotaManager, GetOriginStateMetadata_OriginDirectoryExists) {
++  auto testOriginMetadata = GetTestOriginMetadata();
++
++  ASSERT_NO_FATAL_FAILURE(ShutdownStorage());
++
++  ASSERT_NO_FATAL_FAILURE(InitializeStorage());
++  ASSERT_NO_FATAL_FAILURE(InitializeTemporaryStorage());
++  ASSERT_NO_FATAL_FAILURE(
++      InitializeTemporaryOrigin(testOriginMetadata,
++                                /* aCreateIfNonExistent */ true));
++
++  auto maybeOriginStateMetadata = GetOriginStateMetadata(testOriginMetadata);
++  ASSERT_TRUE(maybeOriginStateMetadata);
++
++  auto originStateMetadata = maybeOriginStateMetadata.extract();
++  ASSERT_GT(originStateMetadata.mLastAccessTime, 0);
++  ASSERT_FALSE(originStateMetadata.mPersisted);
++
++  ASSERT_NO_FATAL_FAILURE(ShutdownStorage());
++}
++
+ TEST_F(TestQuotaManager, TotalDirectoryIterations_ClearingEmptyRepository) {
+   ASSERT_NO_FATAL_FAILURE(ShutdownStorage());
+ 

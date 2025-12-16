@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webaudio/AudioContext.cpp
+# Commit: fa15a3572741
+# Full Hash: fa15a35727411aba8edc65ab23665d89a8b8c7de
+# Author: Tom Ritter <tom@mozilla.com>
+# Date: 2022-11-29 08:40:32
+# Regressor Bug: 1778510
+# File Overlap Count: 1
+# Description:
+#   Bug 1778510: Cut over AudioContext to new fine-grained Timer Precision calls r=padenot
+#   
+#   Depends on D151304
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D151305
+# ==============================================================================
+
+diff -r 4ceffd409eae -r fa15a3572741 dom/media/webaudio/AudioContext.cpp
+--- a/dom/media/webaudio/AudioContext.cpp	Mon Nov 28 18:04:10 2022 +0000
++++ b/dom/media/webaudio/AudioContext.cpp	Mon Nov 28 18:04:10 2022 +0000
+@@ -739,12 +739,15 @@
+ 
+   double rawTime = track->TrackTimeToSeconds(track->GetCurrentTime());
+ 
++  RTPCallerType callerType = GetParentObject()->AsGlobal()->RTPCallerType();
++
+   // CurrentTime increments in intervals of 128/sampleRate. If the Timer
+   // Precision Reduction is smaller than this interval, the jittered time
+   // can always be reversed to the raw step of the interval. In that case
+   // we can simply return the un-reduced time; and avoid breaking tests.
+   // We have to convert each variable into a common magnitude, we choose ms.
+-  if ((128 / mSampleRate) * 1000.0 > nsRFPService::TimerResolution() / 1000.0) {
++  if ((128 / mSampleRate) * 1000.0 >
++      nsRFPService::TimerResolution(callerType) / 1000.0) {
+     return rawTime;
+   }
+ 
+@@ -753,9 +756,7 @@
+   // will never reset (even if one rewinds a video.) Therefore we can use a
+   // single Random Seed initialized at the same time as the object.
+   return nsRFPService::ReduceTimePrecisionAsSecs(
+-      rawTime, GetRandomTimelineSeed(),
+-      /* aIsSystemPrincipal */ false,
+-      GetParentObject()->AsGlobal()->CrossOriginIsolated());
++      rawTime, GetRandomTimelineSeed(), callerType);
+ }
+ 
+ nsISerialEventTarget* AudioContext::GetMainThread() const {

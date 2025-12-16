@@ -1,0 +1,31 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/html/HTMLImageMapAccessible.cpp
+# Commit: b345887154f9
+# Full Hash: b345887154f9d624e4f1fd3b685205fa268c6219
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2023-03-09 09:30:44
+# Regressor Bug: 1815913
+# File Overlap Count: 1
+# Description:
+#   Bug 1818413 - Add some null pointer checks in HTMLImageMapAccessible::UpdateChildAreas r=Jamie
+#   
+#   Given Bug 1815913 made the initialization of ImageMap earlier,
+#   calling HTMLImageMapAccessible::UpdateChildAreas along with that
+#   can lead to some null pointer crashes when reading mContent.
+# ==============================================================================
+
+diff -r 8305d79eb872 -r b345887154f9 accessible/html/HTMLImageMapAccessible.cpp
+--- a/accessible/html/HTMLImageMapAccessible.cpp	Wed Mar 08 15:35:00 2023 +0000
++++ b/accessible/html/HTMLImageMapAccessible.cpp	Wed Mar 08 15:40:52 2023 +0000
+@@ -61,6 +61,9 @@
+ // HTMLImageMapAccessible: public
+ 
+ void HTMLImageMapAccessible::UpdateChildAreas(bool aDoFireEvents) {
++  if (!mContent || !mContent->GetPrimaryFrame()) {
++    return;
++  }
+   nsImageFrame* imageFrame = do_QueryFrame(mContent->GetPrimaryFrame());
+ 
+   // If image map is not initialized yet then we trigger one time more later.

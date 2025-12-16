@@ -1,0 +1,93 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/nsWindow.cpp
+# Commit: 37b28252e060
+# Full Hash: 37b28252e06031f86628ad8197eb47fa3857b389
+# Author: stransky <stransky@redhat.com>
+# Date: 2022-09-19 15:58:06
+# Regressor Bug: 1789581
+# File Overlap Count: 1
+# Description:
+#   Bug 1789581 [Wayland] Use move-to-rect offset to shift popup position when there's a gap between popups r=emilio
+#   
+#   If there's a gap between popups we can't use move-to-rect as anchor needs to be placed inside of parent popup.
+#   In such case place anchor to upper corner of parent popup and submit popup position as offset.
+#   
+# ==============================================================================
+
+diff -r 540dcf23e80e -r 37b28252e060 widget/gtk/nsWindow.cpp
+--- a/widget/gtk/nsWindow.cpp	Mon Sep 19 09:40:23 2022 +0000
++++ b/widget/gtk/nsWindow.cpp	Mon Sep 19 10:39:15 2022 +0000
+@@ -2428,7 +2428,7 @@
+ }
+ 
+ bool nsWindow::WaylandPopupAnchorAdjustForParentPopup(
+-    GdkRectangle* aPopupAnchor) {
++    GdkRectangle* aPopupAnchor, GdkPoint* aOffset) {
+   LOG("nsWindow::WaylandPopupAnchorAdjustForParentPopup");
+ 
+   GtkWindow* parentGtkWindow = gtk_window_get_transient_for(GTK_WINDOW(mShell));
+@@ -2458,17 +2458,23 @@
+   GdkRectangle finalRect;
+   if (!gdk_rectangle_intersect(aPopupAnchor, &parentWindowRect, &finalRect)) {
+     // Popup anchor is outside of parent window - we can't use move-to-rect
+-    LOG("  anchor is ourside of parent window!");
+-    return false;
++    *aOffset = {mPopupMoveToRectParams.mOffset.x + aPopupAnchor->x,
++                mPopupMoveToRectParams.mOffset.y + aPopupAnchor->y};
++    finalRect = *aPopupAnchor;
++    finalRect.x = finalRect.y = 0;
++  } else {
++    *aOffset = mPopupMoveToRectParams.mOffset;
+   }
+ 
+   *aPopupAnchor = finalRect;
+   LOG("  anchor is correct %d,%d -> %d x %d", finalRect.x, finalRect.y,
+       finalRect.width, finalRect.height);
++  LOG("  anchor offset %d, %d", aOffset->x, aOffset->y);
+   return true;
+ }
+ 
+-bool nsWindow::WaylandPopupCheckAndGetAnchor(GdkRectangle* aPopupAnchor) {
++bool nsWindow::WaylandPopupCheckAndGetAnchor(GdkRectangle* aPopupAnchor,
++                                             GdkPoint* aOffset) {
+   LOG("nsWindow::WaylandPopupCheckAndGetAnchor");
+ 
+   GdkWindow* gdkWindow = gtk_widget_get_window(GTK_WIDGET(mShell));
+@@ -2497,7 +2503,7 @@
+       aPopupAnchor->x, aPopupAnchor->y, aPopupAnchor->width,
+       aPopupAnchor->height);
+ 
+-  if (!WaylandPopupAnchorAdjustForParentPopup(aPopupAnchor)) {
++  if (!WaylandPopupAnchorAdjustForParentPopup(aPopupAnchor, aOffset)) {
+     LOG("  can't use move-to-rect, anchor is not placed inside of parent "
+         "window");
+     return false;
+@@ -2558,8 +2564,10 @@
+   }
+ 
+   GdkRectangle gtkAnchorRect;
++  GdkPoint offset;
+   if (mPopupUseMoveToRect) {
+-    mPopupUseMoveToRect = WaylandPopupCheckAndGetAnchor(&gtkAnchorRect);
++    mPopupUseMoveToRect =
++        WaylandPopupCheckAndGetAnchor(&gtkAnchorRect, &offset);
+   }
+ 
+   LOG("nsWindow::WaylandPopupMove");
+@@ -2610,10 +2618,10 @@
+   }
+   mWaitingForMoveToRectCallback = true;
+ 
+-  sGdkWindowMoveToRect(
+-      gdkWindow, &gtkAnchorRect, mPopupMoveToRectParams.mAnchorRectType,
+-      mPopupMoveToRectParams.mPopupAnchorType, mPopupMoveToRectParams.mHints,
+-      mPopupMoveToRectParams.mOffset.x, mPopupMoveToRectParams.mOffset.y);
++  sGdkWindowMoveToRect(gdkWindow, &gtkAnchorRect,
++                       mPopupMoveToRectParams.mAnchorRectType,
++                       mPopupMoveToRectParams.mPopupAnchorType,
++                       mPopupMoveToRectParams.mHints, offset.x, offset.y);
+ }
+ 
+ void nsWindow::SetZIndex(int32_t aZIndex) {

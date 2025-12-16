@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/PCanvas.ipdl
+# Commit: 4357d695b8d5
+# Full Hash: 4357d695b8d5dd901788d922b73e89f16c45b2c9
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-07 16:20:31
+# Regressor Bug: 1464032
+# File Overlap Count: 1
+# Description:
+#   Bug 1464032 Part 12: Add CanvasParent, CanvasChild and RecordedTextureData. r=mattwoodrow, jld
+#   
+#   RecordedTextureData records TextureData calls for play back in the GPU process.
+#   CanvasChild and CanvasParent set up the recorder and translator.
+#   They also help to manage the starting of translation and co-ordinating the
+# ==============================================================================
+
+diff -r e32d6c3ba887 -r 4357d695b8d5 gfx/layers/ipc/PCanvas.ipdl
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/gfx/layers/ipc/PCanvas.ipdl	Sun Dec 02 14:19:11 2018 +0000
+@@ -0,0 +1,37 @@
++/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*-
++ * vim: sw=2 ts=8 et : */
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++using mozilla::CrossProcessSemaphoreHandle from "mozilla/ipc/CrossProcessSemaphore.h";
++using mozilla::layers::TextureType from "mozilla/layers/LayersTypes.h";
++using mozilla::ipc::SharedMemoryBasic::Handle from "mozilla/ipc/SharedMemoryBasic.h";
++
++namespace mozilla {
++namespace layers {
++
++/**
++ * PCanvas is the IPDL for recorded Canvas drawing.
++ */
++sync protocol PCanvas {
++parent:
++  /**
++   * Create a CanvasTranslator for a particular TextureType, which translates
++   * events from a CanvasEventRingBuffer. aReadHandle is the shared memory
++   * handle for the ring buffer. aReaderSem and aWriterSem are handles for the
++   * semaphores to handle waiting on either side.
++   */
++  async CreateTranslator(TextureType aTextureType, Handle aReadHandle,
++                         CrossProcessSemaphoreHandle aReaderSem,
++                         CrossProcessSemaphoreHandle aWriterSem);
++
++  /**
++   * Used to tell the CanvasTranslator to start translating again after it has
++   * stopped due to a timeout waiting for events.
++   */
++  async ResumeTranslation();
++};
++
++} // layers
++} // mozilla

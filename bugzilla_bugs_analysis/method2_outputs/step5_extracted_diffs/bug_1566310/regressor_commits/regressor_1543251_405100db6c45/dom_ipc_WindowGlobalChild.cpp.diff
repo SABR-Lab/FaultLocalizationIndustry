@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/WindowGlobalChild.cpp
+# Commit: 405100db6c45
+# Full Hash: 405100db6c45f0463286067df5b491f74790d9aa
+# Author: Kashav Madan <kmadan@mozilla.com>
+# Date: 2019-07-11 09:51:12
+# Regressor Bug: 1543251
+# File Overlap Count: 1
+# Description:
+#   Bug 1543251 - Move hasBeforeUnload from PBrowser to PWindowGlobal, r=nika
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D37003
+# ==============================================================================
+
+diff -r 0c408343080d -r 405100db6c45 dom/ipc/WindowGlobalChild.cpp
+--- a/dom/ipc/WindowGlobalChild.cpp	Thu Jul 04 07:41:57 2019 +0000
++++ b/dom/ipc/WindowGlobalChild.cpp	Wed Jul 10 21:13:44 2019 +0000
+@@ -46,6 +46,7 @@
+       mBrowsingContext(aBrowsingContext),
+       mInnerWindowId(aWindow->WindowID()),
+       mOuterWindowId(aWindow->GetOuterWindow()->WindowID()),
++      mBeforeUnloadListeners(0),
+       mIPCClosed(true) {}
+ 
+ already_AddRefed<WindowGlobalChild> WindowGlobalChild::Create(
+@@ -157,6 +158,26 @@
+   return !BrowsingContext()->GetEmbedderElement();
+ }
+ 
++void WindowGlobalChild::BeforeUnloadAdded() {
++  // Don't bother notifying the parent if we don't have an IPC link open.
++  if (mBeforeUnloadListeners == 0 && !mIPCClosed) {
++    SendSetHasBeforeUnload(true);
++  }
++
++  mBeforeUnloadListeners++;
++  MOZ_ASSERT(mBeforeUnloadListeners > 0);
++}
++
++void WindowGlobalChild::BeforeUnloadRemoved() {
++  mBeforeUnloadListeners--;
++  MOZ_ASSERT(mBeforeUnloadListeners >= 0);
++
++  // Don't bother notifying the parent if we don't have an IPC link open.
++  if (mBeforeUnloadListeners == 0 && !mIPCClosed) {
++    SendSetHasBeforeUnload(false);
++  }
++}
++
+ void WindowGlobalChild::Destroy() {
+   // Perform async IPC shutdown unless we're not in-process, and our
+   // BrowserChild is in the process of being destroyed, which will destroy us as

@@ -1,0 +1,92 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/nsImageFrame.cpp
+# Commit: 451701e88d92
+# Full Hash: 451701e88d92935b77385235832865dabe8c2942
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2019-05-03 12:59:14
+# Regressor Bug: 1547792
+# File Overlap Count: 1
+# Description:
+#   Bug 1547792 - AspectRatio should be a single ratio, not a size. r=dholbert
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D29244
+# ==============================================================================
+
+diff -r 020e530d49b3 -r 451701e88d92 layout/generic/nsImageFrame.cpp
+--- a/layout/generic/nsImageFrame.cpp	Wed Apr 24 19:36:17 2019 +0000
++++ b/layout/generic/nsImageFrame.cpp	Thu May 02 23:28:21 2019 +0000
+@@ -209,7 +209,6 @@
+     : nsAtomicContainerFrame(aStyle, aPresContext, aID),
+       mComputedSize(0, 0),
+       mIntrinsicSize(0, 0),
+-      mIntrinsicRatio(0, 0),
+       mKind(aKind),
+       mContentURLRequestRegistered(false),
+       mDisplayingIcon(false),
+@@ -483,15 +482,13 @@
+ 
+   if (!aImage) return false;
+ 
+-  nsSize oldIntrinsicRatio = mIntrinsicRatio;
+-
+   // Set intrinsic ratio to match aImage's reported intrinsic ratio.
+   // But if we have 'contain:size', or aImage hasn't loaded enough to report
+   // useful ratio, we fall back to 0,0.
+-  if (StyleDisplay()->IsContainSize() ||
+-      NS_FAILED(aImage->GetIntrinsicRatio(&mIntrinsicRatio))) {
+-    mIntrinsicRatio.SizeTo(0, 0);
+-  }
++  AspectRatio oldIntrinsicRatio = mIntrinsicRatio;
++  mIntrinsicRatio = StyleDisplay()->IsContainSize()
++                        ? AspectRatio()
++                        : aImage->GetIntrinsicRatio().valueOr(AspectRatio());
+ 
+   return mIntrinsicRatio != oldIntrinsicRatio;
+ }
+@@ -699,7 +696,7 @@
+ 
+     // Have to size to 0,0 so that GetDesiredSize recalculates the size.
+     mIntrinsicSize = IntrinsicSize(0, 0);
+-    mIntrinsicRatio.SizeTo(0, 0);
++    mIntrinsicRatio = AspectRatio();
+     intrinsicSizeChanged = true;
+   }
+ 
+@@ -820,7 +817,7 @@
+ 
+     // Have to size to 0,0 so that GetDesiredSize recalculates the size
+     mIntrinsicSize = IntrinsicSize(0, 0);
+-    mIntrinsicRatio.SizeTo(0, 0);
++    mIntrinsicRatio = AspectRatio();
+   }
+ 
+   if (GotInitialReflow()) {
+@@ -907,7 +904,7 @@
+     // If we have 'contain:size', then our intrinsic size and ratio are 0,0
+     // regardless of what our underlying image may think.
+     mIntrinsicSize = IntrinsicSize(0, 0);
+-    mIntrinsicRatio.SizeTo(0, 0);
++    mIntrinsicRatio = AspectRatio();
+     return;
+   }
+ 
+@@ -928,7 +925,7 @@
+     nscoord edgeLengthToUse = nsPresContext::CSSPixelsToAppUnits(
+         ICON_SIZE + (2 * (ICON_PADDING + ALT_BORDER_WIDTH)));
+     mIntrinsicSize = IntrinsicSize(edgeLengthToUse, edgeLengthToUse);
+-    mIntrinsicRatio.SizeTo(1, 1);
++    mIntrinsicRatio = AspectRatio(1.0f);
+   }
+ }
+ 
+@@ -997,7 +994,7 @@
+ IntrinsicSize nsImageFrame::GetIntrinsicSize() { return mIntrinsicSize; }
+ 
+ /* virtual */
+-nsSize nsImageFrame::GetIntrinsicRatio() { return mIntrinsicRatio; }
++AspectRatio nsImageFrame::GetIntrinsicRatio() { return mIntrinsicRatio; }
+ 
+ void nsImageFrame::Reflow(nsPresContext* aPresContext, ReflowOutput& aMetrics,
+                           const ReflowInput& aReflowInput,

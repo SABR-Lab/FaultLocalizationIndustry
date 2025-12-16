@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/frontend/BytecodeEmitter.cpp
+# Commit: 07f0b26b5449
+# Full Hash: 07f0b26b54495095213f80a7808cc7ef90c7454d
+# Author: Jonatan Klemets <jonatan.r.klemets@gmail.com>
+# Date: 2021-12-02 09:42:49
+# Regressor Bug: 1736060
+# File Overlap Count: 1
+# Description:
+#   Bug 1736060 - Part 6: Implement import assertions for dynamic imports. r=mgaudet,arai
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D126046
+# ==============================================================================
+
+diff -r d9fa28df9787 -r 07f0b26b5449 js/src/frontend/BytecodeEmitter.cpp
+--- a/js/src/frontend/BytecodeEmitter.cpp	Wed Dec 01 18:26:10 2021 +0000
++++ b/js/src/frontend/BytecodeEmitter.cpp	Wed Dec 01 18:26:10 2021 +0000
+@@ -1342,6 +1342,7 @@
+       return true;
+ 
+     case ParseNodeKind::CallImportExpr:
++    case ParseNodeKind::CallImportSpec:
+       MOZ_ASSERT(pn->is<BinaryNode>());
+       *answer = true;
+       return true;
+@@ -1543,6 +1544,9 @@
+     case ParseNodeKind::ImportSpecList:       // by ParseNodeKind::Import
+     case ParseNodeKind::ImportSpec:           // by ParseNodeKind::Import
+     case ParseNodeKind::ImportNamespaceSpec:  // by ParseNodeKind::Import
++    case ParseNodeKind::ImportAssertion:      // by ParseNodeKind::Import
++    case ParseNodeKind::ImportAssertionList:  // by ParseNodeKind::Import
++    case ParseNodeKind::ImportModuleRequest:  // by ParseNodeKind::Import
+     case ParseNodeKind::ExportBatchSpecStmt:  // by ParseNodeKind::Export
+     case ParseNodeKind::ExportSpecList:       // by ParseNodeKind::Export
+     case ParseNodeKind::ExportSpec:           // by ParseNodeKind::Export
+@@ -11635,12 +11639,32 @@
+       }
+       break;
+ 
+-    case ParseNodeKind::CallImportExpr:
+-      if (!emitTree(pn->as<BinaryNode>().right()) ||
+-          !emit1(JSOp::DynamicImport)) {
+-        return false;
+-      }
+-      break;
++    case ParseNodeKind::CallImportExpr: {
++      BinaryNode* spec = &pn->as<BinaryNode>().right()->as<BinaryNode>();
++
++      if (!emitTree(spec->left())) {
++        //          [stack] specifier
++        return false;
++      }
++
++      if (!spec->right()->isKind(ParseNodeKind::PosHolder)) {
++        //          [stack] specifier options
++        if (!emitTree(spec->right())) {
++          return false;
++        }
++      } else {
++        //          [stack] specifier undefined
++        if (!emit1(JSOp::Undefined)) {
++          return false;
++        }
++      }
++
++      if (!emit1(JSOp::DynamicImport)) {
++        return false;
++      }
++
++      break;
++    }
+ 
+     case ParseNodeKind::SetThis:
+       if (!emitSetThis(&pn->as<BinaryNode>())) {

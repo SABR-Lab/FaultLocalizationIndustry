@@ -1,0 +1,42 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/nsHttpChannel.cpp
+# Commit: 4309b577f25a
+# Full Hash: 4309b577f25aafdee2af81caf35faae93d05e75b
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2021-01-29 16:01:10
+# Description:
+#   Bug 1688945 - Make sure we don't query HTTPS RR when we already have one r=necko-reviewers,valentin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D103348
+# ==============================================================================
+
+diff -r 5efe821951f9 -r 4309b577f25a netwerk/protocol/http/nsHttpChannel.cpp
+--- a/netwerk/protocol/http/nsHttpChannel.cpp	Thu Jan 28 18:10:56 2021 +0000
++++ b/netwerk/protocol/http/nsHttpChannel.cpp	Thu Jan 28 19:34:41 2021 +0000
+@@ -6781,7 +6781,10 @@
+     // When LoadUseHTTPSSVC() is true, we should really "fetch" the HTTPS RR,
+     // not "prefetch", since DNS prefetch can be disabled by the pref.
+     if (LoadUseHTTPSSVC() ||
+-        gHttpHandler->UseHTTPSRRForSpeculativeConnection()) {
++        (gHttpHandler->UseHTTPSRRForSpeculativeConnection() &&
++         !mHTTPSSVCRecord)) {
++      MOZ_ASSERT(!mHTTPSSVCRecord);
++
+       OriginAttributes originAttributes;
+       StoragePrincipalHelper::GetOriginAttributesForHTTPSRR(this,
+                                                             originAttributes);
+@@ -8977,7 +8980,11 @@
+   LOG(("nsHttpChannel::OnHTTPSRRAvailable [this=%p, aRecord=%p]\n", this,
+        aRecord));
+ 
+-  MOZ_ASSERT(!mHTTPSSVCRecord);
++  if (mHTTPSSVCRecord) {
++    MOZ_ASSERT(false, "OnHTTPSRRAvailable called twice!");
++    return;
++  }
++
+   nsCOMPtr<nsIDNSHTTPSSVCRecord> record = aRecord;
+   mHTTPSSVCRecord.emplace(std::move(record));
+   const nsCOMPtr<nsIDNSHTTPSSVCRecord>& httprr = mHTTPSSVCRecord.ref();

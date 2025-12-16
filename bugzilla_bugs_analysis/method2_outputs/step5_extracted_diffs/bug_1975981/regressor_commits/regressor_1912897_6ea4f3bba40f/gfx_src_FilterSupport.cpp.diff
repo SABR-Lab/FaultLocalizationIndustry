@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/src/FilterSupport.cpp
+# Commit: 6ea4f3bba40f
+# Full Hash: 6ea4f3bba40f2fdf5c4893e0eb76fee7d4e05094
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2025-07-05 09:22:06
+# Regressor Bug: 1912897
+# File Overlap Count: 1
+# Description:
+#   Bug 1912897 - Support blurring and shadows for Accelerated Canvas2D. r=aosmond
+#   
+#   This adds support via FilterNodeWebgl for accelerating specific filters in AC2D.
+#   In particular, it adds support for accelerated blurring using a separable blur
+#   filter. This is then used to implement the Gaussian Blur filter as well as shadows.
+# ==============================================================================
+
+diff -r c6d00b59234d -r 6ea4f3bba40f gfx/src/FilterSupport.cpp
+--- a/gfx/src/FilterSupport.cpp	Sat Jul 05 00:10:54 2025 +0000
++++ b/gfx/src/FilterSupport.cpp	Sat Jul 05 04:41:59 2025 +0000
+@@ -1329,27 +1329,14 @@
+ 
+ void FilterSupport::RenderFilterDescription(
+     DrawTarget* aDT, const FilterDescription& aFilter, const Rect& aRenderRect,
+-    SourceSurface* aSourceGraphic, const IntRect& aSourceGraphicRect,
+-    SourceSurface* aFillPaint, const IntRect& aFillPaintRect,
+-    SourceSurface* aStrokePaint, const IntRect& aStrokePaintRect,
++    RefPtr<FilterNode> aSourceGraphic, const IntRect& aSourceGraphicRect,
++    RefPtr<FilterNode> aFillPaint, const IntRect& aFillPaintRect,
++    RefPtr<FilterNode> aStrokePaint, const IntRect& aStrokePaintRect,
+     nsTArray<RefPtr<SourceSurface>>& aAdditionalImages, const Point& aDestPoint,
+     const DrawOptions& aOptions) {
+-  RefPtr<FilterNode> sourceGraphic, fillPaint, strokePaint;
+-  if (aSourceGraphic) {
+-    sourceGraphic = FilterWrappers::ForSurface(aDT, aSourceGraphic,
+-                                               aSourceGraphicRect.TopLeft());
+-  }
+-  if (aFillPaint) {
+-    fillPaint =
+-        FilterWrappers::ForSurface(aDT, aFillPaint, aFillPaintRect.TopLeft());
+-  }
+-  if (aStrokePaint) {
+-    strokePaint = FilterWrappers::ForSurface(aDT, aStrokePaint,
+-                                             aStrokePaintRect.TopLeft());
+-  }
+   RefPtr<FilterNode> resultFilter = FilterNodeGraphFromDescription(
+-      aDT, aFilter, aRenderRect, sourceGraphic, aSourceGraphicRect, fillPaint,
+-      strokePaint, aAdditionalImages);
++      aDT, aFilter, aRenderRect, aSourceGraphic, aSourceGraphicRect, aFillPaint,
++      aStrokePaint, aAdditionalImages);
+   if (!resultFilter) {
+     gfxWarning() << "Filter is NULL.";
+     return;

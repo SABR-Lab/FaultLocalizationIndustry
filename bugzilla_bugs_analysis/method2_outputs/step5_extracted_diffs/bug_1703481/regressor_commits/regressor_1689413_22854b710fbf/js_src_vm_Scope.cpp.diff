@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/Scope.cpp
+# Commit: 22854b710fbf
+# Full Hash: 22854b710fbfb779ac6b19fe4c9ac2570189cec0
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2021-03-06 09:33:16
+# Regressor Bug: 1689413
+# File Overlap Count: 1
+# Description:
+#   Bug 1689413 part 6 - Move Realm* from ObjectGroup to BaseShape. r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D106976
+# ==============================================================================
+
+diff -r 4531d5c25694 -r 22854b710fbf js/src/vm/Scope.cpp
+--- a/js/src/vm/Scope.cpp	Fri Mar 05 19:10:06 2021 +0000
++++ b/js/src/vm/Scope.cpp	Fri Mar 05 19:10:07 2021 +0000
+@@ -96,8 +96,8 @@
+                                  uint32_t numSlots, ObjectFlags objectFlags) {
+   // Put as many slots into the object header as possible.
+   uint32_t numFixed = gc::GetGCKindSlots(gc::GetGCObjectKind(numSlots));
+-  return EmptyShape::getInitialShape(cx, cls, TaggedProto(nullptr), numFixed,
+-                                     objectFlags);
++  return EmptyShape::getInitialShape(cx, cls, cx->realm(), TaggedProto(nullptr),
++                                     numFixed, objectFlags);
+ }
+ 
+ static Shape* NextEnvironmentShape(JSContext* cx, HandleAtom name,
+@@ -542,9 +542,9 @@
+ }
+ 
+ Shape* Scope::maybeCloneEnvironmentShape(JSContext* cx) {
+-  // Clone the environment shape if cloning into a different zone.
++  // Clone the environment shape if cloning into a different realm.
+   Shape* shape = environmentShape();
+-  if (shape && shape->zoneFromAnyThread() != cx->zone()) {
++  if (shape && shape->realm() != cx->realm()) {
+     BindingIter bi(this);
+     return CreateEnvironmentShape(cx, bi, shape->getObjectClass(),
+                                   shape->slotSpan(), shape->objectFlags());

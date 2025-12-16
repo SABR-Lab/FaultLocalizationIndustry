@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/remoteworkers/RemoteWorkerDebuggerManagerParent.cpp
+# Commit: 1e774bd7f365
+# Full Hash: 1e774bd7f36525a03b6260b1cd7741bcf4e5f622
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2025-04-09 04:12:49
+# Regressor Bug: 1899503
+# File Overlap Count: 4
+# Description:
+#   Bug 1899503 - P3 PRemoteWorkerDebugger binding implementation. r=asuth
+#   
+#   This patch implements the PRemoteWorkerDebugger binding.
+#   
+#   We are trying to keep the same logic debugger registration/unregistration to minimize the difference between the local debugger(the debugger on the content process main thread)
+# ==============================================================================
+
+diff -r b003e26209cf -r 1e774bd7f365 dom/workers/remoteworkers/RemoteWorkerDebuggerManagerParent.cpp
+--- a/dom/workers/remoteworkers/RemoteWorkerDebuggerManagerParent.cpp	Tue Apr 08 09:43:33 2025 +0000
++++ b/dom/workers/remoteworkers/RemoteWorkerDebuggerManagerParent.cpp	Tue Apr 08 09:43:33 2025 +0000
+@@ -40,18 +40,18 @@
+     const RemoteWorkerDebuggerInfo& aDebuggerInfo,
+     mozilla::ipc::Endpoint<PRemoteWorkerDebuggerParent>&& aParentEp) {
+   MOZ_ASSERT_DEBUG_OR_FUZZING(XRE_IsParentProcess() && NS_IsMainThread());
+-  RefPtr<WorkerDebuggerManager> manager = WorkerDebuggerManager::Get();
++  RefPtr<WorkerDebuggerManager> manager = WorkerDebuggerManager::GetOrCreate();
+   MOZ_ASSERT_DEBUG_OR_FUZZING(manager);
+ 
+-  nsCOMPtr<nsIWorkerDebugger> debugger =
+-      manager->GetDebuggerById(aDebuggerInfo.Id());
+-  MOZ_ASSERT_DEBUG_OR_FUZZING(!debugger);
+-
+-  debugger = MakeRefPtr<RemoteWorkerDebuggerParent>(aDebuggerInfo,
+-                                                    std::move(aParentEp));
++  RefPtr<RemoteWorkerDebuggerParent> debugger =
++      MakeRefPtr<RemoteWorkerDebuggerParent>(aDebuggerInfo,
++                                             std::move(aParentEp));
+ 
+   manager->RegisterDebugger(debugger);
+ 
++  MOZ_ASSERT(debugger->CanSend());
++  Unused << debugger->SendRegisterDone();
++
+   return IPC_OK();
+ }
+ 

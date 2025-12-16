@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/base/PresShell.cpp
+# Commit: d400d0a16ce6
+# Full Hash: d400d0a16ce6c20bfe5addb995f610f4881b31e6
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2021-08-27 09:43:40
+# Regressor Bug: 1722487
+# File Overlap Count: 3
+# Description:
+#   Bug 1722487 - Avoid some work for font list updates. r=jfkthame
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D123363
+# ==============================================================================
+
+diff -r ab80197101b9 -r d400d0a16ce6 layout/base/PresShell.cpp
+--- a/layout/base/PresShell.cpp	Thu Aug 26 23:10:30 2021 +0000
++++ b/layout/base/PresShell.cpp	Thu Aug 26 23:17:54 2021 +0000
+@@ -9932,7 +9932,9 @@
+   }
+ 
+   if (!nsCRT::strcmp(aTopic, "font-info-updated")) {
+-    mPresContext->ForceReflowForFontInfoUpdate();
++    // See how gfxPlatform::ForceGlobalReflow encodes this.
++    bool needsReframe = aData && !!aData[0];
++    mPresContext->ForceReflowForFontInfoUpdate(needsReframe);
+     return NS_OK;
+   }
+ 

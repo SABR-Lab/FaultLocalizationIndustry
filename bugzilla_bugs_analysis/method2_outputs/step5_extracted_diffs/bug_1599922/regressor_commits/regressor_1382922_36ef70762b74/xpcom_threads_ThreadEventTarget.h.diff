@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: xpcom/threads/ThreadEventTarget.h
+# Commit: 36ef70762b74
+# Full Hash: 36ef70762b74b3c6b8bd0f26c57ab4b54467f64b
+# Author: Bill McCloskey <billm@mozilla.com>
+# Date: 2017-08-17 23:17:14
+# Regressor Bug: 1382922
+# File Overlap Count: 3
+# Description:
+#   Bug 1382922 - Refactor event queue to allow multiple implementations (r=erahm)
+#   
+#   This patch refactors the nsThread event queue to clean it up and to make it easier to restructure. The fundamental concepts are as follows:
+#   
+#   Each nsThread will have a pointer to a refcounted SynchronizedEventQueue. A SynchronizedEQ takes care of doing the locking and condition variable work when posting and popping events. For the actual storage of events, it delegates to an AbstractEventQueue data structure. It keeps a UniquePtr to the AbstractEventQueue that it uses for storage.
+# ==============================================================================
+
+diff -r ca6618d0bc17 -r 36ef70762b74 xpcom/threads/ThreadEventTarget.h
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/xpcom/threads/ThreadEventTarget.h	Tue Jun 20 19:42:13 2017 -0700
+@@ -0,0 +1,42 @@
++/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
++/* vim: set ts=8 sts=2 et sw=2 tw=80: */
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++#ifndef mozilla_ThreadEventTarget_h
++#define mozilla_ThreadEventTarget_h
++
++#include "mozilla/Mutex.h"
++#include "mozilla/SynchronizedEventQueue.h" // for ThreadTargetSink
++#include "nsISerialEventTarget.h"
++
++namespace mozilla {
++
++// ThreadEventTarget handles the details of posting an event to a thread. It can
++// be used with any ThreadTargetSink implementation.
++class ThreadEventTarget final : public nsISerialEventTarget
++{
++public:
++  ThreadEventTarget(ThreadTargetSink* aSink,
++                    bool aIsMainThread);
++
++  NS_DECL_THREADSAFE_ISUPPORTS
++  NS_DECL_NSIEVENTTARGET_FULL
++
++  // Disconnects the target so that it can no longer post events.
++  void Disconnect(const MutexAutoLock& aProofOfLock) { mSink->Disconnect(aProofOfLock); }
++
++  // Sets the thread for which IsOnCurrentThread returns true to the current thread.
++  void SetCurrentThread();
++
++private:
++  ~ThreadEventTarget() {}
++
++  RefPtr<ThreadTargetSink> mSink;
++  bool mIsMainThread;
++};
++
++} // namespace mozilla
++
++#endif // mozilla_ThreadEventTarget_h

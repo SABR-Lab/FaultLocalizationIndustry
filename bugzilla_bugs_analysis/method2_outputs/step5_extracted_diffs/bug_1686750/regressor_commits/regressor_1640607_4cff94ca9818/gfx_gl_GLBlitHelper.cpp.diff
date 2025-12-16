@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/gl/GLBlitHelper.cpp
+# Commit: 4cff94ca9818
+# Full Hash: 4cff94ca98189769f21a855520a345c6c4e5c841
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2021-01-15 03:50:53
+# Regressor Bug: 1640607
+# File Overlap Count: 1
+# Description:
+#   Bug 1640607 - Send SurfaceDescriptors for GPU blitting for video-to-webgl. r=lsalzman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D101061
+# ==============================================================================
+
+diff -r 044f8b594c71 -r 4cff94ca9818 gfx/gl/GLBlitHelper.cpp
+--- a/gfx/gl/GLBlitHelper.cpp	Thu Jan 14 01:20:12 2021 +0000
++++ b/gfx/gl/GLBlitHelper.cpp	Thu Jan 14 01:23:06 2021 +0000
+@@ -679,6 +679,41 @@
+ 
+ // -----------------------------------------------------------------------------
+ 
++#ifdef XP_MACOSX
++static RefPtr<MacIOSurface> LookupSurface(const layers::SurfaceDescriptorMacIOSurface& sd) {
++  return MacIOSurface::LookupSurface(
++          sd.surfaceId(), sd.scaleFactor(),
++          !sd.isOpaque(), sd.yUVColorSpace());
++}
++#endif
++
++bool GLBlitHelper::BlitSdToFramebuffer(const layers::SurfaceDescriptor& asd,
++                                       const gfx::IntSize& destSize,
++                                       const OriginPos destOrigin) {
++  const auto sdType = asd.type();
++  switch (sdType) {
++#ifdef XP_WIN
++    case layers::SurfaceDescriptor::TSurfaceDescriptorD3D10: {
++      const auto& sd = asd.get_SurfaceDescriptorD3D10();
++      return BlitDescriptor(sd, destSize, destOrigin);
++    }
++    case layers::SurfaceDescriptor::TSurfaceDescriptorDXGIYCbCr: {
++      const auto& sd = asd.get_SurfaceDescriptorDXGIYCbCr();
++      return BlitDescriptor(sd, destSize, destOrigin);
++    }
++#endif
++#ifdef XP_MACOSX
++    case layers::SurfaceDescriptor::TSurfaceDescriptorMacIOSurface: {
++      const auto& sd = asd.get_SurfaceDescriptorMacIOSurface();
++      const auto surf = LookupSurface(sd);
++      return BlitImage(surf, destSize, destOrigin);
++    }
++#endif
++    default:
++      return false;
++  }
++}
++
+ bool GLBlitHelper::BlitImageToFramebuffer(layers::Image* const srcImage,
+                                           const gfx::IntSize& destSize,
+                                           const OriginPos destOrigin) {

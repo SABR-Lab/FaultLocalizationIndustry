@@ -1,0 +1,29 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: xpcom/build/XPCOMInit.cpp
+# Commit: d04f7a7ec375
+# Full Hash: d04f7a7ec375bc4bf08b39875f86608a8920691e
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-04-07 03:19:44
+# Regressor Bug: 1695580
+# File Overlap Count: 1
+# Description:
+#   Bug 1695580 - In xpcom, cancel pending DelayedRunnable timers on shutdown. r=KrisWright
+#   
+#   Because DelayedRunnables are fire-and-forget, there is no way for a targeted
+#   EventTarget to clean them up on shutdown. Thus if a timer fires after
+#   EventTarget shutdown it will fail to dispatch the timer event, and avoid
+# ==============================================================================
+
+diff -r 2103cd9e58b7 -r d04f7a7ec375 xpcom/build/XPCOMInit.cpp
+--- a/xpcom/build/XPCOMInit.cpp	Tue Apr 06 12:16:11 2021 +0000
++++ b/xpcom/build/XPCOMInit.cpp	Tue Apr 06 12:16:11 2021 +0000
+@@ -621,6 +621,7 @@
+ 
+     mozilla::AppShutdown::AdvanceShutdownPhase(
+         mozilla::ShutdownPhase::XPCOMShutdownThreads);
++    nsThreadManager::get().CancelBackgroundDelayedRunnables();
+     gXPCOMThreadsShutDown = true;
+     NS_ProcessPendingEvents(thread);
+ 

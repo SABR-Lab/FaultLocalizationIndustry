@@ -1,0 +1,131 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/spellchecker/TextServicesDocument.h
+# Commit: 1232d34c7296
+# Full Hash: 1232d34c72967957b81f1a4cfe3dc3fdd4dd950d
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2021-07-13 21:42:32
+# Regressor Bug: 1718924
+# File Overlap Count: 2
+# Description:
+#   Bug 1718924 - part 17: Move `TextServicesDocument::mSelectionStartOffsetInTexInBlock` and `TextServicesDocument::mSelectionEndOffsetInTextInBlock` into `OffsetEntryTable` r=m_kato
+#   
+#   Depends on D119163
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D119164
+# ==============================================================================
+
+diff -r da317e009565 -r 1232d34c7296 editor/spellchecker/TextServicesDocument.h
+--- a/editor/spellchecker/TextServicesDocument.h	Tue Jul 13 11:03:56 2021 +0000
++++ b/editor/spellchecker/TextServicesDocument.h	Tue Jul 13 11:09:57 2021 +0000
+@@ -97,37 +97,81 @@
+     class Selection final {
+      public:
+       size_t StartIndex() const {
+-        MOZ_ASSERT(IsSet());
++        MOZ_ASSERT(IsIndexesSet());
+         return *mStartIndex;
+       }
+       size_t EndIndex() const {
+-        MOZ_ASSERT(IsSet());
++        MOZ_ASSERT(IsIndexesSet());
+         return *mEndIndex;
+       }
+ 
+-      bool IsSet() const { return mStartIndex.isSome() && mEndIndex.isSome(); }
++      uint32_t StartOffsetInTextInBlock() const {
++        MOZ_ASSERT(IsSet());
++        return *mStartOffsetInTextInBlock;
++      }
++      uint32_t EndOffsetInTextInBlock() const {
++        MOZ_ASSERT(IsSet());
++        return *mEndOffsetInTextInBlock;
++      }
++      uint32_t LengthInTextInBlock() const {
++        MOZ_ASSERT(IsSet());
++        return *mEndOffsetInTextInBlock - *mStartOffsetInTextInBlock;
++      }
++
++      bool IsCollapsed() {
++        return !IsSet() || (IsInSameElement() && StartOffsetInTextInBlock() ==
++                                                     EndOffsetInTextInBlock());
++      }
++
++      bool IsIndexesSet() const {
++        return mStartIndex.isSome() && mEndIndex.isSome();
++      }
++      bool IsSet() const {
++        return IsIndexesSet() && mStartOffsetInTextInBlock.isSome() &&
++               mEndOffsetInTextInBlock.isSome();
++      }
+       bool IsInSameElement() const {
+-        return IsSet() && StartIndex() == EndIndex();
++        return IsIndexesSet() && StartIndex() == EndIndex();
+       }
+ 
+       void Reset() {
+         mStartIndex.reset();
+         mEndIndex.reset();
++        mStartOffsetInTextInBlock.reset();
++        mEndOffsetInTextInBlock.reset();
+       }
+-      void Set(size_t aIndex) { mEndIndex = mStartIndex = Some(aIndex); }
+-      void Set(size_t aStartIndex, size_t aEndIndex) {
++      void SetIndex(size_t aIndex) { mEndIndex = mStartIndex = Some(aIndex); }
++      void Set(size_t aIndex, uint32_t aOffsetInTextInBlock) {
++        mEndIndex = mStartIndex = Some(aIndex);
++        mStartOffsetInTextInBlock = mEndOffsetInTextInBlock =
++            Some(aOffsetInTextInBlock);
++      }
++      void SetIndexes(size_t aStartIndex, size_t aEndIndex) {
+         mStartIndex = Some(aStartIndex);
+         mEndIndex = Some(aEndIndex);
+       }
++      void Set(size_t aStartIndex, size_t aEndIndex,
++               uint32_t aStartOffsetInTextInBlock,
++               uint32_t aEndOffsetInTextInBlock) {
++        mStartIndex = Some(aStartIndex);
++        mEndIndex = Some(aEndIndex);
++        mStartOffsetInTextInBlock = Some(aStartOffsetInTextInBlock);
++        mEndOffsetInTextInBlock = Some(aEndOffsetInTextInBlock);
++      }
+ 
+       void CollapseToStart() {
+         MOZ_ASSERT(mStartIndex.isSome());
++        MOZ_ASSERT(mStartOffsetInTextInBlock.isSome());
+         mEndIndex = mStartIndex;
++        mEndOffsetInTextInBlock = mStartOffsetInTextInBlock;
+       }
+ 
+      private:
+       Maybe<size_t> mStartIndex;
+       Maybe<size_t> mEndIndex;
++      // Selected start and end offset in all text in a block element.
++      Maybe<uint32_t> mStartOffsetInTextInBlock;
++      Maybe<uint32_t> mEndOffsetInTextInBlock;
+     };
+     Selection mSelection;
+   };
+@@ -141,11 +185,6 @@
+   OffsetEntryArray mOffsetTable;
+   RefPtr<nsRange> mExtent;
+ 
+-  // Selected start and end offset in all text in a block element.
+-  // XXX Should we move them into `OffsetEntryArray::Selection`?
+-  Maybe<uint32_t> mSelectionStartOffsetInTextInBlock;
+-  Maybe<uint32_t> mSelectionEndOffsetInTextInBlock;
+-
+   uint32_t mTxtSvcFilterType;
+   IteratorStatus mIteratorStatus;
+ 
+@@ -369,9 +408,6 @@
+                         uint32_t* aSelLength);
+   nsresult GetUncollapsedSelection(BlockSelectionStatus* aSelStatus,
+                                    uint32_t* aSelOffset, uint32_t* aSelLength);
+-
+-  bool SelectionIsCollapsed() const;
+-  bool SelectionIsValid() const;
+ };
+ 
+ }  // namespace mozilla

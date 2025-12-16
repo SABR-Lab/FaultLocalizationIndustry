@@ -1,0 +1,105 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/MediaDecoder.cpp
+# Commit: 243a33803d16
+# Full Hash: 243a33803d16d50cfcc8cf0a5c4739a5ed08dc55
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2018-11-23 21:37:23
+# Regressor Bug: 1172394
+# File Overlap Count: 1
+# Description:
+#   Bug 1423241 - Refactor DecodedStream. r=jya
+#   
+#   This removes DecodedStream's use of MediaStreamListener in favor of
+#   MediaStreamTrackListener. This change has however rippled through to a lot
+#   more cleanup, per below.
+# ==============================================================================
+
+diff -r 12f91d8a1f69 -r 243a33803d16 dom/media/MediaDecoder.cpp
+--- a/dom/media/MediaDecoder.cpp	Fri Nov 23 15:01:48 2018 +0000
++++ b/dom/media/MediaDecoder.cpp	Fri Nov 23 15:02:03 2018 +0000
+@@ -6,6 +6,7 @@
+ 
+ #include "MediaDecoder.h"
+ 
++#include "DOMMediaStream.h"
+ #include "ImageContainer.h"
+ #include "Layers.h"
+ #include "MediaDecoderStateMachine.h"
+@@ -239,29 +240,40 @@
+   return GetStateMachine()->InvokeSetSink(aSink);
+ }
+ 
+-void MediaDecoder::AddOutputStream(ProcessedMediaStream* aStream,
+-                                   TrackID aNextAvailableTrackID,
+-                                   bool aFinishWhenEnded) {
++void MediaDecoder::SetOutputStreamCORSMode(CORSMode aCORSMode) {
++  MOZ_ASSERT(NS_IsMainThread());
++  AbstractThread::AutoEnter context(AbstractMainThread());
++  mDecoderStateMachine->SetOutputStreamCORSMode(aCORSMode);
++}
++
++void MediaDecoder::AddOutputStream(DOMMediaStream* aStream) {
+   MOZ_ASSERT(NS_IsMainThread());
+   MOZ_ASSERT(mDecoderStateMachine, "Must be called after Load().");
+   AbstractThread::AutoEnter context(AbstractMainThread());
+-  mDecoderStateMachine->AddOutputStream(aStream, aNextAvailableTrackID,
+-                                        aFinishWhenEnded);
++  mDecoderStateMachine->EnsureOutputStreamManager(
++      aStream->GetInputStream()->Graph(), ToMaybe(mInfo.get()));
++  mDecoderStateMachine->AddOutputStream(aStream);
+ }
+ 
+-void MediaDecoder::RemoveOutputStream(MediaStream* aStream) {
++void MediaDecoder::RemoveOutputStream(DOMMediaStream* aStream) {
+   MOZ_ASSERT(NS_IsMainThread());
+   MOZ_ASSERT(mDecoderStateMachine, "Must be called after Load().");
+   AbstractThread::AutoEnter context(AbstractMainThread());
+   mDecoderStateMachine->RemoveOutputStream(aStream);
+ }
+ 
+-TrackID MediaDecoder::NextAvailableTrackIDFor(
+-    MediaStream* aOutputStream) const {
++void MediaDecoder::SetNextOutputStreamTrackID(TrackID aNextTrackID) {
+   MOZ_ASSERT(NS_IsMainThread());
+   MOZ_ASSERT(mDecoderStateMachine, "Must be called after Load().");
+   AbstractThread::AutoEnter context(AbstractMainThread());
+-  return mDecoderStateMachine->NextAvailableTrackIDFor(aOutputStream);
++  mDecoderStateMachine->SetNextOutputStreamTrackID(aNextTrackID);
++}
++
++TrackID MediaDecoder::GetNextOutputStreamTrackID() {
++  MOZ_ASSERT(NS_IsMainThread());
++  MOZ_ASSERT(mDecoderStateMachine, "Must be called after Load().");
++  AbstractThread::AutoEnter context(AbstractMainThread());
++  return mDecoderStateMachine->GetNextOutputStreamTrackID();
+ }
+ 
+ double MediaDecoder::GetDuration() {
+@@ -307,7 +319,6 @@
+       INIT_CANONICAL(mLooping, aInit.mLooping),
+       INIT_CANONICAL(mPlayState, PLAY_STATE_LOADING),
+       INIT_CANONICAL(mSameOriginMedia, false),
+-      INIT_CANONICAL(mMediaPrincipalHandle, PRINCIPAL_HANDLE_NONE),
+       mVideoDecodingOberver(
+           new BackgroundVideoDecodingPermissionObserver(this)),
+       mIsBackgroundVideoDecodingAllowed(false),
+@@ -742,6 +753,8 @@
+ void MediaDecoder::UpdateSameOriginStatus(bool aSameOrigin) {
+   MOZ_ASSERT(NS_IsMainThread());
+   AbstractThread::AutoEnter context(AbstractMainThread());
++  nsCOMPtr<nsIPrincipal> principal = GetCurrentPrincipal();
++  mDecoderStateMachine->SetOutputStreamPrincipal(principal);
+   mSameOriginMedia = aSameOrigin;
+ }
+ 
+@@ -789,8 +802,6 @@
+   MOZ_ASSERT(NS_IsMainThread());
+   MOZ_DIAGNOSTIC_ASSERT(!IsShutdown());
+   AbstractThread::AutoEnter context(AbstractMainThread());
+-  nsCOMPtr<nsIPrincipal> newPrincipal = GetCurrentPrincipal();
+-  mMediaPrincipalHandle = MakePrincipalHandle(newPrincipal);
+   GetOwner()->NotifyDecoderPrincipalChanged();
+ }
+ 

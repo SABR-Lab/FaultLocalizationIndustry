@@ -1,0 +1,37 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: mozglue/baseprofiler/core/platform.cpp
+# Commit: 3aa39fa769a2
+# Full Hash: 3aa39fa769a237babc6d2a09c39a4de58e9e589b
+# Author: Gerald Squelart <gsquelart@mozilla.com>
+# Date: 2020-10-22 21:51:59
+# Description:
+#   Bug 1672501 - Initialize scProfilerMainThreadId from profiler_init - r=gregtatum
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D94419
+# ==============================================================================
+
+diff -r 766437adb95f -r 3aa39fa769a2 mozglue/baseprofiler/core/platform.cpp
+--- a/mozglue/baseprofiler/core/platform.cpp	Thu Oct 22 12:46:28 2020 +0000
++++ b/mozglue/baseprofiler/core/platform.cpp	Thu Oct 22 12:55:13 2020 +0000
+@@ -180,7 +180,9 @@
+   va_end(args);
+ }
+ 
+-const int scProfilerMainThreadId = profiler_current_thread_id();
++// Statically initialized to 0, then set once from profiler_init(), which should
++// be called from the main thread before any other use of the profiler.
++int scProfilerMainThreadId;
+ 
+ constexpr static bool ValidateFeatures() {
+   int expectedFeatureNumber = 0;
+@@ -2565,6 +2567,8 @@
+ void profiler_init(void* aStackTop) {
+   LOG("profiler_init");
+ 
++  scProfilerMainThreadId = profiler_current_thread_id();
++
+   VTUNE_INIT();
+ 
+   MOZ_RELEASE_ASSERT(!CorePS::Exists());

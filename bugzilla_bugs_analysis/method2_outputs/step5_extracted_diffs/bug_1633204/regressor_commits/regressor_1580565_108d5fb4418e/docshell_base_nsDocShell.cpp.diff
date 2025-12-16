@@ -1,0 +1,73 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/nsDocShell.cpp
+# Commit: 108d5fb4418e
+# Full Hash: 108d5fb4418e78e4dca0a746863e5784c6d80371
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-04-23 09:52:48
+# Regressor Bug: 1580565
+# File Overlap Count: 3
+# Description:
+#   Bug 1580565 - Part 4: Use WindowContext to manage BrowsingContext cached status, r=farre
+#   
+#   The existing infrastructure which stored cached BrowsingContexts on the
+#   BrowsingContextGroup was added before WindowContexts were added, and can cause
+#   racing issues with partially discarded trees during process switches.
+# ==============================================================================
+
+diff -r d8dea951a032 -r 108d5fb4418e docshell/base/nsDocShell.cpp
+--- a/docshell/base/nsDocShell.cpp	Wed Apr 22 15:48:20 2020 +0000
++++ b/docshell/base/nsDocShell.cpp	Wed Apr 22 15:48:17 2020 +0000
+@@ -7145,12 +7145,6 @@
+   // Order the mContentViewer setup just like Embed does.
+   mContentViewer = nullptr;
+ 
+-  if (!mWillChangeProcess) {
+-    // Move the browsing context's children to the cache. If we're
+-    // detaching them, we'll detach them from there.
+-    mBrowsingContext->CacheChildren();
+-  }
+-
+   // Now that we're about to switch documents, forget all of our children.
+   // Note that we cached them as needed up in CaptureState above.
+   DestroyChildren();
+@@ -7269,7 +7263,6 @@
+   // <head> is parsed.
+   document->NotifyPossibleTitleChange(false);
+ 
+-  BrowsingContext::Children contexts(childShells.Count());
+   // Now we simulate appending child docshells for subframes.
+   for (i = 0; i < childShells.Count(); ++i) {
+     nsIDocShellTreeItem* childItem = childShells.ObjectAt(i);
+@@ -7306,8 +7299,6 @@
+     // child inherits our mPrivateBrowsingId, which is what we want.
+     AddChild(childItem);
+ 
+-    contexts.AppendElement(childShell->GetBrowsingContext());
+-
+     childShell->SetAllowJavascript(allowJavascript);
+     childShell->SetAllowMetaRedirects(allowRedirects);
+     childShell->SetAllowSubframes(allowSubframes);
+@@ -7323,10 +7314,6 @@
+     NS_ENSURE_SUCCESS(rv, rv);
+   }
+ 
+-  if (!contexts.IsEmpty()) {
+-    mBrowsingContext->RestoreChildren(std::move(contexts));
+-  }
+-
+   // Make sure to restore the window state after adding the child shells back
+   // to the tree.  This is necessary for Thaw() and Resume() to propagate
+   // properly.
+@@ -7879,10 +7866,6 @@
+ 
+   mContentViewer = nullptr;
+ 
+-  // Move the browsing ontext's children to the cache. If we're
+-  // detaching them, we'll detach them from there.
+-  mBrowsingContext->CacheChildren();
+-
+   // Now that we're about to switch documents, forget all of our children.
+   // Note that we cached them as needed up in CaptureState above.
+   DestroyChildren();

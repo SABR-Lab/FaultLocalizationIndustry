@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/base/nsIDocumentViewerPrint.h
+# Commit: 93e3344dd1f7
+# Full Hash: 93e3344dd1f7454dc46c1553dd05e5e3bc78c349
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2020-08-26 03:24:37
+# Regressor Bug: 1636728
+# File Overlap Count: 1
+# Description:
+#   Bug 1636728 - Centralize printing entry points in nsGlobalWindowOuter, and move cloning out of nsPrintJob. r=jwatt,geckoview-reviewers,smaug,agi
+#   
+#   This centralizes our print and preview setup in nsGlobalWindowOuter so
+#   that we never re-clone a clone, and so that we reuse the window.open()
+#   codepath to create the browsing context to clone into.
+# ==============================================================================
+
+diff -r 2969f3de028f -r 93e3344dd1f7 layout/base/nsIDocumentViewerPrint.h
+--- a/layout/base/nsIDocumentViewerPrint.h	Tue Aug 25 02:58:57 2020 +0000
++++ b/layout/base/nsIDocumentViewerPrint.h	Tue Aug 25 17:45:12 2020 +0000
+@@ -50,16 +50,6 @@
+   virtual void OnDonePrinting() = 0;
+ 
+   /**
+-   * Returns true is InitializeForPrintPreview() has been called.
+-   */
+-  virtual bool IsInitializedForPrintPreview() = 0;
+-
+-  /**
+-   * Marks this viewer to be used for print preview.
+-   */
+-  virtual void InitializeForPrintPreview() = 0;
+-
+-  /**
+    * Replaces the current presentation with print preview presentation.
+    */
+   virtual void SetPrintPreviewPresentation(nsViewManager* aViewManager,
+@@ -79,8 +69,6 @@
+   void IncrementDestroyBlockedCount() override;                 \
+   void DecrementDestroyBlockedCount() override;                 \
+   void OnDonePrinting() override;                               \
+-  bool IsInitializedForPrintPreview() override;                 \
+-  void InitializeForPrintPreview() override;                    \
+   void SetPrintPreviewPresentation(nsViewManager* aViewManager, \
+                                    nsPresContext* aPresContext, \
+                                    mozilla::PresShell* aPresShell) override;

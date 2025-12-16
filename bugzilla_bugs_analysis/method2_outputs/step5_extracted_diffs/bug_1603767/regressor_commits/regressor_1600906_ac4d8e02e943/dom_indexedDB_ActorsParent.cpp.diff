@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/ActorsParent.cpp
+# Commit: ac4d8e02e943
+# Full Hash: ac4d8e02e94357beb32eed83b4a5ab639c56cbb6
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2019-12-11 21:46:29
+# Regressor Bug: 1600906
+# File Overlap Count: 1
+# Description:
+#   Bug 1600906 - Reduce statefulness of TransactionInfo using const and FlippedOnce. r=dom-workers-and-storage-reviewers,ytausky
+#   
+#   Depends on D56012
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D56013
+# ==============================================================================
+
+diff -r 0e82a2a87b39 -r ac4d8e02e943 dom/indexedDB/ActorsParent.cpp
+--- a/dom/indexedDB/ActorsParent.cpp	Fri Dec 06 19:05:52 2019 +0000
++++ b/dom/indexedDB/ActorsParent.cpp	Wed Dec 11 14:45:40 2019 +0000
+@@ -5297,7 +5297,7 @@
+   nsTArray<TransactionInfo*> mBlockingOrdered;
+ 
+  public:
+-  DatabaseInfo* mDatabaseInfo;
++  DatabaseInfo* const mDatabaseInfo;
+   const nsID mBackgroundChildLoggingId;
+   const nsCString mDatabaseId;
+   const uint64_t mTransactionId;
+@@ -5309,7 +5309,7 @@
+   bool mRunning;
+ 
+ #ifdef DEBUG
+-  bool mFinished;
++  FlippedOnce<false> mFinished;
+ #endif
+ 
+   TransactionInfo(DatabaseInfo* aDatabaseInfo,
+@@ -11348,8 +11348,7 @@
+   Dispatch(aTransactionId, wrapper);
+ 
+ #ifdef DEBUG
+-  MOZ_ASSERT(!transactionInfo->mFinished);
+-  transactionInfo->mFinished = true;
++  transactionInfo->mFinished.Flip();
+ #endif
+ }
+ 
+@@ -12381,12 +12380,7 @@
+       mLoggingSerialNumber(aLoggingSerialNumber),
+       mObjectStoreNames(aObjectStoreNames),
+       mIsWriteTransaction(aIsWriteTransaction),
+-      mRunning(false)
+-#ifdef DEBUG
+-      ,
+-      mFinished(false)
+-#endif
+-{
++      mRunning(false) {
+   AssertIsOnBackgroundThread();
+   MOZ_ASSERT(aDatabaseInfo);
+   aDatabaseInfo->mConnectionPool->AssertIsOnOwningThread();

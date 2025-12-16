@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/public/GCAPI.h
+# Commit: 7d099d4bac74
+# Full Hash: 7d099d4bac7446d5bd798f813a2e78b1aefb1816
+# Author: Denis Palmeiro <dpalmeiro@mozilla.com>
+# Date: 2025-01-15 21:57:20
+# Regressor Bug: 1932686
+# File Overlap Count: 4
+# Description:
+#   Bug 1932686: Migrate enumeration legacy GC metrics to glean using a labeled counter. r=jonco,chutten
+#   
+#   Depends on D231645
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D231646
+# ==============================================================================
+
+diff -r 49990191195a -r 7d099d4bac74 js/public/GCAPI.h
+--- a/js/public/GCAPI.h	Wed Jan 15 15:30:16 2025 +0000
++++ b/js/public/GCAPI.h	Wed Jan 15 15:30:16 2025 +0000
+@@ -657,7 +657,7 @@
+   D(DOCSHELL, 54)                                                      \
+   D(HTML_PARSER, 55)                                                   \
+   D(DOM_TESTUTILS, 56)                                                 \
+-  D(PREPARE_FOR_PAGELOAD, 57)                                          \
++  D(PREPARE_FOR_PAGELOAD, LAST_FIREFOX_REASON)                         \
+                                                                        \
+   /* Reasons reserved for embeddings. */                               \
+   D(RESERVED1, FIRST_RESERVED_REASON)                                  \
+@@ -672,6 +672,7 @@
+ 
+ enum class GCReason {
+   FIRST_FIREFOX_REASON = 33,
++  LAST_FIREFOX_REASON = 57,
+   FIRST_RESERVED_REASON = 90,
+ 
+ #define MAKE_REASON(name, val) name = val,
+@@ -698,6 +699,18 @@
+  */
+ extern JS_PUBLIC_API bool InternalGCReason(JS::GCReason reason);
+ 
++/**
++ * Get a statically allocated C string explaining the given Abort reason.
++ * Input is the integral value of the enum.
++ */
++extern JS_PUBLIC_API const char* ExplainGCAbortReason(uint32_t reason);
++
++/**
++ * Get a statically allocated C string describing the Phase.
++ * Input is the integral value of the enum.
++ */
++extern JS_PUBLIC_API const char* GetGCPhaseName(uint32_t phase);
++
+ /*
+  * Zone GC:
+  *

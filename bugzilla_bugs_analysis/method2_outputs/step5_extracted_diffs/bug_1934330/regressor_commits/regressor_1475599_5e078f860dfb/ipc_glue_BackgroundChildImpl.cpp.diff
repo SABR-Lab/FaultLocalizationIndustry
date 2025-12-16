@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: ipc/glue/BackgroundChildImpl.cpp
+# Commit: 5e078f860dfb
+# Full Hash: 5e078f860dfb9368bd747e4a8c53d07c7e8809ee
+# Author: Andrea Marchesini <amarchesini@mozilla.com>
+# Date: 2024-09-13 04:28:43
+# Regressor Bug: 1475599
+# File Overlap Count: 1
+# Description:
+#   Bug 1475599 - part 2 - CookieStore API - IPDL, r=edgul,webidl,smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D215145
+# ==============================================================================
+
+diff -r d55b6525d7b2 -r 5e078f860dfb ipc/glue/BackgroundChildImpl.cpp
+--- a/ipc/glue/BackgroundChildImpl.cpp	Thu Sep 12 16:48:18 2024 +0000
++++ b/ipc/glue/BackgroundChildImpl.cpp	Thu Sep 12 16:48:19 2024 +0000
+@@ -19,6 +19,7 @@
+ #include "mozilla/dom/PBackgroundLSRequestChild.h"
+ #include "mozilla/dom/PBackgroundLSSimpleRequestChild.h"
+ #include "mozilla/dom/PBackgroundSDBConnectionChild.h"
++#include "mozilla/dom/CookieStoreChild.h"
+ #include "mozilla/dom/PFileSystemRequestChild.h"
+ #include "mozilla/dom/EndpointForReportChild.h"
+ #include "mozilla/dom/PVsync.h"
+@@ -320,6 +321,26 @@
+   return true;
+ }
+ 
++// -----------------------------------------------------------------------------
++// CookieStore API
++// -----------------------------------------------------------------------------
++
++dom::PCookieStoreChild* BackgroundChildImpl::AllocPCookieStoreChild() {
++  RefPtr<dom::CookieStoreChild> child = new dom::CookieStoreChild();
++  return child.forget().take();
++}
++
++bool BackgroundChildImpl::DeallocPCookieStoreChild(PCookieStoreChild* aActor) {
++  RefPtr<dom::CookieStoreChild> child =
++      dont_AddRef(static_cast<dom::CookieStoreChild*>(aActor));
++  MOZ_ASSERT(child);
++  return true;
++}
++
++// -----------------------------------------------------------------------------
++// Camera API
++// -----------------------------------------------------------------------------
++
+ camera::PCamerasChild* BackgroundChildImpl::AllocPCamerasChild() {
+ #ifdef MOZ_WEBRTC
+   RefPtr<camera::CamerasChild> agent = new camera::CamerasChild();

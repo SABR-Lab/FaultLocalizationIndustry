@@ -1,0 +1,31 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/MacroAssembler.cpp
+# Commit: caa8552f4f52
+# Full Hash: caa8552f4f5298399e9e9193a623bc3007652df5
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-06-18 09:41:05
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Refactor wasm::Frame to reduce number of gnarly casts. r=lth,wingo
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D79072
+# ==============================================================================
+
+diff -r 43921ad138e3 -r caa8552f4f52 js/src/jit/MacroAssembler.cpp
+--- a/js/src/jit/MacroAssembler.cpp	Mon Jun 08 20:56:09 2020 +0000
++++ b/js/src/jit/MacroAssembler.cpp	Thu Jun 18 05:33:30 2020 +0000
+@@ -3700,9 +3700,8 @@
+ }
+ 
+ void MacroAssembler::loadWasmTlsRegFromFrame(Register dest) {
+-  loadPtr(
+-      Address(getStackPointer(), framePushed() + offsetof(wasm::Frame, tls)),
+-      dest);
++  loadPtr(Address(getStackPointer(), framePushed() + wasm::Frame::tlsOffset()),
++          dest);
+ }
+ 
+ void MacroAssembler::BranchGCPtr::emit(MacroAssembler& masm) {

@@ -1,0 +1,37 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/windowwatcher/nsWindowWatcher.cpp
+# Commit: 0fae715f6c26
+# Full Hash: 0fae715f6c26e75f825c7c6cbd694d19522ebf27
+# Author: Kris Maglione <maglione.k@gmail.com>
+# Date: 2019-08-15 09:46:49
+# Regressor Bug: 1562292
+# File Overlap Count: 1
+# Description:
+#   Bug 1562292: Follow-up: Fix bustage in GetWindowByName after dropping removal patch. r=bustage CLOSED TREE
+#   
+#   MANUAL PUSH: Bustage fix.
+# ==============================================================================
+
+diff -r de2caa18324b -r 0fae715f6c26 toolkit/components/windowwatcher/nsWindowWatcher.cpp
+--- a/toolkit/components/windowwatcher/nsWindowWatcher.cpp	Thu Aug 01 23:02:01 2019 -0700
++++ b/toolkit/components/windowwatcher/nsWindowWatcher.cpp	Wed Aug 14 12:08:05 2019 -0700
+@@ -1571,8 +1571,16 @@
+                                 /* aSkipTabGroup = */ false,
+                                 getter_AddRefs(treeItem));
+   } else {
++    if (aTargetName.LowerCaseEqualsLiteral("_blank") ||
++        aTargetName.LowerCaseEqualsLiteral("_top") ||
++        aTargetName.LowerCaseEqualsLiteral("_parent") ||
++        aTargetName.LowerCaseEqualsLiteral("_self")) {
++      return NS_OK;
++    }
++
+     // Note: original requestor is null here, per idl comments
+-    FindItemWithName(aTargetName, nullptr, nullptr, getter_AddRefs(treeItem));
++    Unused << TabGroup::GetChromeTabGroup()->FindItemWithName(
++        aTargetName, nullptr, nullptr, getter_AddRefs(treeItem));
+   }
+ 
+   if (treeItem) {

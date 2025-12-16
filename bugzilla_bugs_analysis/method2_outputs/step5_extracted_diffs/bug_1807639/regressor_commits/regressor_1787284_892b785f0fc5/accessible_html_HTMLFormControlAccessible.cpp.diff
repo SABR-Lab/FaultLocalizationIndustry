@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/html/HTMLFormControlAccessible.cpp
+# Commit: 892b785f0fc5
+# Full Hash: 892b785f0fc5126b67898f2534789160b89e8744
+# Author: Morgan Rae Reschenberg <mreschenberg@mozilla.com>
+# Date: 2022-10-28 04:43:55
+# Regressor Bug: 1787284
+# File Overlap Count: 1
+# Description:
+#   Bug 1787284: [Part 2] Cache name and create radio name pivot rule r=eeejay
+#   
+#   Depends on D158892
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D159118
+# ==============================================================================
+
+diff -r d3d8e4d17161 -r 892b785f0fc5 accessible/html/HTMLFormControlAccessible.cpp
+--- a/accessible/html/HTMLFormControlAccessible.cpp	Thu Oct 27 20:32:17 2022 +0000
++++ b/accessible/html/HTMLFormControlAccessible.cpp	Thu Oct 27 20:32:18 2022 +0000
+@@ -5,6 +5,7 @@
+ 
+ #include "HTMLFormControlAccessible.h"
+ 
++#include "CacheConstants.h"
+ #include "DocAccessible-inl.h"
+ #include "LocalAccessible-inl.h"
+ #include "nsAccUtils.h"
+@@ -90,6 +91,20 @@
+   Unused << ComputeGroupAttributes(aPosInSet, aSetSize);
+ }
+ 
++void HTMLRadioButtonAccessible::DOMAttributeChanged(
++    int32_t aNameSpaceID, nsAtom* aAttribute, int32_t aModType,
++    const nsAttrValue* aOldValue, uint64_t aOldState) {
++  if (aAttribute == nsGkAtoms::name) {
++    // If our name changed, it's possible our MEMBER_OF relation
++    // also changed. Push a cache update for Relations.
++    mDoc->QueueCacheUpdate(this, CacheDomain::Relations);
++  } else {
++    // Otherwise, handle this attribute change the way our parent
++    // class wants us to handle it.
++    RadioButtonAccessible::DOMAttributeChanged(aNameSpaceID, aAttribute, aModType, aOldValue, aOldState);
++  }
++}
++
+ Relation HTMLRadioButtonAccessible::ComputeGroupAttributes(
+     int32_t* aPosInSet, int32_t* aSetSize) const {
+   Relation rel = Relation();

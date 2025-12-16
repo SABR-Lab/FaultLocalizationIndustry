@@ -1,0 +1,98 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/ActorsParent.cpp
+# Commit: bcee5e565d96
+# Full Hash: bcee5e565d96199886577ed808d753179801c990
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2019-12-13 16:53:24
+# Regressor Bug: 1600906
+# File Overlap Count: 1
+# Description:
+#   Bug 1600906 - Use move semantics with IdleDatabaseInfo. r=dom-workers-and-storage-reviewers,ytausky
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D56012
+# ==============================================================================
+
+diff -r 9b4c307ed8a4 -r bcee5e565d96 dom/indexedDB/ActorsParent.cpp
+--- a/dom/indexedDB/ActorsParent.cpp	Fri Dec 13 12:20:23 2019 +0000
++++ b/dom/indexedDB/ActorsParent.cpp	Fri Dec 13 12:21:18 2019 +0000
+@@ -5229,18 +5229,30 @@
+ };
+ 
+ struct ConnectionPool::IdleDatabaseInfo final : public IdleResource {
+-  DatabaseInfo* mDatabaseInfo;
+-
+- public:
+-  MOZ_IMPLICIT
+-  IdleDatabaseInfo(DatabaseInfo* aDatabaseInfo);
+-
+-  explicit IdleDatabaseInfo(const IdleDatabaseInfo& aOther) = delete;
++  InitializedOnceMustBeTrue<DatabaseInfo* const> mDatabaseInfo;
++
++ public:
++  explicit IdleDatabaseInfo(DatabaseInfo* aDatabaseInfo);
++
++  IdleDatabaseInfo(const IdleDatabaseInfo& aOther) = delete;
++  IdleDatabaseInfo(IdleDatabaseInfo&& aOther) noexcept
++      : IdleResource(std::move(aOther)),
++        mDatabaseInfo{std::move(aOther.mDatabaseInfo)} {
++    MOZ_ASSERT(mDatabaseInfo);
++
++    MOZ_COUNT_CTOR(ConnectionPool::IdleDatabaseInfo);
++  }
++  IdleDatabaseInfo& operator=(const IdleDatabaseInfo& aOther) = delete;
++  IdleDatabaseInfo& operator=(IdleDatabaseInfo&& aOther) = delete;
+ 
+   ~IdleDatabaseInfo();
+ 
+   bool operator==(const IdleDatabaseInfo& aOther) const {
+-    return mDatabaseInfo == aOther.mDatabaseInfo;
++    return *mDatabaseInfo == *aOther.mDatabaseInfo;
++  }
++
++  bool operator==(DatabaseInfo* const aDatabaseInfo) const {
++    return *mDatabaseInfo == aDatabaseInfo;
+   }
+ 
+   bool operator<(const IdleDatabaseInfo& aOther) const {
+@@ -11144,10 +11156,10 @@
+     IdleDatabaseInfo& info = self->mIdleDatabases[index];
+ 
+     if (now >= info.mIdleTime) {
+-      if (info.mDatabaseInfo->mIdle) {
+-        self->PerformIdleDatabaseMaintenance(info.mDatabaseInfo);
++      if ((*info.mDatabaseInfo)->mIdle) {
++        self->PerformIdleDatabaseMaintenance(*info.mDatabaseInfo);
+       } else {
+-        self->CloseDatabase(info.mDatabaseInfo);
++        self->CloseDatabase(*info.mDatabaseInfo);
+       }
+     } else {
+       break;
+@@ -11557,7 +11569,7 @@
+ 
+   if (!mIdleDatabases.IsEmpty()) {
+     for (IdleDatabaseInfo& idleInfo : mIdleDatabases) {
+-      CloseDatabase(idleInfo.mDatabaseInfo);
++      CloseDatabase(*idleInfo.mDatabaseInfo);
+     }
+     mIdleDatabases.Clear();
+   }
+@@ -11848,7 +11860,7 @@
+     return;
+   }
+ 
+-  mIdleDatabases.InsertElementSorted(aDatabaseInfo);
++  mIdleDatabases.InsertElementSorted(IdleDatabaseInfo{aDatabaseInfo});
+ 
+   AdjustIdleTimer();
+ }
+@@ -12359,7 +12371,6 @@
+ 
+ ConnectionPool::IdleDatabaseInfo::~IdleDatabaseInfo() {
+   AssertIsOnBackgroundThread();
+-  MOZ_ASSERT(mDatabaseInfo);
+ 
+   MOZ_COUNT_DTOR(ConnectionPool::IdleDatabaseInfo);
+ }

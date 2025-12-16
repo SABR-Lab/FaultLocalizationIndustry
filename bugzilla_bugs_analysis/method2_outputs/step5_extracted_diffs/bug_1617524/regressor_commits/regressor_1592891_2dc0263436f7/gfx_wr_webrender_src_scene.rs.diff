@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/scene.rs
+# Commit: 2dc0263436f7
+# Full Hash: 2dc0263436f78b1689d5e23a2b24720181e91ea4
+# Author: Glenn Watson <git@intuitionlibrary.com>
+# Date: 2019-11-01 09:36:21
+# Regressor Bug: 1592891
+# File Overlap Count: 4
+# Description:
+#   Bug 1592891 - Disable picture caching when picture caches have complex transforms. r=kvark,nical
+#   
+#   With the recent changes to compositing in WR, the scene must either
+#   only produce produce cache tiles, or disable picture caching and
+#   rasterize directly.
+# ==============================================================================
+
+diff -r b96cb18aa920 -r 2dc0263436f7 gfx/wr/webrender/src/scene.rs
+--- a/gfx/wr/webrender/src/scene.rs	Thu Oct 31 13:49:53 2019 +0000
++++ b/gfx/wr/webrender/src/scene.rs	Thu Oct 31 19:53:44 2019 +0000
+@@ -7,10 +7,10 @@
+ use api::units::*;
+ use crate::composite::CompositorKind;
+ use crate::clip::{ClipStore, ClipDataStore};
+-use crate::clip_scroll_tree::ClipScrollTree;
++use crate::clip_scroll_tree::{ClipScrollTree, SpatialNodeIndex};
+ use crate::frame_builder::{ChasePrimitive, FrameBuilderConfig};
+ use crate::hit_test::{HitTester, HitTestingScene, HitTestingSceneStats};
+-use crate::internal_types::FastHashMap;
++use crate::internal_types::{FastHashMap, FastHashSet};
+ use crate::prim_store::{PrimitiveStore, PrimitiveStoreStats, PictureIndex};
+ use std::sync::Arc;
+ 
+@@ -228,6 +228,7 @@
+     pub clip_scroll_tree: ClipScrollTree,
+     pub hit_testing_scene: Arc<HitTestingScene>,
+     pub content_slice_count: usize,
++    pub picture_cache_spatial_nodes: FastHashSet<SpatialNodeIndex>,
+ }
+ 
+ impl BuiltScene {
+@@ -242,6 +243,7 @@
+             clip_scroll_tree: ClipScrollTree::new(),
+             hit_testing_scene: Arc::new(HitTestingScene::new(&HitTestingSceneStats::empty())),
+             content_slice_count: 0,
++            picture_cache_spatial_nodes: FastHashSet::default(),
+             config: FrameBuilderConfig {
+                 default_font_render_mode: FontRenderMode::Mono,
+                 dual_source_blending_is_enabled: true,

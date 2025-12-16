@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/windows/sdn/sdnAccessible.h
+# Commit: a53fb045a8e3
+# Full Hash: a53fb045a8e34c1e1f14ca7b705eb9a5a0e76db2
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2021-05-02 09:29:52
+# Regressor Bug: 1694865
+# File Overlap Count: 1
+# Description:
+#   Bug 1694865 part 19: Make EnumVariant, GeckoCustom and sdn*Accessible classes aggregate MsaaAccessible/MsaaDocAccessible instead of AccessibleWrap/DocAccessibleWrap. r=morgan
+#   
+#   These objects need to aggregate the primary COM object (MsaaAccessible).
+#   Once the IUnknown implementation moves out of AccessibleWrap, it won't be possible to aggregate *AccessibleWrap any more.
+#   
+# ==============================================================================
+
+diff -r 5bd374b642fe -r a53fb045a8e3 accessible/windows/sdn/sdnAccessible.h
+--- a/accessible/windows/sdn/sdnAccessible.h	Sat May 01 21:09:04 2021 +0000
++++ b/accessible/windows/sdn/sdnAccessible.h	Sat May 01 22:29:25 2021 +0000
+@@ -10,6 +10,7 @@
+ #include "ISimpleDOM.h"
+ #include "AccessibleWrap.h"
+ #include "IUnknownImpl.h"
++#include "MsaaAccessible.h"
+ 
+ #include "mozilla/Attributes.h"
+ #include "mozilla/Maybe.h"
+@@ -24,8 +25,8 @@
+     if (!mNode) MOZ_CRASH();
+   }
+ 
+-  explicit sdnAccessible(NotNull<AccessibleWrap*> aAccWrap)
+-      : mNode(aAccWrap->GetNode()), mWrap(aAccWrap) {}
++  explicit sdnAccessible(NotNull<MsaaAccessible*> aMsaa)
++      : mNode(aMsaa->LocalAcc()->GetNode()), mMsaa(aMsaa) {}
+ 
+   ~sdnAccessible();
+ 
+@@ -40,9 +41,9 @@
+   DocAccessible* GetDocument() const;
+ 
+   /*
+-   * Return associated accessible if any.
++   * Return associated MsaaAccessible if any.
+    */
+-  AccessibleWrap* GetAccessible();
++  MsaaAccessible* GetMsaa();
+ 
+   void SetUniqueID(uint32_t aNewUniqueId) { mUniqueId = Some(aNewUniqueId); }
+ 
+@@ -122,7 +123,7 @@
+ 
+  private:
+   nsCOMPtr<nsINode> mNode;
+-  RefPtr<AccessibleWrap> mWrap;
++  RefPtr<MsaaAccessible> mMsaa;
+   Maybe<uint32_t> mUniqueId;
+ };
+ 

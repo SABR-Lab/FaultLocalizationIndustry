@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/platforms/PDMFactory.cpp
+# Commit: c177bcba1c07
+# Full Hash: c177bcba1c076d041e3470c8058bb2b4adaa1123
+# Author: Dan Glastonbury <dan.glastonbury@gmail.com>
+# Date: 2020-10-21 09:51:28
+# Regressor Bug: 1595994
+# File Overlap Count: 1
+# Description:
+#   Bug 1595994 - P8: Use RemoteDecoderModule to communicate with GPU and RDD. r=mattwoodrow
+#   
+#   Depends on D54879
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D54880
+# ==============================================================================
+
+diff -r 57607f8b6d8e -r c177bcba1c07 dom/media/platforms/PDMFactory.cpp
+--- a/dom/media/platforms/PDMFactory.cpp	Tue Oct 20 23:26:27 2020 +0000
++++ b/dom/media/platforms/PDMFactory.cpp	Tue Oct 20 23:26:30 2020 +0000
+@@ -20,6 +20,7 @@
+ #include "mozilla/CDMProxy.h"
+ #include "mozilla/ClearOnShutdown.h"
+ #include "mozilla/GpuDecoderModule.h"
++#include "mozilla/RemoteDecoderManagerChild.h"
+ #include "mozilla/RemoteDecoderModule.h"
+ #include "mozilla/SharedThreadPool.h"
+ #include "mozilla/StaticPrefs_media.h"
+@@ -361,9 +362,13 @@
+ 
+ void PDMFactory::CreateDefaultPDMs() {
+   MOZ_ASSERT(!XRE_IsGPUProcess() && !XRE_IsRDDProcess());
++  if (StaticPrefs::media_gpu_process_decoder()) {
++    CreateAndStartupPDM<RemoteDecoderModule>(RemoteDecodeIn::GpuProcess);
++  }
++
+   if (StaticPrefs::media_rdd_process_enabled() &&
+       BrowserTabsRemoteAutostart()) {
+-    CreateAndStartupPDM<RemoteDecoderModule>();
++    CreateAndStartupPDM<RemoteDecoderModule>(RemoteDecodeIn::RddProcess);
+   }
+ 
+ #ifdef XP_WIN

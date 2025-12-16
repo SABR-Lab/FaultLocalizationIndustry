@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/nsIFrame.cpp
+# Commit: 6141de941e71
+# Full Hash: 6141de941e717cdb5485e1aa1ca00ffcd74f8a81
+# Author: Mats Palmgren <mats@mozilla.com>
+# Date: 2021-01-30 19:41:15
+# Regressor Bug: 1683748
+# File Overlap Count: 3
+# Description:
+#   Bug 1683748 - Support Grid/Flex/Table/Column layout for the rendered legend of a fieldset.  r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D101555
+# ==============================================================================
+
+diff -r 3cf752580f1b -r 6141de941e71 layout/generic/nsIFrame.cpp
+--- a/layout/generic/nsIFrame.cpp	Fri Jan 29 19:20:24 2021 +0000
++++ b/layout/generic/nsIFrame.cpp	Sat Jan 30 13:47:10 2021 +0000
+@@ -38,6 +38,7 @@
+ #include "mozilla/ViewportUtils.h"
+ 
+ #include "nsCOMPtr.h"
++#include "nsFieldSetFrame.h"
+ #include "nsFlexContainerFrame.h"
+ #include "nsFrameList.h"
+ #include "nsPlaceholderFrame.h"
+@@ -629,6 +630,13 @@
+          content == document->GetBodyElement();
+ }
+ 
++bool nsIFrame::IsRenderedLegend() const {
++  if (auto* parent = GetParent(); parent && parent->IsFieldSetFrame()) {
++    return static_cast<nsFieldSetFrame*>(parent)->GetLegend() == this;
++  }
++  return false;
++}
++
+ void nsIFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
+                     nsIFrame* aPrevInFlow) {
+   MOZ_ASSERT(nsQueryFrame::FrameIID(mClass) == GetFrameId());

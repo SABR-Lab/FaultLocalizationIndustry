@@ -1,0 +1,87 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/html/TextControlState.cpp
+# Commit: 7c1ae2ab6596
+# Full Hash: 7c1ae2ab65966ae06c7e539015fbc1f2d852dd4a
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-05-16 04:24:30
+# Regressor Bug: 1833181
+# File Overlap Count: 1
+# Description:
+#   Bug 1833181 - Avoid attr lookups to check whether input value is empty. r=smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D178078
+# ==============================================================================
+
+diff -r 08a8f6b67ccf -r 7c1ae2ab6596 dom/html/TextControlState.cpp
+--- a/dom/html/TextControlState.cpp	Mon May 15 17:13:37 2023 +0000
++++ b/dom/html/TextControlState.cpp	Mon May 15 17:16:41 2023 +0000
+@@ -1032,14 +1032,14 @@
+     }
+ 
+     if (weakFrame.IsAlive()) {
+-      HandleValueChanged();
++      HandleValueChanged(aTextEditor);
+     }
+   }
+ 
+   return mTextControlState ? mTextControlState->OnEditActionHandled() : NS_OK;
+ }
+ 
+-void TextInputListener::HandleValueChanged() {
++void TextInputListener::HandleValueChanged(TextEditor& aTextEditor) {
+   // Make sure we know we were changed (do NOT set this to false if there are
+   // no undo items; JS could change the value and we'd still need to save it)
+   if (mSetValueChanged) {
+@@ -1050,7 +1050,8 @@
+     // NOTE(emilio): execCommand might get here even though it might not be a
+     // "proper" user-interactive change. Might be worth reconsidering which
+     // ValueChangeKind are we passing down.
+-    mTxtCtrlElement->OnValueChanged(ValueChangeKind::UserInteraction);
++    mTxtCtrlElement->OnValueChanged(ValueChangeKind::UserInteraction,
++                                    aTextEditor.IsEmpty(), nullptr);
+     if (mTextControlState) {
+       mTextControlState->ClearLastInteractiveValue();
+     }
+@@ -2711,7 +2712,8 @@
+   // If we were handling SetValue() before, don't update the DOM state twice,
+   // just let the outer call do so.
+   if (!wasHandlingSetValue) {
+-    handlingSetValue.GetTextControlElement()->OnValueChanged(changeKind);
++    handlingSetValue.GetTextControlElement()->OnValueChanged(
++        changeKind, handlingSetValue.GetSettingValue());
+   }
+   return true;
+ }
+@@ -2973,7 +2975,8 @@
+       // Update validity state before dispatching "input" event for its
+       // listeners like `EditorBase::NotifyEditorObservers()`.
+       aHandlingSetValue.GetTextControlElement()->OnValueChanged(
+-          ValueChangeKind::UserInteraction);
++          ValueChangeKind::UserInteraction,
++          aHandlingSetValue.GetSettingValue());
+ 
+       ClearLastInteractiveValue();
+ 
+@@ -3000,20 +3003,6 @@
+   return true;
+ }
+ 
+-bool TextControlState::HasNonEmptyValue() const {
+-  // If the frame for editor is alive, we can compute it with mTextEditor.
+-  // Otherwise, we need to check cached value via GetValue().
+-  if (mTextEditor && mBoundFrame && mEditorInitialized &&
+-      !(mHandlingState &&
+-        mHandlingState->IsHandling(TextControlAction::CommitComposition))) {
+-    return !mTextEditor->IsEmpty();
+-  }
+-
+-  nsAutoString value;
+-  GetValue(value, true);
+-  return !value.IsEmpty();
+-}
+-
+ void TextControlState::InitializeKeyboardEventListeners() {
+   // register key listeners
+   EventListenerManager* manager =

@@ -1,0 +1,78 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/angle/checkout/src/common/utilities.cpp
+# Commit: 3a91885d47e0
+# Full Hash: 3a91885d47e0ef7fba9749562d52300eea67c651
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2019-11-11 21:52:52
+# Regressor Bug: 1578576
+# File Overlap Count: 4
+# Description:
+#   Bug 1578576 - Part 2: Update to ANGLE 3865 r=jgilbert
+#   
+#   Depends on D44561
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44579
+# ==============================================================================
+
+diff -r 77cee77c0307 -r 3a91885d47e0 gfx/angle/checkout/src/common/utilities.cpp
+--- a/gfx/angle/checkout/src/common/utilities.cpp	Fri Nov 08 16:41:42 2019 +0000
++++ b/gfx/angle/checkout/src/common/utilities.cpp	Fri Nov 08 17:06:00 2019 +0000
+@@ -771,7 +771,8 @@
+ }
+ 
+ const sh::ShaderVariable *FindShaderVarField(const sh::ShaderVariable &var,
+-                                             const std::string &fullName)
++                                             const std::string &fullName,
++                                             GLuint *fieldIndexOut)
+ {
+     if (var.fields.empty())
+     {
+@@ -792,11 +793,12 @@
+     {
+         return nullptr;
+     }
+-    for (const auto &field : var.fields)
++    for (size_t field = 0; field < var.fields.size(); ++field)
+     {
+-        if (field.name == fieldName)
++        if (var.fields[field].name == fieldName)
+         {
+-            return &field;
++            *fieldIndexOut = static_cast<GLuint>(field);
++            return &var.fields[field];
+         }
+     }
+     return nullptr;
+@@ -891,6 +893,22 @@
+     }
+ }
+ 
++PipelineType GetPipelineType(ShaderType type)
++{
++    switch (type)
++    {
++        case ShaderType::Vertex:
++        case ShaderType::Fragment:
++        case ShaderType::Geometry:
++            return PipelineType::GraphicsPipeline;
++        case ShaderType::Compute:
++            return PipelineType::ComputePipeline;
++        default:
++            UNREACHABLE();
++            return PipelineType::GraphicsPipeline;
++    }
++}
++
+ }  // namespace gl
+ 
+ namespace egl
+@@ -952,6 +970,7 @@
+     switch (target)
+     {
+         case EGL_NATIVE_BUFFER_ANDROID:
++        case EGL_D3D11_TEXTURE_ANGLE:
+             return true;
+ 
+         default:

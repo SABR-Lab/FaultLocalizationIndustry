@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxHarfBuzzShaper.cpp
+# Commit: cd5ac5f6ff6e
+# Full Hash: cd5ac5f6ff6e626bd69e4d42ff9d1d7078abae03
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2022-03-01 09:40:29
+# Regressor Bug: 1756720
+# File Overlap Count: 1
+# Description:
+#   Bug 1756720 - When using legacy MS Symbol fonts, map character codes from the U+00xx range to the PUA range U+F0xx found in the cmap subtables. r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D139724
+# ==============================================================================
+
+diff -r b547c1a2ef61 -r cd5ac5f6ff6e gfx/thebes/gfxHarfBuzzShaper.cpp
+--- a/gfx/thebes/gfxHarfBuzzShaper.cpp	Mon Feb 28 20:34:33 2022 +0000
++++ b/gfx/thebes/gfxHarfBuzzShaper.cpp	Mon Feb 28 20:38:38 2022 +0000
+@@ -54,6 +54,7 @@
+       mNumLongVMetrics(0),
+       mDefaultVOrg(-1.0),
+       mUseFontGetGlyph(aFont->ProvidesGetGlyph()),
++      mIsSymbolFont(false),
+       mUseFontGlyphWidths(aFont->ProvidesGlyphWidths()),
+       mInitialized(false),
+       mVerticalInitialized(false),
+@@ -114,6 +115,16 @@
+   }
+ 
+   if (!gid) {
++    if (mIsSymbolFont) {
++      // For legacy MS Symbol fonts, we try mapping the given character code
++      // to the PUA range used by these fonts' cmaps.
++      if (auto pua = gfxFontUtils::MapLegacySymbolFontCharToPUA(unicode)) {
++        gid = GetNominalGlyph(pua);
++      }
++      if (gid) {
++        return gid;
++      }
++    }
+     switch (unicode) {
+       case 0xA0:
+         // if there's no glyph for &nbsp;, just use the space glyph instead.
+@@ -1123,7 +1134,7 @@
+     uint32_t len;
+     const uint8_t* data = (const uint8_t*)hb_blob_get_data(mCmapTable, &len);
+     mCmapFormat = gfxFontUtils::FindPreferredSubtable(
+-        data, len, &mSubtableOffset, &mUVSTableOffset);
++        data, len, &mSubtableOffset, &mUVSTableOffset, &mIsSymbolFont);
+     if (mCmapFormat <= 0) {
+       return false;
+     }

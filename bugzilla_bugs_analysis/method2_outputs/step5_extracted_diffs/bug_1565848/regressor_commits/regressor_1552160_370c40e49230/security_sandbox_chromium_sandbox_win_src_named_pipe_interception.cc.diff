@@ -1,0 +1,91 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/sandbox/win/src/named_pipe_interception.cc
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 3
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/sandbox/win/src/named_pipe_interception.cc
+--- a/security/sandbox/chromium/sandbox/win/src/named_pipe_interception.cc	Wed Jun 12 21:55:59 2019 +1200
++++ b/security/sandbox/chromium/sandbox/win/src/named_pipe_interception.cc	Wed Jun 12 11:10:48 2019 +0100
+@@ -12,24 +12,25 @@
+ #include "sandbox/win/src/sandbox_nt_util.h"
+ #include "sandbox/win/src/sharedmem_ipc_client.h"
+ #include "sandbox/win/src/target_services.h"
+-#include "mozilla/sandboxing/sandboxLogging.h"
+ 
+ namespace sandbox {
+ 
+-HANDLE WINAPI TargetCreateNamedPipeW(
+-    CreateNamedPipeWFunction orig_CreateNamedPipeW, LPCWSTR pipe_name,
+-    DWORD open_mode, DWORD pipe_mode, DWORD max_instance, DWORD out_buffer_size,
+-    DWORD in_buffer_size, DWORD default_timeout,
+-    LPSECURITY_ATTRIBUTES security_attributes) {
+-  HANDLE pipe = orig_CreateNamedPipeW(pipe_name, open_mode, pipe_mode,
+-                                      max_instance, out_buffer_size,
+-                                      in_buffer_size, default_timeout,
+-                                      security_attributes);
++HANDLE WINAPI
++TargetCreateNamedPipeW(CreateNamedPipeWFunction orig_CreateNamedPipeW,
++                       LPCWSTR pipe_name,
++                       DWORD open_mode,
++                       DWORD pipe_mode,
++                       DWORD max_instance,
++                       DWORD out_buffer_size,
++                       DWORD in_buffer_size,
++                       DWORD default_timeout,
++                       LPSECURITY_ATTRIBUTES security_attributes) {
++  HANDLE pipe = orig_CreateNamedPipeW(
++      pipe_name, open_mode, pipe_mode, max_instance, out_buffer_size,
++      in_buffer_size, default_timeout, security_attributes);
+   if (INVALID_HANDLE_VALUE != pipe)
+     return pipe;
+ 
+-  mozilla::sandboxing::LogBlocked("CreateNamedPipeW", pipe_name);
+-
+   // We don't trust that the IPC can work this early.
+   if (!SandboxFactory::GetTargetServices()->GetState()->InitCalled())
+     return INVALID_HANDLE_VALUE;
+@@ -42,7 +43,7 @@
+ 
+   do {
+     void* memory = GetGlobalIPCMemory();
+-    if (NULL == memory)
++    if (!memory)
+       break;
+ 
+     CountedParameterSet<NameBased> params;
+@@ -53,10 +54,10 @@
+ 
+     SharedMemIPCClient ipc(memory);
+     CrossCallReturn answer = {0};
+-    ResultCode code = CrossCall(ipc, IPC_CREATENAMEDPIPEW_TAG, pipe_name,
+-                                open_mode, pipe_mode, max_instance,
+-                                out_buffer_size, in_buffer_size,
+-                                default_timeout, &answer);
++    ResultCode code =
++        CrossCall(ipc, IPC_CREATENAMEDPIPEW_TAG, pipe_name, open_mode,
++                  pipe_mode, max_instance, out_buffer_size, in_buffer_size,
++                  default_timeout, &answer);
+     if (SBOX_ALL_OK != code)
+       break;
+ 
+@@ -65,7 +66,6 @@
+     if (ERROR_SUCCESS != answer.win32_result)
+       return INVALID_HANDLE_VALUE;
+ 
+-    mozilla::sandboxing::LogAllowed("CreateNamedPipeW", pipe_name);
+     return answer.handle;
+   } while (false);
+ 

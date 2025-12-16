@@ -1,0 +1,78 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/ron/src/value/raw.rs
+# Commit: 3f167f8b3137
+# Full Hash: 3f167f8b313749f50f135e189e5854bef7ac0c73
+# Author: Erich Gubler <erichdongubler@gmail.com>
+# Date: 2025-10-03 18:08 +0000
+# Regressor Bug: 1991551
+# File Overlap Count: 23
+# Overlapping Files: third_party/rust/wgpu-hal/Cargo.toml, supply-chain/audits.toml, third_party/rust/naga/src/back/spv/writer.rs, third_party/rust/naga/src/back/msl/writer.rs, third_party/rust/wgpu-types/src/lib.rs
+# Description:
+#   Bug 1991551 - build(webgpu): update WGPU to 8c4aebc0c1b75e3f7412dfc180745a0717fc30ec r=webgpu-reviewers,supply-chain-reviewers,nical
+# ==============================================================================
+
+diff -r 823439f307a0 -r 3f167f8b3137 third_party/rust/ron/src/value/raw.rs
+--- a/third_party/rust/ron/src/value/raw.rs	Fri Oct 03 18:01:30 2025 +0000
++++ b/third_party/rust/ron/src/value/raw.rs	Fri Oct 03 18:08:29 2025 +0000
+@@ -2,7 +2,8 @@
+ // https://github.com/serde-rs/json/blob/master/src/raw.rs
+ // Licensed under either of Apache License, Version 2.0 or MIT license at your option.
+ 
+-use std::{fmt, ops::Range};
++use alloc::{borrow::ToOwned, boxed::Box, format, string::String};
++use core::{fmt, ops::Range};
+ 
+ use serde::{de, ser, Deserialize, Serialize};
+ 
+@@ -30,12 +31,12 @@
+ 
+     fn from_boxed_str(ron: Box<str>) -> Box<Self> {
+         // Safety: RawValue is a transparent newtype around str
+-        unsafe { std::mem::transmute::<Box<str>, Box<RawValue>>(ron) }
++        unsafe { core::mem::transmute::<Box<str>, Box<RawValue>>(ron) }
+     }
+ 
+     fn into_boxed_str(raw_value: Box<Self>) -> Box<str> {
+         // Safety: RawValue is a transparent newtype around str
+-        unsafe { std::mem::transmute::<Box<RawValue>, Box<str>>(raw_value) }
++        unsafe { core::mem::transmute::<Box<RawValue>, Box<str>>(raw_value) }
+     }
+ 
+     #[allow(clippy::expect_used)]
+@@ -186,10 +187,7 @@
+             fn visit_borrowed_str<E: de::Error>(self, ron: &'de str) -> Result<Self::Value, E> {
+                 match Options::default().from_str::<de::IgnoredAny>(ron) {
+                     Ok(_) => Ok(RawValue::from_borrowed_str(ron)),
+-                    Err(err) => Err(de::Error::custom(format!(
+-                        "invalid RON value at {}: {}",
+-                        err.position, err.code
+-                    ))),
++                    Err(err) => Err(de::Error::custom(format!("invalid RON value at {}", err))),
+                 }
+             }
+ 
+@@ -220,20 +218,14 @@
+             fn visit_str<E: de::Error>(self, ron: &str) -> Result<Self::Value, E> {
+                 match Options::default().from_str::<de::IgnoredAny>(ron) {
+                     Ok(_) => Ok(RawValue::from_boxed_str(ron.to_owned().into_boxed_str())),
+-                    Err(err) => Err(de::Error::custom(format!(
+-                        "invalid RON value at {}: {}",
+-                        err.position, err.code
+-                    ))),
++                    Err(err) => Err(de::Error::custom(format!("invalid RON value at {}", err))),
+                 }
+             }
+ 
+             fn visit_string<E: de::Error>(self, ron: String) -> Result<Self::Value, E> {
+                 match Options::default().from_str::<de::IgnoredAny>(&ron) {
+                     Ok(_) => Ok(RawValue::from_boxed_str(ron.into_boxed_str())),
+-                    Err(err) => Err(de::Error::custom(format!(
+-                        "invalid RON value at {}: {}",
+-                        err.position, err.code
+-                    ))),
++                    Err(err) => Err(de::Error::custom(format!("invalid RON value at {}", err))),
+                 }
+             }
+ 

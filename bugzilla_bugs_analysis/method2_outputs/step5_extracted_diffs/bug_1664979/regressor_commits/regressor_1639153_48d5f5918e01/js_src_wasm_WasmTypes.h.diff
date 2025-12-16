@@ -1,0 +1,70 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmTypes.h
+# Commit: 48d5f5918e01
+# Full Hash: 48d5f5918e01a7a292ba4cca6e6ffffa055b986d
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-10-31 21:05:17
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 1: Reserve two slots after stack arguments for the future tls preservation. r=lth
+#   
+#   We are going to remove Frame::tls and support trampolines for indirect calls, so we need to get rid of using Frame::tls.
+#   In this and the followup patches I will iteratively remove all dependencies of Frame::tls and remove it eventually.
+#   
+# ==============================================================================
+
+diff -r 5995c2f5c003 -r 48d5f5918e01 js/src/wasm/WasmTypes.h
+--- a/js/src/wasm/WasmTypes.h	Sat Oct 31 12:37:34 2020 +0200
++++ b/js/src/wasm/WasmTypes.h	Sat Oct 31 09:56:04 2020 +0000
+@@ -50,8 +50,8 @@
+ namespace jit {
+ class JitScript;
+ enum class RoundingMode;
+-template <class VecT>
+-class ABIArgIter;
++template <class VecT, class ABIArgGeneratorT>
++class ABIArgIterBase;
+ }  // namespace jit
+ 
+ // This is a widespread header, so lets keep out the core wasm impl types.
+@@ -1311,13 +1311,13 @@
+   const ValTypeVector& args_;
+   bool hasStackResults_;
+ 
+-  // To allow ABIArgIter<ArgTypeVector>, we define a private length()
+-  // method.  To prevent accidental errors, other users need to be
++  // To allow ABIArgIterBase<VecT, ABIArgGeneratorT>, we define a private
++  // length() method.  To prevent accidental errors, other users need to be
+   // explicit and call lengthWithStackResults() or
+   // lengthWithoutStackResults().
+   size_t length() const { return args_.length() + size_t(hasStackResults_); }
+-  friend jit::ABIArgIter<ArgTypeVector>;
+-  friend jit::ABIArgIter<const ArgTypeVector>;
++  template <class VecT, class ABIArgGeneratorT>
++  friend class jit::ABIArgIterBase;
+ 
+  public:
+   ArgTypeVector(const ValTypeVector& args, StackResults stackResults)
+@@ -3303,6 +3303,19 @@
+ 
+ static_assert(!std::is_polymorphic_v<Frame>, "Frame doesn't need a vtable.");
+ 
++class FrameWithTls : public Frame {
++ public:
++  TlsData* calleeTls_;
++  TlsData* callerTls_;
++
++  constexpr static uint32_t sizeWithoutFrame() {
++    return sizeof(wasm::FrameWithTls) - sizeof(wasm::Frame);
++  }
++};
++
++static_assert(FrameWithTls::sizeWithoutFrame() == 2 * sizeof(void*),
++              "There are only two additional slots");
++
+ #if defined(JS_CODEGEN_ARM64)
+ static_assert(sizeof(Frame) % 16 == 0, "frame is aligned");
+ #endif

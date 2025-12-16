@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/AudioConduit.cpp
+# Commit: 0552c0b4a079
+# Full Hash: 0552c0b4a079a695edfca100df68c4ad82481e58
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 5
+# Description:
+#   Bug 1654112 - Refactor away RtcpEventObserver in favor of MediaEvents. r=bwc
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D123223
+# ==============================================================================
+
+diff -r 877a0fcc6da9 -r 0552c0b4a079 dom/media/webrtc/libwebrtcglue/AudioConduit.cpp
+--- a/dom/media/webrtc/libwebrtcglue/AudioConduit.cpp	Mon Aug 16 15:57:10 2021 +0200
++++ b/dom/media/webrtc/libwebrtcglue/AudioConduit.cpp	Thu Aug 19 11:49:29 2021 +0200
+@@ -369,33 +369,9 @@
+   return mCall->Call()->GetStats();
+ }
+ 
+-void WebrtcAudioConduit::OnRtcpBye() {
+-  RefPtr<WebrtcAudioConduit> self = this;
+-  NS_DispatchToMainThread(media::NewRunnableFrom([self]() mutable {
+-    MOZ_ASSERT(NS_IsMainThread());
+-    if (self->mRtcpEventObserver) {
+-      self->mRtcpEventObserver->OnRtcpBye();
+-    }
+-    return NS_OK;
+-  }));
+-}
++void WebrtcAudioConduit::OnRtcpBye() { mRtcpByeEvent.Notify(); }
+ 
+-void WebrtcAudioConduit::OnRtcpTimeout() {
+-  RefPtr<WebrtcAudioConduit> self = this;
+-  NS_DispatchToMainThread(media::NewRunnableFrom([self]() mutable {
+-    MOZ_ASSERT(NS_IsMainThread());
+-    if (self->mRtcpEventObserver) {
+-      self->mRtcpEventObserver->OnRtcpTimeout();
+-    }
+-    return NS_OK;
+-  }));
+-}
+-
+-void WebrtcAudioConduit::SetRtcpEventObserver(
+-    mozilla::RtcpEventObserver* observer) {
+-  MOZ_ASSERT(NS_IsMainThread());
+-  mRtcpEventObserver = observer;
+-}
++void WebrtcAudioConduit::OnRtcpTimeout() { mRtcpTimeoutEvent.Notify(); }
+ 
+ // AudioSessionConduit Implementation
+ MediaConduitErrorCode WebrtcAudioConduit::SetTransmitterTransport(

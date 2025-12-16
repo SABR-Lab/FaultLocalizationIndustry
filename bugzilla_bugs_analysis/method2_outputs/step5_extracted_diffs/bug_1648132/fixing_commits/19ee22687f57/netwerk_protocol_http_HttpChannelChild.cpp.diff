@@ -1,0 +1,49 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/HttpChannelChild.cpp
+# Commit: 19ee22687f57
+# Full Hash: 19ee22687f57436bf13c8b096efe437ab7683e4b
+# Author: Junior Hsu <juhsu@mozilla.com>
+# Date: 2020-06-25 09:44:52
+# Description:
+#   Bug 1648132 - Do not allow setting new listener after we handle all the IPCs before SendOnStartReqeust, r=kershaw
+#   
+#   HttpChannelChild::OnStartRequest should copy argument only since HttpChannelChild::RecvAttachStreamFilter, who sets new listener, could be after OnStartRequest.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D80964
+# ==============================================================================
+
+diff -r f16561d47196 -r 19ee22687f57 netwerk/protocol/http/HttpChannelChild.cpp
+--- a/netwerk/protocol/http/HttpChannelChild.cpp	Wed Jun 24 15:29:58 2020 +0000
++++ b/netwerk/protocol/http/HttpChannelChild.cpp	Wed Jun 24 21:38:57 2020 +0000
+@@ -460,6 +460,8 @@
+     return;
+   }
+ 
++  // Copy arguments only. It's possible to handle other IPC between
++  // OnStartRequest and DoOnStartRequest.
+   mComputedCrossOriginOpenerPolicy = aArgs.openerPolicy();
+ 
+   if (!mCanceled && NS_SUCCEEDED(mStatus)) {
+@@ -514,8 +516,6 @@
+   //
+   // gHttpHandler->OnExamineResponse(this);
+ 
+-  mTracingEnabled = false;
+-
+   ResourceTimingStructArgsToTimingsStruct(aArgs.timing(), mTransactionTimings);
+ 
+   mAllRedirectsSameOrigin = aArgs.allRedirectsSameOrigin();
+@@ -658,6 +658,11 @@
+ 
+   LOG(("HttpChannelChild::DoOnStartRequest [this=%p]\n", this));
+ 
++  // We handle all the listener chaining before OnStartRequest at this moment.
++  // Prevent additional listeners being added to the chain after the request
++  // as started.
++  mTracingEnabled = false;
++
+   // mListener could be null if the redirect setup is not completed.
+   MOZ_ASSERT(mListener || mOnStartRequestCalled);
+   if (!mListener) {

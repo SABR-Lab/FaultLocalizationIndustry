@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/StorageManager.cpp
+# Commit: 7802e5f1bd13
+# Full Hash: 7802e5f1bd1395f19f2d78636787c41f64192bd7
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2024-04-19 15:22:44
+# Regressor Bug: 1769913
+# File Overlap Count: 3
+# Description:
+#   Bug 1769913 - P3 Remove WorkerRunnable::mWorkerPrivate. r=dom-worker-reviewers,asuth
+#   
+#   WorkerRunnable no longer keeps a raw pointer(mWorkerPrivate) for the associated WorkerPrivate in this patch.
+#   Removing the WorkerRunnable::mWorkerPrivate needs to fix the following problems.
+#   
+# ==============================================================================
+
+diff -r ffc69aa8f2c3 -r 7802e5f1bd13 dom/quota/StorageManager.cpp
+--- a/dom/quota/StorageManager.cpp	Fri Apr 19 09:41:57 2024 +0000
++++ b/dom/quota/StorageManager.cpp	Fri Apr 19 09:41:58 2024 +0000
+@@ -125,8 +125,7 @@
+ 
+  public:
+   explicit FinishWorkerRunnable(RequestResolver* aResolver)
+-      : WorkerThreadRunnable(aResolver->mProxy->GetWorkerPrivate(),
+-                             "RequestResolver::FinishWorkerRunnable"),
++      : WorkerThreadRunnable("RequestResolver::FinishWorkerRunnable"),
+         mResolver(aResolver) {
+     MOZ_ASSERT(NS_IsMainThread());
+     MOZ_ASSERT(aResolver);
+@@ -566,7 +565,7 @@
+     }
+ 
+     RefPtr<FinishWorkerRunnable> runnable = new FinishWorkerRunnable(this);
+-    if (NS_WARN_IF(!runnable->Dispatch())) {
++    if (NS_WARN_IF(!runnable->Dispatch(mProxy->GetWorkerPrivate()))) {
+       return NS_ERROR_FAILURE;
+     }
+   }

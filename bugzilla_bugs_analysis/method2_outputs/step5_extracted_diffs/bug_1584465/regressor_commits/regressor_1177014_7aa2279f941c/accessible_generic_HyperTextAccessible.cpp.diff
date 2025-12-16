@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/generic/HyperTextAccessible.cpp
+# Commit: 7aa2279f941c
+# Full Hash: 7aa2279f941cf9c5f5fdf4d786604ac7dca053ea
+# Author: Morgan Reschenberg <mreschenberg@mozilla.com>
+# Date: 2019-09-26 04:07:05
+# Regressor Bug: 1177014
+# File Overlap Count: 1
+# Description:
+#   Bug 1177014: Modify TransformOffset to correctly report bullet offsets, despite incorrect return from PeekOffset. r=Jamie
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D46490
+# ==============================================================================
+
+diff -r e79b84e42250 -r 7aa2279f941c accessible/generic/HyperTextAccessible.cpp
+--- a/accessible/generic/HyperTextAccessible.cpp	Wed Sep 25 20:38:55 2019 +0000
++++ b/accessible/generic/HyperTextAccessible.cpp	Wed Sep 25 02:10:08 2019 +0000
+@@ -295,10 +295,21 @@
+     // If the end offset is not supposed to be inclusive and the original point
+     // is not at 0 offset then the returned offset should be after an embedded
+     // character the original point belongs to.
+-    if (aIsEndOffset)
+-      offset = (offset > 0 || descendant->IndexInParent() > 0) ? 1 : 0;
+-    else
++    if (aIsEndOffset) {
++      // Similar to our special casing in FindOffset, we add handling for
++      // bulleted lists here because PeekOffset returns the inner text node
++      // for a list when it should return the list bullet.
++      // We manually set the offset so the error doesn't propagate up.
++      if (offset == 0 && descendant->Parent()->IsHTMLListItem() &&
++          descendant->PrevSibling() && descendant->PrevSibling()->GetFrame() &&
++          descendant->PrevSibling()->GetFrame()->IsBulletFrame()) {
++        offset = 0;
++      } else {
++        offset = (offset > 0 || descendant->IndexInParent() > 0) ? 1 : 0;
++      }
++    } else {
+       offset = 0;
++    }
+ 
+     descendant = parent;
+   }

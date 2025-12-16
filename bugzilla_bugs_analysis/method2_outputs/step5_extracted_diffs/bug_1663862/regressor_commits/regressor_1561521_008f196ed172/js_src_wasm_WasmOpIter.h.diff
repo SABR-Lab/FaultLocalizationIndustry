@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmOpIter.h
+# Commit: 008f196ed172
+# Full Hash: 008f196ed1720c98f2a1ce1ff442d5371ca33742
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2020-08-19 10:01:16
+# Regressor Bug: 1561521
+# File Overlap Count: 1
+# Description:
+#   Bug 1561521 - Refine ref.null decoding to decode heaptype instead of reftype. r=lth
+#   
+#   ref.null takes a heaptype immediate. This is backwards compatible for
+#   reference-types, but is a breaking change for the GC proposal. This commit
+#   implements decoding for this refinement.
+# ==============================================================================
+
+diff -r 546d74acfb81 -r 008f196ed172 js/src/wasm/WasmOpIter.h
+--- a/js/src/wasm/WasmOpIter.h	Tue Aug 18 16:58:59 2020 +0000
++++ b/js/src/wasm/WasmOpIter.h	Tue Aug 18 16:59:06 2020 +0000
+@@ -487,7 +487,7 @@
+   MOZ_MUST_USE bool readStructNarrow(ValType* inputType, ValType* outputType,
+                                      Value* ptr);
+   MOZ_MUST_USE bool readValType(ValType* type);
+-  MOZ_MUST_USE bool readRefType(RefType* type);
++  MOZ_MUST_USE bool readHeapType(bool nullable, RefType* type);
+   MOZ_MUST_USE bool readReferenceType(ValType* type, const char* const context);
+ 
+ #ifdef ENABLE_WASM_SIMD
+@@ -1658,7 +1658,7 @@
+   MOZ_ASSERT(Classify(op_) == OpKind::RefNull);
+ 
+   RefType type;
+-  if (!readRefType(&type)) {
++  if (!readHeapType(true, &type)) {
+     return false;
+   }
+   return push(type);
+@@ -1681,8 +1681,8 @@
+ }
+ 
+ template <typename Policy>
+-inline bool OpIter<Policy>::readRefType(RefType* type) {
+-  return d_.readRefType(env_.types, env_.gcTypesEnabled(), type);
++inline bool OpIter<Policy>::readHeapType(bool nullable, RefType* type) {
++  return d_.readHeapType(env_.types, env_.gcTypesEnabled(), nullable, type);
+ }
+ 
+ template <typename Policy>

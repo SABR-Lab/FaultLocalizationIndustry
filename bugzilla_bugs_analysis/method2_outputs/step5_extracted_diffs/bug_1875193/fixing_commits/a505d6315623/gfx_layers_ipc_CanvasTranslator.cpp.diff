@@ -1,0 +1,30 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/CanvasTranslator.cpp
+# Commit: a505d6315623
+# Full Hash: a505d6315623943fb581b7f21beece40fc6faf17
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2024-01-18 09:55:36
+# Description:
+#   Bug 1875193 - Don't recycle SharedSurfaces from different SurfaceFactory. r=sotaro
+#   
+#   It looks like we're accidentally putting SharedSurfaces that came from a different
+#   SurfaceFactory back into a different one recycling. This happens because on context
+#   loss in CanvasTranslator, the old GL context may go away, though the RemoteTextureOwnerClient
+# ==============================================================================
+
+diff -r 875fd9f694c9 -r a505d6315623 gfx/layers/ipc/CanvasTranslator.cpp
+--- a/gfx/layers/ipc/CanvasTranslator.cpp	Thu Jan 18 05:04:12 2024 +0000
++++ b/gfx/layers/ipc/CanvasTranslator.cpp	Thu Jan 18 06:46:51 2024 +0000
+@@ -114,6 +114,10 @@
+   if (!mSharedContext || mSharedContext->IsContextLost()) {
+     if (mSharedContext) {
+       ForceDrawTargetWebglFallback();
++      if (mRemoteTextureOwner) {
++        // Ensure any shared surfaces referring to the old context go away.
++        mRemoteTextureOwner->ClearRecycledTextures();
++      }
+     }
+     mSharedContext = gfx::SharedContextWebgl::Create();
+     if (!mSharedContext || mSharedContext->IsContextLost()) {

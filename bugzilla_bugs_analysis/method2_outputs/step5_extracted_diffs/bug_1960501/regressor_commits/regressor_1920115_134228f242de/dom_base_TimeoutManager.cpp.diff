@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/TimeoutManager.cpp
+# Commit: 134228f242de
+# Full Hash: 134228f242dee041e94824d207c4f0e68b48c83c
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2025-04-01 09:40:15
+# Regressor Bug: 1920115
+# File Overlap Count: 2
+# Description:
+#   Bug 1920115 - Allow high priority tasks to run before timers r=smaug
+#   
+#   In Gecko, unlike other runnables where the TaskController
+#   picks one each at a time, the TimeoutManager allows multiple
+#   timers to run sequentially without allowing other runnables
+# ==============================================================================
+
+diff -r 41d90165c19a -r 134228f242de dom/base/TimeoutManager.cpp
+--- a/dom/base/TimeoutManager.cpp	Mon Mar 31 19:49:03 2025 +0000
++++ b/dom/base/TimeoutManager.cpp	Mon Mar 31 19:49:03 2025 +0000
+@@ -24,6 +24,7 @@
+ #include "mozilla/net/WebSocketEventService.h"
+ #include "mozilla/MediaManager.h"
+ #include "mozilla/dom/WorkerScope.h"
++#include "mozilla/dom/WebTaskScheduler.h"
+ 
+ using namespace mozilla;
+ using namespace mozilla::dom;
+@@ -976,8 +977,12 @@
+       }
+       // Check to see if we have run out of time to execute timeout handlers.
+       // If we've exceeded our time budget then terminate the loop immediately.
++      //
++      // Or if there are high priority tasks dispatched by the Scheduler API,
++      // they should run first before timers.
+       TimeDuration elapsed = now - start;
+-      if (elapsed >= totalTimeLimit) {
++      if (elapsed >= totalTimeLimit ||
++          mGlobalObject.HasScheduledNormalOrHighPriorityWebTasks()) {
+         // We ran out of time.  Make sure to schedule the executor to
+         // run immediately for the next timer, if it exists.  Its possible,
+         // however, that the last timeout handler suspended the window.  If

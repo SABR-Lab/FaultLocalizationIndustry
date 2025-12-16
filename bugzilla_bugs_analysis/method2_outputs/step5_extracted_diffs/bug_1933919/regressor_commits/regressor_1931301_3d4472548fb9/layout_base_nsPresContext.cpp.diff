@@ -1,0 +1,89 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/base/nsPresContext.cpp
+# Commit: 3d4472548fb9
+# Full Hash: 3d4472548fb9d48cce00f59066690611ee20ffcb
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2024-11-26 09:36:10
+# Regressor Bug: 1931301
+# File Overlap Count: 1
+# Description:
+#   Bug 1931301 - Notify of removals on a stable state, not mid-remove. r=smaug,masayuki,dshin
+#   
+#   This simplifies some observers, and makes others a bit more subtle, but I think
+#   over-all it is an improvement.
+#   
+# ==============================================================================
+
+diff -r 20a0394d798f -r 3d4472548fb9 layout/base/nsPresContext.cpp
+--- a/layout/base/nsPresContext.cpp	Mon Nov 25 17:56:21 2024 +0000
++++ b/layout/base/nsPresContext.cpp	Mon Nov 25 17:58:40 2024 +0000
+@@ -1606,11 +1606,12 @@
+ // properly when we insert a body element and there is a previous one, for
+ // example).
+ static Element* GetPropagatedScrollStylesForViewport(
+-    nsPresContext* aPresContext, ScrollStyles* aStyles) {
++    nsPresContext* aPresContext, const Element* aRemovedChild,
++    ScrollStyles* aStyles) {
+   Document* document = aPresContext->Document();
+   Element* docElement = document->GetRootElement();
+   // docElement might be null if we're doing this after removing it.
+-  if (!docElement) {
++  if (!docElement || docElement == aRemovedChild) {
+     return nullptr;
+   }
+ 
+@@ -1630,18 +1631,16 @@
+   // XXX this should be earlier; we shouldn't even look at the document root
+   // for non-HTML documents. Fix this once we support explicit CSS styling
+   // of the viewport
+-  if (!document->IsHTMLOrXHTML() || !docElement->IsHTMLElement()) {
++  if (!document->IsHTMLOrXHTML() ||
++      !docElement->IsHTMLElement(nsGkAtoms::html)) {
+     return nullptr;
+   }
+ 
+-  Element* bodyElement = document->AsHTMLDocument()->GetBodyElement();
++  Element* bodyElement = document->GetBodyElement(aRemovedChild);
+   if (!bodyElement) {
+     return nullptr;
+   }
+ 
+-  MOZ_ASSERT(bodyElement->IsHTMLElement(nsGkAtoms::body),
+-             "GetBodyElement returned something bogus");
+-
+   const auto* bodyStyle = Servo_Element_GetMaybeOutOfDateStyle(bodyElement);
+   if (bodyStyle && bodyStyle->StyleDisplay()->IsContainAny()) {
+     return nullptr;
+@@ -1655,7 +1654,8 @@
+   return nullptr;
+ }
+ 
+-Element* nsPresContext::UpdateViewportScrollStylesOverride() {
++Element* nsPresContext::UpdateViewportScrollStylesOverride(
++    const Element* aRemovedChild) {
+   ScrollStyles oldViewportScrollStyles = mViewportScrollStyles;
+ 
+   // Start off with our default styles, and then update them as needed.
+@@ -1664,8 +1664,8 @@
+   mViewportScrollOverrideElement = nullptr;
+   // Don't propagate the scrollbar state in printing or print preview.
+   if (!IsPaginated()) {
+-    mViewportScrollOverrideElement =
+-        GetPropagatedScrollStylesForViewport(this, &mViewportScrollStyles);
++    mViewportScrollOverrideElement = GetPropagatedScrollStylesForViewport(
++        this, aRemovedChild, &mViewportScrollStyles);
+   }
+ 
+   dom::Document* document = Document();
+@@ -1705,7 +1705,8 @@
+   // in practice we will make this call quite rarely, because we checked for all
+   // the common cases above.
+   ScrollStyles dummy(StyleOverflow::Auto, StyleOverflow::Auto);
+-  return GetPropagatedScrollStylesForViewport(this, &dummy) == &aElement;
++  return GetPropagatedScrollStylesForViewport(this, nullptr, &dummy) ==
++         &aElement;
+ }
+ 
+ nsISupports* nsPresContext::GetContainerWeak() const {

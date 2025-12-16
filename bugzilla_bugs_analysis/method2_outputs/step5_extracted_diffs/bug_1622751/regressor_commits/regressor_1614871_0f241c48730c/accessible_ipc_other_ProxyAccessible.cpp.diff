@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/ipc/other/ProxyAccessible.cpp
+# Commit: 0f241c48730c
+# Full Hash: 0f241c48730c6e4cce24bc9970408087045ca2ab
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2020-03-14 10:28:42
+# Regressor Bug: 1614871
+# File Overlap Count: 1
+# Description:
+#   Bug 1614871 part 1: Make non-Windows ProxyAccessible::ChildAtPoint cross into in-process iframes. r=eeejay
+#   
+#   Accessible::ChildAtPoint can return an Accessible in a descendant document.
+#   Thus, we must return the result PDocAccessible via IPC, not just the id.
+#   Previously, we only returned the id, but we'd fail when we tried to look it up if it belonged to a descendant document.
+# ==============================================================================
+
+diff -r 51fa8835f5d8 -r 0f241c48730c accessible/ipc/other/ProxyAccessible.cpp
+--- a/accessible/ipc/other/ProxyAccessible.cpp	Fri Mar 13 01:42:05 2020 +0000
++++ b/accessible/ipc/other/ProxyAccessible.cpp	Fri Mar 13 06:14:30 2020 +0000
+@@ -770,11 +770,14 @@
+ 
+ ProxyAccessible* ProxyAccessible::ChildAtPoint(
+     int32_t aX, int32_t aY, Accessible::EWhichChildAtPoint aWhichChild) {
+-  uint64_t childID = 0;
+-  bool ok = false;
+-  Unused << mDoc->SendAccessibleAtPoint(
+-      mID, aX, aY, false, static_cast<uint32_t>(aWhichChild), &childID, &ok);
+-  return ok ? mDoc->GetAccessible(childID) : nullptr;
++  PDocAccessibleParent* resultDoc = nullptr;
++  uint64_t resultID = 0;
++  Unused << mDoc->SendAccessibleAtPoint(mID, aX, aY, false,
++                                        static_cast<uint32_t>(aWhichChild),
++                                        &resultDoc, &resultID);
++  auto useDoc = static_cast<DocAccessibleParent*>(resultDoc);
++  // If resultDoc is null, this means there is no child at this point.
++  return resultDoc ? useDoc->GetAccessible(resultID) : nullptr;
+ }
+ 
+ nsIntRect ProxyAccessible::Bounds() {
+@@ -818,12 +821,14 @@
+ 
+ ProxyAccessible* ProxyAccessible::AccessibleAtPoint(int32_t aX, int32_t aY,
+                                                     bool aNeedsScreenCoords) {
+-  uint64_t childID = 0;
+-  bool ok = false;
++  PDocAccessibleParent* resultDoc = nullptr;
++  uint64_t resultID = 0;
+   Unused << mDoc->SendAccessibleAtPoint(
+       mID, aX, aY, aNeedsScreenCoords,
+-      static_cast<uint32_t>(Accessible::eDirectChild), &childID, &ok);
+-  return ok ? mDoc->GetAccessible(childID) : nullptr;
++      static_cast<uint32_t>(Accessible::eDirectChild), &resultDoc, &resultID);
++  auto useDoc = static_cast<DocAccessibleParent*>(resultDoc);
++  // If resultDoc is null, this means there is no child at this point.
++  return resultDoc ? useDoc->GetAccessible(resultID) : nullptr;
+ }
+ 
+ void ProxyAccessible::Extents(bool aNeedsScreenCoords, int32_t* aX, int32_t* aY,

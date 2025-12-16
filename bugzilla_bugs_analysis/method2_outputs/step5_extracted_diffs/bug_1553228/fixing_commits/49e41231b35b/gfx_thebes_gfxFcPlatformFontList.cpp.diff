@@ -1,0 +1,31 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxFcPlatformFontList.cpp
+# Commit: 49e41231b35b
+# Full Hash: 49e41231b35b4c2071d02d1a2e108c1dbe38cb21
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2019-07-17 03:44:14
+# Description:
+#   Bug 1553228 - Don't free result of FcPatternGetString. r=jfkthame
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D38157
+# ==============================================================================
+
+diff -r e57c91c897bf -r 49e41231b35b gfx/thebes/gfxFcPlatformFontList.cpp
+--- a/gfx/thebes/gfxFcPlatformFontList.cpp	Tue Jul 16 17:00:24 2019 +0300
++++ b/gfx/thebes/gfxFcPlatformFontList.cpp	Tue Jul 16 13:52:19 2019 +0000
+@@ -1650,10 +1650,11 @@
+       family->AddFacesToFontList([&](FcPattern* aPat, bool aAppFonts) {
+         char* s = (char*)FcNameUnparse(aPat);
+         nsDependentCString patternStr(s);
++        char* file = nullptr;
+         if (FcResultMatch ==
+-            FcPatternGetString(aPat, FC_FILE, 0, (FcChar8**)&s)) {
++            FcPatternGetString(aPat, FC_FILE, 0, (FcChar8**)&file)) {
+           patternStr.Append(":file=");
+-          patternStr.Append(s);
++          patternStr.Append(file);
+         }
+         retValue->AppendElement(FontPatternListEntry(patternStr, aAppFonts));
+         free(s);

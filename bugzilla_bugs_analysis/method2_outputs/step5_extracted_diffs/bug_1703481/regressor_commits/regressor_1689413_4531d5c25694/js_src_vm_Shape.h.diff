@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/Shape.h
+# Commit: 4531d5c25694
+# Full Hash: 4531d5c256947ff782377ba0143e3f37bd7207c2
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2021-03-06 09:33:16
+# Regressor Bug: 1689413
+# File Overlap Count: 1
+# Description:
+#   Bug 1689413 part 5 - Remove JSClass* from ObjectGroup. r=jonco
+#   
+#   BaseShape stores the JSClass* too so this patch changes the code to get the JSClass*
+#   from there instead of from the ObjectGroup.
+#   
+# ==============================================================================
+
+diff -r f1bb16079c0e -r 4531d5c25694 js/src/vm/Shape.h
+--- a/js/src/vm/Shape.h	Fri Mar 05 19:10:06 2021 +0000
++++ b/js/src/vm/Shape.h	Fri Mar 05 19:10:06 2021 +0000
+@@ -672,10 +672,10 @@
+   friend struct StackBaseShape;
+   friend struct StackShape;
+ 
+- private:
+   /* Class of referring object, stored in the cell header */
+   const JSClass* clasp() const { return headerPtr(); }
+ 
++ private:
+   // Temporary padding to respect MinCellSize.
+   uint64_t padding_ = 0;
+ 
+@@ -700,10 +700,12 @@
+ 
+   void traceChildren(JSTracer* trc);
+ 
++  static constexpr size_t offsetOfClasp() { return offsetOfHeaderPtr(); }
++
+  private:
+   static void staticAsserts() {
+     static_assert(offsetOfHeaderPtr() ==
+-                  offsetof(JS::shadow::BaseShape, clasp_));
++                  offsetof(JS::shadow::BaseShape, clasp));
+     static_assert(sizeof(BaseShape) % gc::CellAlignBytes == 0,
+                   "Things inheriting from gc::Cell must have a size that's "
+                   "a multiple of gc::CellAlignBytes");

@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webcodecs/WebCodecsUtils.cpp
+# Commit: a78bb8799ef4
+# Full Hash: a78bb8799ef4a23a90f0457dc29bbe32ce1dc799
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2023-12-23 09:52:03
+# Regressor Bug: 1749047
+# File Overlap Count: 3
+# Description:
+#   Bug 1749047 - Set the color spaces in more cases on VideoFrame. r=chunmin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D195722
+# ==============================================================================
+
+diff -r 0595d51073c6 -r a78bb8799ef4 dom/media/webcodecs/WebCodecsUtils.cpp
+--- a/dom/media/webcodecs/WebCodecsUtils.cpp	Fri Dec 22 21:39:12 2023 +0000
++++ b/dom/media/webcodecs/WebCodecsUtils.cpp	Fri Dec 22 21:39:12 2023 +0000
+@@ -508,4 +508,28 @@
+       GetMediaThreadPool(MediaThreadType::PLATFORM_ENCODER),
+       "WebCodecs encoding", false);
+ }
++
++VideoColorSpaceInit FallbackColorSpaceForVideoContent() {
++  // If we're unable to determine the color space, but we think this is video
++  // content (e.g. because it's in YUV or NV12 or something like that,
++  // consider it's in BT709).
++  // This is step 3 of https://w3c.github.io/webcodecs/#videoframe-pick-color-space
++  VideoColorSpaceInit colorSpace;
++  colorSpace.mFullRange = false;
++  colorSpace.mMatrix = VideoMatrixCoefficients::Bt709;
++  colorSpace.mTransfer = VideoTransferCharacteristics::Bt709;
++  colorSpace.mPrimaries = VideoColorPrimaries::Bt709;
++  return colorSpace;
++}
++VideoColorSpaceInit FallbackColorSpaceForWebContent() {
++  // If we're unable to determine the color space, but we think this is from
++  // Web content (canvas, image, svg, etc.), consider it's in sRGB.
++  // This is step 2 of https://w3c.github.io/webcodecs/#videoframe-pick-color-space
++  VideoColorSpaceInit colorSpace;
++  colorSpace.mFullRange = true;
++  colorSpace.mMatrix = VideoMatrixCoefficients::Rgb;
++  colorSpace.mTransfer = VideoTransferCharacteristics::Iec61966_2_1;
++  colorSpace.mPrimaries = VideoColorPrimaries::Bt709;
++  return colorSpace;
++}
+ };  // namespace mozilla::dom

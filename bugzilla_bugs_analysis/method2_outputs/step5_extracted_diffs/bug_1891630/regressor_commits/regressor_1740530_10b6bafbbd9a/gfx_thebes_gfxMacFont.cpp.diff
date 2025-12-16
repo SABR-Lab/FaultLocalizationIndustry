@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxMacFont.cpp
+# Commit: 10b6bafbbd9a
+# Full Hash: 10b6bafbbd9ae3ea5539d2524959d491be9d30a9
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2022-08-17 09:10:29
+# Regressor Bug: 1740530
+# File Overlap Count: 1
+# Description:
+#   Bug 1740530 - patch 7 - Route COLRv1 fonts on macOS through our COLR-rendering path; only COLRv0 can use the native Core Text support. r=gfx-reviewers,lsalzman
+#   
+#   Depends on D153880
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D152162
+# ==============================================================================
+
+diff -r 1c9205a0193f -r 10b6bafbbd9a gfx/thebes/gfxMacFont.cpp
+--- a/gfx/thebes/gfxMacFont.cpp	Tue Aug 16 12:48:33 2022 +0000
++++ b/gfx/thebes/gfxMacFont.cpp	Tue Aug 16 12:48:34 2022 +0000
+@@ -612,6 +612,16 @@
+                        CAIRO_SURFACE_TYPE_QUARTZ;
+ }
+ 
++bool gfxMacFont::UseNativeColrFontSupport() const {
++  if (nsCocoaFeatures::OnHighSierraOrLater()) {
++    auto* colr = GetFontEntry()->GetCOLR();
++    if (colr && COLRFonts::GetColrTableVersion(colr) == 0) {
++      return true;
++    }
++  }
++  return false;
++}
++
+ void gfxMacFont::AddSizeOfExcludingThis(MallocSizeOf aMallocSizeOf,
+                                         FontCacheSizes* aSizes) const {
+   gfxFont::AddSizeOfExcludingThis(aMallocSizeOf, aSizes);

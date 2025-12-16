@@ -1,0 +1,84 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/client/CanvasClient.h
+# Commit: c09a51622e98
+# Full Hash: c09a51622e988e81077c75e3aaa5a49df66284b3
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2019-03-22 16:44:08
+# Regressor Bug: 1441308
+# File Overlap Count: 2
+# Description:
+#   Bug 1441308 - Core renderroot splitting changes r=kats,sotaro
+#   
+#   This is a large patch that contains all of the core changes for
+#   renderroot splitting.
+#   
+# ==============================================================================
+
+diff -r 737807563dd5 -r c09a51622e98 gfx/layers/client/CanvasClient.h
+--- a/gfx/layers/client/CanvasClient.h	Thu Mar 21 23:14:26 2019 +0000
++++ b/gfx/layers/client/CanvasClient.h	Fri Mar 22 03:15:14 2019 +0000
+@@ -63,7 +63,8 @@
+   virtual void Clear(){};
+ 
+   virtual void Update(gfx::IntSize aSize,
+-                      ShareableCanvasRenderer* aCanvasRenderer) = 0;
++                      ShareableCanvasRenderer* aCanvasRenderer,
++                      wr::RenderRoot aRenderRoot) = 0;
+ 
+   virtual bool AddTextureClient(TextureClient* aTexture) override {
+     ++mFrameID;
+@@ -72,9 +73,10 @@
+ 
+   virtual void UpdateAsync(AsyncCanvasRenderer* aRenderer) {}
+ 
+-  virtual void UpdateFromTexture(TextureClient* aTexture) {}
++  virtual void UpdateFromTexture(TextureClient* aTexture,
++                                 wr::RenderRoot aRenderRoot) {}
+ 
+-  virtual void Updated() {}
++  virtual void Updated(wr::RenderRoot aRenderRoot) {}
+ 
+  protected:
+   int32_t mFrameID;
+@@ -96,9 +98,11 @@
+   }
+ 
+   virtual void Update(gfx::IntSize aSize,
+-                      ShareableCanvasRenderer* aCanvasRenderer) override;
++                      ShareableCanvasRenderer* aCanvasRenderer,
++                      wr::RenderRoot aRenderRoot) override;
+ 
+-  virtual void UpdateFromTexture(TextureClient* aBuffer) override;
++  virtual void UpdateFromTexture(TextureClient* aBuffer,
++                                 wr::RenderRoot aRenderRoot) override;
+ 
+   virtual bool AddTextureClient(TextureClient* aTexture) override {
+     return CanvasClient::AddTextureClient(aTexture);
+@@ -145,12 +149,13 @@
+   virtual void Clear() override { ClearSurfaces(); }
+ 
+   virtual void Update(gfx::IntSize aSize,
+-                      ShareableCanvasRenderer* aCanvasRenderer) override;
++                      ShareableCanvasRenderer* aCanvasRenderer,
++                      wr::RenderRoot aRenderRoot) override;
+   void UpdateRenderer(gfx::IntSize aSize, Renderer& aRenderer);
+ 
+   virtual void UpdateAsync(AsyncCanvasRenderer* aRenderer) override;
+ 
+-  virtual void Updated() override;
++  virtual void Updated(wr::RenderRoot aRenderRoot) override;
+ 
+   virtual void OnDetach() override;
+ };
+@@ -171,7 +176,8 @@
+   }
+ 
+   virtual void Update(gfx::IntSize aSize,
+-                      ShareableCanvasRenderer* aCanvasRenderer) override {}
++                      ShareableCanvasRenderer* aCanvasRenderer,
++                      wr::RenderRoot aRenderRoot) override {}
+ 
+   virtual void UpdateAsync(AsyncCanvasRenderer* aRenderer) override;
+ 

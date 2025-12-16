@@ -1,0 +1,70 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/windows/SystemStatusBar.cpp
+# Commit: f11c529b2407
+# Full Hash: f11c529b240799df93c4dd8c17ecd8636f9b10de
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-01-04 09:43:05
+# Regressor Bug: 1805414
+# File Overlap Count: 2
+# Description:
+#   Bug 1805414 - Remove nsMenuFrame and nsMenuParent. r=smaug,Jamie,desktop-theme-reviewers,settings-reviewers,dao
+#   
+#   Move most the event handling stuff to the DOM. I've left nsMenuBarFrame
+#   for now, but I will be removing that in the future.
+#   
+# ==============================================================================
+
+diff -r 11d72eaa9cd9 -r f11c529b2407 widget/windows/SystemStatusBar.cpp
+--- a/widget/windows/SystemStatusBar.cpp	Tue Jan 03 21:55:14 2023 +0000
++++ b/widget/windows/SystemStatusBar.cpp	Tue Jan 03 22:06:01 2023 +0000
+@@ -14,10 +14,10 @@
+ #include "mozilla/LinkedList.h"
+ #include "mozilla/StaticPtr.h"
+ #include "mozilla/widget/IconLoader.h"
++#include "mozilla/dom/XULButtonElement.h"
+ #include "nsComputedDOMStyle.h"
+ #include "nsIContentPolicy.h"
+ #include "nsISupports.h"
+-#include "nsMenuFrame.h"
+ #include "nsMenuPopupFrame.h"
+ #include "nsXULPopupManager.h"
+ #include "nsIDocShell.h"
+@@ -109,8 +109,7 @@
+ 
+   // First, look at the content node's "image" attribute.
+   nsAutoString imageURIString;
+-  bool hasImageAttr =
+-      mMenu->GetAttr(kNameSpaceID_None, nsGkAtoms::image, imageURIString);
++  bool hasImageAttr = mMenu->GetAttr(nsGkAtoms::image, imageURIString);
+ 
+   nsresult rv;
+   nsCOMPtr<nsIURI> iconURI;
+@@ -211,14 +210,13 @@
+   if (msg == WM_USER &&
+       (LOWORD(lp) == NIN_SELECT || LOWORD(lp) == NIN_KEYSELECT ||
+        LOWORD(lp) == WM_CONTEXTMENU)) {
+-    nsMenuFrame* menu = do_QueryFrame(mMenu->GetPrimaryFrame());
++    auto* menu = dom::XULButtonElement::FromNode(mMenu);
+     if (!menu) {
+       return TRUE;
+     }
+ 
+-    nsMenuPopupFrame* popupFrame = menu->GetPopup();
+-    MOZ_DIAGNOSTIC_ASSERT(popupFrame);
+-    if (!popupFrame) {
++    nsMenuPopupFrame* popupFrame = menu->GetMenuPopup(FlushType::None);
++    if (NS_WARN_IF(!popupFrame)) {
+       return TRUE;
+     }
+ 
+@@ -248,7 +246,7 @@
+       nsEventStatus status = nsEventStatus_eIgnore;
+       WidgetMouseEvent event(true, eXULSystemStatusBarClick, nullptr,
+                              WidgetMouseEvent::eReal);
+-      RefPtr<nsPresContext> presContext = menu->PresContext();
++      RefPtr<nsPresContext> presContext = popupFrame->PresContext();
+       EventDispatcher::Dispatch(mMenu, presContext, &event, nullptr, &status);
+       return DefWindowProc(hWnd, msg, wp, lp);
+     }

@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/loader/WorkerLoadContext.cpp
+# Commit: 9a5e5a1b529d
+# Full Hash: 9a5e5a1b529de42db783dc6f8720488c34b28c6e
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-11-18 15:46:32
+# Regressor Bug: 1800496
+# File Overlap Count: 2
+# Description:
+#   Bug 1800496 - Introduce ThreadSafeRequestHandle; r=asuth
+#   
+#   This introduces a new datastructure that wraps the ScriptLoadRequest. Previously, we were using the WorkerLoadContext to access the request, and we made it not cycle collected in order to make it safe across threads. This, of course, broke module behavior, as the cycle needs to be broken in more places, and things get rather complex.
+#   
+#   In the spirit of making everyone's life easier, the ThreadSafeRequestHandle exists as a way to move the request to the main thread, operate on it, and then return it to the worker. We no longer need to track and free the WorkerLoadContext. Once the ThreadSafeRequestHandle is returned to the worker, we release the request, and the handle is empty. There is a possibility that this will cause issues, so we should keep an eye on this. Alternatively, we can never release the ScriptLoadRequest and let the ThreadSafeRequestHandle clean it up on destruction.
+# ==============================================================================
+
+diff -r 879667e24ed7 -r 9a5e5a1b529d dom/workers/loader/WorkerLoadContext.cpp
+--- a/dom/workers/loader/WorkerLoadContext.cpp	Fri Nov 18 10:02:25 2022 +0000
++++ b/dom/workers/loader/WorkerLoadContext.cpp	Fri Nov 18 10:02:25 2022 +0000
+@@ -35,5 +35,30 @@
+   return mCacheCreator.get();
+ }
+ 
++ThreadSafeRequestHandle::ThreadSafeRequestHandle(
++    JS::loader::ScriptLoadRequest* aRequest, nsISerialEventTarget* aSyncTarget)
++    : mRequest(aRequest), mOwningEventTarget(aSyncTarget) {}
++
++already_AddRefed<JS::loader::ScriptLoadRequest>
++ThreadSafeRequestHandle::ReleaseRequest() {
++  return mRequest.forget();
++}
++
++ThreadSafeRequestHandle::~ThreadSafeRequestHandle() {
++  // Normally we only touch mStrongRef on the owning thread.  This is safe,
++  // however, because when we do use mStrongRef on the owning thread we are
++  // always holding a strong ref to the ThreadsafeHandle via the owning
++  // runnable.  So we cannot run the ThreadsafeHandle destructor simultaneously.
++  if (!mRequest || mOwningEventTarget->IsOnCurrentThread()) {
++    return;
++  }
++
++  // Dispatch in NS_ProxyRelease is guaranteed to succeed here because we block
++  // shutdown until all Contexts have been destroyed. Therefore it is ok to have
++  // MOZ_ALWAYS_SUCCEED here.
++  MOZ_ALWAYS_SUCCEEDS(NS_ProxyRelease("ThreadSafeRequestHandle::mRequest",
++                                      mOwningEventTarget, mRequest.forget()));
++}
++
+ }  // namespace dom
+ }  // namespace mozilla

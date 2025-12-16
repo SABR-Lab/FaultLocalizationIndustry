@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/ash/src/extensions/ext/debug_marker.rs
+# Commit: ef5dc3e04e5f
+# Full Hash: ef5dc3e04e5f271eea0636ab3a495e95cc912f1d
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-09-04 09:40:24
+# Regressor Bug: 1726626
+# File Overlap Count: 3
+# Description:
+#   Bug 1726626 - Move gfx/wgpu into a 3rd party dependency r=jgilbert,bholley
+#   
+#   This update makes wgpu a vendored dependency instead of having it in gfx/wgpu.
+#   
+#   ## Notes
+# ==============================================================================
+
+diff --git a/third_party/rust/ash/src/extensions/ext/debug_marker.rs b/third_party/rust/ash/src/extensions/ext/debug_marker.rs
+--- a/third_party/rust/ash/src/extensions/ext/debug_marker.rs
++++ b/third_party/rust/ash/src/extensions/ext/debug_marker.rs
+@@ -1,26 +1,25 @@
+-#![allow(dead_code)]
+ use crate::prelude::*;
+-use crate::version::{DeviceV1_0, InstanceV1_0};
+ use crate::vk;
++use crate::{Device, Instance};
+ use std::ffi::CStr;
+ use std::mem;
+ 
+ #[derive(Clone)]
+ pub struct DebugMarker {
+     debug_marker_fn: vk::ExtDebugMarkerFn,
+ }
+ 
+ impl DebugMarker {
+-    pub fn new<I: InstanceV1_0, D: DeviceV1_0>(instance: &I, device: &D) -> DebugMarker {
++    pub fn new(instance: &Instance, device: &Device) -> Self {
+         let debug_marker_fn = vk::ExtDebugMarkerFn::load(|name| unsafe {
+             mem::transmute(instance.get_device_proc_addr(device.handle(), name.as_ptr()))
+         });
+-        DebugMarker { debug_marker_fn }
++        Self { debug_marker_fn }
+     }
+ 
+     pub fn name() -> &'static CStr {
+         vk::ExtDebugMarkerFn::name()
+     }
+ 
+     #[doc = "<https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/vkDebugMarkerSetObjectNameEXT.html>"]
+     pub unsafe fn debug_marker_set_object_name(

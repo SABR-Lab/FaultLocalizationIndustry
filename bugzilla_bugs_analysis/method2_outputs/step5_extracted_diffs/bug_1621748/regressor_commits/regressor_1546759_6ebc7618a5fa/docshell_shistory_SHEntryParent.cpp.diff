@@ -1,0 +1,67 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/shistory/SHEntryParent.cpp
+# Commit: 6ebc7618a5fa
+# Full Hash: 6ebc7618a5fadb59585a4d8b9f17eb65e5654cc6
+# Author: Anny Gakhokidze <agakhokidze@mozilla.com>
+# Date: 2020-03-10 21:44:54
+# Regressor Bug: 1546759
+# File Overlap Count: 2
+# Description:
+#   Bug 1546759 - Change nsSHistory::WalkHistoryEntries to walk browsing context tree instead of doc shell tree, r=peterv,nika
+#   
+#   WalkHistoryEntries function gets called by nsSHistory::CloneAndReplaceChild
+#   and nsSHistory::SetChildHistoryEntry recursively, so those have to be moved
+#   into the parent process. This eliminates many sync IPC calls.
+# ==============================================================================
+
+diff -r ed75364b23c3 -r 6ebc7618a5fa docshell/shistory/SHEntryParent.cpp
+--- a/docshell/shistory/SHEntryParent.cpp	Tue Mar 10 11:39:06 2020 +0000
++++ b/docshell/shistory/SHEntryParent.cpp	Tue Mar 10 14:28:22 2020 +0000
+@@ -64,6 +64,13 @@
+   return NS_OK;
+ }
+ 
++NS_IMETHODIMP
++LegacySHEntry::Clone(nsISHEntry** aResult) {
++  nsCOMPtr<nsISHEntry> entry = new LegacySHEntry(*this);
++  entry.forget(aResult);
++  return NS_OK;
++}
++
+ void SHEntryParent::ActorDestroy(ActorDestroyReason aWhy) {
+   mEntry->mActor = nullptr;
+ }
+@@ -582,5 +589,31 @@
+   return true;
+ }
+ 
++bool SHEntryParent::RecvClone(RefPtr<CrossProcessSHEntry>* aResult) {
++  nsCOMPtr<nsISHEntry> result;
++  DebugOnly<nsresult> rv =
++      static_cast<LegacySHEntry*>(mEntry)->Clone(getter_AddRefs(result));
++  MOZ_ASSERT(NS_SUCCEEDED(rv), "Didn't expect this to fail.");
++  *aResult = result.forget().downcast<LegacySHEntry>();
++  return true;
++}
++
++bool SHEntryParent::RecvSyncTreesForSubframeNavigation(
++    PSHEntryParent* aSHEntry, const MaybeDiscarded<BrowsingContext>& aBC,
++    const MaybeDiscarded<BrowsingContext>& aIgnoreBC,
++    nsTArray<SwapEntriesDocshellData>* aEntriesToUpdate) {
++  nsTArray<EntriesAndBrowsingContextData> entriesToSendOverIPC;
++  // aBC or aIgnoreBC can be discarded but we can update them anyway if they are
++  // not null
++  mEntry->SyncTreesForSubframeNavigation(
++      static_cast<ContentParent*>(Manager())->ChildID(),
++      aSHEntry ? static_cast<SHEntryParent*>(aSHEntry)->mEntry.get() : nullptr,
++      aBC.GetMaybeDiscarded(), aIgnoreBC.GetMaybeDiscarded(),
++      &entriesToSendOverIPC);
++  SHistoryParent::CreateActorsForSwapEntries(entriesToSendOverIPC,
++                                             aEntriesToUpdate, Manager());
++  return true;
++}
++
+ }  // namespace dom
+ }  // namespace mozilla

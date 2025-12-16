@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/webgpu/ipc/WebGPUParent.cpp
+# Commit: 41d7ed93df76
+# Full Hash: 41d7ed93df76d84a8e842758f852d291a908e065
+# Author: Brad Werth <bwerth@mozilla.com>
+# Date: 2023-10-17 03:58:35
+# Regressor Bug: 1838693
+# File Overlap Count: 2
+# Description:
+#   Bug 1838693 Part 3: Make GPUDevice::Destroy() trigger wgpu device_destroy, then device_drop. r=webgpu-reviewers,nical
+#   
+#   This treats destroy as a 2-step process: wait on the destroy, then drop.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D190238
+# ==============================================================================
+
+diff -r f214290956c1 -r 41d7ed93df76 dom/webgpu/ipc/WebGPUParent.cpp
+--- a/dom/webgpu/ipc/WebGPUParent.cpp	Mon Oct 16 15:32:00 2023 +0000
++++ b/dom/webgpu/ipc/WebGPUParent.cpp	Mon Oct 16 15:32:00 2023 +0000
+@@ -428,6 +428,11 @@
+ }
+ 
+ ipc::IPCResult WebGPUParent::RecvDeviceDestroy(RawId aDeviceId) {
++  ffi::wgpu_server_device_destroy(mContext.get(), aDeviceId);
++  return IPC_OK();
++}
++
++ipc::IPCResult WebGPUParent::RecvDeviceDrop(RawId aDeviceId) {
+   ffi::wgpu_server_device_drop(mContext.get(), aDeviceId);
+   mErrorScopeStackByDevice.erase(aDeviceId);
+   return IPC_OK();

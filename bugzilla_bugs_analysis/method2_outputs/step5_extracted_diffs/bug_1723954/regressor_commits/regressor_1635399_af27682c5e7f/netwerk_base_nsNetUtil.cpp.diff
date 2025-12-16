@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/base/nsNetUtil.cpp
+# Commit: af27682c5e7f
+# Full Hash: af27682c5e7f86ff17d6ed152c8010e763870bdc
+# Author: ssengupta <ssengupta@mozilla.com>
+# Date: 2020-05-13 03:44:05
+# Regressor Bug: 1635399
+# File Overlap Count: 1
+# Description:
+#   Bug 1635399 - Function PrincipalInfoToPrincipal now returns Result<nsCOMPtr<nsIPrincipal>, nsresult> r=ckerschb
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D73868
+# ==============================================================================
+
+diff -r 86b22b1a9f7e -r af27682c5e7f netwerk/base/nsNetUtil.cpp
+--- a/netwerk/base/nsNetUtil.cpp	Tue May 12 23:55:42 2020 +0300
++++ b/netwerk/base/nsNetUtil.cpp	Tue May 12 19:02:05 2020 +0000
+@@ -304,19 +304,21 @@
+   }
+ 
+   // Perform a fast comparison for most principal checks.
+-  nsCOMPtr<nsIPrincipal> clientPrincipal(aLoadingClientInfo.GetPrincipal());
+-  if (aLoadingPrincipal->Equals(clientPrincipal)) {
+-    return;
++  auto clientPrincipalOrErr(aLoadingClientInfo.GetPrincipal());
++  if (clientPrincipalOrErr.isOk()) {
++    nsCOMPtr<nsIPrincipal> clientPrincipal = clientPrincipalOrErr.unwrap();
++    if (aLoadingPrincipal->Equals(clientPrincipal)) {
++      return;
++    }
++    // Fall back to a slower origin equality test to support null principals.
++    nsAutoCString loadingOrigin;
++    MOZ_ALWAYS_SUCCEEDS(aLoadingPrincipal->GetOrigin(loadingOrigin));
++
++    nsAutoCString clientOrigin;
++    MOZ_ALWAYS_SUCCEEDS(clientPrincipal->GetOrigin(clientOrigin));
++
++    MOZ_DIAGNOSTIC_ASSERT(loadingOrigin == clientOrigin);
+   }
+-
+-  // Fall back to a slower origin equality test to support null principals.
+-  nsAutoCString loadingOrigin;
+-  MOZ_ALWAYS_SUCCEEDS(aLoadingPrincipal->GetOrigin(loadingOrigin));
+-
+-  nsAutoCString clientOrigin;
+-  MOZ_ALWAYS_SUCCEEDS(clientPrincipal->GetOrigin(clientOrigin));
+-
+-  MOZ_DIAGNOSTIC_ASSERT(loadingOrigin == clientOrigin);
+ #endif
+ }
+ 

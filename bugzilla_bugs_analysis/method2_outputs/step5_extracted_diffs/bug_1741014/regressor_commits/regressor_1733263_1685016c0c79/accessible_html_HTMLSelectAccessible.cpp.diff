@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/html/HTMLSelectAccessible.cpp
+# Commit: 1685016c0c79
+# Full Hash: 1685016c0c79535b5cc70c0a33d7bab682e90a18
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2021-11-11 21:17:02
+# Regressor Bug: 1733263
+# File Overlap Count: 1
+# Description:
+#   Bug 1733263 - P5: Rely on DOMMenuItem events for ACTIVE state changes in select elements. r=Jamie
+#   
+#   1. Use dom events in RootAccessible to fire ACTIVE state changes.
+#   2. Add DOMMenuItemInactive events to nsListControlFrame and fire it on
+#      the previously active option.
+# ==============================================================================
+
+diff -r edcc0183f30d -r 1685016c0c79 accessible/html/HTMLSelectAccessible.cpp
+--- a/accessible/html/HTMLSelectAccessible.cpp	Thu Nov 11 17:05:58 2021 +0000
++++ b/accessible/html/HTMLSelectAccessible.cpp	Thu Nov 11 17:05:58 2021 +0000
+@@ -235,6 +235,22 @@
+   return HyperTextAccessibleWrap::RelativeBounds(aBoundingFrame);
+ }
+ 
++nsresult HTMLSelectOptionAccessible::HandleAccEvent(AccEvent* aEvent) {
++  nsresult rv = HyperTextAccessibleWrap::HandleAccEvent(aEvent);
++  NS_ENSURE_SUCCESS(rv, rv);
++
++  AccStateChangeEvent* event = downcast_accEvent(aEvent);
++  if (event && (event->GetState() == states::SELECTED)) {
++    if (!ContainerWidget()->AreItemsOperable()) {
++      // Collapsed options' ACTIVE state reflects their SELECT state.
++      nsEventShell::FireEvent(this, states::ACTIVE, event->IsStateEnabled(),
++                              true);
++    }
++  }
++
++  return NS_OK;
++}
++
+ void HTMLSelectOptionAccessible::ActionNameAt(uint8_t aIndex,
+                                               nsAString& aName) {
+   if (aIndex == eAction_Select) aName.AssignLiteral("select");

@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/RemoteTextureMap.h
+# Commit: 31935f164ef0
+# Full Hash: 31935f164ef0d6c4668f211482c139847dcab7f2
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2023-12-13 00:43:26
+# Regressor Bug: 1829026
+# File Overlap Count: 1
+# Description:
+#   Bug 1829026 - Update CanvasTranslator to work with DrawTargetWebgl. r=aosmond
+#   
+#   This adds the necessary infrastructure for CanvasTranslator to allocate DrawTargetWebgl
+#   instead of just allocating TextureData, and to use RemoteTextureMap to handle sending
+#   the DrawTargetWebgl frames to the compositor.
+# ==============================================================================
+
+diff -r 13c9bf69085f -r 31935f164ef0 gfx/layers/RemoteTextureMap.h
+--- a/gfx/layers/RemoteTextureMap.h	Tue Dec 12 07:35:02 2023 +0000
++++ b/gfx/layers/RemoteTextureMap.h	Tue Dec 12 07:35:03 2023 +0000
+@@ -213,7 +213,8 @@
+   // return true when aReadyCallback will be called.
+   bool GetRemoteTextureForDisplayList(
+       RemoteTextureHostWrapper* aTextureHostWrapper,
+-      std::function<void(const RemoteTextureInfo&)>&& aReadyCallback);
++      std::function<void(const RemoteTextureInfo&)>&& aReadyCallback,
++      bool aWaitForRemoteTextureOwner = false);
+ 
+   // Get ExternalImageId of remote texture for WebRender rendering.
+   wr::MaybeExternalImageId GetExternalImageIdOfRemoteTexture(
+@@ -297,6 +298,7 @@
+     std::deque<UniquePtr<TextureDataHolder>> mWaitingTextureDataHolders;
+     // Holds TextureDataHolders that are used for building wr display list.
+     std::deque<UniquePtr<TextureDataHolder>> mUsingTextureDataHolders;
++    std::deque<UniquePtr<TextureDataHolder>> mReleasingTextureDataHolders;
+     // Holds async RemoteTexture ready callbacks.
+     std::deque<UniquePtr<RenderingReadyCallbackHolder>>
+         mRenderingReadyCallbackHolders;

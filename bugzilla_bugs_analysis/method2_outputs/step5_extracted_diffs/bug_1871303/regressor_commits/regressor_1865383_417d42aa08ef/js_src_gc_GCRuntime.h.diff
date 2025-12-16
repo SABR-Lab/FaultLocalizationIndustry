@@ -1,0 +1,29 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/GCRuntime.h
+# Commit: 417d42aa08ef
+# Full Hash: 417d42aa08efdd20ba112e3ff1e633338fba111d
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2024-07-12 22:06:45
+# Regressor Bug: 1865383
+# File Overlap Count: 3
+# Description:
+#   Bug 1871303 - Ensure there is no more marking at the start of sweeping r=sfink
+#   
+#   There are two issues here. The first is that there unexpected marking work at
+#   the start of sweeping after entering from the mark phase without yielding. We
+#   previously called assertNoMarkingWork() after markUntilBudgetExhausted() in the
+# ==============================================================================
+
+diff -r 3396a3835684 -r 417d42aa08ef js/src/gc/GCRuntime.h
+--- a/js/src/gc/GCRuntime.h	Fri Jul 12 09:30:34 2024 +0000
++++ b/js/src/gc/GCRuntime.h	Fri Jul 12 09:33:13 2024 +0000
+@@ -900,6 +900,7 @@
+   void sweepBackgroundThings(ZoneList& zones);
+   void backgroundFinalize(JS::GCContext* gcx, Zone* zone, AllocKind kind,
+                           Arena** empty);
++  void prepareForSweepSlice(JS::GCReason reason);
+   void assertBackgroundSweepingFinished();
+ #ifdef DEBUG
+   bool zoneInCurrentSweepGroup(Zone* zone) const;

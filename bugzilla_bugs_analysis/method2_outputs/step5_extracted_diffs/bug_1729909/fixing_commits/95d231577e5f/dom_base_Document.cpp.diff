@@ -1,0 +1,30 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/base/Document.cpp
+# Commit: 95d231577e5f
+# Full Hash: 95d231577e5f30aa16f6ee42cb7691c3d63f781a
+# Author: Dan Minor <dminor@mozilla.com>
+# Date: 2021-09-13 21:32:24
+# Description:
+#   Bug 1729909 - Fix crash in Document::LocalizationLinkAdded; r=platform-i18n-reviewers,zbraniecki
+#   
+#   If for some reason we can't create the promise for mDocumentL10n, we should
+#   return early rather than crashing.
+#   
+# ==============================================================================
+
+diff -r 2d49d73f38aa -r 95d231577e5f dom/base/Document.cpp
+--- a/dom/base/Document.cpp	Mon Sep 13 12:40:18 2021 +0000
++++ b/dom/base/Document.cpp	Mon Sep 13 12:56:06 2021 +0000
+@@ -4171,7 +4171,9 @@
+ 
+     bool isSync = elem->HasAttr(nsGkAtoms::datal10nsync);
+     mDocumentL10n = DocumentL10n::Create(this, isSync);
+-    MOZ_ASSERT(mDocumentL10n);
++    if (NS_WARN_IF(!mDocumentL10n)) {
++      return;
++    }
+   }
+   mDocumentL10n->AddResourceId(NS_ConvertUTF16toUTF8(href));
+ 

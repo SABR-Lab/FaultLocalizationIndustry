@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/cookie/CookieCommons.h
+# Commit: 5e078f860dfb
+# Full Hash: 5e078f860dfb9368bd747e4a8c53d07c7e8809ee
+# Author: Andrea Marchesini <amarchesini@mozilla.com>
+# Date: 2024-09-13 04:28:43
+# Regressor Bug: 1475599
+# File Overlap Count: 1
+# Description:
+#   Bug 1475599 - part 2 - CookieStore API - IPDL, r=edgul,webidl,smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D215145
+# ==============================================================================
+
+diff -r d55b6525d7b2 -r 5e078f860dfb netwerk/cookie/CookieCommons.h
+--- a/netwerk/cookie/CookieCommons.h	Thu Sep 12 16:48:18 2024 +0000
++++ b/netwerk/cookie/CookieCommons.h	Thu Sep 12 16:48:19 2024 +0000
+@@ -69,6 +69,9 @@
+ 
+   static bool PathMatches(Cookie* aCookie, const nsACString& aPath);
+ 
++  static bool PathMatches(const nsACString& aCookiePath,
++                          const nsACString& aPath);
++
+   static nsresult GetBaseDomain(nsIEffectiveTLDService* aTLDService,
+                                 nsIURI* aHostURI, nsACString& aBaseDomain,
+                                 bool& aRequireHostMatch);
+@@ -145,6 +148,26 @@
+ 
+   static void GetServerDateHeader(nsIChannel* aChannel,
+                                   nsACString& aServerDateHeader);
++
++  enum class SecurityChecksResult {
++    // A sandboxed context detected.
++    eSandboxedError,
++    // A security error needs to be thrown.
++    eSecurityError,
++    // This context should not see cookies without returning errors.
++    eDoNotContinue,
++    // No security issues found. Proceed to expose cookies.
++    eContinue,
++  };
++
++  // Runs the security checks requied by specs on the current context (Document
++  // or Worker) to see if it's allowed to set/get cookies. In case it does
++  // (eContinue), the cookie principals are returned. Use the
++  // `aCookiePartitionedPrincipal` to retrieve CHIP cookies. Use
++  // `aCookiePrincipal` to retrieve non-CHIP cookies.
++  static SecurityChecksResult CheckGlobalAndRetrieveCookiePrincipals(
++      mozilla::dom::Document* aDocument, nsIPrincipal** aCookiePrincipal,
++      nsIPrincipal** aCookiePartitionedPrincipal);
+ };
+ 
+ }  // namespace net

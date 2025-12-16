@@ -1,0 +1,78 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/HttpChannelChild.cpp
+# Commit: ac9c5c1e5162
+# Full Hash: ac9c5c1e51626997c1d28923e07d220780ed02a5
+# Author: Junior Hsu <juhsu@mozilla.com>
+# Date: 2020-06-24 09:31:07
+# Regressor Bug: 1633935
+# File Overlap Count: 1
+# Description:
+#   Bug 1633935 - P8 suspend event queue in HttpChannelChild which needs listener for redirection, r=mayhemer,necko-reviewers
+#   
+#   Now OnStartRequest is passed to child process via pBg. Every IPC which is passed thru main thread could become a race.
+#   For the redirection flow in child process is:
+#   
+# ==============================================================================
+
+diff -r 292a5b34e9f7 -r ac9c5c1e5162 netwerk/protocol/http/HttpChannelChild.cpp
+--- a/netwerk/protocol/http/HttpChannelChild.cpp	Tue Jun 23 16:57:25 2020 +0000
++++ b/netwerk/protocol/http/HttpChannelChild.cpp	Tue Jun 23 16:58:29 2020 +0000
+@@ -187,7 +187,9 @@
+       mPostRedirectChannelShouldIntercept(false),
+       mPostRedirectChannelShouldUpgrade(false),
+       mShouldParentIntercept(false),
+-      mSuspendParentAfterSynthesizeResponse(false) {
++      mSuspendParentAfterSynthesizeResponse(false),
++      mIsLastPartOfMultiPart(false),
++      mSuspendForWaitCompleteRedirectSetup(false) {
+   LOG(("Creating HttpChannelChild @%p\n", this));
+ 
+   mChannelCreationTime = PR_Now();
+@@ -1313,6 +1315,14 @@
+ 
+ mozilla::ipc::IPCResult HttpChannelChild::RecvDeleteSelf() {
+   LOG(("HttpChannelChild::RecvDeleteSelf [this=%p]\n", this));
++  MOZ_ASSERT(NS_IsMainThread());
++
++  // The redirection is vetoed. No need to suspend the event queue.
++  if (mSuspendForWaitCompleteRedirectSetup) {
++    mSuspendForWaitCompleteRedirectSetup = false;
++    mEventQ->Resume();
++  }
++
+   mEventQ->RunOrEnqueue(new NeckoTargetChannelFunctionEvent(
+       this,
+       [self = UnsafePtr<HttpChannelChild>(this)]() { self->DeleteSelf(); }));
+@@ -2009,12 +2019,17 @@
+ 
+   MaybeConnectToSocketProcess();
+ 
++  // Should wait for CompleteRedirectSetup to set the listener.
++  mEventQ->Suspend();
++  MOZ_ASSERT(!mSuspendForWaitCompleteRedirectSetup);
++  mSuspendForWaitCompleteRedirectSetup = true;
++
+   return NS_OK;
+ }
+ 
+ NS_IMETHODIMP
+ HttpChannelChild::CompleteRedirectSetup(nsIStreamListener* aListener) {
+-  LOG(("HttpChannelChild::FinishRedirectSetup [this=%p]\n", this));
++  LOG(("HttpChannelChild::CompleteRedirectSetup [this=%p]\n", this));
+   MOZ_ASSERT(NS_IsMainThread());
+ 
+   NS_ENSURE_TRUE(!mIsPending, NS_ERROR_IN_PROGRESS);
+@@ -2064,6 +2079,11 @@
+   // add ourselves to the load group.
+   if (mLoadGroup) mLoadGroup->AddRequest(this, nullptr);
+ 
++  // Resume the suspension in ConnectParent.
++  MOZ_ASSERT(mSuspendForWaitCompleteRedirectSetup);
++  mEventQ->Resume();
++  mSuspendForWaitCompleteRedirectSetup = false;
++
+   // We already have an open IPDL connection to the parent. If on-modify-request
+   // listeners or load group observers canceled us, let the parent handle it
+   // and send it back to us naturally.

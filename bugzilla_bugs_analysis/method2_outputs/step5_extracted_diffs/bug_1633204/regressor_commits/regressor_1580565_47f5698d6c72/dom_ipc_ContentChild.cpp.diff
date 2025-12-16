@@ -1,0 +1,129 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentChild.cpp
+# Commit: 47f5698d6c72
+# Full Hash: 47f5698d6c72d8033841e708b6df53732393b5b3
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-04-24 09:51:27
+# Regressor Bug: 1580565
+# File Overlap Count: 2
+# Description:
+#   Bug 1580565 - Part 6: Add a unique ID to each BrowsingContextGroup, r=kmag
+#   
+#   This allows us to explicitly specify BrowsingContextGroups when synchronizing
+#   them. A major advantage of this is that it means we can handle an attempt to
+#   create a BrowsingContext with a parent which the content process is unaware of,
+# ==============================================================================
+
+diff -r e1802670dcc4 -r 47f5698d6c72 dom/ipc/ContentChild.cpp
+--- a/dom/ipc/ContentChild.cpp	Thu Apr 23 21:52:49 2020 +0000
++++ b/dom/ipc/ContentChild.cpp	Thu Apr 23 21:52:51 2020 +0000
+@@ -2191,8 +2191,6 @@
+ 
+   mIdleObservers.Clear();
+ 
+-  mBrowsingContextGroupHolder.Clear();
+-
+   nsCOMPtr<nsIConsoleService> svc(do_GetService(NS_CONSOLESERVICE_CONTRACTID));
+   if (svc) {
+     svc->UnregisterListener(mConsoleListener);
+@@ -3642,42 +3640,46 @@
+   return result;
+ }
+ 
+-mozilla::ipc::IPCResult ContentChild::RecvAttachBrowsingContext(
+-    BrowsingContext::IPCInitializer&& aInit) {
+-  RefPtr<BrowsingContext> child = BrowsingContext::Get(aInit.mId);
+-  MOZ_RELEASE_ASSERT(!child || child->IsCached());
+-
+-  if (!child) {
+-    // Determine the BrowsingContextGroup from our parent or opener fields.
+-    RefPtr<BrowsingContextGroup> group =
+-        BrowsingContextGroup::Select(aInit.mParentId, aInit.GetOpenerId());
+-    child = BrowsingContext::CreateFromIPC(std::move(aInit), group, nullptr);
++mozilla::ipc::IPCResult ContentChild::RecvCreateBrowsingContext(
++    uint64_t aGroupId, BrowsingContext::IPCInitializer&& aInit) {
++  // We can't already have a BrowsingContext with this ID.
++  if (RefPtr<BrowsingContext> existing = BrowsingContext::Get(aInit.mId)) {
++    return IPC_FAIL(this, "Browsing context already exists");
+   }
+ 
+-  child->Attach(/* aFromIPC */ true);
+-
++  RefPtr<WindowContext> parent = WindowContext::GetById(aInit.mParentId);
++  if (!parent && aInit.mParentId != 0) {
++    // Handle this case by ignoring the request, as parent must be in the
++    // process of being discarded.
++    // In the future it would be nice to avoid sending this message to the child
++    // at all.
++    NS_WARNING("Attempt to attach BrowsingContext to discarded parent");
++    return IPC_OK();
++  }
++
++  RefPtr<BrowsingContextGroup> group =
++      BrowsingContextGroup::GetOrCreate(aGroupId);
++  BrowsingContext::CreateFromIPC(std::move(aInit), group, nullptr);
+   return IPC_OK();
+ }
+ 
+-mozilla::ipc::IPCResult ContentChild::RecvDetachBrowsingContext(
+-    uint64_t aContextId, DetachBrowsingContextResolver&& aResolve) {
+-  // NOTE: Immediately resolve the promise, as we've received the message. This
+-  // will allow the parent process to discard references to this BC.
++mozilla::ipc::IPCResult ContentChild::RecvDiscardBrowsingContext(
++    const MaybeDiscarded<BrowsingContext>& aContext,
++    DiscardBrowsingContextResolver&& aResolve) {
++  if (!aContext.IsNullOrDiscarded()) {
++    aContext.get()->Detach(/* aFromIPC */ true);
++  }
++
++  // Immediately resolve the promise, as we've received the message. This will
++  // allow the parent process to discard references to this BC.
+   aResolve(true);
+-
+-  // If we can't find a BrowsingContext with the given ID, it's already been
+-  // collected and we can ignore the request.
+-  RefPtr<BrowsingContext> context = BrowsingContext::Get(aContextId);
+-  if (context) {
+-    context->Detach(/* aFromIPC */ true);
+-  }
+-
+   return IPC_OK();
+ }
+ 
+ mozilla::ipc::IPCResult ContentChild::RecvRegisterBrowsingContextGroup(
+-    nsTArray<SyncedContextInitializer>&& aInits) {
+-  RefPtr<BrowsingContextGroup> group = new BrowsingContextGroup();
++    uint64_t aGroupId, nsTArray<SyncedContextInitializer>&& aInits) {
++  RefPtr<BrowsingContextGroup> group =
++      BrowsingContextGroup::GetOrCreate(aGroupId);
+ 
+   // Each of the initializers in aInits is sorted in pre-order, so our parent
+   // should always be available before the element itself.
+@@ -3693,9 +3695,7 @@
+         MOZ_ASSERT_IF(parent, parent->Group() == group);
+ #endif
+ 
+-        RefPtr<BrowsingContext> ctxt =
+-            BrowsingContext::CreateFromIPC(std::move(init), group, nullptr);
+-        ctxt->Attach(/* aFromIPC */ true);
++        BrowsingContext::CreateFromIPC(std::move(init), group, nullptr);
+         break;
+       }
+       case SyncedContextInitializer::TWindowContextInitializer: {
+@@ -4027,14 +4027,6 @@
+   return IPC_OK();
+ }
+ 
+-void ContentChild::HoldBrowsingContextGroup(BrowsingContextGroup* aBCG) {
+-  mBrowsingContextGroupHolder.AppendElement(aBCG);
+-}
+-
+-void ContentChild::ReleaseBrowsingContextGroup(BrowsingContextGroup* aBCG) {
+-  mBrowsingContextGroupHolder.RemoveElement(aBCG);
+-}
+-
+ mozilla::ipc::IPCResult ContentChild::RecvScriptError(
+     const nsString& aMessage, const nsString& aSourceName,
+     const nsString& aSourceLine, const uint32_t& aLineNumber,

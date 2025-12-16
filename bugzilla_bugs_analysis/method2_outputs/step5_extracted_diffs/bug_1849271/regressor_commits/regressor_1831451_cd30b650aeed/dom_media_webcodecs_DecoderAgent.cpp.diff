@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webcodecs/DecoderAgent.cpp
+# Commit: cd30b650aeed
+# Full Hash: cd30b650aeed44d1fb256a8aed378d27a3bfe39a
+# Author: Chun-Min Chang <chun.m.chang@gmail.com>
+# Date: 2023-06-29 15:31:45
+# Regressor Bug: 1831451
+# File Overlap Count: 1
+# Description:
+#   Bug 1831451 - Generate a unique Id for both ConfigureMessage and DecoderAgent r=alwu
+#   
+#   To batter tracking the ControlMessage logs, ConfigureMessage should
+#   generate a unique Id for itself and its following DecodeMessages and
+#   FlushMessages. Besides, that unique id can be assigned to DecoderAgent
+# ==============================================================================
+
+diff -r 6892b88cb4ee -r cd30b650aeed dom/media/webcodecs/DecoderAgent.cpp
+--- a/dom/media/webcodecs/DecoderAgent.cpp	Thu Jun 29 04:15:04 2023 +0000
++++ b/dom/media/webcodecs/DecoderAgent.cpp	Thu Jun 29 04:15:04 2023 +0000
+@@ -47,18 +47,6 @@
+ #endif  // LOGV
+ #define LOGV(msg, ...) LOG_INTERNAL(Verbose, msg, ##__VA_ARGS__)
+ 
+-/* static */
+-already_AddRefed<DecoderAgent> DecoderAgent::Create(
+-    UniquePtr<TrackInfo>&& aInfo) {
+-  MOZ_ASSERT(aInfo);
+-
+-  // This needs to be atomic since this can run on the main thread or worker
+-  // thread.
+-  static std::atomic<Id> sNextId = None;
+-  RefPtr<DecoderAgent> agent = new DecoderAgent(++sNextId, std::move(aInfo));
+-  return agent.forget();
+-}
+-
+ DecoderAgent::DecoderAgent(Id aId, UniquePtr<TrackInfo>&& aInfo)
+     : mId(aId),
+       mInfo(std::move(aInfo)),

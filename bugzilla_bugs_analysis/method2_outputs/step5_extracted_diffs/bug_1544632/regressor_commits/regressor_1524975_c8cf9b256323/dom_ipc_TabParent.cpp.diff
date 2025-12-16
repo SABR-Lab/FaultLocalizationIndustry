@@ -1,0 +1,36 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/TabParent.cpp
+# Commit: c8cf9b256323
+# Full Hash: c8cf9b256323da1c2f488ccef3a88369ffa3c051
+# Author: Henri Sivonen <hsivonen@hsivonen.fi>
+# Date: 2019-04-01 21:54:51
+# Regressor Bug: 1524975
+# File Overlap Count: 1
+# Description:
+#   Bug 1524975 - Split cross-process IME committing and blurring out of IMEStateManager::OnChangeFocusInternal(). r=masayuki
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D23655
+# ==============================================================================
+
+diff -r 508dd8a22136 -r c8cf9b256323 dom/ipc/TabParent.cpp
+--- a/dom/ipc/TabParent.cpp	Mon Apr 01 16:45:00 2019 +0000
++++ b/dom/ipc/TabParent.cpp	Mon Apr 01 07:22:54 2019 +0000
+@@ -357,7 +357,6 @@
+ 
+ void TabParent::DestroyInternal() {
+   PopFocus(this);
+-  IMEStateManager::OnTabParentDestroying(this);
+ 
+   RemoveWindowListeners();
+ 
+@@ -432,7 +431,7 @@
+ 
+   // Even though TabParent::Destroy calls this, we need to do it here too in
+   // case of a crash.
+-  IMEStateManager::OnTabParentDestroying(this);
++  TabParent::PopFocus(this);
+ 
+   // Prevent executing ContentParent::NotifyTabDestroying in
+   // TabParent::Destroy() called by frameLoader->DestroyComplete() below

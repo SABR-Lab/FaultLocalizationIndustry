@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/webrender_bindings/WebRenderAPI.cpp
+# Commit: 46c9b479034f
+# Full Hash: 46c9b479034f2c6ee710d8d5a703de4a07e77557
+# Author: Alexis Beingessner <a.beingessner@gmail.com>
+# Date: 2019-07-12 21:43:58
+# Regressor Bug: 1547351
+# File Overlap Count: 2
+# Description:
+#   Bug 1547351 - Automatically set content process render root r=kats
+#   
+#   This implements the idea of automatically setting a content proc's
+#   render root based on the render root enclosing the iframe that
+#   points to it. There was a bit of cleanup in here that was a bit
+# ==============================================================================
+
+diff -r 4689b2870416 -r 46c9b479034f gfx/webrender_bindings/WebRenderAPI.cpp
+--- a/gfx/webrender_bindings/WebRenderAPI.cpp	Fri Jul 12 14:14:22 2019 +0000
++++ b/gfx/webrender_bindings/WebRenderAPI.cpp	Fri Jul 12 14:14:22 2019 +0000
+@@ -813,6 +813,8 @@
+                           &aOutTransaction.mDLDesc, &dl.inner);
+   aOutTransaction.mDL.emplace(dl.inner.data, dl.inner.length,
+                               dl.inner.capacity);
++  aOutTransaction.mRemotePipelineIds =
++      std::move(SubBuilder(aOutTransaction.mRenderRoot).mRemotePipelineIds);
+   dl.inner.capacity = 0;
+   dl.inner.data = nullptr;
+ }
+@@ -1101,6 +1103,7 @@
+                                     bool aIsBackfaceVisible,
+                                     PipelineId aPipeline,
+                                     bool aIgnoreMissingPipeline) {
++  mRemotePipelineIds.AppendElement(aPipeline);
+   wr_dp_push_iframe(mWrState, aBounds, MergeClipLeaf(aBounds),
+                     aIsBackfaceVisible, &mCurrentSpaceAndClipChain, aPipeline,
+                     aIgnoreMissingPipeline);

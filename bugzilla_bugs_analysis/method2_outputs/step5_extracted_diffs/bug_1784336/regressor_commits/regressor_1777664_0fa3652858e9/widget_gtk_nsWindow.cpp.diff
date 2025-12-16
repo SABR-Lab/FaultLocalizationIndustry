@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/nsWindow.cpp
+# Commit: 0fa3652858e9
+# Full Hash: 0fa3652858e9181ace74c9c72e62e46c58eed85a
+# Author: stransky <stransky@redhat.com>
+# Date: 2022-07-26 21:44:38
+# Regressor Bug: 1777664
+# File Overlap Count: 1
+# Description:
+#   Bug 1777664 [Linux] Replace CleanLayerManagerRecursive() with DestroyLayerManager() as they're the same r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D152686
+# ==============================================================================
+
+diff -r 2cbab5d7e2a9 -r 0fa3652858e9 widget/gtk/nsWindow.cpp
+--- a/widget/gtk/nsWindow.cpp	Tue Jul 26 14:49:02 2022 +0000
++++ b/widget/gtk/nsWindow.cpp	Tue Jul 26 14:56:46 2022 +0000
+@@ -6415,15 +6415,6 @@
+   }
+ }
+ 
+-void nsWindow::CleanLayerManagerRecursive(void) {
+-  if (mWindowRenderer) {
+-    mWindowRenderer->Destroy();
+-    mWindowRenderer = nullptr;
+-  }
+-
+-  DestroyCompositor();
+-}
+-
+ void nsWindow::SetTransparencyMode(nsTransparencyMode aMode) {
+   bool isTransparent = aMode == eTransparencyTransparent;
+ 
+@@ -6453,7 +6444,7 @@
+     // The choice of layer manager depends on
+     // GtkCompositorWidgetInitData::Shaped(), which will need to change, so
+     // clean out the old layer manager.
+-    CleanLayerManagerRecursive();
++    DestroyLayerManager();
+   }
+ }
+ 

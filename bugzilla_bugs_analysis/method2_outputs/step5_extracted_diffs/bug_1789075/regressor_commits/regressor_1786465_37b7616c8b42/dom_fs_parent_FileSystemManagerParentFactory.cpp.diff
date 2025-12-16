@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fs/parent/FileSystemManagerParentFactory.cpp
+# Commit: 37b7616c8b42
+# Full Hash: 37b7616c8b4288e6f92e99ca1314e1f0169d7ed6
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2022-08-31 21:54:47
+# Regressor Bug: 1786465
+# File Overlap Count: 2
+# Description:
+#   Bug 1786465 - Convert FileSystemDataManager to be ref counted; r=dom-storage-reviewers,jesup
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D155551
+# ==============================================================================
+
+diff -r 399dce373c59 -r 37b7616c8b42 dom/fs/parent/FileSystemManagerParentFactory.cpp
+--- a/dom/fs/parent/FileSystemManagerParentFactory.cpp	Wed Aug 31 09:34:54 2022 +0000
++++ b/dom/fs/parent/FileSystemManagerParentFactory.cpp	Wed Aug 31 09:34:54 2022 +0000
+@@ -54,10 +54,9 @@
+ 
+   // This opens the quota manager, which has to be done on PBackground
+   QM_TRY_UNWRAP(
+-      fs::data::FileSystemDataManager * dataManagerRaw,
++      RefPtr<fs::data::FileSystemDataManager> dataManager,
+       fs::data::FileSystemDataManager::CreateFileSystemDataManager(origin),
+       IPC_OK(), sendBackError);
+-  UniquePtr<fs::data::FileSystemDataManager> dataManager(dataManagerRaw);
+ 
+   nsCOMPtr<nsIThread> pbackground = NS_GetCurrentThread();
+ 
+@@ -76,6 +75,9 @@
+       taskqueue, __func__,
+       [origin, parentEp = std::move(aParentEndpoint), aResolver, rootId,
+        dataManager = std::move(dataManager), taskqueue, pbackground]() mutable {
++        NS_ProxyRelease("ReleaseFileSystemDataManager", pbackground,
++                        dataManager.forget());
++
+         RefPtr<FileSystemManagerParent> parent =
+             new FileSystemManagerParent(taskqueue, rootId);
+         if (!parentEp.Bind(parent)) {

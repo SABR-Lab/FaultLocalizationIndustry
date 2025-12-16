@@ -1,0 +1,67 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/base/TextDirectiveCreator.cpp
+# Commit: 5266c5cc9daa
+# Full Hash: 5266c5cc9daa2ccbb8b30b239ef835f19b83d2ad
+# Author: Jan-Niklas Jaeschke <jjaschke@mozilla.com>
+# Date: 2025-07-24 21:29:06
+# Description:
+#   Bug 1978976 - Text Fragments: Bail out if start or end terms end up being empty. r=dom-core,mccr8
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D258575
+# ==============================================================================
+
+diff -r f89017bc81fd -r 5266c5cc9daa dom/base/TextDirectiveCreator.cpp
+--- a/dom/base/TextDirectiveCreator.cpp	Thu Jul 24 13:27:23 2025 +0000
++++ b/dom/base/TextDirectiveCreator.cpp	Thu Jul 24 13:29:08 2025 +0000
+@@ -199,6 +199,10 @@
+     MOZ_DIAGNOSTIC_ASSERT(!startRange->Collapsed());
+     mStartContent =
+         MOZ_TRY(TextDirectiveUtil::RangeContentAsString(startRange));
++    if (MOZ_UNLIKELY(mStartContent.IsEmpty())) {
++      TEXT_FRAGMENT_LOG("Somehow got empty start term. Aborting.");
++      return false;
++    }
+     const Maybe<RangeBoundary> lastBlockBoundaryInRange =
+         TextDirectiveUtil::FindBlockBoundaryInRange<TextScanDirection::Left>(
+             *mRange);
+@@ -213,6 +217,10 @@
+     }
+     MOZ_DIAGNOSTIC_ASSERT(!endRange->Collapsed());
+     mEndContent = MOZ_TRY(TextDirectiveUtil::RangeContentAsString(endRange));
++    if (MOZ_UNLIKELY(mEndContent.IsEmpty())) {
++      TEXT_FRAGMENT_LOG("Somehow got empty end term. Aborting.");
++      return false;
++    }
+   } else {
+     TEXT_FRAGMENT_LOG(
+         "Target range is too long, collecting start and end by dividing "
+@@ -341,11 +349,13 @@
+           mPrefixContent);
+   TEXT_FRAGMENT_LOG("Word begin distances for prefix term: {}",
+                     mPrefixWordBeginDistances);
++  MOZ_DIAGNOSTIC_ASSERT(!mStartContent.IsEmpty());
+   mStartWordEndDistances =
+       TextDirectiveUtil::ComputeWordBoundaryDistances<TextScanDirection::Right>(
+           mStartContent);
+   MOZ_DIAGNOSTIC_ASSERT(!mStartWordEndDistances.IsEmpty(),
+                         "There must be at least one word in the start term.");
++  MOZ_DIAGNOSTIC_ASSERT(mStartWordEndDistances[0] > 0);
+   mFirstWordOfStartContent =
+       Substring(mStartContent, 0, mStartWordEndDistances[0]);
+   TEXT_FRAGMENT_LOG("First word of start term: {}",
+@@ -375,11 +385,13 @@
+         mStartWordEndDistances);
+   }
+ 
++  MOZ_DIAGNOSTIC_ASSERT(!mEndContent.IsEmpty());
+   mEndWordBeginDistances =
+       TextDirectiveUtil::ComputeWordBoundaryDistances<TextScanDirection::Left>(
+           mEndContent);
+   MOZ_DIAGNOSTIC_ASSERT(!mEndWordBeginDistances.IsEmpty(),
+                         "There must be at least one word in the end term.");
++  MOZ_DIAGNOSTIC_ASSERT(mEndWordBeginDistances[0] > 0);
+   mLastWordOfEndContent =
+       Substring(mEndContent, mEndContent.Length() - mEndWordBeginDistances[0]);
+   TEXT_FRAGMENT_LOG("Last word of end term: {}",

@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/angle/checkout/src/libANGLE/angletypes.cpp
+# Commit: 13282d7a47a5
+# Full Hash: 13282d7a47a57a73be8d060efd9645b4d642f03e
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2019-09-08 09:46:52
+# Regressor Bug: 1578576
+# File Overlap Count: 4
+# Description:
+#   Bug 1578576 - Part 2: Update to ANGLE 3865 r=jgilbert
+#   
+#   Depends on D44561
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44579
+# ==============================================================================
+
+diff -r 3064469c073d -r 13282d7a47a5 gfx/angle/checkout/src/libANGLE/angletypes.cpp
+--- a/gfx/angle/checkout/src/libANGLE/angletypes.cpp	Sat Sep 07 13:36:46 2019 +0000
++++ b/gfx/angle/checkout/src/libANGLE/angletypes.cpp	Sat Sep 07 13:38:36 2019 +0000
+@@ -59,6 +59,11 @@
+     memcpy(this, &other, sizeof(BlendState));
+ }
+ 
++bool BlendState::allChannelsMasked() const
++{
++    return !colorMaskRed && !colorMaskGreen && !colorMaskBlue && !colorMaskAlpha;
++}
++
+ bool operator==(const BlendState &a, const BlendState &b)
+ {
+     return memcmp(&a, &b, sizeof(BlendState)) == 0;
+@@ -236,20 +241,30 @@
+     }
+ }
+ 
++Rectangle Rectangle::flip(bool flipX, bool flipY) const
++{
++    Rectangle flipped = *this;
++    if (flipX)
++    {
++        flipped.x     = flipped.x + flipped.width;
++        flipped.width = -flipped.width;
++    }
++    if (flipY)
++    {
++        flipped.y      = flipped.y + flipped.height;
++        flipped.height = -flipped.height;
++    }
++    return flipped;
++}
++
+ Rectangle Rectangle::removeReversal() const
+ {
+-    Rectangle unreversed = *this;
+-    if (isReversedX())
+-    {
+-        unreversed.x     = unreversed.x + unreversed.width;
+-        unreversed.width = -unreversed.width;
+-    }
+-    if (isReversedY())
+-    {
+-        unreversed.y      = unreversed.y + unreversed.height;
+-        unreversed.height = -unreversed.height;
+-    }
+-    return unreversed;
++    return flip(isReversedX(), isReversedY());
++}
++
++bool Rectangle::encloses(const gl::Rectangle &inside) const
++{
++    return x0() <= inside.x0() && y0() <= inside.y0() && x1() >= inside.x1() && y1() >= inside.y1();
+ }
+ 
+ bool ClipRectangle(const Rectangle &source, const Rectangle &clip, Rectangle *intersection)

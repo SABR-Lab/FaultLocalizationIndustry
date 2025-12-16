@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/cookiestore/CookieStore.h
+# Commit: 5e078f860dfb
+# Full Hash: 5e078f860dfb9368bd747e4a8c53d07c7e8809ee
+# Author: Andrea Marchesini <amarchesini@mozilla.com>
+# Date: 2024-09-13 04:28:43
+# Regressor Bug: 1475599
+# File Overlap Count: 1
+# Description:
+#   Bug 1475599 - part 2 - CookieStore API - IPDL, r=edgul,webidl,smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D215145
+# ==============================================================================
+
+diff -r d55b6525d7b2 -r 5e078f860dfb dom/cookiestore/CookieStore.h
+--- a/dom/cookiestore/CookieStore.h	Thu Sep 12 16:48:18 2024 +0000
++++ b/dom/cookiestore/CookieStore.h	Thu Sep 12 16:48:19 2024 +0000
+@@ -15,6 +15,9 @@
+ 
+ namespace mozilla::dom {
+ 
++class CookieData;
++class CookieStoreChild;
++class CookieStoreNotifier;
+ class Promise;
+ 
+ class CookieStore final : public DOMEventTargetHelper {
+@@ -29,6 +32,8 @@
+   JSObject* WrapObject(JSContext* aCx,
+                        JS::Handle<JSObject*> aGivenProto) override;
+ 
++  void FireDelayedDOMEvents();
++
+   already_AddRefed<Promise> Get(const nsAString& aName, ErrorResult& aRv);
+ 
+   already_AddRefed<Promise> Get(const CookieStoreGetOptions& aOptions,
+@@ -54,6 +59,19 @@
+  private:
+   explicit CookieStore(nsIGlobalObject* aGlobal);
+   ~CookieStore();
++
++  void Shutdown();
++
++  Document* MaybeGetDocument() const;
++
++  already_AddRefed<Promise> GetInternal(const CookieStoreGetOptions& aOptions,
++                                        bool aOnlyTheFirstMatch,
++                                        ErrorResult& aRv);
++
++  bool MaybeCreateActor();
++
++  RefPtr<CookieStoreChild> mActor;
++  RefPtr<CookieStoreNotifier> mNotifier;
+ };
+ 
+ }  // namespace mozilla::dom

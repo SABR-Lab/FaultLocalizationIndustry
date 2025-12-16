@@ -1,0 +1,68 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender_api/src/display_item.rs
+# Commit: 0919633e25e9
+# Full Hash: 0919633e25e99241c2eb06374ae2f54d31ae132d
+# Author: Nicolas Silva <nsilva@mozilla.com>
+# Date: 2021-04-22 21:31:57
+# Regressor Bug: 1702228
+# File Overlap Count: 1
+# Description:
+#   Bug 1702228 - Check gradient parameters. r=gw
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D112969
+# ==============================================================================
+
+diff -r e38dce4a5b06 -r 0919633e25e9 gfx/wr/webrender_api/src/display_item.rs
+--- a/gfx/wr/webrender_api/src/display_item.rs	Thu Apr 22 10:34:54 2021 +0000
++++ b/gfx/wr/webrender_api/src/display_item.rs	Thu Apr 22 10:34:55 2021 +0000
+@@ -627,6 +627,15 @@
+     pub extend_mode: ExtendMode,
+ } // IMPLICIT: stops: Vec<GradientStop>
+ 
++impl Gradient {
++    pub fn is_valid(&self) -> bool {
++        self.start_point.x.is_finite() &&
++            self.start_point.y.is_finite() &&
++            self.end_point.x.is_finite() &&
++            self.end_point.y.is_finite()
++    }
++}
++
+ /// The area
+ #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, PeekPoke)]
+ pub struct GradientDisplayItem {
+@@ -659,6 +668,15 @@
+     pub extend_mode: ExtendMode,
+ } // IMPLICIT stops: Vec<GradientStop>
+ 
++impl RadialGradient {
++    pub fn is_valid(&self) -> bool {
++        self.center.x.is_finite() &&
++            self.center.y.is_finite() &&
++            self.start_offset.is_finite() &&
++            self.end_offset.is_finite()
++    }
++}
++
+ #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, PeekPoke)]
+ pub struct ConicGradient {
+     pub center: LayoutPoint,
+@@ -668,6 +686,16 @@
+     pub extend_mode: ExtendMode,
+ } // IMPLICIT stops: Vec<GradientStop>
+ 
++impl ConicGradient {
++    pub fn is_valid(&self) -> bool {
++        self.center.x.is_finite() &&
++            self.center.y.is_finite() &&
++            self.angle.is_finite() &&
++            self.start_offset.is_finite() &&
++            self.end_offset.is_finite()
++    }
++}
++
+ /// Just an abstraction for bundling up a bunch of clips into a "super clip".
+ #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, PeekPoke)]
+ pub struct ClipChainItem {

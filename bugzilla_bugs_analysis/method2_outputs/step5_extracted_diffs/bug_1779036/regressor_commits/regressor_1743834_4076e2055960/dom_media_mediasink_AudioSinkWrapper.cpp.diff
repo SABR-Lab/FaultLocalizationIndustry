@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasink/AudioSinkWrapper.cpp
+# Commit: 4076e2055960
+# Full Hash: 4076e2055960a3e461f31839564bfdb5f1fd402c
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2022-05-10 03:50:31
+# Regressor Bug: 1743834
+# File Overlap Count: 1
+# Description:
+#   Bug 1743834 - Correctly set the start time when the audio callbacks actually are called, the first time audio audio clock starts to be in use. r=alwu,media-playback-reviewers
+#   
+#   The base clock for the new audio stream is precisely the time when the clock
+#   source changes from the system clock to the audio clock, accounting for the time
+#   it takes to actually starts the stream. This allows avoiding discontinuities
+# ==============================================================================
+
+diff -r 966ceb9947fa -r 4076e2055960 dom/media/mediasink/AudioSinkWrapper.cpp
+--- a/dom/media/mediasink/AudioSinkWrapper.cpp	Mon May 09 13:20:50 2022 +0000
++++ b/dom/media/mediasink/AudioSinkWrapper.cpp	Mon May 09 13:20:51 2022 +0000
+@@ -42,7 +42,8 @@
+ TimeUnit AudioSinkWrapper::GetEndTime(TrackType aType) const {
+   AssertOwnerThread();
+   MOZ_ASSERT(mIsStarted, "Must be called after playback starts.");
+-  if (aType == TrackInfo::kAudioTrack && mAudioSink) {
++  if (aType == TrackInfo::kAudioTrack && mAudioSink &&
++      mAudioSink->AudioStreamCallbackStarted()) {
+     return mAudioSink->GetEndTime();
+   }
+ 
+@@ -77,7 +78,16 @@
+   TimeUnit pos;
+   TimeStamp t = TimeStamp::Now();
+ 
+-  if (!mAudioEnded && !IsMuted() && mAudioSink && mAudioSink->AudioStreamCallbackStarted()) {
++  if (!mAudioEnded && !IsMuted() && mAudioSink &&
++      mAudioSink->AudioStreamCallbackStarted()) {
++    if (mLastClockSource == ClockSource::SystemClock) {
++      TimeUnit switchTime = GetSystemClockPosition(t);
++      // Update the _actual_ start time of the audio stream now that it has
++      // started, preventing any clock discontinuity.
++      mAudioSink->UpdateStartTime(switchTime);
++      LOGV("%p: switching to audio clock at media time %lf", this,
++           switchTime.ToSeconds());
++    }
+     // Rely on the audio sink to report playback position when it is not ended.
+     pos = mAudioSink->GetPosition();
+     LOGV("%p: Getting position from the Audio Sink %lf", this, pos.ToSeconds());

@@ -1,0 +1,41 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/CanvasRenderingContext2D.cpp
+# Commit: c82f94b99166
+# Full Hash: c82f94b991664b361e4d0abfc407e03d6a91212b
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2024-05-24 09:53:01
+# Description:
+#   Bug 1897201 - Return identity transform while recovering from context loss with canvas. r=gfx-reviewers,lsalzman
+#   
+#   When we lose the context for a 2D canvas, we need to silently fail any
+#   canvas calls until the context is recovered. Unfortunately that meant we
+#   returned a nullptr in CanvasRenderingContext2D::GetTransform which is
+# ==============================================================================
+
+diff -r 22edcfdcc72c -r c82f94b99166 dom/canvas/CanvasRenderingContext2D.cpp
+--- a/dom/canvas/CanvasRenderingContext2D.cpp	Thu May 23 22:53:45 2024 +0000
++++ b/dom/canvas/CanvasRenderingContext2D.cpp	Thu May 23 22:58:18 2024 +0000
+@@ -2220,14 +2220,16 @@
+ 
+ already_AddRefed<DOMMatrix> CanvasRenderingContext2D::GetTransform(
+     ErrorResult& aError) {
+-  if (!EnsureTarget(aError)) {
++  // If we are silently failing, then we still need to return a transform while
++  // we are in the process of recovering.
++  Matrix transform;
++  if (EnsureTarget(aError)) {
++    transform = mTarget->GetTransform();
++  } else if (aError.Failed()) {
+     return nullptr;
+   }
+ 
+-  MOZ_ASSERT(IsTargetValid());
+-
+-  RefPtr<DOMMatrix> matrix =
+-      new DOMMatrix(GetParentObject(), mTarget->GetTransform());
++  RefPtr<DOMMatrix> matrix = new DOMMatrix(GetParentObject(), transform);
+   return matrix.forget();
+ }
+ 

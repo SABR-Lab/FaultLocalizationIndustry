@@ -1,0 +1,103 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit-test/tests/debug/Frame-environment-07.js
+# Commit: ea1bb2f0fd39
+# Full Hash: ea1bb2f0fd39a412480bd777ba944b276a54006a
+# Author: Logan Smyth <loganfsmyth@gmail.com>
+# Date: 2019-12-09 09:50:39
+# Regressor Bug: 1600204
+# File Overlap Count: 1
+# Description:
+#   Bug 1600204 - Part 5: Support .environment on suspended generator frames. r=jimb
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D55235
+# ==============================================================================
+
+diff -r 39d1ae1352b3 -r ea1bb2f0fd39 js/src/jit-test/tests/debug/Frame-environment-07.js
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/js/src/jit-test/tests/debug/Frame-environment-07.js	Sun Dec 08 23:53:27 2019 +0000
+@@ -0,0 +1,83 @@
++// Test that Debugger.Frame.prototype.environment works on suspended generators.
++
++load(libdir + "asserts.js");
++
++const g = newGlobal({ newCompartment: true });
++const dbg = new Debugger(g);
++
++g.eval(`
++function* f() {
++  var value = 42;
++  yield;
++  {
++    let block = "block";
++    yield;
++  }
++  for (let loop of ["loop"]) {
++    yield;
++  }
++  try {
++    throw "err";
++  } catch (err) {
++    yield;
++  }
++  return value;
++}
++`);
++
++let frame;
++dbg.onEnterFrame = f => {
++  frame = f;
++  dbg.onEnterFrame = undefined;
++};
++
++const it = g.f();
++
++assertEq(!!frame, true);
++
++let result = it.next();
++
++assertEq(result.done, false);
++assertEq(result.value, undefined);
++
++assertEq(
++  JSON.stringify(frame.environment.names()),
++  JSON.stringify(["arguments", "value"])
++);
++
++assertEq(frame.environment.getVariable("value"), 42);
++
++frame.environment.setVariable("value", 43);
++
++assertEq(frame.environment.getVariable("value"), 43);
++
++result = it.next();
++
++assertEq(
++  JSON.stringify(frame.environment.names()),
++  JSON.stringify(["block"])
++);
++assertEq(frame.environment.getVariable("block"), "block");
++
++result = it.next();
++
++assertEq(
++  JSON.stringify(frame.environment.names()),
++  JSON.stringify(["loop"])
++);
++assertEq(frame.environment.getVariable("loop"), "loop");
++
++result = it.next();
++
++assertEq(
++  JSON.stringify(frame.environment.names()),
++  JSON.stringify(["err"])
++);
++assertEq(frame.environment.getVariable("err"), "err");
++
++result = it.next();
++
++assertEq(result.done, true);
++assertEq(result.value, 43);
++
++assertThrowsInstanceOf(() => frame.environment, Error);

@@ -1,0 +1,48 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasession/MediaSession.cpp
+# Commit: 05884654e7f2
+# Full Hash: 05884654e7f2fa5985ce61ff5bf34f9882fdd6f3
+# Author: alwu <alwu@mozilla.com>
+# Date: 2020-10-28 09:24:21
+# Description:
+#   Bug 1672876 - run shutdown during unlink. r=mccr8
+#   
+#   When unlink happens, we should also run `Shutdown()` which should also ensure the member variables are still existing before running corresponding methods.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D94609
+# ==============================================================================
+
+diff -r 63d29101d708 -r 05884654e7f2 dom/media/mediasession/MediaSession.cpp
+--- a/dom/media/mediasession/MediaSession.cpp	Tue Oct 27 21:05:09 2020 +0000
++++ b/dom/media/mediasession/MediaSession.cpp	Tue Oct 27 21:15:06 2020 +0000
+@@ -32,12 +32,10 @@
+ NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(MediaSession)
+ 
+ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(MediaSession)
++  tmp->Shutdown();
+   NS_IMPL_CYCLE_COLLECTION_UNLINK(mParent)
+   NS_IMPL_CYCLE_COLLECTION_UNLINK(mMediaMetadata)
+   NS_IMPL_CYCLE_COLLECTION_UNLINK(mActionHandlers)
+-  if (tmp->mDoc) {
+-    tmp->mDoc->UnregisterActivityObserver(tmp);
+-  }
+   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDoc)
+   NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER
+ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
+@@ -59,8 +57,12 @@
+ }
+ 
+ void MediaSession::Shutdown() {
+-  mDoc->UnregisterActivityObserver(this);
+-  SetMediaSessionDocStatus(SessionDocStatus::eInactive);
++  if (mDoc) {
++    mDoc->UnregisterActivityObserver(this);
++  }
++  if (mParent) {
++    SetMediaSessionDocStatus(SessionDocStatus::eInactive);
++  }
+ }
+ 
+ void MediaSession::NotifyOwnerDocumentActivityChanged() {

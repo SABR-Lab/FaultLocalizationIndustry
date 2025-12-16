@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/ipc/win/DocAccessibleChild.cpp
+# Commit: 94aa863a913a
+# Full Hash: 94aa863a913a0f935b5e7636e49e5a33727c638a
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2022-06-01 09:46:32
+# Regressor Bug: 1756728
+# File Overlap Count: 1
+# Description:
+#   Bug 1756728 part 1: Make it possible to retrieve a BrowsingContext from a DocAccessibleParent. r=morgan
+#   
+#   Previously, even for remote in-process iframes, it was only possible to retrieve the top level BrowsingContext for the remote process by getting the managing BrowserParent.
+#   This makes it possible to get the correct BrowsingContext even for in-process iframes.
+#   
+# ==============================================================================
+
+diff -r f6b6083e77c9 -r 94aa863a913a accessible/ipc/win/DocAccessibleChild.cpp
+--- a/accessible/ipc/win/DocAccessibleChild.cpp	Wed Jun 01 00:01:50 2022 +0000
++++ b/accessible/ipc/win/DocAccessibleChild.cpp	Wed Jun 01 00:34:17 2022 +0000
+@@ -10,6 +10,7 @@
+ #include "LocalAccessible-inl.h"
+ #include "mozilla/a11y/PlatformChild.h"
+ #include "mozilla/ClearOnShutdown.h"
++#include "mozilla/dom/Document.h"
+ #include "mozilla/StaticPrefs_accessibility.h"
+ #include "RootAccessible.h"
+ 
+@@ -287,7 +288,9 @@
+     auto browserChild = static_cast<dom::BrowserChild*>(Manager());
+     MOZ_ASSERT(browserChild);
+     bool result = browserChild->SendPDocAccessibleConstructor(
+-        aNewChildDoc, this, aUniqueID, aMsaaID, IAccessibleHolder());
++        aNewChildDoc, this, aUniqueID,
++        aNewChildDoc->mDoc->DocumentNode()->GetBrowsingContext(), aMsaaID,
++        IAccessibleHolder());
+     if (result) {
+       aNewChildDoc->SetConstructedInParentProcess();
+     }
+@@ -295,7 +298,8 @@
+   }
+ 
+   PushDeferredEvent(MakeUnique<SerializedChildDocConstructor>(
+-      aNewChildDoc, this, aUniqueID, aMsaaID));
++      aNewChildDoc, this, aUniqueID,
++      aNewChildDoc->mDoc->DocumentNode()->GetBrowsingContext(), aMsaaID));
+   return true;
+ }
+ 

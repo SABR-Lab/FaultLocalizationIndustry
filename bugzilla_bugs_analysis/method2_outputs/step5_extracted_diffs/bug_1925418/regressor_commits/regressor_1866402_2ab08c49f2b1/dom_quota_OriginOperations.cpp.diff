@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/OriginOperations.cpp
+# Commit: 2ab08c49f2b1
+# Full Hash: 2ab08c49f2b18e0316ef211df33db265f91b3902
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-10-10 22:03:45
+# Regressor Bug: 1866402
+# File Overlap Count: 1
+# Description:
+#   Bug 1866402 - Update the cached value in PersistOp::DoDirectoryWork only after successful creation of the metadata file; r=dom-storage-reviewers,jari
+#   
+#   Currently, the cached value is updated before creation of the metadata file
+#   which can lead to a mismatch between the metadata file and the cached value if
+#   creation of the metadata file fails. It will be safer to update the cached
+# ==============================================================================
+
+diff -r 48781c71d287 -r 2ab08c49f2b1 dom/quota/OriginOperations.cpp
+--- a/dom/quota/OriginOperations.cpp	Thu Oct 10 12:22:54 2024 +0000
++++ b/dom/quota/OriginOperations.cpp	Thu Oct 10 12:22:54 2024 +0000
+@@ -3106,8 +3106,7 @@
+     // Origin directory has been successfully created.
+     // Create OriginInfo too if temporary storage was already initialized.
+     if (aQuotaManager.IsTemporaryStorageInitializedInternal()) {
+-      timestamp = aQuotaManager.NoteOriginDirectoryCreated(
+-          originMetadata, /* aPersisted */ true);
++      timestamp = aQuotaManager.NoteOriginDirectoryCreated(originMetadata);
+     } else {
+       timestamp = PR_Now();
+     }
+@@ -3115,6 +3114,10 @@
+     QM_TRY(MOZ_TO_RESULT(QuotaManager::CreateDirectoryMetadata2(
+         *directory, timestamp,
+         /* aPersisted */ true, originMetadata)));
++
++    if (aQuotaManager.IsTemporaryStorageInitializedInternal()) {
++      aQuotaManager.PersistOrigin(originMetadata);
++    }
+   } else {
+     QM_TRY_INSPECT(
+         const bool& persisted,

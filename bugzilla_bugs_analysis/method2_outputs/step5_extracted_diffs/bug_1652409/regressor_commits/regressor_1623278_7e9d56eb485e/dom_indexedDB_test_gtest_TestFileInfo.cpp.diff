@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/test/gtest/TestFileInfo.cpp
+# Commit: 7e9d56eb485e
+# Full Hash: 7e9d56eb485e06cca2a82fe88e2ae36c2ccd2095
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2020-04-01 21:26:59
+# Regressor Bug: 1623278
+# File Overlap Count: 1
+# Description:
+#   Bug 1623278 - Use SafeRefPtr for FileManager. r=dom-workers-and-storage-reviewers,asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D65549
+# ==============================================================================
+
+diff -r a753c018a4a8 -r 7e9d56eb485e dom/indexedDB/test/gtest/TestFileInfo.cpp
+--- a/dom/indexedDB/test/gtest/TestFileInfo.cpp	Wed Apr 01 09:54:24 2020 +0000
++++ b/dom/indexedDB/test/gtest/TestFileInfo.cpp	Wed Apr 01 09:52:54 2020 +0000
+@@ -57,8 +57,10 @@
+     for (const auto id : kDBOnlyFileInfoIds) {
+       // Copied from within FileManager::Init.
+ 
+-      mFileInfos.Put(id, new FileInfo(FileManagerGuard{}, this, id,
+-                                      static_cast<nsrefcnt>(1)));
++      mFileInfos.Put(
++          id, new FileInfo(FileManagerGuard{},
++                           SafeRefPtr{this, AcquireStrongRefFromRawPtr{}}, id,
++                           static_cast<nsrefcnt>(1)));
+ 
+       mLastFileId = std::max(id, mLastFileId);
+     }
+@@ -106,7 +108,7 @@
+     int32_t memRefCnt, dbRefCnt;
+     fileInfo->GetReferences(&memRefCnt, &dbRefCnt);
+ 
+-    ASSERT_EQ(fileManager, fileInfo->Manager());
++    ASSERT_EQ(fileManager, &fileInfo->Manager());
+ 
+     ASSERT_EQ(1, memRefCnt);
+     ASSERT_EQ(0, dbRefCnt);
+@@ -131,7 +133,7 @@
+       int32_t memRefCnt, dbRefCnt;
+       fileInfo->GetReferences(&memRefCnt, &dbRefCnt);
+ 
+-      ASSERT_EQ(fileManager, fileInfo->Manager());
++      ASSERT_EQ(fileManager, &fileInfo->Manager());
+ 
+       ASSERT_EQ(1, memRefCnt);  // we hold one in fileInfo ourselves
+       ASSERT_EQ(1, dbRefCnt);

@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fetch/FetchStreamReader.cpp
+# Commit: 682576598147
+# Full Hash: 68257659814773dd5ce01d8dc9962eb3cd2313c9
+# Author: Andrew Sutherland <asutherland@asutherland.org>
+# Date: 2022-08-03 03:42:48
+# Regressor Bug: 1770630
+# File Overlap Count: 1
+# Description:
+#   Bug 1770630 - Worker stream readers should contribute to busy count. r=dom-worker-reviewers,jstutte
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D149185
+# ==============================================================================
+
+diff -r 08d3ed24aab9 -r 682576598147 dom/fetch/FetchStreamReader.cpp
+--- a/dom/fetch/FetchStreamReader.cpp	Wed Aug 03 00:26:29 2022 +0000
++++ b/dom/fetch/FetchStreamReader.cpp	Wed Aug 03 00:36:01 2022 +0000
+@@ -76,16 +76,14 @@
+     WorkerPrivate* workerPrivate = GetWorkerPrivateFromContext(aCx);
+     MOZ_ASSERT(workerPrivate);
+ 
+-    RefPtr<WeakWorkerRef> workerRef =
+-        WeakWorkerRef::Create(workerPrivate, [streamReader]() {
++    RefPtr<StrongWorkerRef> workerRef = StrongWorkerRef::Create(
++        workerPrivate, "FetchStreamReader", [streamReader]() {
+           MOZ_ASSERT(streamReader);
+           MOZ_ASSERT(streamReader->mWorkerRef);
+ 
+-          WorkerPrivate* workerPrivate = streamReader->mWorkerRef->GetPrivate();
+-          MOZ_ASSERT(workerPrivate);
+-
+-          streamReader->CloseAndRelease(workerPrivate->GetJSContext(),
+-                                        NS_ERROR_DOM_INVALID_STATE_ERR);
++          streamReader->CloseAndRelease(
++              streamReader->mWorkerRef->Private()->GetJSContext(),
++              NS_ERROR_DOM_INVALID_STATE_ERR);
+         });
+ 
+     if (NS_WARN_IF(!workerRef)) {
+@@ -194,6 +192,7 @@
+   if (NS_WARN_IF(aRv.Failed())) {
+     return;
+   }
++  mAsyncWaitWorkerRef = mWorkerRef;
+ }
+ 
+ struct FetchReadRequest : public ReadRequest {
+@@ -236,6 +235,7 @@
+ NS_IMETHODIMP
+ FetchStreamReader::OnOutputStreamReady(nsIAsyncOutputStream* aStream) {
+   NS_ASSERT_OWNINGTHREAD(FetchStreamReader);
++  mAsyncWaitWorkerRef = nullptr;
+   if (mStreamClosed) {
+     return NS_OK;
+   }

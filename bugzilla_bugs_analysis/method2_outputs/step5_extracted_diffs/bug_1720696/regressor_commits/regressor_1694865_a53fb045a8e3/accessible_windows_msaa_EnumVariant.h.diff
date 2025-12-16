@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/windows/msaa/EnumVariant.h
+# Commit: a53fb045a8e3
+# Full Hash: a53fb045a8e34c1e1f14ca7b705eb9a5a0e76db2
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2021-05-02 09:29:52
+# Regressor Bug: 1694865
+# File Overlap Count: 1
+# Description:
+#   Bug 1694865 part 19: Make EnumVariant, GeckoCustom and sdn*Accessible classes aggregate MsaaAccessible/MsaaDocAccessible instead of AccessibleWrap/DocAccessibleWrap. r=morgan
+#   
+#   These objects need to aggregate the primary COM object (MsaaAccessible).
+#   Once the IUnknown implementation moves out of AccessibleWrap, it won't be possible to aggregate *AccessibleWrap any more.
+#   
+# ==============================================================================
+
+diff -r 5bd374b642fe -r a53fb045a8e3 accessible/windows/msaa/EnumVariant.h
+--- a/accessible/windows/msaa/EnumVariant.h	Sat May 01 21:09:04 2021 +0000
++++ b/accessible/windows/msaa/EnumVariant.h	Sat May 01 22:29:25 2021 +0000
+@@ -7,8 +7,8 @@
+ #ifndef mozilla_a11y_EnumVariant_h__
+ #define mozilla_a11y_EnumVariant_h__
+ 
+-#include "AccessibleWrap.h"
+ #include "IUnknownImpl.h"
++#include "MsaaAccessible.h"
+ 
+ namespace mozilla {
+ namespace a11y {
+@@ -18,9 +18,9 @@
+  */
+ class ChildrenEnumVariant final : public IEnumVARIANT {
+  public:
+-  explicit ChildrenEnumVariant(AccessibleWrap* aAnchor)
+-      : mAnchorAcc(aAnchor),
+-        mCurAcc(mAnchorAcc->LocalChildAt(0)),
++  explicit ChildrenEnumVariant(MsaaAccessible* aAnchor)
++      : mAnchorMsaa(aAnchor),
++        mCurAcc(mAnchorMsaa->LocalAcc()->LocalChildAt(0)),
+         mCurIndex(0) {}
+ 
+   // IUnknown
+@@ -45,13 +45,13 @@
+   ChildrenEnumVariant& operator=(const ChildrenEnumVariant&) = delete;
+ 
+   ChildrenEnumVariant(const ChildrenEnumVariant& aEnumVariant)
+-      : mAnchorAcc(aEnumVariant.mAnchorAcc),
++      : mAnchorMsaa(aEnumVariant.mAnchorMsaa),
+         mCurAcc(aEnumVariant.mCurAcc),
+         mCurIndex(aEnumVariant.mCurIndex) {}
+   virtual ~ChildrenEnumVariant() {}
+ 
+  protected:
+-  RefPtr<AccessibleWrap> mAnchorAcc;
++  RefPtr<MsaaAccessible> mAnchorMsaa;
+   LocalAccessible* mCurAcc;
+   uint32_t mCurIndex;
+ };

@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/BlockReflowState.cpp
+# Commit: eb0b125d3214
+# Full Hash: eb0b125d3214a04c293cbe2f21184e85ae00302a
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2023-09-28 21:51:27
+# Regressor Bug: 1731541
+# File Overlap Count: 1
+# Description:
+#   Bug 1731541 - Implement text-wrap: balance for nsBlockFrame reflow. r=emilio
+#   
+#   A simple form of balance for short blocks, implemented by incrementally reducing
+#   the effective inline-size used during line-breaking, up to the point where an
+#   extra line would be created.
+# ==============================================================================
+
+diff -r af42a433722a -r eb0b125d3214 layout/generic/BlockReflowState.cpp
+--- a/layout/generic/BlockReflowState.cpp	Thu Sep 28 17:28:18 2023 +0000
++++ b/layout/generic/BlockReflowState.cpp	Thu Sep 28 17:28:19 2023 +0000
+@@ -27,17 +27,16 @@
+ using namespace mozilla;
+ using namespace mozilla::layout;
+ 
+-BlockReflowState::BlockReflowState(const ReflowInput& aReflowInput,
+-                                   nsPresContext* aPresContext,
+-                                   nsBlockFrame* aFrame, bool aBStartMarginRoot,
+-                                   bool aBEndMarginRoot,
+-                                   bool aBlockNeedsFloatManager,
+-                                   const nscoord aConsumedBSize,
+-                                   const nscoord aEffectiveContentBoxBSize)
++BlockReflowState::BlockReflowState(
++    const ReflowInput& aReflowInput, nsPresContext* aPresContext,
++    nsBlockFrame* aFrame, bool aBStartMarginRoot, bool aBEndMarginRoot,
++    bool aBlockNeedsFloatManager, const nscoord aConsumedBSize,
++    const nscoord aEffectiveContentBoxBSize, const nscoord aInset)
+     : mBlock(aFrame),
+       mPresContext(aPresContext),
+       mReflowInput(aReflowInput),
+       mContentArea(aReflowInput.GetWritingMode()),
++      mInsetForBalance(aInset),
+       mPushedFloats(nullptr),
+       mOverflowTracker(nullptr),
+       mBorderPadding(

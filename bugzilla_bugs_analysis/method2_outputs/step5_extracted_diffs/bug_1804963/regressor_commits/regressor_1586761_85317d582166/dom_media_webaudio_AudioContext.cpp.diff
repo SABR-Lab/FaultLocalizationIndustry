@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webaudio/AudioContext.cpp
+# Commit: 85317d582166
+# Full Hash: 85317d5821665149ffa385e8b55b244565c9d4c4
+# Author: Tom Tung <ttung@mozilla.com>
+# Date: 2020-04-07 21:44:02
+# Regressor Bug: 1586761
+# File Overlap Count: 1
+# Description:
+#   Bug 1586761 - P2 - Introduce new TimerPrecisionTypes and a set of new Reduce methods to decide the TimerPrecisionType in the nsRFPService; r=tjr
+#   
+#   To support checking CrossOriginIsolated in performance.now(), we need to:
+#   - Add new types to TimerPrecisionType for nsRFPService
+#     - System, HighResAllowed are added
+# ==============================================================================
+
+diff -r b51663641450 -r 85317d582166 dom/media/webaudio/AudioContext.cpp
+--- a/dom/media/webaudio/AudioContext.cpp	Wed Mar 25 13:53:46 2020 +0000
++++ b/dom/media/webaudio/AudioContext.cpp	Wed Mar 25 14:09:55 2020 +0000
+@@ -143,7 +143,7 @@
+     return aSampleRate;
+   } else {
+     float rate = static_cast<float>(CubebUtils::PreferredSampleRate());
+-    if (nsRFPService::IsResistFingerprintingEnabled()) {
++    if (StaticPrefs::privacy_resistFingerprinting()) {
+       return 44100.f;
+     }
+     return rate;
+@@ -549,7 +549,7 @@
+   // When reduceFingerprinting is enabled, return a latency figure that is
+   // fixed, but plausible for the platform.
+   double latency_s = 0.0;
+-  if (nsRFPService::IsResistFingerprintingEnabled()) {
++  if (StaticPrefs::privacy_resistFingerprinting()) {
+ #ifdef XP_MACOSX
+     latency_s = 512. / mSampleRate;
+ #elif MOZ_WIDGET_ANDROID
+@@ -680,7 +680,7 @@
+ }
+ 
+ uint32_t AudioContext::MaxChannelCount() const {
+-  if (nsRFPService::IsResistFingerprintingEnabled()) {
++  if (StaticPrefs::privacy_resistFingerprinting()) {
+     return 2;
+   }
+   return std::min<uint32_t>(

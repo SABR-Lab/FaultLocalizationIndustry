@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/JSObject.h
+# Commit: 11fc8f557a2a
+# Full Hash: 11fc8f557a2a7cf3c89e7c1396316aabd9725778
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2021-03-06 09:33:16
+# Regressor Bug: 1689413
+# File Overlap Count: 1
+# Description:
+#   Bug 1689413 part 6 - Move Realm* from ObjectGroup to BaseShape. r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D106976
+# ==============================================================================
+
+diff -r 9bfa6023a553 -r 11fc8f557a2a js/src/vm/JSObject.h
+--- a/js/src/vm/JSObject.h	Sat Mar 06 01:05:20 2021 +0000
++++ b/js/src/vm/JSObject.h	Sat Mar 06 01:05:21 2021 +0000
+@@ -138,7 +138,7 @@
+ 
+   void initGroup(js::ObjectGroup* group) { initHeaderPtr(group); }
+ 
+-  JS::Compartment* compartment() const { return group()->compartment(); }
++  JS::Compartment* compartment() const { return shape()->compartment(); }
+   JS::Compartment* maybeCompartment() const { return compartment(); }
+ 
+   void initShape(js::Shape* shape) {
+@@ -148,7 +148,7 @@
+     shape_.init(shape);
+   }
+   void setShape(js::Shape* shape) {
+-    MOZ_ASSERT(zone() == shape->zone());
++    MOZ_ASSERT(maybeCCWRealm() == shape->realm());
+     shape_ = shape;
+   }
+   js::Shape* shape() const { return shape_; }
+@@ -363,14 +363,14 @@
+ 
+   JS::Realm* nonCCWRealm() const {
+     MOZ_ASSERT(!js::UninlinedIsCrossCompartmentWrapper(this));
+-    return group()->realm();
++    return shape()->realm();
+   }
+   bool hasSameRealmAs(JSContext* cx) const;
+ 
+   // Returns the object's realm even if the object is a CCW (be careful, in
+   // this case the realm is not very meaningful because wrappers are shared by
+   // all realms in the compartment).
+-  JS::Realm* maybeCCWRealm() const { return group()->realm(); }
++  JS::Realm* maybeCCWRealm() const { return shape()->realm(); }
+ 
+   /*
+    * ES5 meta-object properties and operations.

@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/storage/StorageObserver.cpp
+# Commit: 5aa3b2f1b5ec
+# Full Hash: 5aa3b2f1b5ec8a63fa04f80cf4aed4aac2c6ce22
+# Author: Paul Zuehlcke <pbz@mozilla.com>
+# Date: 2023-09-07 21:34:02
+# Regressor Bug: 1839918
+# File Overlap Count: 6
+# Description:
+#   Bug 1839918 - Refactor "cookie-changed" notifications to use nsICookieNotification. r=extension-reviewers,cookie-reviewers,sessionstore-reviewers,bvandersloot,edgul,robwu
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D185300
+# ==============================================================================
+
+diff -r fecbf97cc8db -r 5aa3b2f1b5ec dom/storage/StorageObserver.cpp
+--- a/dom/storage/StorageObserver.cpp	Thu Sep 07 08:22:27 2023 +0000
++++ b/dom/storage/StorageObserver.cpp	Thu Sep 07 08:25:54 2023 +0000
+@@ -13,6 +13,8 @@
+ #include "StorageUtils.h"
+ 
+ #include "mozilla/BasePrincipal.h"
++#include "nsCOMPtr.h"
++#include "nsICookieNotification.h"
+ #include "nsIObserverService.h"
+ #include "nsIURI.h"
+ #include "nsIPermission.h"
+@@ -243,7 +245,11 @@
+ 
+   // Clear everything, caches + database
+   if (!strcmp(aTopic, "cookie-changed")) {
+-    if (!u"cleared"_ns.Equals(aData)) {
++    nsCOMPtr<nsICookieNotification> notification = do_QueryInterface(aSubject);
++    NS_ENSURE_TRUE(notification, NS_ERROR_FAILURE);
++
++    if (notification->GetAction() !=
++        nsICookieNotification::ALL_COOKIES_CLEARED) {
+       return NS_OK;
+     }
+ 

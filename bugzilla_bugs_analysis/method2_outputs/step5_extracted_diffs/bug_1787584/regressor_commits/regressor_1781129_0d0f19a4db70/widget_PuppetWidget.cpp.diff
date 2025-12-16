@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/PuppetWidget.cpp
+# Commit: 0d0f19a4db70
+# Full Hash: 0d0f19a4db70e734724b99c959148fddef94811e
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2022-08-03 03:42:48
+# Regressor Bug: 1781129
+# File Overlap Count: 1
+# Description:
+#   Bug 1781129 - Part 1: Use BigBuffer for IPCDataTransfer, r=edgar
+#   
+#   The IPCDataTransfer type is used to transfer Clipboard/Drag & Drop payloads
+#   over IPC to allow them to be written to or read from the relevant system
+#   interfaces. Previously, the system which was used was somewhat complex, and
+# ==============================================================================
+
+diff -r 65a0b02c1909 -r 0d0f19a4db70 widget/PuppetWidget.cpp
+--- a/widget/PuppetWidget.cpp	Tue Aug 02 21:34:06 2022 +0300
++++ b/widget/PuppetWidget.cpp	Tue Aug 02 18:09:40 2022 +0000
+@@ -897,7 +897,7 @@
+   }
+ 
+   bool hasCustomCursor = false;
+-  UniquePtr<char[]> customCursorData;
++  Maybe<mozilla::ipc::BigBuffer> customCursorData;
+   size_t length = 0;
+   IntSize customCursorSize;
+   int32_t stride = 0;
+@@ -935,10 +935,8 @@
+     }
+   }
+ 
+-  nsDependentCString cursorData(customCursorData ? customCursorData.get() : "",
+-                                length);
+   if (!mBrowserChild->SendSetCursor(
+-          aCursor.mDefaultCursor, hasCustomCursor, cursorData,
++          aCursor.mDefaultCursor, hasCustomCursor, std::move(customCursorData),
+           customCursorSize.width, customCursorSize.height, resolution.mX,
+           resolution.mY, stride, format, aCursor.mHotspotX, aCursor.mHotspotY,
+           force)) {

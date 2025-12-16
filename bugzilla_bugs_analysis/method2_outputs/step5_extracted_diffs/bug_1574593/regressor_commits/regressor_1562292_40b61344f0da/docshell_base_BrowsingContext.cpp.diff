@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/BrowsingContext.cpp
+# Commit: 40b61344f0da
+# Full Hash: 40b61344f0da14f9700a75a8a1c67458e440b68a
+# Author: Kris Maglione <maglione.k@gmail.com>
+# Date: 2019-08-15 09:46:49
+# Regressor Bug: 1562292
+# File Overlap Count: 1
+# Description:
+#   Bug 1562292: Part 1f - Implement BrowsingContext::LoadURI. r=nika
+#   
+#   In order to do cross-process targeted window.open() and link click operations,
+#   we need a way to load URIs in the current DocShell of a BrowsingContext,
+#   whichever process it lives in.
+# ==============================================================================
+
+diff -r 3bffe760e2db -r 40b61344f0da docshell/base/BrowsingContext.cpp
+--- a/docshell/base/BrowsingContext.cpp	Thu Aug 01 16:36:32 2019 -0700
++++ b/docshell/base/BrowsingContext.cpp	Thu Aug 01 18:00:32 2019 -0700
+@@ -783,6 +783,29 @@
+   }
+ }
+ 
++void BrowsingContext::LoadURI(BrowsingContext* aAccessor,
++                              nsDocShellLoadState* aLoadState) {
++  MOZ_DIAGNOSTIC_ASSERT(!IsDiscarded());
++  MOZ_DIAGNOSTIC_ASSERT(!aAccessor || !aAccessor->IsDiscarded());
++
++  if (mDocShell) {
++    mDocShell->LoadURI(aLoadState);
++  } else if (!aAccessor && XRE_IsParentProcess()) {
++    Unused << Canonical()->GetCurrentWindowGlobal()->SendLoadURIInChild(
++        aLoadState);
++  } else {
++    MOZ_DIAGNOSTIC_ASSERT(aAccessor);
++    MOZ_DIAGNOSTIC_ASSERT(aAccessor->Group() == Group());
++
++    nsCOMPtr<nsPIDOMWindowOuter> win(aAccessor->GetDOMWindow());
++    MOZ_DIAGNOSTIC_ASSERT(win);
++    if (WindowGlobalChild* wgc =
++            win->GetCurrentInnerWindow()->GetWindowGlobalChild()) {
++      wgc->SendLoadURI(this, aLoadState);
++    }
++  }
++}
++
+ void BrowsingContext::Close(CallerType aCallerType, ErrorResult& aError) {
+   // FIXME We need to set mClosed, but only once we're sending the
+   //       DOMWindowClose event (which happens in the process where the

@@ -1,0 +1,120 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webaudio/FFTBlock.h
+# Commit: e519654e5d8b
+# Full Hash: e519654e5d8b7e0dc682c316fa0d16318b962765
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2024-02-28 04:30:28
+# Regressor Bug: 1879873
+# File Overlap Count: 1
+# Description:
+#   Bug 1879873 - Scale the inverse FFT result using tx instead of pre- or post-processing the data. r=karlt
+#   
+#   This skips a copy at the expense of having to do a `const_cast`.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D202434
+# ==============================================================================
+
+diff -r 9b17ac4800c6 -r e519654e5d8b dom/media/webaudio/FFTBlock.h
+--- a/dom/media/webaudio/FFTBlock.h	Tue Feb 27 12:40:23 2024 +0000
++++ b/dom/media/webaudio/FFTBlock.h	Tue Feb 27 12:40:24 2024 +0000
+@@ -32,7 +32,8 @@
+       FFVPXRuntimeLinker::GetFFTFuncs(&sFFTFuncs);
+     }
+   }
+-  explicit FFTBlock(uint32_t aFFTSize) {
++  explicit FFTBlock(uint32_t aFFTSize, float aInverseScaling = 1.0f)
++      : mInverseScaling(aInverseScaling) {
+     MOZ_COUNT_CTOR(FFTBlock);
+     SetFFTSize(aFFTSize);
+   }
+@@ -53,24 +54,16 @@
+       return;
+     }
+ 
+-    PodCopy(mOutputBuffer.Elements()->f, aData, mFFTSize);
+-    // In place transform
+-    mFn(mTxCtx, mOutputBuffer.Elements()->f, mOutputBuffer.Elements()->f,
++    mFn(mTxCtx, mOutputBuffer.Elements()->f, const_cast<float*>(aData),
+         2 * sizeof(float));
+ #ifdef DEBUG
+     mInversePerformed = false;
+ #endif
+   }
+-  // Inverse-transform internal data and store the resulting FFTSize()
+-  // points in aDataOut.
+-  void GetInverse(float* aDataOut) {
+-    GetInverseWithoutScaling(aDataOut);
+-    AudioBufferInPlaceScale(aDataOut, 1.0f / mFFTSize, mFFTSize);
+-  }
+   // Inverse-transform internal frequency data and store the resulting
+   // FFTSize() points in |aDataOut|.  If frequency data has not already been
+   // scaled, then the output will need scaling by 1/FFTSize().
+-  void GetInverseWithoutScaling(float* aDataOut) {
++  void GetInverse(float* aDataOut) {
+     if (!EnsureIFFT()) {
+       std::fill_n(aDataOut, mFFTSize, 0.0f);
+       return;
+@@ -109,8 +102,8 @@
+     MOZ_ASSERT(dataSize <= FFTSize());
+     AlignedTArray<float> paddedData;
+     paddedData.SetLength(FFTSize());
+-    AudioBufferCopyWithScale(aData, 1.0f / FFTSize(), paddedData.Elements(),
+-                             dataSize);
++    AudioBufferCopyWithScale(aData, 1.0f / AssertedCast<float>(FFTSize()),
++                             paddedData.Elements(), dataSize);
+     PodZero(paddedData.Elements() + dataSize, mFFTSize - dataSize);
+     PerformFFT(paddedData.Elements());
+   }
+@@ -128,12 +121,18 @@
+   double ExtractAverageGroupDelay();
+ 
+   uint32_t FFTSize() const { return mFFTSize; }
+-  float RealData(uint32_t aIndex) const { return mOutputBuffer[aIndex].r; }
++  float RealData(uint32_t aIndex) const {
++    MOZ_ASSERT(!mInversePerformed);
++    return mOutputBuffer[aIndex].r;
++  }
+   float& RealData(uint32_t aIndex) {
+     MOZ_ASSERT(!mInversePerformed);
+     return mOutputBuffer[aIndex].r;
+   }
+-  float ImagData(uint32_t aIndex) const { return mOutputBuffer[aIndex].i; }
++  float ImagData(uint32_t aIndex) const {
++    MOZ_ASSERT(!mInversePerformed);
++    return mOutputBuffer[aIndex].i;
++  }
+   float& ImagData(uint32_t aIndex) {
+     MOZ_ASSERT(!mInversePerformed);
+     return mOutputBuffer[aIndex].i;
+@@ -159,6 +158,7 @@
+  private:
+   bool EnsureFFT() {
+     if (!mTxCtx) {
++      // Forward transform is always unscaled for our purpose.
+       float scale = 1.0f;
+       int rv = sFFTFuncs.init(&mTxCtx, &mFn, AV_TX_FLOAT_RDFT, 0 /* forward */,
+                               AssertedCast<int>(mFFTSize), &scale, 0);
+@@ -169,10 +169,9 @@
+   }
+   bool EnsureIFFT() {
+     if (!mITxCtx) {
+-      float scale = 0.5f;
+       int rv =
+           sFFTFuncs.init(&mITxCtx, &mIFn, AV_TX_FLOAT_RDFT, 1 /* inverse */,
+-                         AssertedCast<int>(mFFTSize), &scale, 0);
++                         AssertedCast<int>(mFFTSize), &mInverseScaling, 0);
+       MOZ_ASSERT(!rv, "av_tx_init: invalid parameters (inverse)");
+       return !rv;
+     }
+@@ -202,6 +201,9 @@
+   av_tx_fn mIFn{};
+   AlignedTArray<ComplexU> mOutputBuffer;
+   uint32_t mFFTSize{};
++  // A scaling that is performed when doing an inverse transform. The forward
++  // transform is always unscaled.
++  float mInverseScaling;
+ #ifdef DEBUG
+   bool mInversePerformed = false;
+ #endif

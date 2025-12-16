@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/serviceworkers/ServiceWorkerUtils.cpp
+# Commit: af27682c5e7f
+# Full Hash: af27682c5e7f86ff17d6ed152c8010e763870bdc
+# Author: ssengupta <ssengupta@mozilla.com>
+# Date: 2020-05-13 03:44:05
+# Regressor Bug: 1635399
+# File Overlap Count: 1
+# Description:
+#   Bug 1635399 - Function PrincipalInfoToPrincipal now returns Result<nsCOMPtr<nsIPrincipal>, nsresult> r=ckerschb
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D73868
+# ==============================================================================
+
+diff -r 86b22b1a9f7e -r af27682c5e7f dom/serviceworkers/ServiceWorkerUtils.cpp
+--- a/dom/serviceworkers/ServiceWorkerUtils.cpp	Tue May 12 23:55:42 2020 +0300
++++ b/dom/serviceworkers/ServiceWorkerUtils.cpp	Tue May 12 19:02:05 2020 +0000
+@@ -9,6 +9,8 @@
+ #include "mozilla/Preferences.h"
+ #include "mozilla/dom/ClientInfo.h"
+ #include "mozilla/dom/ServiceWorkerRegistrarTypes.h"
++#include "nsCOMPtr.h"
++#include "nsIPrincipal.h"
+ #include "nsIURL.h"
+ 
+ namespace mozilla {
+@@ -71,8 +73,8 @@
+   MOZ_DIAGNOSTIC_ASSERT(aScopeURI);
+   MOZ_DIAGNOSTIC_ASSERT(aScriptURI);
+ 
+-  nsCOMPtr<nsIPrincipal> principal = aClientInfo.GetPrincipal();
+-  if (NS_WARN_IF(!principal)) {
++  auto principalOrErr = aClientInfo.GetPrincipal();
++  if (NS_WARN_IF(principalOrErr.isErr())) {
+     aRv.ThrowInvalidStateError("Can't make security decisions about Client");
+     return;
+   }
+@@ -116,6 +118,8 @@
+     return;
+   }
+ 
++  nsCOMPtr<nsIPrincipal> principal = principalOrErr.unwrap();
++
+   // Unfortunately we don't seem to have an obvious window id here; in
+   // particular ClientInfo does not have one.
+   nsresult rv = principal->CheckMayLoadWithReporting(

@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/printing/nsPrintJob.cpp
+# Commit: d42d7505c9cf
+# Full Hash: d42d7505c9cf4b0a2f3bae83a007928fee2b596d
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2022-03-30 03:54:32
+# Regressor Bug: 1760836
+# File Overlap Count: 1
+# Description:
+#   Bug 1760836 - Support printing to an nsIOutputStream. r=jfkthame,jrmuizel,webdriver-reviewers,geckoview-reviewers,agi
+#   
+#   The trickiest bits are the PrintTargetCG ones, the rest is just plumbing
+#   and cleanups and tests, but let me know if you want those to be split
+#   out, can do.
+# ==============================================================================
+
+diff -r 99efc2e54ea0 -r d42d7505c9cf layout/printing/nsPrintJob.cpp
+--- a/layout/printing/nsPrintJob.cpp	Tue Mar 29 17:24:11 2022 +0000
++++ b/layout/printing/nsPrintJob.cpp	Tue Mar 29 17:50:58 2022 +0000
+@@ -1080,10 +1080,9 @@
+ 
+   nsAutoString fileNameStr;
+   // check to see if we are printing to a file
+-  bool isPrintToFile = false;
+-  printData->mPrintSettings->GetPrintToFile(&isPrintToFile);
+-  if (isPrintToFile) {
+-    // On some platforms The BeginDocument needs to know the name of the file.
++  if (printData->mPrintSettings->GetOutputDestination() ==
++      nsIPrintSettings::kOutputDestinationFile) {
++    // On some platforms the BeginDocument needs to know the name of the file.
+     printData->mPrintSettings->GetToFileName(fileNameStr);
+   }
+ 
+@@ -2332,8 +2331,7 @@
+   if (!mPagePrintTimer) {
+     // Get the delay time in between the printing of each page
+     // this gives the user more time to press cancel
+-    int32_t printPageDelay = 50;
+-    mPrt->mPrintSettings->GetPrintPageDelay(&printPageDelay);
++    int32_t printPageDelay = mPrt->mPrintSettings->GetPrintPageDelay();
+ 
+     nsCOMPtr<nsIContentViewer> cv = do_QueryInterface(mDocViewerPrint);
+     NS_ENSURE_TRUE(cv, NS_ERROR_FAILURE);

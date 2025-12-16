@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/chrome-webidl/WindowGlobalActors.webidl
+# Commit: 4b76024db21c
+# Full Hash: 4b76024db21cff006a7424a35c412c6e0a153eb0
+# Author: Kris Maglione <maglione.k@gmail.com>
+# Date: 2020-09-22 03:47:42
+# Regressor Bug: 1655866
+# File Overlap Count: 1
+# Description:
+#   Bug 1655866: Part 5 - Use native PermitUnload implementation from front-end code. r=nika,mconley
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D88318
+# ==============================================================================
+
+diff -r 55fb069319f1 -r 4b76024db21c dom/chrome-webidl/WindowGlobalActors.webidl
+--- a/dom/chrome-webidl/WindowGlobalActors.webidl	Mon Sep 21 22:41:01 2020 +0000
++++ b/dom/chrome-webidl/WindowGlobalActors.webidl	Mon Sep 21 22:41:04 2020 +0000
+@@ -24,6 +24,13 @@
+   readonly attribute boolean hasBeforeUnload;
+ };
+ 
++// Keep this in sync with nsIContentViewer::PermitUnloadAction.
++enum PermitUnloadAction {
++  "prompt",
++  "dontUnload",
++  "unload",
++};
++
+ [Exposed=Window, ChromeOnly]
+ interface WindowGlobalParent : WindowContext {
+   readonly attribute boolean isClosed;
+@@ -49,6 +56,14 @@
+ 
+   readonly attribute WindowGlobalChild? childActor; // in-process only
+ 
++  // Checks for any WindowContexts with "beforeunload" listeners in this
++  // WindowGlobal's subtree. If any exist, a "beforeunload" event is
++  // dispatched to them. If any of those request to block the navigation,
++  // displays a prompt to the user. Returns a boolean which resolves to true
++  // if the navigation should be allowed.
++  [Throws]
++  Promise<boolean> permitUnload(optional PermitUnloadAction action = "prompt");
++
+   // Information about the currently loaded document.
+   readonly attribute Principal documentPrincipal;
+   readonly attribute Principal? contentBlockingAllowListPrincipal;

@@ -1,0 +1,109 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/ActorsParent.cpp
+# Commit: dca9f407ea90
+# Full Hash: dca9f407ea90a83ae23be6c48aab8ce3f0f6e23e
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-06-14 20:49:45
+# Regressor Bug: 1883353
+# File Overlap Count: 1
+# Description:
+#   Bug 1883353 - Require to always drop directory locks explicitly; r=dom-storage-reviewers,jari
+#   
+#   Until now, directory locks were dropped when the last strong reference was
+#   removed or after calling Drop explicitly. The dependency on ref-counting makes
+#   it less obvious when directory locks are dropped for real and it's also
+# ==============================================================================
+
+diff -r a82c4a895b9d -r dca9f407ea90 dom/quota/ActorsParent.cpp
+--- a/dom/quota/ActorsParent.cpp	Wed Jun 12 15:12:34 2024 +0000
++++ b/dom/quota/ActorsParent.cpp	Fri Jun 14 07:21:24 2024 +0000
+@@ -95,6 +95,7 @@
+ #include "mozilla/dom/quota/Config.h"
+ #include "mozilla/dom/quota/Constants.h"
+ #include "mozilla/dom/quota/DirectoryLock.h"
++#include "mozilla/dom/quota/DirectoryLockInlines.h"
+ #include "mozilla/dom/quota/FileUtils.h"
+ #include "mozilla/dom/quota/PersistenceType.h"
+ #include "mozilla/dom/quota/QuotaManagerService.h"
+@@ -4981,6 +4982,8 @@
+   MOZ_ASSERT(aDirectoryLock);
+ 
+   if (mStorageInitialized && !mShutdownStorageOpCount) {
++    DropDirectoryLock(aDirectoryLock);
++
+     return BoolPromise::CreateAndResolve(true, __func__);
+   }
+ 
+@@ -5156,6 +5159,8 @@
+               storageDirectoryLock = std::move(storageDirectoryLock)](
+                  const BoolPromise::ResolveOrRejectValue& aValue) mutable {
+                if (aValue.IsReject()) {
++                 SafeDropDirectoryLockIfNotDropped(storageDirectoryLock);
++
+                  return BoolPromise::CreateAndReject(aValue.RejectValue(),
+                                                      __func__);
+                }
+@@ -5181,6 +5186,8 @@
+              [universalDirectoryLock = std::move(universalDirectoryLock)](
+                  const BoolPromise::ResolveOrRejectValue& aValue) mutable {
+                if (aValue.IsReject()) {
++                 DropDirectoryLockIfNotDropped(universalDirectoryLock);
++
+                  return UniversalDirectoryLockPromise::CreateAndReject(
+                      aValue.RejectValue(), __func__);
+                }
+@@ -5219,22 +5226,35 @@
+   return BoolPromise::All(GetCurrentSerialEventTarget(), promises)
+       ->Then(
+           GetCurrentSerialEventTarget(), __func__,
+-          [self = RefPtr(this),
+-           storageDirectoryLock = std::move(storageDirectoryLock)](
+-              const CopyableTArray<bool>& aResolveValues) mutable {
+-            if (!storageDirectoryLock) {
+-              return BoolPromise::CreateAndResolve(true, __func__);
+-            }
+-
+-            return self->InitializeStorage(std::move(storageDirectoryLock));
++          [](const CopyableTArray<bool>& aResolveValues) {
++            return BoolPromise::CreateAndResolve(true, __func__);
+           },
+           [](nsresult aRejectValue) {
+             return BoolPromise::CreateAndReject(aRejectValue, __func__);
+           })
+       ->Then(GetCurrentSerialEventTarget(), __func__,
++             [self = RefPtr(this),
++              storageDirectoryLock = std::move(storageDirectoryLock)](
++                 const BoolPromise::ResolveOrRejectValue& aValue) mutable {
++               if (aValue.IsReject()) {
++                 SafeDropDirectoryLockIfNotDropped(storageDirectoryLock);
++
++                 return BoolPromise::CreateAndReject(aValue.RejectValue(),
++                                                     __func__);
++               }
++
++               if (!storageDirectoryLock) {
++                 return BoolPromise::CreateAndResolve(true, __func__);
++               }
++
++               return self->InitializeStorage(std::move(storageDirectoryLock));
++             })
++      ->Then(GetCurrentSerialEventTarget(), __func__,
+              [clientDirectoryLock = std::move(clientDirectoryLock)](
+                  const BoolPromise::ResolveOrRejectValue& aValue) mutable {
+                if (aValue.IsReject()) {
++                 DropDirectoryLockIfNotDropped(clientDirectoryLock);
++
+                  return ClientDirectoryLockPromise::CreateAndReject(
+                      aValue.RejectValue(), __func__);
+                }
+@@ -5485,6 +5505,8 @@
+   MOZ_ASSERT(aDirectoryLock);
+ 
+   if (mTemporaryStorageInitialized && !mShutdownStorageOpCount) {
++    DropDirectoryLock(aDirectoryLock);
++
+     return BoolPromise::CreateAndResolve(true, __func__);
+   }
+ 

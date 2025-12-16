@@ -1,0 +1,41 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/antitracking/URLQueryStringStripper.cpp
+# Commit: 44bca4706eb2
+# Full Hash: 44bca4706eb261f8e3bcbcb44a6de7cd7d7c3874
+# Author: abhishekmadan30 <148475204+abhishekmadan30@users.noreply.github.com>
+# Date: 2024-04-10 09:45:41
+# Description:
+#   Bug 1888734 - Added null check to nested strip on share function. r=pbz,anti-tracking-reviewers
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D206559
+# ==============================================================================
+
+diff -r b8a581227ff5 -r 44bca4706eb2 toolkit/components/antitracking/URLQueryStringStripper.cpp
+--- a/toolkit/components/antitracking/URLQueryStringStripper.cpp	Tue Apr 09 17:07:53 2024 +0000
++++ b/toolkit/components/antitracking/URLQueryStringStripper.cpp	Tue Apr 09 17:10:53 2024 +0000
+@@ -446,6 +446,11 @@
+         return false;
+       }
+ 
++      if (!strippedNestedURI) {
++        params.Append(name, value);
++        return true;
++      }
++
+       nsAutoCString nestedURIString;
+       rv = strippedNestedURI->GetSpec(nestedURIString);
+       if (NS_WARN_IF(NS_FAILED(rv))) {
+@@ -464,6 +469,11 @@
+     return true;
+   });
+ 
++  // Returns null for strippedURI if no query params have been stripped.
++  if (!aStripCount) {
++    return NS_OK;
++  }
++
+   nsAutoCString newQuery;
+   params.Serialize(newQuery, false);
+   return NS_MutateURI(aURI).SetQuery(newQuery).Finalize(strippedURI);

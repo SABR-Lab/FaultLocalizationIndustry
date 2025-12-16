@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediacontrol/MediaStatusManager.cpp
+# Commit: 3502f8c7a17d
+# Full Hash: 3502f8c7a17df855eb023a5e7df6d2eb6460a56b
+# Author: alwu <alwu@mozilla.com>
+# Date: 2020-06-09 09:21:34
+# Regressor Bug: 1640998
+# File Overlap Count: 1
+# Description:
+#   Bug 1640998 - part3 : add methods to update supported action from media sessions. r=chunmin
+#   
+#   This patch will
+#   - add methods to allow media controller to enable/disable action for specific media session
+#   
+# ==============================================================================
+
+diff -r 753f1c632de5 -r 3502f8c7a17d dom/media/mediacontrol/MediaStatusManager.cpp
+--- a/dom/media/mediacontrol/MediaStatusManager.cpp	Mon Jun 08 18:50:45 2020 +0000
++++ b/dom/media/mediacontrol/MediaStatusManager.cpp	Mon Jun 08 18:50:53 2020 +0000
+@@ -297,6 +297,32 @@
+   HandleActualPlaybackStateChanged();
+ }
+ 
++void MediaStatusManager::EnableAction(uint64_t aBrowsingContextId,
++                                      MediaSessionAction aAction) {
++  if (!mMediaSessionInfoMap.Contains(aBrowsingContextId)) {
++    return;
++  }
++  MediaSessionInfo* info = mMediaSessionInfoMap.GetValue(aBrowsingContextId);
++  MOZ_DIAGNOSTIC_ASSERT(!info->IsActionSupported(aAction),
++                        "Action has already been enabled!");
++  LOG("Enable action %s for context %" PRIu64, ToMediaSessionActionStr(aAction),
++      aBrowsingContextId);
++  info->EnableAction(aAction);
++}
++
++void MediaStatusManager::DisableAction(uint64_t aBrowsingContextId,
++                                       MediaSessionAction aAction) {
++  if (!mMediaSessionInfoMap.Contains(aBrowsingContextId)) {
++    return;
++  }
++  MediaSessionInfo* info = mMediaSessionInfoMap.GetValue(aBrowsingContextId);
++  MOZ_DIAGNOSTIC_ASSERT(info->IsActionSupported(aAction),
++                        "Action hasn't been enabled yet!");
++  LOG("Disable action %s for context %" PRIu64,
++      ToMediaSessionActionStr(aAction), aBrowsingContextId);
++  info->DisableAction(aAction);
++}
++
+ MediaMetadataBase MediaStatusManager::GetCurrentMediaMetadata() const {
+   // If we don't have active media session, active media session doesn't have
+   // media metadata, or we're in private browsing mode, then we should create a

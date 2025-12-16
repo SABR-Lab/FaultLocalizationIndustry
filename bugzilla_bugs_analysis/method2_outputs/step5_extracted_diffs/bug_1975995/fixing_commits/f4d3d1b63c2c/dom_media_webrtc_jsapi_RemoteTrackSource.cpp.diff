@@ -1,0 +1,43 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/jsapi/RemoteTrackSource.cpp
+# Commit: f4d3d1b63c2c
+# Full Hash: f4d3d1b63c2ccf3bbcb5bf30792a9781b8f98a09
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2025-08-08 21:23:04
+# Description:
+#   Bug 1975995 - Fix remote track getSettings after peer connection closed. r=bwc
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D260391
+# ==============================================================================
+
+diff -r 82915b38e93e -r f4d3d1b63c2c dom/media/webrtc/jsapi/RemoteTrackSource.cpp
+--- a/dom/media/webrtc/jsapi/RemoteTrackSource.cpp	Fri Aug 08 15:25:10 2025 +0300
++++ b/dom/media/webrtc/jsapi/RemoteTrackSource.cpp	Fri Aug 08 12:34:03 2025 +0000
+@@ -40,6 +40,10 @@
+ 
+ void RemoteTrackSource::Destroy() {
+   if (mStream) {
++    if (mReceiver && mStream->mType == MediaSegment::VIDEO) {
++      mReceivingSizeOnEnded = mReceiver->ReceivingSize().orElse(
++          [] { return Some(gfx::IntSize{0, 0}); });
++    }
+     MOZ_ASSERT(!mStream->IsDestroyed());
+     mStream->End();
+     mStream->Destroy();
+@@ -51,7 +55,13 @@
+ }
+ 
+ void RemoteTrackSource::GetSettings(dom::MediaTrackSettings& aSettings) {
+-  if (mStream->mType == MediaSegment::VIDEO) {
++  if (mReceivingSizeOnEnded) {
++    aSettings.mWidth.Construct(mReceivingSizeOnEnded->width);
++    aSettings.mHeight.Construct(mReceivingSizeOnEnded->height);
++    return;
++  }
++
++  if (mStream && mStream->mType == MediaSegment::VIDEO) {
+     const gfx::IntSize size = mReceiver->ReceivingSize().valueOrFrom(
+         [] { return gfx::IntSize{0, 0}; });
+     aSettings.mWidth.Construct(size.width);

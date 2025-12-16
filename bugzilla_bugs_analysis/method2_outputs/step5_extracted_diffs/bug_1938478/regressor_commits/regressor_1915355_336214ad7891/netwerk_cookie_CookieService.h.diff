@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/cookie/CookieService.h
+# Commit: 336214ad7891
+# Full Hash: 336214ad789156999085eb7607fe6a6cbf7bbfe9
+# Author: Tim Huang <tihuang@mozilla.com>
+# Date: 2025-01-10 21:44:02
+# Regressor Bug: 1915355
+# File Overlap Count: 1
+# Description:
+#   Bug 1915355 - Part 4: Implement the third-party cookie blocking excpetion in CookieService. r=cookie-reviewers,baku,valentin
+#   
+#   The patch integrates the third-party cookie blocking excpetion in
+#   CookieService.
+#   
+# ==============================================================================
+
+diff -r 453324c772ae -r 336214ad7891 netwerk/cookie/CookieService.h
+--- a/netwerk/cookie/CookieService.h	Fri Jan 10 08:24:29 2025 +0000
++++ b/netwerk/cookie/CookieService.h	Fri Jan 10 08:24:29 2025 +0000
+@@ -13,10 +13,12 @@
+ 
+ #include "Cookie.h"
+ #include "CookieCommons.h"
++#include "ThirdPartyCookieBlockingExceptions.h"
+ 
+ #include "nsString.h"
+ #include "nsIMemoryReporter.h"
+ #include "mozilla/MemoryReporting.h"
++#include "mozilla/MozPromise.h"
+ 
+ class nsIConsoleReportCollector;
+ class nsICookieJarSettings;
+@@ -58,6 +60,12 @@
+   static already_AddRefed<nsICookieService> GetXPCOMSingleton();
+   nsresult Init();
+ 
++  static void Update3PCBExceptionInfo(nsIChannel* aChannel);
++
++  ThirdPartyCookieBlockingExceptions& ThirdPartyCookieBlockingExceptionsRef() {
++    return mThirdPartyCookieBlockingExceptions;
++  }
++
+   /**
+    * Start watching the observer service for messages indicating that an app has
+    * been uninstalled.  When an app is uninstalled, we get the cookie service
+@@ -126,6 +134,8 @@
+   nsCOMPtr<mozIThirdPartyUtil> mThirdPartyUtil;
+   nsCOMPtr<nsIEffectiveTLDService> mTLDService;
+ 
++  ThirdPartyCookieBlockingExceptions mThirdPartyCookieBlockingExceptions;
++
+   // we have two separate Cookie Storages: one for normal browsing and one for
+   // private browsing.
+   RefPtr<CookieStorage> mPersistentStorage;

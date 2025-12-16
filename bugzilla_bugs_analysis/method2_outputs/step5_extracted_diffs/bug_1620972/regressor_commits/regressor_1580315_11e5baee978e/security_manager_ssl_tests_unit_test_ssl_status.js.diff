@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/manager/ssl/tests/unit/test_ssl_status.js
+# Commit: 11e5baee978e
+# Full Hash: 11e5baee978e8f98fa3795e430dd60c7600c9e8c
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2019-10-22 09:46:06
+# Regressor Bug: 1580315
+# File Overlap Count: 1
+# Description:
+#   Bug 1580315 - Convert certList to raw array for nsITransportSecurityInfo r=keeler,Ehsan,kershaw
+#   
+#   This patch converts the certList attribute of nsITransportSecurityInfo
+#   from nsIX509CertList to Array<nsIx509Cert>
+#   
+# ==============================================================================
+
+diff -r 341d72ef4bf5 -r 11e5baee978e security/manager/ssl/tests/unit/test_ssl_status.js
+--- a/security/manager/ssl/tests/unit/test_ssl_status.js	Mon Oct 21 19:33:02 2019 +0000
++++ b/security/manager/ssl/tests/unit/test_ssl_status.js	Mon Oct 21 19:49:01 2019 +0000
+@@ -24,12 +24,13 @@
+     null,
+     function withSecurityInfo(aSecInfo) {
+       equal(
+-        aSecInfo.failedCertChain,
+-        null,
+-        "failedCertChain for a successful connection should be null"
++        aSecInfo.failedCertChain.length,
++        0,
++        "failedCertChain for a successful connection should be empty"
+       );
+       ok(
+-        aSecInfo.succeededCertChain.equals(
++        areCertArraysEqual(
++          aSecInfo.succeededCertChain,
+           build_cert_chain(["default-ee", "test-ca"])
+         ),
+         "succeededCertChain for a successful connection should be as expected"
+@@ -45,12 +46,13 @@
+     null,
+     function withSecurityInfo(aSecInfo) {
+       equal(
+-        aSecInfo.succeededCertChain,
+-        null,
++        aSecInfo.succeededCertChain.length,
++        0,
+         "succeededCertChain for a failed connection should be null"
+       );
+       ok(
+-        aSecInfo.failedCertChain.equals(
++        areCertArraysEqual(
++          aSecInfo.failedCertChain,
+           build_cert_chain(["expired-ee", "test-ca"])
+         ),
+         "failedCertChain for a failed connection should be as expected"

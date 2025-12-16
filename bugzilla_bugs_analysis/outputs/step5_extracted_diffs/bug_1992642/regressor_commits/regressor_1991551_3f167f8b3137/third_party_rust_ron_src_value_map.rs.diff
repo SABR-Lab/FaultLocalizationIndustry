@@ -1,0 +1,79 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/ron/src/value/map.rs
+# Commit: 3f167f8b3137
+# Full Hash: 3f167f8b313749f50f135e189e5854bef7ac0c73
+# Author: Erich Gubler <erichdongubler@gmail.com>
+# Date: 2025-10-03 18:08 +0000
+# Regressor Bug: 1991551
+# File Overlap Count: 23
+# Overlapping Files: third_party/rust/wgpu-hal/Cargo.toml, supply-chain/audits.toml, third_party/rust/naga/src/back/spv/writer.rs, third_party/rust/naga/src/back/msl/writer.rs, third_party/rust/wgpu-types/src/lib.rs
+# Description:
+#   Bug 1991551 - build(webgpu): update WGPU to 8c4aebc0c1b75e3f7412dfc180745a0717fc30ec r=webgpu-reviewers,supply-chain-reviewers,nical
+# ==============================================================================
+
+diff -r 823439f307a0 -r 3f167f8b3137 third_party/rust/ron/src/value/map.rs
+--- a/third_party/rust/ron/src/value/map.rs	Fri Oct 03 18:01:30 2025 +0000
++++ b/third_party/rust/ron/src/value/map.rs	Fri Oct 03 18:08:29 2025 +0000
+@@ -1,4 +1,4 @@
+-use std::{
++use core::{
+     cmp::{Eq, Ordering},
+     hash::{Hash, Hasher},
+     iter::FromIterator,
+@@ -11,7 +11,7 @@
+ 
+ /// A [`Value`] to [`Value`] map.
+ ///
+-/// This structure either uses a [`BTreeMap`](std::collections::BTreeMap) or the
++/// This structure either uses a [`BTreeMap`](alloc::collections::BTreeMap) or the
+ /// [`IndexMap`](indexmap::IndexMap) internally.
+ /// The latter can be used by enabling the `indexmap` feature. This can be used
+ /// to preserve the order of the parsed map.
+@@ -20,9 +20,9 @@
+ pub struct Map(pub(crate) MapInner);
+ 
+ #[cfg(not(feature = "indexmap"))]
+-type MapInner = std::collections::BTreeMap<Value, Value>;
++type MapInner = alloc::collections::BTreeMap<Value, Value>;
+ #[cfg(feature = "indexmap")]
+-type MapInner = indexmap::IndexMap<Value, Value>;
++type MapInner = indexmap::IndexMap<Value, Value, std::collections::hash_map::RandomState>;
+ 
+ impl Map {
+     /// Creates a new, empty [`Map`].
+@@ -181,6 +181,8 @@
+ 
+ #[cfg(test)]
+ mod tests {
++    use alloc::{vec, vec::Vec};
++
+     use super::{Map, Value};
+ 
+     #[test]
+@@ -241,6 +243,7 @@
+         assert_eq!(map.remove(&Value::from("a")), None);
+     }
+ 
++    #[cfg(feature = "std")]
+     #[test]
+     fn map_hash() {
+         assert_same_hash(&Map::new(), &Map::new());
+@@ -254,13 +257,14 @@
+         );
+     }
+ 
++    #[cfg(feature = "std")]
+     fn assert_same_hash(a: &Map, b: &Map) {
++        use core::hash::{Hash, Hasher};
+         use std::collections::hash_map::DefaultHasher;
+-        use std::hash::{Hash, Hasher};
+ 
+         assert_eq!(a, b);
+         assert!(a.cmp(b).is_eq());
+-        assert_eq!(a.partial_cmp(b), Some(std::cmp::Ordering::Equal));
++        assert_eq!(a.partial_cmp(b), Some(core::cmp::Ordering::Equal));
+ 
+         let mut hasher = DefaultHasher::new();
+         a.hash(&mut hasher);

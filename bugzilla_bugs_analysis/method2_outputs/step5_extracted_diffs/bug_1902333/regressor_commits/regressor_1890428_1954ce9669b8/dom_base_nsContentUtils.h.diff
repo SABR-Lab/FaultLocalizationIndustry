@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsContentUtils.h
+# Commit: 1954ce9669b8
+# Full Hash: 1954ce9669b86b61c418c8286fbe0754ad2419cd
+# Author: Adam Vandolder <avandolder@mozilla.com>
+# Date: 2024-05-15 20:24:18
+# Regressor Bug: 1890428
+# File Overlap Count: 1
+# Description:
+#   Bug 1890428 - Add serialization support for Declarative Shadow DOM. r=webidl,smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D206955
+# ==============================================================================
+
+diff -r 3e45e3d15eed -r 1954ce9669b8 dom/base/nsContentUtils.h
+--- a/dom/base/nsContentUtils.h	Wed May 15 03:01:18 2024 +0000
++++ b/dom/base/nsContentUtils.h	Wed May 15 03:01:19 2024 +0000
+@@ -190,6 +190,7 @@
+ class OwningFileOrUSVStringOrFormData;
+ class Selection;
+ enum class ShadowRootMode : uint8_t;
++class ShadowRoot;
+ struct StructuredSerializeOptions;
+ class WorkerPrivate;
+ enum class ElementCallbackType;
+@@ -232,6 +233,8 @@
+ 
+ enum class TreeKind : uint8_t { DOM, Flat };
+ 
++enum class SerializeShadowRoots : uint8_t { Yes, No };
++
+ struct EventNameMapping {
+   // This holds pointers to nsGkAtoms members, and is therefore safe as a
+   // non-owning reference.
+@@ -3108,8 +3111,13 @@
+   /*
+    * Serializes a HTML nsINode into its markup representation.
+    */
+-  static bool SerializeNodeToMarkup(nsINode* aRoot, bool aDescendentsOnly,
+-                                    nsAString& aOut);
++  template <SerializeShadowRoots ShouldSerializeShadowRoots =
++                SerializeShadowRoots::No>
++  static bool SerializeNodeToMarkup(
++      nsINode* aRoot, bool aDescendantsOnly, nsAString& aOut,
++      bool aSerializableShadowRoots,
++      const mozilla::dom::Sequence<
++          mozilla::OwningNonNull<mozilla::dom::ShadowRoot>>& aShadowRoots);
+ 
+   /*
+    * Returns true iff the provided JSObject is a global, and its URI matches
+@@ -3543,7 +3551,7 @@
+   MOZ_CAN_RUN_SCRIPT_BOUNDARY
+   static nsIContent* AttachDeclarativeShadowRoot(
+       nsIContent* aHost, mozilla::dom::ShadowRootMode aMode, bool aIsClonable,
+-      bool aDelegatesFocus);
++      bool aIsSerializable, bool aDelegatesFocus);
+ 
+  private:
+   static bool InitializeEventTable();

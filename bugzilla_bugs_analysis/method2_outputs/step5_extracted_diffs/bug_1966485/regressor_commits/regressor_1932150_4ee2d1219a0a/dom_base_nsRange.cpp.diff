@@ -1,0 +1,78 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsRange.cpp
+# Commit: 4ee2d1219a0a
+# Full Hash: 4ee2d1219a0a852d740e43e8421c0cc3e1cd9c4e
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2025-05-10 09:29:34
+# Regressor Bug: 1932150
+# File Overlap Count: 1
+# Description:
+#   Bug 1932150 - Update ranges to correctly set and update nodes for flattened selection r=jjaschke,smaug,dom-core
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D231589
+# ==============================================================================
+
+diff -r 29195ee87cf4 -r 4ee2d1219a0a dom/base/nsRange.cpp
+--- a/dom/base/nsRange.cpp	Fri May 09 17:16:36 2025 +0000
++++ b/dom/base/nsRange.cpp	Fri May 09 17:16:37 2025 +0000
+@@ -87,26 +87,31 @@
+ 
+ template already_AddRefed<nsRange> nsRange::Create(
+     const RangeBoundary& aStartBoundary, const RangeBoundary& aEndBoundary,
+-    ErrorResult& aRv);
++    ErrorResult& aRv, AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary);
+ template already_AddRefed<nsRange> nsRange::Create(
+     const RangeBoundary& aStartBoundary, const RawRangeBoundary& aEndBoundary,
+-    ErrorResult& aRv);
++    ErrorResult& aRv, AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary);
+ template already_AddRefed<nsRange> nsRange::Create(
+     const RawRangeBoundary& aStartBoundary, const RangeBoundary& aEndBoundary,
+-    ErrorResult& aRv);
++    ErrorResult& aRv, AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary);
+ template already_AddRefed<nsRange> nsRange::Create(
+     const RawRangeBoundary& aStartBoundary,
+-    const RawRangeBoundary& aEndBoundary, ErrorResult& aRv);
+-
+-template nsresult nsRange::SetStartAndEnd(const RangeBoundary& aStartBoundary,
+-                                          const RangeBoundary& aEndBoundary);
+-template nsresult nsRange::SetStartAndEnd(const RangeBoundary& aStartBoundary,
+-                                          const RawRangeBoundary& aEndBoundary);
++    const RawRangeBoundary& aEndBoundary, ErrorResult& aRv,
++    AllowRangeCrossShadowBoundary aAlloCrossShadowBoundary);
++
+ template nsresult nsRange::SetStartAndEnd(
+-    const RawRangeBoundary& aStartBoundary, const RangeBoundary& aEndBoundary);
++    const RangeBoundary& aStartBoundary, const RangeBoundary& aEndBoundary,
++    AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary);
++template nsresult nsRange::SetStartAndEnd(
++    const RangeBoundary& aStartBoundary, const RawRangeBoundary& aEndBoundary,
++    AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary);
++template nsresult nsRange::SetStartAndEnd(
++    const RawRangeBoundary& aStartBoundary, const RangeBoundary& aEndBoundary,
++    AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary);
+ template nsresult nsRange::SetStartAndEnd(
+     const RawRangeBoundary& aStartBoundary,
+-    const RawRangeBoundary& aEndBoundary);
++    const RawRangeBoundary& aEndBoundary,
++    AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary);
+ 
+ template void nsRange::DoSetRange(const RangeBoundary& aStartBoundary,
+                                   const RangeBoundary& aEndBoundary,
+@@ -209,11 +214,13 @@
+ template <typename SPT, typename SRT, typename EPT, typename ERT>
+ already_AddRefed<nsRange> nsRange::Create(
+     const RangeBoundaryBase<SPT, SRT>& aStartBoundary,
+-    const RangeBoundaryBase<EPT, ERT>& aEndBoundary, ErrorResult& aRv) {
++    const RangeBoundaryBase<EPT, ERT>& aEndBoundary, ErrorResult& aRv,
++    AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary) {
+   // If we fail to initialize the range a lot, nsRange should have a static
+   // initializer since the allocation cost is not cheap in hot path.
+   RefPtr<nsRange> range = nsRange::Create(aStartBoundary.GetContainer());
+-  aRv = range->SetStartAndEnd(aStartBoundary, aEndBoundary);
++  aRv = range->SetStartAndEnd(aStartBoundary, aEndBoundary,
++                              aAllowCrossShadowBoundary);
+   if (NS_WARN_IF(aRv.Failed())) {
+     return nullptr;
+   }

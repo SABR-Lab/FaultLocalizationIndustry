@@ -1,0 +1,37 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmIonCompile.cpp
+# Commit: 174a622bf334
+# Full Hash: 174a622bf334e32f911e97ca76c36b0a80d51f94
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-09-11 15:10:42
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 6.5: Add tls dependency for WasmModD. r=lth
+#   
+#   We generate builtin call for Mod operation for Double types, so we need
+#   to add a tls dependency. In this patch I've added it.
+#   
+# ==============================================================================
+
+diff -r 49039661a807 -r 174a622bf334 js/src/wasm/WasmIonCompile.cpp
+--- a/js/src/wasm/WasmIonCompile.cpp	Fri Sep 11 11:08:35 2020 +0000
++++ b/js/src/wasm/WasmIonCompile.cpp	Fri Sep 11 11:20:20 2020 +0000
+@@ -507,6 +507,15 @@
+     }
+ #endif
+ 
++    // Should be handled separately because we call BuiltinThunk for this case
++    // and so, need to add the dependency from tlsPointer.
++    if (type == MIRType::Double) {
++      auto* ins = MWasmBuiltinModD::New(alloc(), lhs, rhs, tlsPointer_, type,
++                                        bytecodeOffset());
++      curBlock_->add(ins);
++      return ins;
++    }
++
+     auto* ins = MMod::New(alloc(), lhs, rhs, type, unsignd, trapOnError,
+                           bytecodeOffset());
+     curBlock_->add(ins);

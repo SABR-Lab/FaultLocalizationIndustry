@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wgpu/wgpu-core/src/id.rs
+# Commit: ef5dc3e04e5f
+# Full Hash: ef5dc3e04e5f271eea0636ab3a495e95cc912f1d
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-09-04 09:40:24
+# Regressor Bug: 1726626
+# File Overlap Count: 3
+# Description:
+#   Bug 1726626 - Move gfx/wgpu into a 3rd party dependency r=jgilbert,bholley
+#   
+#   This update makes wgpu a vendored dependency instead of having it in gfx/wgpu.
+#   
+#   ## Notes
+# ==============================================================================
+
+diff --git a/gfx/wgpu/wgpu-core/src/id.rs b/third_party/rust/wgpu-core/src/id.rs
+rename from gfx/wgpu/wgpu-core/src/id.rs
+rename to third_party/rust/wgpu-core/src/id.rs
+--- a/gfx/wgpu/wgpu-core/src/id.rs
++++ b/third_party/rust/wgpu-core/src/id.rs
+@@ -1,19 +1,15 @@
+-/* This Source Code Form is subject to the terms of the Mozilla Public
+- * License, v. 2.0. If a copy of the MPL was not distributed with this
+- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+-
+ use crate::{Epoch, Index};
+ use std::{cmp::Ordering, fmt, marker::PhantomData, num::NonZeroU64};
+ use wgt::Backend;
+ 
+ const BACKEND_BITS: usize = 3;
+ const EPOCH_MASK: u32 = (1 << (32 - BACKEND_BITS)) - 1;
+-type Dummy = crate::backend::Empty;
++type Dummy = hal::api::Empty;
+ 
+ #[repr(transparent)]
+ #[cfg_attr(feature = "trace", derive(serde::Serialize), serde(into = "SerialId"))]
+ #[cfg_attr(
+     feature = "replay",
+     derive(serde::Deserialize),
+     serde(from = "SerialId")
+ )]
+@@ -160,31 +156,16 @@ pub type ComputePipelineId = Id<crate::p
+ // Command
+ pub type CommandEncoderId = CommandBufferId;
+ pub type CommandBufferId = Id<crate::command::CommandBuffer<Dummy>>;
+ pub type RenderPassEncoderId = *mut crate::command::RenderPass;
+ pub type ComputePassEncoderId = *mut crate::command::ComputePass;
+ pub type RenderBundleEncoderId = *mut crate::command::RenderBundleEncoder;
+ pub type RenderBundleId = Id<crate::command::RenderBundle>;
+ pub type QuerySetId = Id<crate::resource::QuerySet<Dummy>>;
+-// Swap chain
+-pub type SwapChainId = Id<crate::swap_chain::SwapChain<Dummy>>;
+-
+-impl SurfaceId {
+-    pub(crate) fn to_swap_chain_id(self, backend: Backend) -> SwapChainId {
+-        let (index, epoch, _) = self.unzip();
+-        Id::zip(index, epoch, backend)
+-    }
+-}
+-impl SwapChainId {
+-    pub fn to_surface_id(self) -> SurfaceId {
+-        let (index, epoch, _) = self.unzip();
+-        Id::zip(index, epoch, Backend::Empty)
+-    }
+-}
+ 
+ #[test]
+ fn test_id_backend() {
+     for &b in &[
+         Backend::Empty,
+         Backend::Vulkan,
+         Backend::Metal,
+         Backend::Dx12,

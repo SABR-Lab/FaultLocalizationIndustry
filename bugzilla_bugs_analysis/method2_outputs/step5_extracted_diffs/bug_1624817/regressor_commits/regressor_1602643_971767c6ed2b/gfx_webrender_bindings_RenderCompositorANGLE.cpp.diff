@@ -1,0 +1,126 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/webrender_bindings/RenderCompositorANGLE.cpp
+# Commit: 971767c6ed2b
+# Full Hash: 971767c6ed2b2201e172105046ecc61942e03a7e
+# Author: sotaro <sotaro.ikeda.g@gmail.com>
+# Date: 2020-01-24 21:46:30
+# Regressor Bug: 1602643
+# File Overlap Count: 1
+# Description:
+#   Bug 1602643 - Disable WebRender compositor dinamically for async screenshot r=gw
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D59658
+# ==============================================================================
+
+diff -r 436df7dc06c6 -r 971767c6ed2b gfx/webrender_bindings/RenderCompositorANGLE.cpp
+--- a/gfx/webrender_bindings/RenderCompositorANGLE.cpp	Fri Jan 24 01:04:09 2020 +0000
++++ b/gfx/webrender_bindings/RenderCompositorANGLE.cpp	Thu Jan 23 23:52:05 2020 +0000
+@@ -63,8 +63,10 @@
+       mEGLSurface(nullptr),
+       mUseTripleBuffering(false),
+       mUseAlpha(false),
++      mUseNativeCompositor(true),
+       mUsePartialPresent(false),
+-      mFullRender(false) {}
++      mFullRender(false),
++      mDisablingNativeCompositor(false) {}
+ 
+ RenderCompositorANGLE::~RenderCompositorANGLE() {
+   DestroyEGLSurface();
+@@ -496,8 +498,16 @@
+     }
+   }
+ 
++  if (mDisablingNativeCompositor) {
++    // During disabling native compositor, we need to wait all gpu tasks
++    // complete. Otherwise, rendering window could cause white flash.
++    WaitForPreviousGraphicsCommandsFinishedQuery(/* aWaitAll */ true);
++    mDisablingNativeCompositor = false;
++  }
++
+   if (mDCLayerTree) {
+     mDCLayerTree->MaybeUpdateDebug();
++    mDCLayerTree->MaybeCommit();
+   }
+ 
+   return frameId;
+@@ -690,8 +700,12 @@
+   mWaitForPresentQueries.emplace(aFrameId, query);
+ }
+ 
+-bool RenderCompositorANGLE::WaitForPreviousGraphicsCommandsFinishedQuery() {
++bool RenderCompositorANGLE::WaitForPreviousGraphicsCommandsFinishedQuery(
++    bool aWaitAll) {
+   size_t waitLatency = mUseTripleBuffering ? 3 : 2;
++  if (aWaitAll) {
++    waitLatency = 1;
++  }
+ 
+   while (mWaitForPresentQueries.size() >= waitLatency) {
+     auto queryPair = mWaitForPresentQueries.front();
+@@ -743,12 +757,20 @@
+ }
+ 
+ bool RenderCompositorANGLE::UseCompositor() {
++  if (!mUseNativeCompositor) {
++    return false;
++  }
++
+   if (!mDCLayerTree || !gfx::gfxVars::UseWebRenderCompositor()) {
+     return false;
+   }
+   return true;
+ }
+ 
++bool RenderCompositorANGLE::SupportAsyncScreenshot() {
++  return !UseCompositor() && !mDisablingNativeCompositor;
++}
++
+ bool RenderCompositorANGLE::ShouldUseNativeCompositor() {
+   return UseCompositor();
+ }
+@@ -803,6 +825,42 @@
+   mDCLayerTree->AddSurface(aId, aPosition, aClipRect);
+ }
+ 
++void RenderCompositorANGLE::EnableNativeCompositor(bool aEnable) {
++  // XXX Re-enable native compositor is not handled yet.
++  MOZ_RELEASE_ASSERT(!mDisablingNativeCompositor);
++  MOZ_RELEASE_ASSERT(!aEnable);
++
++  if (!UseCompositor()) {
++    return;
++  }
++
++  mUseNativeCompositor = false;
++  mDCLayerTree->DisableNativeCompositor();
++
++  bool useAlpha = mWidget->AsWindows()->HasGlass();
++  DestroyEGLSurface();
++  mBufferSize.reset();
++
++  RefPtr<IDXGISwapChain1> swapChain1 =
++      CreateSwapChainForDComp(mUseTripleBuffering, useAlpha);
++  if (swapChain1) {
++    mSwapChain = swapChain1;
++    mUseAlpha = useAlpha;
++    mDCLayerTree->SetDefaultSwapChain(swapChain1);
++    // When alpha is used, we want to disable partial present.
++    // See Bug 1595027.
++    if (useAlpha) {
++      mFullRender = true;
++    }
++    ResizeBufferIfNeeded();
++  } else {
++    gfxCriticalNote << "Failed to re-create SwapChain";
++    RenderThread::Get()->HandleWebRenderError(WebRenderError::NEW_SURFACE);
++    return;
++  }
++  mDisablingNativeCompositor = true;
++}
++
+ void RenderCompositorANGLE::InitializeUsePartialPresent() {
+   if (UseCompositor() || !mSwapChain1 ||
+       mWidget->AsWindows()->HasFxrOutputHandler() ||

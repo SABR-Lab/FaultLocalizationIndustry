@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/MIR.h
+# Commit: bd8381646b47
+# Full Hash: bd8381646b4734c3240dace68c3606be1cc38ba2
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-10-02 04:10:47
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 6.6: Add tls dependency for truncate i32. r=lth
+#   
+#   We generate builtin call for MTruncateToInt32 operation for floating points types,
+#   so we need to add a tls dependency.
+#   I inserted NYI for arm64 because Ion doesn't support arm64.
+# ==============================================================================
+
+diff -r 81e645d5ccfd -r bd8381646b47 js/src/jit/MIR.h
+--- a/js/src/jit/MIR.h	Thu Oct 01 07:53:01 2020 +0000
++++ b/js/src/jit/MIR.h	Thu Oct 01 11:24:30 2020 +0000
+@@ -4455,6 +4455,41 @@
+   ALLOW_CLONE(MTruncateToInt32)
+ };
+ 
++// It is like MTruncateToInt32 but with tls dependency.
++class MWasmBuiltinTruncateToInt32 : public MAryInstruction<2>,
++                                    public ToInt32Policy::Data {
++  wasm::BytecodeOffset bytecodeOffset_;
++
++  MWasmBuiltinTruncateToInt32(
++      MDefinition* def, MDefinition* tls,
++      wasm::BytecodeOffset bytecodeOffset = wasm::BytecodeOffset())
++      : MAryInstruction(classOpcode), bytecodeOffset_(bytecodeOffset) {
++    initOperand(0, def);
++    initOperand(1, tls);
++    setResultType(MIRType::Int32);
++    setMovable();
++
++    // Guard unless the conversion is known to be non-effectful & non-throwing.
++    if (MTruncateToInt32::mightHaveSideEffects(def)) {
++      setGuard();
++    }
++  }
++
++ public:
++  INSTRUCTION_HEADER(WasmBuiltinTruncateToInt32)
++  NAMED_OPERANDS((0, input), (1, tls))
++  TRIVIAL_NEW_WRAPPERS
++
++  bool congruentTo(const MDefinition* ins) const override {
++    return congruentIfOperandsEqual(ins);
++  }
++  AliasSet getAliasSet() const override { return AliasSet::None(); }
++
++  wasm::BytecodeOffset bytecodeOffset() const { return bytecodeOffset_; }
++
++  ALLOW_CLONE(MWasmBuiltinTruncateToInt32)
++};
++
+ // Converts a primitive (either typed or untyped) to a BigInt. If the input is
+ // not primitive at runtime, a bailout occurs.
+ class MToBigInt : public MUnaryInstruction, public ToBigIntPolicy::Data {

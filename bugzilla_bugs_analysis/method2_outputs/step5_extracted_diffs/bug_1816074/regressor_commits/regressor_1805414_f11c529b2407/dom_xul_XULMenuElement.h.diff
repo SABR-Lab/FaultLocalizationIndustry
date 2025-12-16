@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/xul/XULMenuElement.h
+# Commit: f11c529b2407
+# Full Hash: f11c529b240799df93c4dd8c17ecd8636f9b10de
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-01-04 09:43:05
+# Regressor Bug: 1805414
+# File Overlap Count: 2
+# Description:
+#   Bug 1805414 - Remove nsMenuFrame and nsMenuParent. r=smaug,Jamie,desktop-theme-reviewers,settings-reviewers,dao
+#   
+#   Move most the event handling stuff to the DOM. I've left nsMenuBarFrame
+#   for now, but I will be removing that in the future.
+#   
+# ==============================================================================
+
+diff -r 11d72eaa9cd9 -r f11c529b2407 dom/xul/XULMenuElement.h
+--- a/dom/xul/XULMenuElement.h	Tue Jan 03 21:55:14 2023 +0000
++++ b/dom/xul/XULMenuElement.h	Tue Jan 03 22:06:01 2023 +0000
+@@ -7,27 +7,29 @@
+ #ifndef mozilla_dom_XULMenuElement_h
+ #define mozilla_dom_XULMenuElement_h
+ 
++#include "XULButtonElement.h"
++#include "nsINode.h"
+ #include "nsXULElement.h"
+ 
+ namespace mozilla::dom {
+ 
+ class KeyboardEvent;
+ 
+-class XULMenuElement final : public nsXULElement {
++class XULMenuElement final : public XULButtonElement {
+  public:
+   explicit XULMenuElement(already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo)
+-      : nsXULElement(std::move(aNodeInfo)) {}
++      : XULButtonElement(std::move(aNodeInfo)) {}
+ 
+-  MOZ_CAN_RUN_SCRIPT already_AddRefed<Element> GetActiveChild();
+-  MOZ_CAN_RUN_SCRIPT void SetActiveChild(Element* arg);
+-  MOZ_CAN_RUN_SCRIPT bool HandleKeyPress(KeyboardEvent& keyEvent);
+-  MOZ_CAN_RUN_SCRIPT bool OpenedWithKey();
++  MOZ_CAN_RUN_SCRIPT void SetActiveMenuChild(Element*);
++  Element* GetActiveMenuChild();
++
++  NS_IMPL_FROMNODE_HELPER(XULMenuElement,
++                          IsAnyOfXULElements(nsGkAtoms::menu,
++                                             nsGkAtoms::menulist));
+ 
+  private:
+   virtual ~XULMenuElement() = default;
+   JSObject* WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) final;
+-
+-  nsIFrame* GetFrame();
+ };
+ 
+ }  // namespace mozilla::dom

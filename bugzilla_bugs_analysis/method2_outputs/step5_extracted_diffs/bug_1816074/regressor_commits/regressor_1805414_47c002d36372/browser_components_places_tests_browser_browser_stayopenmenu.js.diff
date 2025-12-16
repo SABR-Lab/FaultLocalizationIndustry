@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: browser/components/places/tests/browser/browser_stayopenmenu.js
+# Commit: 47c002d36372
+# Full Hash: 47c002d3637247e71ee901f32421deaecc9d8ea3
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-01-05 03:40:49
+# Regressor Bug: 1805414
+# File Overlap Count: 2
+# Description:
+#   Bug 1805414 - Remove nsMenuFrame and nsMenuParent. r=smaug,Jamie,desktop-theme-reviewers,settings-reviewers,dao
+#   
+#   Move most the event handling stuff to the DOM. I've left nsMenuBarFrame
+#   for now, but I will be removing that in the future.
+#   
+# ==============================================================================
+
+diff -r 0c989b2bcd78 -r 47c002d36372 browser/components/places/tests/browser/browser_stayopenmenu.js
+--- a/browser/components/places/tests/browser/browser_stayopenmenu.js	Wed Jan 04 18:28:34 2023 +0000
++++ b/browser/components/places/tests/browser/browser_stayopenmenu.js	Wed Jan 04 19:01:13 2023 +0000
+@@ -9,6 +9,7 @@
+     node => node.label == "Test1"
+   );
+   ok(testMenuitem, "Found test bookmark.");
++  ok(BrowserTestUtils.is_visible(testMenuitem), "Should be visible");
+   let promiseTabOpened = BrowserTestUtils.waitForNewTab(gBrowser, null);
+   EventUtils.synthesizeMouseAtCenter(testMenuitem, { accelKey: true });
+   let newTab = await promiseTabOpened;
+@@ -27,12 +28,14 @@
+   });
+   await promiseEvent;
+   let promiseTabOpened = BrowserTestUtils.waitForNewTab(gBrowser, null);
++  let hidden = BrowserTestUtils.waitForEvent(cm, "popuphidden");
+   cm.activateItem(doc.getElementById("placesContext_open:newtab"));
++  await hidden;
+   let newTab = await promiseTabOpened;
+   return newTab;
+ }
+ 
+-add_task(async function test_setup() {
++add_setup(async function() {
+   // Ensure BMB is available in UI.
+   let origBMBlocation = CustomizableUI.getPlacementOfWidget(
+     "bookmarks-menu-button"

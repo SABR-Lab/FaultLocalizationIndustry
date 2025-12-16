@@ -1,0 +1,68 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/platforms/agnostic/AgnosticDecoderModule.cpp
+# Commit: 3f08ccb1f141
+# Full Hash: 3f08ccb1f141069bfd90474d6023413303307ec4
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2020-11-04 09:55:18
+# Regressor Bug: 1595994
+# File Overlap Count: 1
+# Description:
+#   Bug 1674043 - P6. Remove sync PDecoderMananger::Supports API. r=mattwoodrow,bryce,mjf,ipc-reviewers,nika
+#   
+#   In bug 1595994 we attempted to streamline the ability to determine which decoder was available regardless of the process they would be running in. This was subsequently done via the PDMFactory.
+#   
+#   As there are several JS API that can query which codec are supported, it requires a synchronous mechanism.
+# ==============================================================================
+
+diff -r 33563a16a5c3 -r 3f08ccb1f141 dom/media/platforms/agnostic/AgnosticDecoderModule.cpp
+--- a/dom/media/platforms/agnostic/AgnosticDecoderModule.cpp	Mon Nov 02 15:32:59 2020 +0000
++++ b/dom/media/platforms/agnostic/AgnosticDecoderModule.cpp	Wed Nov 04 02:22:33 2020 +0000
+@@ -37,11 +37,7 @@
+   switch (type) {
+ #ifdef MOZ_AV1
+     case DecoderType::AV1:
+-      // We remove support for decoding AV1 here if RDD is enabled so that
+-      // decoding on the content process doesn't accidentally happen in case
+-      // something goes wrong with launching the RDD process.
+-      return StaticPrefs::media_av1_enabled() &&
+-             !StaticPrefs::media_rdd_process_enabled();
++      return StaticPrefs::media_av1_enabled();
+ #endif
+     case DecoderType::Opus:
+     case DecoderType::Theora:
+@@ -128,14 +124,21 @@
+ 
+ already_AddRefed<MediaDataDecoder> AgnosticDecoderModule::CreateVideoDecoder(
+     const CreateDecoderParams& aParams) {
++  if (!Supports(SupportDecoderParams(aParams), aParams.mDiagnostics)) {
++    return nullptr;
++  }
+   RefPtr<MediaDataDecoder> m;
+ 
+   if (VPXDecoder::IsVPX(aParams.mConfig.mMimeType)) {
+     m = new VPXDecoder(aParams);
+   }
+ #ifdef MOZ_AV1
+-  // see comment above about AV1 and the RDD process
+-  else if (AOMDecoder::IsAV1(aParams.mConfig.mMimeType)) {
++  // We remove support for decoding AV1 here if RDD is enabled so that
++  // decoding on the content process doesn't accidentally happen in case
++  // something goes wrong with launching the RDD process.
++  if (StaticPrefs::media_av1_enabled() &&
++      (!StaticPrefs::media_rdd_process_enabled() || XRE_IsRDDProcess()) &&
++      AOMDecoder::IsAV1(aParams.mConfig.mMimeType)) {
+     if (StaticPrefs::media_av1_use_dav1d()) {
+       m = new DAV1DDecoder(aParams);
+     } else {
+@@ -152,6 +155,9 @@
+ 
+ already_AddRefed<MediaDataDecoder> AgnosticDecoderModule::CreateAudioDecoder(
+     const CreateDecoderParams& aParams) {
++  if (!Supports(SupportDecoderParams(aParams), aParams.mDiagnostics)) {
++    return nullptr;
++  }
+   RefPtr<MediaDataDecoder> m;
+ 
+   const TrackInfo& config = aParams.mConfig;

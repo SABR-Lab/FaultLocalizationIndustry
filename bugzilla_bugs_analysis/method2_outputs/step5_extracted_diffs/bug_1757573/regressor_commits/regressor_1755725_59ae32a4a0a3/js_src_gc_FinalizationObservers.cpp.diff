@@ -1,0 +1,71 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/FinalizationObservers.cpp
+# Commit: 59ae32a4a0a3
+# Full Hash: 59ae32a4a0a3be6160a757099e38bbc5f52db4b1
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2022-03-01 16:17:59
+# Regressor Bug: 1755725
+# File Overlap Count: 1
+# Description:
+#   Bug 1755725 - Part 1: Factor out crossZoneWrappers checks and do them before we calculate sweep groups r=sfink
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D139835
+# ==============================================================================
+
+diff -r ae499200e145 -r 59ae32a4a0a3 js/src/gc/FinalizationObservers.cpp
+--- a/js/src/gc/FinalizationObservers.cpp	Tue Mar 01 08:27:54 2022 +0000
++++ b/js/src/gc/FinalizationObservers.cpp	Tue Mar 01 08:28:41 2022 +0000
+@@ -154,16 +154,7 @@
+ 
+ void FinalizationObservers::clearRecords() {
+ #ifdef DEBUG
+-  // Check crossZoneWrappers was correct before clearing.
+-  for (RecordMap::Enum e(recordMap); !e.empty(); e.popFront()) {
+-    for (JSObject* object : e.front().value()) {
+-      FinalizationRecordObject* record = UnwrapFinalizationRecord(object);
+-      if (record && record->zone() != zone) {
+-        removeCrossZoneWrapper(object);
+-      }
+-    }
+-  }
+-  MOZ_ASSERT(crossZoneWrappers.empty());
++  checkTables();
+ #endif
+ 
+   recordMap.clear();
+@@ -395,6 +386,23 @@
+   });
+ }
+ 
++#ifdef DEBUG
++void FinalizationObservers::checkTables() const {
++  // Check all cross-zone wrappers are present in crossZoneWrappers.
++  size_t count = 0;
++  for (auto r = recordMap.all(); !r.empty(); r.popFront()) {
++    for (JSObject* object : r.front().value()) {
++      FinalizationRecordObject* record = UnwrapFinalizationRecord(object);
++      if (record && record->zone() != zone) {
++        MOZ_ASSERT(crossZoneWrappers.has(object));
++        count++;
++      }
++    }
++  }
++  MOZ_ASSERT(crossZoneWrappers.count() == count);
++}
++#endif
++
+ FinalizationRegistryGlobalData::FinalizationRegistryGlobalData(Zone* zone)
+     : recordSet(zone) {}
+ 
+@@ -405,7 +413,8 @@
+ 
+ void FinalizationRegistryGlobalData::removeRecord(
+     FinalizationRecordObject* record) {
+-  MOZ_ASSERT(recordSet.has(record));
++  MOZ_ASSERT_IF(!record->runtimeFromMainThread()->gc.isShuttingDown(),
++                recordSet.has(record));
+   recordSet.remove(record);
+ }
+ 

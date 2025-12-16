@@ -1,0 +1,33 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: accessible/base/TextLeafRange.cpp
+# Commit: cf1fd02da077
+# Full Hash: cf1fd02da07721bc6ec291076f064eb172e3b7a8
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2023-04-27 09:51:44
+# Description:
+#   Bug 1829167: Construct an invalid TextLeafPoint if null is supplied to the constructor. r=nlapre
+#   
+#   DocAccessibleChildBase::RecvSetTextSelection and RecvScrollTextLeafRangeIntoView constructs TextLeafPoints without null checking the retrieved Accessible.
+#   This can be null if the Accessible was destroyed in the content process but the parent process didn't know about this yet when it sent the request.
+#   TextLeafPoint currently crashes if constructed with a null Accessible.
+# ==============================================================================
+
+diff -r d2487a523469 -r cf1fd02da077 accessible/base/TextLeafRange.cpp
+--- a/accessible/base/TextLeafRange.cpp	Wed Apr 26 22:52:30 2023 +0000
++++ b/accessible/base/TextLeafRange.cpp	Wed Apr 26 23:08:33 2023 +0000
+@@ -570,6 +570,13 @@
+ /*** TextLeafPoint ***/
+ 
+ TextLeafPoint::TextLeafPoint(Accessible* aAcc, int32_t aOffset) {
++  if (!aAcc) {
++    // Construct an invalid point.
++    mAcc = nullptr;
++    mOffset = 0;
++    return;
++  }
++
+   // Even though an OuterDoc contains a document, we treat it as a leaf because
+   // we don't want to move into another document.
+   if (aOffset != nsIAccessibleText::TEXT_OFFSET_CARET && !aAcc->IsOuterDoc() &&

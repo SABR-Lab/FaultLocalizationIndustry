@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/gl/GLContextProviderWayland.cpp
+# Commit: 204b899f436d
+# Full Hash: 204b899f436d99f0eae759af3ccfcbaabfbbb428
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-06-11 09:34:54
+# Regressor Bug: 1632249
+# File Overlap Count: 3
+# Description:
+#   Bug 1632249 - Support compositing out-of-process WebGL. r=handyman,lsalzman,nical,geckoview-reviewers,agi,imanol
+#   
+#   * Majorly simplity CanvasRenderer
+#   * Replace GLScreenBuffer with trivial GLSwapChain
+#   * Use descriptor structs so that future SharedSurface changes aren't so painful
+# ==============================================================================
+
+diff -r 3f5baab34b1f -r 204b899f436d gfx/gl/GLContextProviderWayland.cpp
+--- a/gfx/gl/GLContextProviderWayland.cpp	Thu Jun 11 06:36:55 2020 +0000
++++ b/gfx/gl/GLContextProviderWayland.cpp	Thu Jun 11 06:37:35 2020 +0000
+@@ -41,24 +41,22 @@
+ 
+ /*static*/
+ already_AddRefed<GLContext> GLContextProviderWayland::CreateHeadless(
+-    CreateContextFlags flags, nsACString* const out_failureId) {
++    const GLContextCreateDesc& desc, nsACString* const out_failureId) {
+   if (GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
+-    return sGLContextProviderGLX.CreateHeadless(flags, out_failureId);
++    return sGLContextProviderGLX.CreateHeadless(desc, out_failureId);
+   } else {
+-    return sGLContextProviderEGL.CreateHeadless(flags, out_failureId);
++    return sGLContextProviderEGL.CreateHeadless(desc, out_failureId);
+   }
+ }
+ 
+ /*static*/
+ already_AddRefed<GLContext> GLContextProviderWayland::CreateOffscreen(
+-    const IntSize& size, const SurfaceCaps& minCaps, CreateContextFlags flags,
++    const IntSize& size, const GLContextCreateDesc& desc,
+     nsACString* const out_failureId) {
+   if (GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
+-    return sGLContextProviderGLX.CreateOffscreen(size, minCaps, flags,
+-                                                 out_failureId);
++    return sGLContextProviderGLX.CreateOffscreen(size, desc, out_failureId);
+   } else {
+-    return sGLContextProviderEGL.CreateOffscreen(size, minCaps, flags,
+-                                                 out_failureId);
++    return sGLContextProviderEGL.CreateOffscreen(size, desc, out_failureId);
+   }
+ }
+ 

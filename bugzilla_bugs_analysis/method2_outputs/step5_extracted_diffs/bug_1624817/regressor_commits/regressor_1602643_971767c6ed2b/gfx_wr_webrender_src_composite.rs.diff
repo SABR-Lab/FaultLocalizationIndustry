@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/composite.rs
+# Commit: 971767c6ed2b
+# Full Hash: 971767c6ed2b2201e172105046ecc61942e03a7e
+# Author: sotaro <sotaro.ikeda.g@gmail.com>
+# Date: 2020-01-24 21:46:30
+# Regressor Bug: 1602643
+# File Overlap Count: 1
+# Description:
+#   Bug 1602643 - Disable WebRender compositor dinamically for async screenshot r=gw
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D59658
+# ==============================================================================
+
+diff -r 436df7dc06c6 -r 971767c6ed2b gfx/wr/webrender/src/composite.rs
+--- a/gfx/wr/webrender/src/composite.rs	Fri Jan 24 01:04:09 2020 +0000
++++ b/gfx/wr/webrender/src/composite.rs	Thu Jan 23 23:52:05 2020 +0000
+@@ -94,6 +94,19 @@
+     }
+ }
+ 
++impl CompositorConfig {
++    pub fn compositor(&mut self) -> Option<&mut Box<dyn Compositor>> {
++        match self {
++            CompositorConfig::Native { ref mut compositor, .. } => {
++                Some(compositor)
++            }
++            CompositorConfig::Draw { .. } => {
++                None
++            }
++        }
++    }
++}
++
+ impl Default for CompositorConfig {
+     /// Default compositor config is full present without partial present.
+     fn default() -> Self {
+@@ -506,6 +519,9 @@
+     /// this once when all surface and visual updates are complete, to signal
+     /// that the OS composite transaction should be applied.
+     fn end_frame(&mut self);
++
++    /// Enable/disable native compositor usage
++    fn enable_native_compositor(&mut self, enable: bool);
+ }
+ 
+ /// Return the total area covered by a set of occluders, accounting for

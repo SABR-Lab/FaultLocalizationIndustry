@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/ContentIterator.h
+# Commit: d699f1b53a1e
+# Full Hash: d699f1b53a1e0719f10a1a8ccba36a6800738562
+# Author: Serban Stanca <sstanca@mozilla.com>
+# Date: 2025-05-09 04:15:00
+# Regressor Bug: 1932150
+# File Overlap Count: 1
+# Description:
+#   Revert "Bug 1932150 - ContentSubtreeIterator #1: Make the end container related logic in ContentSubtreeIterator more robust r=jjaschke,smaug,dom-core"
+#   
+#   This reverts commit e2fc06c5c6403810af50bfeaab3766738f65273c.
+# ==============================================================================
+
+diff -r a41f5016a24c -r d699f1b53a1e dom/base/ContentIterator.h
+--- a/dom/base/ContentIterator.h	Thu May 08 22:53:05 2025 +0300
++++ b/dom/base/ContentIterator.h	Thu May 08 22:53:05 2025 +0300
+@@ -97,20 +97,6 @@
+       nsIContent* aRoot,
+       dom::AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary);
+ 
+-  struct AncestorInfo {
+-    nsIContent* mAncestor = nullptr;
+-    // mIsDescendantInShadowTree is used to determine if we should go
+-    // dive into the shadow tree or regular light DOM tree if mAncestor
+-    // is a shadow host. It should always be false otherwise.
+-    bool mIsDescendantInShadowTree = false;
+-  };
+-
+-  class InclusiveAncestorComparator {
+-   public:
+-    bool Equals(const AncestorInfo& aA, const nsINode* aB) const {
+-      return aA.mAncestor == aB;
+-    }
+-  };
+   // Get the next/previous sibling of aNode, or its parent's, or grandparent's,
+   // etc.  Returns null if aNode and all its ancestors have no next/previous
+   // sibling.
+@@ -344,7 +330,7 @@
+   RefPtr<dom::AbstractRange> mRange;
+ 
+   // See <https://dom.spec.whatwg.org/#concept-tree-inclusive-ancestor>.
+-  AutoTArray<AncestorInfo, 8> mInclusiveAncestorsOfEndContainer;
++  AutoTArray<nsIContent*, 8> mInclusiveAncestorsOfEndContainer;
+ 
+   // Whether this iterator allows to iterate nodes across shadow boundary.
+   dom::AllowRangeCrossShadowBoundary mAllowCrossShadowBoundary =

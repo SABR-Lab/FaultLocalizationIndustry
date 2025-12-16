@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/cocoa/nsMenuBarX.mm
+# Commit: 3d4472548fb9
+# Full Hash: 3d4472548fb9d48cce00f59066690611ee20ffcb
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2024-11-26 09:36:10
+# Regressor Bug: 1931301
+# File Overlap Count: 1
+# Description:
+#   Bug 1931301 - Notify of removals on a stable state, not mid-remove. r=smaug,masayuki,dshin
+#   
+#   This simplifies some observers, and makes others a bit more subtle, but I think
+#   over-all it is an improvement.
+#   
+# ==============================================================================
+
+diff -r 20a0394d798f -r 3d4472548fb9 widget/cocoa/nsMenuBarX.mm
+--- a/widget/cocoa/nsMenuBarX.mm	Mon Nov 25 17:56:21 2024 +0000
++++ b/widget/cocoa/nsMenuBarX.mm	Mon Nov 25 17:58:40 2024 +0000
+@@ -284,13 +284,12 @@
+ 
+ void nsMenuBarX::ObserveContentRemoved(mozilla::dom::Document* aDocument,
+                                        nsIContent* aContainer,
+-                                       nsIContent* aChild,
+-                                       nsIContent* aPreviousSibling) {
++                                       nsIContent* aChild) {
+   nsINode* parent = NODE_FROM(aContainer, aDocument);
+   MOZ_ASSERT(parent);
+-  const Maybe<uint32_t> index = parent->ComputeIndexOf(aPreviousSibling);
++  const Maybe<uint32_t> index = parent->ComputeIndexOf(aChild);
+   MOZ_ASSERT(*index != UINT32_MAX);
+-  RemoveMenuAtIndex(index.isSome() ? *index + 1u : 0u);
++  RemoveMenuAtIndex(index.valueOr(0u));
+ }
+ 
+ void nsMenuBarX::ObserveContentInserted(mozilla::dom::Document* aDocument,

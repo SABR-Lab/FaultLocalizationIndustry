@@ -1,0 +1,50 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: toolkit/content/tests/widgets/window_menubar.xhtml
+# Commit: 761952daa28c
+# Full Hash: 761952daa28c591f7d2bcfaa038749947ec9d4e6
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-02-15 09:39:02
+# Description:
+#   Bug 1816074 - Prevent activating menubar without a selectable menu item. r=smaug
+#   
+#   We might not have an active item if all items are disabled.
+#   
+#   Add the null-check just to be safe too.
+# ==============================================================================
+
+diff -r a98793b8ce26 -r 761952daa28c toolkit/content/tests/widgets/window_menubar.xhtml
+--- a/toolkit/content/tests/widgets/window_menubar.xhtml	Tue Feb 14 16:07:39 2023 +0000
++++ b/toolkit/content/tests/widgets/window_menubar.xhtml	Tue Feb 14 16:01:50 2023 +0000
+@@ -930,6 +930,30 @@
+   },
+ },
+ 
++{
++  testname: "Trying to activate menubar without activatable items shouldn't crash",
++  events: [ "TestDone menubar" ],
++  test() {
++    const items = document.querySelectorAll("menubar > menu");
++    let wasDisabled = {};
++    for (let item of items) {
++      wasDisabled[item] = item.disabled;
++      item.disabled = true;
++    }
++
++    synthesizeKey("KEY_F10");
++    setTimeout(function() {
++      synthesizeKey("KEY_F10");
++
++      for (let item of items) {
++        item.disabled = wasDisabled[item];
++      }
++
++      document.getElementById("menubar").dispatchEvent(new CustomEvent("TestDone", { bubbles: true }));
++    }, 0);
++  }
++},
++
+ // bug 625151
+ {
+   testname: "Alt key state before deactivating the window shouldn't prevent " +

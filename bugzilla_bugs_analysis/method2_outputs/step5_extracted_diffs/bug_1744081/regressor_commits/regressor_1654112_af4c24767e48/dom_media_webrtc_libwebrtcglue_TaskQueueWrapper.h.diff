@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/TaskQueueWrapper.h
+# Commit: af4c24767e48
+# Full Hash: af4c24767e48def595991abacc5719eb77e1b27f
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 1
+# Description:
+#   Bug 1654112 - Make mediapipeline_unittest pass and remove TaskQueueWrapper::MainAsCurrent. r=ng,bwc
+#   
+#   This patch makes mediapipeline_unittest pass an event target to the Call wrapper
+#   but keeps using main thread for that event target, so that it can keep the test
+#   cases simpler by allowing sybnc calls into the conduits.
+# ==============================================================================
+
+diff -r d621668762f4 -r af4c24767e48 dom/media/webrtc/libwebrtcglue/TaskQueueWrapper.h
+--- a/dom/media/webrtc/libwebrtcglue/TaskQueueWrapper.h	Wed Apr 07 15:01:03 2021 +0200
++++ b/dom/media/webrtc/libwebrtcglue/TaskQueueWrapper.h	Fri Apr 09 10:26:12 2021 +0200
+@@ -14,7 +14,7 @@
+ namespace mozilla {
+ 
+ /**
+- * A wrapper around Mozilla TaskQueues in the shape of libwebrtc a TaskQueue.
++ * A wrapper around Mozilla TaskQueues in the shape of a libwebrtc TaskQueue.
+  *
+  * Allows libwebrtc to use Mozilla threads where tooling, e.g. profiling, is set
+  * up and just works.
+@@ -25,26 +25,13 @@
+  */
+ class TaskQueueWrapper : public webrtc::TaskQueueBase {
+  public:
+-  class MainAsCurrent {
+-#ifdef RELEASE_OR_BETA
+-#  error "We must not ship with this class. Main is not a worker thread."
+-#endif
+-   public:
+-    MainAsCurrent() : mSetter(GetMainWorker()) {}
+-    ~MainAsCurrent() = default;
+-
+-   private:
+-    CurrentTaskQueueSetter mSetter;
+-  };
+-
+-  static TaskQueueWrapper* GetMainWorker();
+-
+   explicit TaskQueueWrapper(RefPtr<TaskQueue> aTaskQueue)
+       : mTaskQueue(std::move(aTaskQueue)) {}
+   ~TaskQueueWrapper() = default;
+ 
+   void Delete() override {
+-    MOZ_ASSERT(NS_IsMainThread());
++    MOZ_ASSERT(!mTaskQueue->IsOnCurrentThread(),
++               "TaskQueue::AwaitIdle must not be called on itself");
+     // Must block this thread until shutdown is complete.
+     {
+       auto hasShutdown = mHasShutdown.Lock();

@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/BrowsingContext.h
+# Commit: 2d0e5336e455
+# Full Hash: 2d0e5336e455f560cdd345afa57f21b8cdbfc1fb
+# Author: Andreas Farre <farre@mozilla.com>
+# Date: 2019-08-26 22:30:36
+# Regressor Bug: 1563619
+# File Overlap Count: 1
+# Description:
+#   Bug 1563619 - Handle subframe crashes in BrowserParent::ActorDestroy. r=mconley,kmag,peterv
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D40937
+# ==============================================================================
+
+diff -r fd3185644de9 -r 2d0e5336e455 docshell/base/BrowsingContext.h
+--- a/docshell/base/BrowsingContext.h	Mon Aug 26 13:07:26 2019 +0000
++++ b/docshell/base/BrowsingContext.h	Mon Aug 26 13:08:32 2019 +0000
+@@ -249,7 +249,6 @@
+   BrowsingContext* FindWithName(const nsAString& aName,
+                                 BrowsingContext& aRequestingContext);
+ 
+-
+   // Find a browsing context in this context's list of
+   // children. Doesn't consider the special names, '_self', '_parent',
+   // '_top', or '_blank'. Performs access control with regard to
+@@ -257,7 +256,6 @@
+   BrowsingContext* FindChildWithName(const nsAString& aName,
+                                      BrowsingContext& aRequestingContext);
+ 
+-
+   nsISupports* GetParentObject() const;
+   JSObject* WrapObject(JSContext* aCx,
+                        JS::Handle<JSObject*> aGivenProto) override;
+@@ -288,14 +286,22 @@
+   const Children& GetChildren() { return mChildren; }
+ 
+   // Perform a pre-order walk of this BrowsingContext subtree.
+-  template <typename Func>
+-  void PreOrderWalk(Func&& aCallback) {
++  void PreOrderWalk(const std::function<void(BrowsingContext*)>& aCallback) {
+     aCallback(this);
+     for (auto& child : GetChildren()) {
+       child->PreOrderWalk(aCallback);
+     }
+   }
+ 
++  // Perform an post-order walk of this BrowsingContext subtree.
++  void PostOrderWalk(const std::function<void(BrowsingContext*)>& aCallback) {
++    for (auto& child : GetChildren()) {
++      child->PostOrderWalk(aCallback);
++    }
++
++    aCallback(this);
++  }
++
+   // Window APIs that are cross-origin-accessible (from the HTML spec).
+   BrowsingContext* Window() { return Self(); }
+   BrowsingContext* Self() { return this; }

@@ -1,0 +1,82 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/UniqueContentParentKeepAlive.cpp
+# Commit: 2cf5cad90099
+# Full Hash: 2cf5cad900992236d596bfb329099742ff15f689
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2024-06-20 04:08:16
+# Regressor Bug: 1728331
+# File Overlap Count: 1
+# Description:
+#   Bug 1728331 - Part 4: Make ContentParent KeepAlives explicit with RAII references, r=smaug,dom-worker-reviewers,asuth
+#   
+#   This is a fairly significant patch, however it would be difficult to break it
+#   down into smaller patches:
+#   
+# ==============================================================================
+
+diff -r d920c2d72d00 -r 2cf5cad90099 dom/ipc/UniqueContentParentKeepAlive.cpp
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/dom/ipc/UniqueContentParentKeepAlive.cpp	Wed Jun 19 20:14:50 2024 +0000
+@@ -0,0 +1,60 @@
++/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
++/* vim: set ts=8 sts=2 et sw=2 tw=80: */
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
++ * You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++#include "mozilla/dom/UniqueContentParentKeepAlive.h"
++#include "mozilla/dom/ContentParent.h"
++
++namespace mozilla::dom {
++
++void ContentParentKeepAliveDeleter::operator()(ContentParent* aProcess) {
++  AssertIsOnMainThread();
++  if (RefPtr<ContentParent> process = dont_AddRef(aProcess)) {
++    process->RemoveKeepAlive(mBrowserId);
++  }
++}
++
++void ContentParentKeepAliveDeleter::operator()(
++    ThreadsafeContentParentHandle* aHandle) {
++  if (RefPtr<ThreadsafeContentParentHandle> handle = dont_AddRef(aHandle)) {
++    NS_DispatchToMainThread(NS_NewRunnableFunction(
++        "ThreadsafeContentParentKeepAliveDeleter",
++        [handle = std::move(handle), browserId = mBrowserId]() {
++          AssertIsOnMainThread();
++          if (RefPtr<ContentParent> process = handle->GetContentParent()) {
++            process->RemoveKeepAlive(browserId);
++          }
++        }));
++  }
++}
++
++UniqueContentParentKeepAlive UniqueContentParentKeepAliveFromThreadsafe(
++    UniqueThreadsafeContentParentKeepAlive aKeepAlive) {
++  AssertIsOnMainThread();
++  if (aKeepAlive) {
++    uint64_t browserId = aKeepAlive.get_deleter().mBrowserId;
++    RefPtr<ThreadsafeContentParentHandle> handle =
++        dont_AddRef(aKeepAlive.release());
++    RefPtr<ContentParent> process = handle->GetContentParent();
++    return UniqueContentParentKeepAlive{process.forget().take(),
++                                        {.mBrowserId = browserId}};
++  }
++  return nullptr;
++}
++
++UniqueThreadsafeContentParentKeepAlive UniqueContentParentKeepAliveToThreadsafe(
++    UniqueContentParentKeepAlive aKeepAlive) {
++  AssertIsOnMainThread();
++  if (aKeepAlive) {
++    uint64_t browserId = aKeepAlive.get_deleter().mBrowserId;
++    RefPtr<ContentParent> process = dont_AddRef(aKeepAlive.release());
++    RefPtr<ThreadsafeContentParentHandle> handle = process->ThreadsafeHandle();
++    return UniqueThreadsafeContentParentKeepAlive{handle.forget().take(),
++                                                  {.mBrowserId = browserId}};
++  }
++  return nullptr;
++}
++
++}  // namespace mozilla::dom

@@ -1,0 +1,306 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/renderer.rs
+# Commit: 0c03e3ad5e56
+# Full Hash: 0c03e3ad5e56201e35437734b0ae1d34faa52005
+# Author: Glenn Watson <git@intuitionlibrary.com>
+# Date: 2020-12-15 09:29:54
+# Regressor Bug: 1682365
+# File Overlap Count: 1
+# Description:
+#   Bug 1682365 - Pt 1 - Remove PrevPassAlpha and PrevPassColor r=nical
+#   
+#   Remove usage of the implicit prev pass alpha and color texture
+#   samplers from batching / renderer / shader code. They are replaced
+#   by explicit references to the texture ID for the source task.
+# ==============================================================================
+
+diff -r 4e0ba157c016 -r 0c03e3ad5e56 gfx/wr/webrender/src/renderer.rs
+--- a/gfx/wr/webrender/src/renderer.rs	Sat Dec 12 22:13:43 2020 +0000
++++ b/gfx/wr/webrender/src/renderer.rs	Mon Dec 14 19:38:48 2020 +0000
+@@ -72,7 +72,7 @@
+ use crate::gpu_cache::{GpuBlockData, GpuCacheUpdate, GpuCacheUpdateList};
+ use crate::gpu_cache::{GpuCacheDebugChunk, GpuCacheDebugCmd};
+ use crate::gpu_types::{PrimitiveHeaderI, PrimitiveHeaderF, PrimitiveInstanceData, ScalingInstance, SvgFilterInstance};
+-use crate::gpu_types::{ClearInstance, CompositeInstance, TransformData, ZBufferId};
++use crate::gpu_types::{ClearInstance, CompositeInstance, TransformData, ZBufferId, BlurInstance};
+ use crate::internal_types::{TextureSource, ResourceCacheError};
+ use crate::internal_types::{CacheTextureId, DebugOutput, FastHashMap, FastHashSet, LayerIndex, RenderedDocument, ResultMsg};
+ use crate::internal_types::{TextureCacheAllocationKind, TextureCacheUpdate, TextureUpdateList, TextureUpdateSource};
+@@ -358,8 +358,6 @@
+     Color0,
+     Color1,
+     Color2,
+-    PrevPassAlpha,
+-    PrevPassColor,
+     GpuCache,
+     TransformPalette,
+     RenderTasks,
+@@ -388,15 +386,13 @@
+             TextureSampler::Color0 => TextureSlot(0),
+             TextureSampler::Color1 => TextureSlot(1),
+             TextureSampler::Color2 => TextureSlot(2),
+-            TextureSampler::PrevPassAlpha => TextureSlot(3),
+-            TextureSampler::PrevPassColor => TextureSlot(4),
+-            TextureSampler::GpuCache => TextureSlot(5),
+-            TextureSampler::TransformPalette => TextureSlot(6),
+-            TextureSampler::RenderTasks => TextureSlot(7),
+-            TextureSampler::Dither => TextureSlot(8),
+-            TextureSampler::PrimitiveHeadersF => TextureSlot(9),
+-            TextureSampler::PrimitiveHeadersI => TextureSlot(10),
+-            TextureSampler::ClipMask => TextureSlot(11),
++            TextureSampler::GpuCache => TextureSlot(3),
++            TextureSampler::TransformPalette => TextureSlot(4),
++            TextureSampler::RenderTasks => TextureSlot(5),
++            TextureSampler::Dither => TextureSlot(6),
++            TextureSampler::PrimitiveHeadersF => TextureSlot(7),
++            TextureSampler::PrimitiveHeadersI => TextureSlot(8),
++            TextureSampler::ClipMask => TextureSlot(9),
+         }
+     }
+ }
+@@ -1168,10 +1164,6 @@
+     /// the output of the previous pass but are actually running in the first
+     /// pass.
+     dummy_cache_texture: Texture,
+-
+-    /// The outputs of the previous pass, if applicable.
+-    prev_pass_color: Option<CacheTextureId>,
+-    prev_pass_alpha: Option<CacheTextureId>,
+ }
+ 
+ impl TextureResolver {
+@@ -1195,8 +1187,6 @@
+             texture_cache_map: FastHashMap::default(),
+             external_images: FastHashMap::default(),
+             dummy_cache_texture,
+-            prev_pass_alpha: None,
+-            prev_pass_color: None,
+         }
+     }
+ 
+@@ -1209,16 +1199,12 @@
+     }
+ 
+     fn begin_frame(&mut self) {
+-        assert!(self.prev_pass_color.is_none());
+-        assert!(self.prev_pass_alpha.is_none());
+     }
+ 
+     fn end_pass(
+         &mut self,
+         device: &mut Device,
+         textures_to_invalidate: &[CacheTextureId],
+-        a8_texture: Option<CacheTextureId>,
+-        rgba8_texture: Option<CacheTextureId>,
+     ) {
+         // For any texture that is no longer needed, immediately
+         // invalidate it so that tiled GPUs don't need to resolve it
+@@ -1227,11 +1213,6 @@
+             let render_target = &self.texture_cache_map[texture_id];
+             device.invalidate_render_target(render_target);
+         }
+-
+-        // We have another pass to process, make these textures available
+-        // as inputs to the next pass.
+-        self.prev_pass_color = rgba8_texture;
+-        self.prev_pass_alpha = a8_texture;
+     }
+ 
+     // Bind a source texture to the device.
+@@ -1245,24 +1226,6 @@
+                 device.bind_texture(sampler, &self.dummy_cache_texture, swizzle);
+                 swizzle
+             }
+-            TextureSource::PrevPassAlpha => {
+-                let texture = match self.prev_pass_alpha {
+-                    Some(ref id) => &self.texture_cache_map[id],
+-                    None => &self.dummy_cache_texture,
+-                };
+-                let swizzle = Swizzle::default();
+-                device.bind_texture(sampler, texture, swizzle);
+-                swizzle
+-            }
+-            TextureSource::PrevPassColor => {
+-                let texture = match self.prev_pass_color {
+-                    Some(ref id) => &self.texture_cache_map[id],
+-                    None => &self.dummy_cache_texture,
+-                };
+-                let swizzle = Swizzle::default();
+-                device.bind_texture(sampler, texture, swizzle);
+-                swizzle
+-            }
+             TextureSource::External(ref index, _) => {
+                 let texture = self.external_images
+                     .get(index)
+@@ -1287,20 +1250,6 @@
+             TextureSource::Dummy => {
+                 Some((&self.dummy_cache_texture, Swizzle::default()))
+             }
+-            TextureSource::PrevPassAlpha => Some((
+-                match self.prev_pass_alpha {
+-                    Some(ref id) => &self.texture_cache_map[id],
+-                    None => &self.dummy_cache_texture,
+-                },
+-                Swizzle::default(),
+-            )),
+-            TextureSource::PrevPassColor => Some((
+-                match self.prev_pass_color {
+-                    Some(ref id) => &self.texture_cache_map[id],
+-                    None => &self.dummy_cache_texture,
+-                },
+-                Swizzle::default(),
+-            )),
+             TextureSource::External(..) => {
+                 panic!("BUG: External textures cannot be resolved, they can only be bound.");
+             }
+@@ -4166,9 +4115,13 @@
+             self.device.disable_scissor();
+         }
+ 
++        let texture_source = TextureSource::TextureCache(
++            readback.get_target_texture(),
++            ImageBufferKind::Texture2DArray,
++            Swizzle::default(),
++        );
+         let (cache_texture, _) = self.texture_resolver
+-            .resolve(&TextureSource::PrevPassColor)
+-            .unwrap();
++            .resolve(&texture_source).expect("bug: no source texture");
+ 
+         // Before submitting the composite batch, do the
+         // framebuffer readbacks that are needed for each
+@@ -4255,7 +4208,12 @@
+                     //           creating mips for alpha masks.
+                     let source = &render_tasks[task_id];
+                     let (source_rect, layer) = source.get_target_rect();
+-                    (TextureSource::PrevPassColor, layer.0, source_rect)
++                    let source_texture = TextureSource::TextureCache(
++                        source.get_target_texture(),
++                        ImageBufferKind::Texture2DArray,
++                        Swizzle::default(),
++                    );
++                    (source_texture, layer.0, source_rect)
+                 }
+             };
+ 
+@@ -5186,19 +5144,15 @@
+                 .bind(&mut self.device, projection, &mut self.renderer_errors);
+ 
+             if !target.vertical_blurs.is_empty() {
+-                self.draw_instanced_batch(
++                self.draw_blurs(
+                     &target.vertical_blurs,
+-                    VertexArrayKind::Blur,
+-                    &BatchTextures::empty(),
+                     stats,
+                 );
+             }
+ 
+             if !target.horizontal_blurs.is_empty() {
+-                self.draw_instanced_batch(
++                self.draw_blurs(
+                     &target.horizontal_blurs,
+-                    VertexArrayKind::Blur,
+-                    &BatchTextures::empty(),
+                     stats,
+                 );
+             }
+@@ -5235,6 +5189,25 @@
+         }
+     }
+ 
++    fn draw_blurs(
++        &mut self,
++        blurs: &FastHashMap<TextureSource, Vec<BlurInstance>>,
++        stats: &mut RendererStats,
++    ) {
++        for (texture, blurs) in blurs {
++            let textures = BatchTextures::composite_rgb(
++                *texture,
++            );
++
++            self.draw_instanced_batch(
++                blurs,
++                VertexArrayKind::Blur,
++                &textures,
++                stats,
++            );
++        }
++    }
++
+     /// Draw all the instances in a clip batcher list to the current target.
+     fn draw_clip_batch_list(
+         &mut self,
+@@ -5366,19 +5339,15 @@
+                 .bind(&mut self.device, projection, &mut self.renderer_errors);
+ 
+             if !target.vertical_blurs.is_empty() {
+-                self.draw_instanced_batch(
++                self.draw_blurs(
+                     &target.vertical_blurs,
+-                    VertexArrayKind::Blur,
+-                    &BatchTextures::empty(),
+                     stats,
+                 );
+             }
+ 
+             if !target.horizontal_blurs.is_empty() {
+-                self.draw_instanced_batch(
++                self.draw_blurs(
+                     &target.horizontal_blurs,
+-                    VertexArrayKind::Blur,
+-                    &BatchTextures::empty(),
+                     stats,
+                 );
+             }
+@@ -5600,10 +5569,8 @@
+                 }.bind(&mut self.device, &projection, &mut self.renderer_errors);
+             }
+ 
+-            self.draw_instanced_batch(
++            self.draw_blurs(
+                 &target.horizontal_blurs,
+-                VertexArrayKind::Blur,
+-                &BatchTextures::empty(),
+                 stats,
+             );
+         }
+@@ -5835,9 +5802,6 @@
+         );
+         self.current_vertex_data_textures =
+             (self.current_vertex_data_textures + 1) % VERTEX_DATA_TEXTURE_COUNT;
+-
+-        debug_assert!(self.texture_resolver.prev_pass_alpha.is_none());
+-        debug_assert!(self.texture_resolver.prev_pass_color.is_none());
+     }
+ 
+     fn update_native_surfaces(&mut self) {
+@@ -5972,17 +5936,6 @@
+             #[cfg(not(target_os = "android"))]
+             let _gm = self.gpu_profiler.start_marker(&format!("pass {}", _pass_index));
+ 
+-            self.texture_resolver.bind(
+-                &TextureSource::PrevPassAlpha,
+-                TextureSampler::PrevPassAlpha,
+-                &mut self.device,
+-            );
+-            self.texture_resolver.bind(
+-                &TextureSource::PrevPassColor,
+-                TextureSampler::PrevPassColor,
+-                &mut self.device,
+-            );
+-
+             profile_scope!("offscreen target");
+ 
+             // If this frame has already been drawn, then any texture
+@@ -6171,8 +6124,6 @@
+             self.texture_resolver.end_pass(
+                 &mut self.device,
+                 &pass.textures_to_invalidate,
+-                pass.alpha.texture_id,
+-                pass.color.texture_id,
+             );
+             {
+                 profile_scope!("gl.flush");

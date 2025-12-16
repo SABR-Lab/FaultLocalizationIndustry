@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/jsapi/TransceiverImpl.cpp
+# Commit: a3925686efd4
+# Full Hash: a3925686efd4aa1377e1dd61f4ba55317e0693cb
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 1
+# Description:
+#   Bug 1654112 - Delay MediaPipeline shutdown on Transceiver stop. r=bwc
+#   
+#   This patch fixes a race where transports (through pipelines) would be detached
+#   on the STS thread before conduits had finished shutting down on the call thread.
+#   
+# ==============================================================================
+
+diff -r 3fb02a012faa -r a3925686efd4 dom/media/webrtc/jsapi/TransceiverImpl.cpp
+--- a/dom/media/webrtc/jsapi/TransceiverImpl.cpp	Thu Sep 09 17:42:30 2021 +0200
++++ b/dom/media/webrtc/jsapi/TransceiverImpl.cpp	Wed Sep 01 11:40:05 2021 +0200
+@@ -1032,8 +1032,8 @@
+ }
+ 
+ void TransceiverImpl::Stop() {
+-  mTransmitPipeline->Shutdown();
+-  mReceiver->Shutdown();
++  mTransmitPipeline->Stop();
++  mReceiver->Stop();
+   // Make sure that stats queries stop working on this transceiver.
+   UpdateSendTrack(nullptr);
+ 
+@@ -1042,12 +1042,21 @@
+   }
+ 
+   if (mCallWrapper) {
+-    mCallWrapper->mCallThread->Dispatch(NS_NewRunnableFunction(
+-        __func__, [conduit = std::move(mConduit)]() mutable {
+-          if (conduit) {
+-            conduit->Shutdown();
+-          }
+-        }));
++    InvokeAsync(mCallWrapper->mCallThread, __func__,
++                [conduit = std::move(mConduit)]() mutable {
++                  if (conduit) {
++                    conduit->Shutdown();
++                  }
++                  return GenericPromise::CreateAndResolve(
++                      true, "TransceiverImpl conduit stopped");
++                })
++        ->Then(mMainThread, __func__,
++               [pipeline = mTransmitPipeline, receiver = mReceiver]() mutable {
++                 // Shutdown pipelines when conduits are guaranteed shut down,
++                 // so that all packets sent from conduits can be delivered.
++                 pipeline->Shutdown();
++                 receiver->Shutdown();
++               });
+     mCallWrapper = nullptr;
+   }
+ }

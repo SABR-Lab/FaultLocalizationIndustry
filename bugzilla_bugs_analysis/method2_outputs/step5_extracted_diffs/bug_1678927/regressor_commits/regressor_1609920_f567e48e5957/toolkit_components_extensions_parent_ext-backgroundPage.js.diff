@@ -1,0 +1,105 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/extensions/parent/ext-backgroundPage.js
+# Commit: f567e48e5957
+# Full Hash: f567e48e5957604f7c561642bfc1ffa12ba1d299
+# Author: Luca Greco <lgreco@mozilla.com>
+# Date: 2020-07-03 15:35:32
+# Regressor Bug: 1609920
+# File Overlap Count: 2
+# Description:
+#   Bug 1609920 - part 1: Allow the WebExtension Framework to register a moz-extension service worker. r=dom-workers-and-storage-reviewers,asuth,mixedpuppy
+#   
+#   - Adds the new about:config pref "extensions.backgroundServiceWorker.enabled" (currently defaults to false).
+#   - Adds the background.service_worker property to the manifest JSON schema definition
+#   - Locks background.service_worker manifest property behind the new preference
+# ==============================================================================
+
+diff -r 2b880e8d9143 -r f567e48e5957 toolkit/components/extensions/parent/ext-backgroundPage.js
+--- a/toolkit/components/extensions/parent/ext-backgroundPage.js	Fri Jul 03 11:27:56 2020 +0000
++++ b/toolkit/components/extensions/parent/ext-backgroundPage.js	Fri Jul 03 10:14:24 2020 +0000
+@@ -26,6 +26,12 @@
+   "extensions.webextensions.background-delayed-startup"
+ );
+ 
++XPCOMUtils.defineLazyGetter(this, "serviceWorkerManager", () => {
++  return Cc["@mozilla.org/serviceworkers/manager;1"].getService(
++    Ci.nsIServiceWorkerManager
++  );
++});
++
+ // Responsible for the background_page section of the manifest.
+ class BackgroundPage extends HiddenExtensionPage {
+   constructor(extension, options) {
+@@ -102,23 +108,53 @@
+   }
+ }
+ 
++// Responsible for the background.service_worker section of the manifest.
++class BackgroundWorker {
++  constructor(extension, options) {
++    this.extension = extension;
++    this.workerScript = options.service_worker;
++    if (!this.workerScript) {
++      throw new Error("Missing mandatory background.service_worker property");
++    }
++  }
++
++  async build() {
++    const regInfo = await serviceWorkerManager.registerForAddonPrincipal(
++      this.extension.principal
++    );
++    this.registrationInfo = regInfo.QueryInterface(
++      Ci.nsIServiceWorkerRegistrationInfo
++    );
++  }
++
++  shutdown() {
++    // TODO: ask to the ServiceWorkerManager to terminate any
++    // worker related to the extension principal, because the
++    // extension is shutting down.
++  }
++}
++
+ this.backgroundPage = class extends ExtensionAPI {
+-  build() {
+-    if (this.bgPage) {
++  async build() {
++    if (this.bgInstance) {
+       return;
+     }
+ 
+     let { extension } = this;
+     let { manifest } = extension;
+ 
+-    this.bgPage = new BackgroundPage(extension, manifest.background);
+-    return this.bgPage.build();
++    let BackgroundClass = manifest.background.service_worker
++      ? BackgroundWorker
++      : BackgroundPage;
++
++    this.bgInstance = new BackgroundClass(extension, manifest.background);
++    return this.bgInstance.build();
+   }
+ 
+   onManifestEntry(entryName) {
+     let { extension } = this;
+ 
+-    this.bgPage = null;
++    this.bgInstance = null;
+ 
+     // When in PPB background pages all run in a private context.  This check
+     // simply avoids an extraneous error in the console since the BaseContext
+@@ -182,8 +218,9 @@
+   }
+ 
+   onShutdown() {
+-    if (this.bgPage) {
+-      this.bgPage.shutdown();
++    if (this.bgInstance) {
++      this.bgInstance.shutdown();
++      this.bgInstance = null;
+     } else {
+       EventManager.clearPrimedListeners(this.extension, false);
+     }

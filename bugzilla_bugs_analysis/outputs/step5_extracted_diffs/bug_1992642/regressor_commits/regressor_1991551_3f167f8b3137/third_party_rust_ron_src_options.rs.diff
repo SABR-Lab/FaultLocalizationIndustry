@@ -1,0 +1,139 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/ron/src/options.rs
+# Commit: 3f167f8b3137
+# Full Hash: 3f167f8b313749f50f135e189e5854bef7ac0c73
+# Author: Erich Gubler <erichdongubler@gmail.com>
+# Date: 2025-10-03 18:08 +0000
+# Regressor Bug: 1991551
+# File Overlap Count: 23
+# Overlapping Files: third_party/rust/wgpu-hal/Cargo.toml, supply-chain/audits.toml, third_party/rust/naga/src/back/spv/writer.rs, third_party/rust/naga/src/back/msl/writer.rs, third_party/rust/wgpu-types/src/lib.rs
+# Description:
+#   Bug 1991551 - build(webgpu): update WGPU to 8c4aebc0c1b75e3f7412dfc180745a0717fc30ec r=webgpu-reviewers,supply-chain-reviewers,nical
+# ==============================================================================
+
+diff -r 823439f307a0 -r 3f167f8b3137 third_party/rust/ron/src/options.rs
+--- a/third_party/rust/ron/src/options.rs	Fri Oct 03 18:01:30 2025 +0000
++++ b/third_party/rust/ron/src/options.rs	Fri Oct 03 18:08:29 2025 +0000
+@@ -1,17 +1,25 @@
+ //! Roundtrip serde Options module.
+ 
+-use std::{fmt, io};
++use alloc::string::String;
++use core::fmt;
+ 
+ use serde::{de, ser};
+ use serde_derive::{Deserialize, Serialize};
+ 
+ use crate::{
+     de::Deserializer,
+-    error::{Position, Result, SpannedError, SpannedResult},
++    error::{Result, SpannedResult},
+     extensions::Extensions,
+     ser::{PrettyConfig, Serializer},
+ };
+ 
++#[cfg(feature = "std")]
++use {
++    crate::error::{Position, Span, SpannedError},
++    alloc::vec::Vec,
++    std::io,
++};
++
+ /// Roundtrip serde options.
+ ///
+ /// # Examples
+@@ -92,12 +100,13 @@
+ impl Options {
+     /// A convenience function for building a deserializer
+     /// and deserializing a value of type `T` from a reader.
++    #[cfg(feature = "std")]
+     pub fn from_reader<R, T>(&self, rdr: R) -> SpannedResult<T>
+     where
+         R: io::Read,
+         T: de::DeserializeOwned,
+     {
+-        self.from_reader_seed(rdr, std::marker::PhantomData)
++        self.from_reader_seed(rdr, core::marker::PhantomData)
+     }
+ 
+     /// A convenience function for building a deserializer
+@@ -106,7 +115,7 @@
+     where
+         T: de::Deserialize<'a>,
+     {
+-        self.from_str_seed(s, std::marker::PhantomData)
++        self.from_str_seed(s, core::marker::PhantomData)
+     }
+ 
+     /// A convenience function for building a deserializer
+@@ -115,7 +124,7 @@
+     where
+         T: de::Deserialize<'a>,
+     {
+-        self.from_bytes_seed(s, std::marker::PhantomData)
++        self.from_bytes_seed(s, core::marker::PhantomData)
+     }
+ 
+     /// A convenience function for building a deserializer
+@@ -123,6 +132,7 @@
+     /// and a seed.
+     // FIXME: panic is not actually possible, remove once utf8_chunks is stabilized
+     #[allow(clippy::missing_panics_doc)]
++    #[cfg(feature = "std")]
+     pub fn from_reader_seed<R, S, T>(&self, mut rdr: R, seed: S) -> SpannedResult<T>
+     where
+         R: io::Read,
+@@ -139,15 +149,18 @@
+         // Try to compute a good error position for the I/O error
+         // FIXME: use [`utf8_chunks`](https://github.com/rust-lang/rust/issues/99543) once stabilised
+         #[allow(clippy::expect_used)]
+-        let valid_input = match std::str::from_utf8(&bytes) {
++        let valid_input = match core::str::from_utf8(&bytes) {
+             Ok(valid_input) => valid_input,
+-            Err(err) => std::str::from_utf8(&bytes[..err.valid_up_to()])
++            Err(err) => core::str::from_utf8(&bytes[..err.valid_up_to()])
+                 .expect("source is valid up to error"),
+         };
+ 
+         Err(SpannedError {
+             code: io_err.into(),
+-            position: Position::from_src_end(valid_input),
++            span: Span {
++                start: Position { line: 1, col: 1 },
++                end: Position::from_src_end(valid_input),
++            },
+         })
+     }
+ 
+@@ -216,6 +229,7 @@
+     /// This function does not generate any newlines or nice formatting;
+     /// if you want that, you can use
+     /// [`to_io_writer_pretty`][Self::to_io_writer_pretty] instead.
++    #[cfg(feature = "std")]
+     pub fn to_io_writer<W, T>(&self, writer: W, value: &T) -> Result<()>
+     where
+         W: io::Write,
+@@ -231,6 +245,7 @@
+     }
+ 
+     /// Serializes `value` into `writer` in a pretty way.
++    #[cfg(feature = "std")]
+     pub fn to_io_writer_pretty<W, T>(
+         &self,
+         writer: W,
+@@ -278,11 +293,13 @@
+ }
+ 
+ // Adapter from io::Write to fmt::Write that keeps the error
++#[cfg(feature = "std")]
+ struct Adapter<W: io::Write> {
+     writer: W,
+     error: io::Result<()>,
+ }
+ 
++#[cfg(feature = "std")]
+ impl<T: io::Write> fmt::Write for Adapter<T> {
+     fn write_str(&mut self, s: &str) -> fmt::Result {
+         match self.writer.write_all(s.as_bytes()) {

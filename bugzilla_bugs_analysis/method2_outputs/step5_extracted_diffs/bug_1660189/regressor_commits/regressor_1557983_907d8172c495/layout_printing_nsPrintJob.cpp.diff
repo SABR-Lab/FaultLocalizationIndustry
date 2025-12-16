@@ -1,0 +1,68 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/printing/nsPrintJob.cpp
+# Commit: 907d8172c495
+# Full Hash: 907d8172c495b97e4dcfaf641209ebd2552fc509
+# Author: Jonathan Watt <jwatt@jwatt.org>
+# Date: 2020-07-11 21:52:53
+# Regressor Bug: 1557983
+# File Overlap Count: 1
+# Description:
+#   Bug 1557983. Remove nsPrintJob::HasPrintCallbackCanvas.
+#   
+#   After refactoring the 'beforeprint'/'afterprint' code, this method is not used
+#   any more.
+#   
+# ==============================================================================
+
+diff -r 25fa445f9702 -r 907d8172c495 layout/printing/nsPrintJob.cpp
+--- a/layout/printing/nsPrintJob.cpp	Sat Jul 11 14:14:03 2020 +0000
++++ b/layout/printing/nsPrintJob.cpp	Sat Jul 11 14:14:15 2020 +0000
+@@ -401,37 +401,6 @@
+ #endif
+ }
+ 
+-static bool DocHasPrintCallbackCanvas(Document& aDoc) {
+-  Element* root = aDoc.GetRootElement();
+-  if (!root) {
+-    return false;
+-  }
+-  // FIXME(emilio): This doesn't account for shadow dom and it's unnecessarily
+-  // inefficient. Though I guess it doesn't really matter.
+-  RefPtr<nsContentList> canvases =
+-      NS_GetContentList(root, kNameSpaceID_XHTML, u"canvas"_ns);
+-  uint32_t canvasCount = canvases->Length(true);
+-  for (uint32_t i = 0; i < canvasCount; ++i) {
+-    auto* canvas = HTMLCanvasElement::FromNodeOrNull(canvases->Item(i, false));
+-    if (canvas && canvas->GetMozPrintCallback()) {
+-      return true;
+-    }
+-  }
+-
+-  bool result = false;
+-
+-  auto checkSubDoc = [&result](Document& aSubDoc) {
+-    if (DocHasPrintCallbackCanvas(aSubDoc)) {
+-      result = true;
+-      return CallState::Stop;
+-    }
+-    return CallState::Continue;
+-  };
+-
+-  aDoc.EnumerateSubDocuments(checkSubDoc);
+-  return result;
+-}
+-
+ //-------------------------------------------------------
+ 
+ NS_IMPL_ISUPPORTS(nsPrintJob, nsIWebProgressListener, nsISupportsWeakReference,
+@@ -501,8 +470,6 @@
+     }
+   }
+ 
+-  mHasMozPrintCallback = DocHasPrintCallbackCanvas(*aOriginalDoc);
+-
+   return NS_OK;
+ }
+ 

@@ -1,0 +1,37 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mp4/MoofParser.cpp
+# Commit: 6b9661183d82
+# Full Hash: 6b9661183d828f8c14e72a4ece61b5bc60ab166d
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2023-08-01 16:06:52
+# Description:
+#   Bug 1845350 - Prevent a division by zero when adjusting dts in MoofParser.cpp. r=alwu
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D184683
+# ==============================================================================
+
+diff -r 93e2ed328b0c -r 6b9661183d82 dom/media/mp4/MoofParser.cpp
+--- a/dom/media/mp4/MoofParser.cpp	Tue Aug 01 07:07:08 2023 +0000
++++ b/dom/media/mp4/MoofParser.cpp	Tue Aug 01 07:07:30 2023 +0000
+@@ -532,10 +532,15 @@
+               ? decodeOffset.unwrap() + offsetOffset.unwrap()
+               : TimeUnit::Zero(aMvhd.mTimescale);
+       TimeUnit decodeDuration = endDecodeTime - mIndex[0].mDecodeTime;
+-      double adjust = !presentationDuration.IsZero()
+-                          ? (double)decodeDuration.ToMicroseconds() /
+-                                (double)presentationDuration.ToMicroseconds()
+-                          : 0.;
++      double adjust = 0.;
++      if (!presentationDuration.IsZero()) {
++        double num = decodeDuration.ToSeconds();
++        double denom = presentationDuration.ToSeconds();
++        if (denom != 0.) {
++          adjust = num / denom;
++        }
++      }
++
+       TimeUnit dtsOffset = mIndex[0].mDecodeTime;
+       TimeUnit compositionDuration(0, aMvhd.mTimescale);
+       // Adjust the dts, ensuring that the new adjusted dts will never be

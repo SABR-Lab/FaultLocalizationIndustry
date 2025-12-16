@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasink/AudioSink.cpp
+# Commit: 61ec6368ddcd
+# Full Hash: 61ec6368ddcd1013e23bda8992927f37c9a9495e
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2022-05-10 03:50:31
+# Regressor Bug: 1743834
+# File Overlap Count: 1
+# Description:
+#   Bug 1743834 - Shut down the AudioSink when audio is muted. r=alwu,media-playback-reviewers
+#   
+#   This does the following:
+#   - When the media is muted, shut down and release the AudioSink ;
+#   - While the media is muted, use the system clock to make video advance ;
+# ==============================================================================
+
+diff -r c0a1eaca1d90 -r 61ec6368ddcd dom/media/mediasink/AudioSink.cpp
+--- a/dom/media/mediasink/AudioSink.cpp	Mon May 09 13:20:49 2022 +0000
++++ b/dom/media/mediasink/AudioSink.cpp	Mon May 09 13:20:50 2022 +0000
+@@ -140,7 +140,7 @@
+ 
+   AlignedAudioBuffer queuedAudio(sampleCount);
+   DebugOnly<int> samplesRead =
+-    mProcessedSPSCQueue->Dequeue(queuedAudio.Data(), sampleCount);
++      mProcessedSPSCQueue->Dequeue(queuedAudio.Data(), sampleCount);
+   MOZ_ASSERT(samplesRead == sampleCount);
+ 
+   // Extrapolate mOffset, mTime from the front of the queue
+@@ -149,10 +149,15 @@
+   // For `mTime`, assume there hasn't been a discontinuity recently.
+   RefPtr<AudioData> frontPacket = mAudioQueue.PeekFront();
+   RefPtr<AudioData> data =
+-      new AudioData(frontPacket->mOffset, frontPacket->mTime - duration, std::move(queuedAudio),
+-                    channelCount, rate);
++      new AudioData(frontPacket->mOffset, frontPacket->mTime - duration,
++                    std::move(queuedAudio), channelCount, rate);
+   MOZ_DIAGNOSTIC_ASSERT(duration == data->mDuration, "must be equal");
+ 
++  SINK_LOG(
++      "Muting: Pushing back %u frames (%lfms) from the ring buffer back into "
++      "the audio queue",
++      frameCount, static_cast<float>(frameCount) / rate);
++
+   mAudioQueue.PushFront(data);
+ }
+ 

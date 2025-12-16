@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/MediaEngineRemoteVideoSource.cpp
+# Commit: 35d86243cb45
+# Full Hash: 35d86243cb45f7e02dd6ec0eea04cd62c2a70196
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2024-09-16 09:14:26
+# Regressor Bug: 1908245
+# File Overlap Count: 1
+# Description:
+#   Bug 1908245 - Add support for missing requestVideoFrameCallback parameters. r=media-playback-reviewers,webidl,padenot,saschanaz
+#   
+#   This patch adds support for exposing the capture time, receive time,
+#   processing duration and RTP timestamp parameters on the callback for
+#   rVFC for WebRTC related elements.
+# ==============================================================================
+
+diff -r 7d143d92bf2a -r 35d86243cb45 dom/media/webrtc/MediaEngineRemoteVideoSource.cpp
+--- a/dom/media/webrtc/MediaEngineRemoteVideoSource.cpp	Sun Sep 15 20:03:40 2024 +0000
++++ b/dom/media/webrtc/MediaEngineRemoteVideoSource.cpp	Sun Sep 15 21:49:38 2024 +0000
+@@ -543,11 +543,11 @@
+ #ifdef DEBUG
+   static uint32_t frame_num = 0;
+   LOG_FRAME(
+-      "frame %d (%dx%d)->(%dx%d); rotation %d, timeStamp %u, ntpTimeMs %" PRIu64
+-      ", renderTimeMs %" PRIu64,
++      "frame %d (%dx%d)->(%dx%d); rotation %d, rtpTimeStamp %u, ntpTimeMs "
++      "%" PRIu64 ", renderTimeMs %" PRIu64 " processingDuration %" PRIi64 "us",
+       frame_num++, aProps.width(), aProps.height(), dst_width, dst_height,
+-      aProps.rotation(), aProps.timeStamp(), aProps.ntpTimeMs(),
+-      aProps.renderTimeMs());
++      aProps.rotation(), aProps.rtpTimeStamp(), aProps.ntpTimeMs(),
++      aProps.renderTimeMs(), aProps.processingDuration().ToMicroseconds());
+ #endif
+ 
+   if (mImageSize.width != dst_width || mImageSize.height != dst_height) {
+@@ -572,7 +572,9 @@
+     MOZ_ASSERT(mState == kStarted);
+     VideoSegment segment;
+     mImageSize = image->GetSize();
+-    segment.AppendFrame(image.forget(), mImageSize, mPrincipal);
++    segment.AppendWebrtcLocalFrame(
++        image.forget(), mImageSize, mPrincipal, /* aForceBlack */ false,
++        TimeStamp::Now(), aProps.processingDuration(), aProps.captureTime());
+     mTrack->AppendData(&segment);
+   }
+ 

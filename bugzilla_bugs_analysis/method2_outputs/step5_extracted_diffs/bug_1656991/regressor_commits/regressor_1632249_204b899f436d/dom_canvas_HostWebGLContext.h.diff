@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/HostWebGLContext.h
+# Commit: 204b899f436d
+# Full Hash: 204b899f436d99f0eae759af3ccfcbaabfbbb428
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-06-11 09:34:54
+# Regressor Bug: 1632249
+# File Overlap Count: 1
+# Description:
+#   Bug 1632249 - Support compositing out-of-process WebGL. r=handyman,lsalzman,nical,geckoview-reviewers,agi,imanol
+#   
+#   * Majorly simplity CanvasRenderer
+#   * Replace GLScreenBuffer with trivial GLSwapChain
+#   * Use descriptor structs so that future SharedSurface changes aren't so painful
+# ==============================================================================
+
+diff -r 3f5baab34b1f -r 204b899f436d dom/canvas/HostWebGLContext.h
+--- a/dom/canvas/HostWebGLContext.h	Thu Jun 11 06:36:55 2020 +0000
++++ b/dom/canvas/HostWebGLContext.h	Thu Jun 11 06:37:35 2020 +0000
+@@ -184,11 +184,12 @@
+     mContext->SetCompositableHost(compositableHost);
+   }
+ 
+-  void Present() { mContext->Present(); }
+-  void ClearVRFrame() const { mContext->ClearVRFrame(); }
++  void Present() { return (void)mContext->Present(); }
++  Maybe<layers::SurfaceDescriptor> GetFrontBuffer(
++      const layers::TextureType t) const;
+ 
+-  Maybe<ICRData> InitializeCanvasRenderer(layers::LayersBackend backend) {
+-    return mContext->InitializeCanvasRenderer(backend);
++  RefPtr<gfx::DataSourceSurface> GetFrontBufferSnapshot() const {
++    return mContext->GetFrontBufferSnapshot();
+   }
+ 
+   void Resize(const uvec2& size) { return mContext->Resize(size); }
+@@ -785,10 +786,6 @@
+   void OnLostContext();
+   void OnRestoredContext();
+ 
+-  // Etc
+- public:
+-  RefPtr<layers::SharedSurfaceTextureClient> GetVRFrame(ObjectId id) const;
+-
+  protected:
+   WebGL2Context* GetWebGL2Context() const {
+     MOZ_RELEASE_ASSERT(mContext->IsWebGL2(), "Requires WebGL2 context");

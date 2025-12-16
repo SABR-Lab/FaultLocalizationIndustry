@@ -1,0 +1,89 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/txmgr/TransactionManager.h
+# Commit: b9ebe58001d7
+# Full Hash: b9ebe58001d787bb0bbad6d39ae8681966d5a77f
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2020-04-04 09:29:13
+# Regressor Bug: 1619914
+# File Overlap Count: 1
+# Description:
+#   Bug 1619914 - part 2: Mark transaction class methods and their caller methods as `MOZ_CAN_RUN_SCRIPT r=m_kato
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D69303
+# ==============================================================================
+
+diff -r ce2087ddab5c -r b9ebe58001d7 editor/txmgr/TransactionManager.h
+--- a/editor/txmgr/TransactionManager.h	Fri Apr 03 08:30:37 2020 +0000
++++ b/editor/txmgr/TransactionManager.h	Fri Apr 03 08:32:01 2020 +0000
+@@ -35,8 +35,8 @@
+   already_AddRefed<nsITransaction> PeekUndoStack();
+   already_AddRefed<nsITransaction> PeekRedoStack();
+ 
+-  nsresult Undo();
+-  nsresult Redo();
++  MOZ_CAN_RUN_SCRIPT nsresult Undo();
++  MOZ_CAN_RUN_SCRIPT nsresult Redo();
+ 
+   size_t NumberOfUndoItems() const { return mUndoStack.GetSize(); }
+   size_t NumberOfRedoItems() const { return mRedoStack.GetSize(); }
+@@ -62,31 +62,42 @@
+     return mListeners.RemoveObject(&aListener);
+   }
+ 
+-  nsresult WillDoNotify(nsITransaction* aTransaction, bool* aInterrupt);
+-  nsresult DidDoNotify(nsITransaction* aTransaction, nsresult aExecuteResult);
+-  nsresult WillUndoNotify(nsITransaction* aTransaction, bool* aInterrupt);
+-  nsresult DidUndoNotify(nsITransaction* aTransaction, nsresult aUndoResult);
+-  nsresult WillRedoNotify(nsITransaction* aTransaction, bool* aInterrupt);
+-  nsresult DidRedoNotify(nsITransaction* aTransaction, nsresult aRedoResult);
+-  nsresult WillBeginBatchNotify(bool* aInterrupt);
+-  nsresult DidBeginBatchNotify(nsresult aResult);
+-  nsresult WillEndBatchNotify(bool* aInterrupt);
+-  nsresult DidEndBatchNotify(nsresult aResult);
+-  nsresult WillMergeNotify(nsITransaction* aTop, nsITransaction* aTransaction,
+-                           bool* aInterrupt);
+-  nsresult DidMergeNotify(nsITransaction* aTop, nsITransaction* aTransaction,
+-                          bool aDidMerge, nsresult aMergeResult);
++  // FYI: We don't need to treat the following methods as `MOZ_CAN_RUN_SCRIPT`
++  //      for now because only ComposerCommandUpdater is the listener and it
++  //      does not do something dangerous synchronously.
++  MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult
++  WillDoNotify(nsITransaction* aTransaction, bool* aInterrupt);
++  MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult DidDoNotify(nsITransaction* aTransaction,
++                                                   nsresult aExecuteResult);
++  MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult
++  WillUndoNotify(nsITransaction* aTransaction, bool* aInterrupt);
++  MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult
++  DidUndoNotify(nsITransaction* aTransaction, nsresult aUndoResult);
++  MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult
++  WillRedoNotify(nsITransaction* aTransaction, bool* aInterrupt);
++  MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult
++  DidRedoNotify(nsITransaction* aTransaction, nsresult aRedoResult);
++  MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult WillBeginBatchNotify(bool* aInterrupt);
++  MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult DidBeginBatchNotify(nsresult aResult);
++  MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult WillEndBatchNotify(bool* aInterrupt);
++  MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult DidEndBatchNotify(nsresult aResult);
++  MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult WillMergeNotify(
++      nsITransaction* aTop, nsITransaction* aTransaction, bool* aInterrupt);
++  MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult
++  DidMergeNotify(nsITransaction* aTop, nsITransaction* aTransaction,
++                 bool aDidMerge, nsresult aMergeResult);
+ 
+   /**
+    * Exposing non-virtual methods of nsITransactionManager methods.
+    */
+-  nsresult BeginBatchInternal(nsISupports* aData);
++  MOZ_CAN_RUN_SCRIPT nsresult BeginBatchInternal(nsISupports* aData);
+   nsresult EndBatchInternal(bool aAllowEmpty);
+ 
+  private:
+   virtual ~TransactionManager() = default;
+ 
+-  nsresult BeginTransaction(nsITransaction* aTransaction, nsISupports* aData);
++  MOZ_CAN_RUN_SCRIPT nsresult BeginTransaction(nsITransaction* aTransaction,
++                                               nsISupports* aData);
+   nsresult EndTransaction(bool aAllowEmpty);
+ 
+   int32_t mMaxTransactionCount;

@@ -1,0 +1,119 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/BrowserChild.cpp
+# Commit: 36b0646e8649
+# Full Hash: 36b0646e86498662e770756ad54b1fd648a82184
+# Author: Andreas Farre <farre@mozilla.com>
+# Date: 2020-04-07 21:44:02
+# Regressor Bug: 1620594
+# File Overlap Count: 1
+# Description:
+#   Bug 1620594 - Part 7: Remove TabGroup and SystemGroup. r=nika,bas
+#   
+#   TabGroup never really made any difference in which thread something go
+#   dispatched to. This was the intended use, but development of TabGroups
+#   with abstract main threads never made it that far. The good thing is
+# ==============================================================================
+
+diff -r a5ad3b179c92 -r 36b0646e8649 dom/ipc/BrowserChild.cpp
+--- a/dom/ipc/BrowserChild.cpp	Tue Apr 07 15:17:14 2020 +0000
++++ b/dom/ipc/BrowserChild.cpp	Tue Apr 07 15:17:47 2020 +0000
+@@ -322,24 +322,20 @@
+ 
+ /*static*/
+ already_AddRefed<BrowserChild> BrowserChild::Create(
+-    ContentChild* aManager, const TabId& aTabId, const TabId& aSameTabGroupAs,
+-    const TabContext& aContext, BrowsingContext* aBrowsingContext,
+-    uint32_t aChromeFlags, bool aIsTopLevel) {
+-  RefPtr<BrowserChild> groupChild = FindBrowserChild(aSameTabGroupAs);
+-  dom::TabGroup* group = groupChild ? groupChild->TabGroup() : nullptr;
+-  RefPtr<BrowserChild> iframe =
+-      new BrowserChild(aManager, aTabId, group, aContext, aBrowsingContext,
+-                       aChromeFlags, aIsTopLevel);
++    ContentChild* aManager, const TabId& aTabId, const TabContext& aContext,
++    BrowsingContext* aBrowsingContext, uint32_t aChromeFlags,
++    bool aIsTopLevel) {
++  RefPtr<BrowserChild> iframe = new BrowserChild(
++      aManager, aTabId, aContext, aBrowsingContext, aChromeFlags, aIsTopLevel);
+   return iframe.forget();
+ }
+ 
+ BrowserChild::BrowserChild(ContentChild* aManager, const TabId& aTabId,
+-                           dom::TabGroup* aTabGroup, const TabContext& aContext,
++                           const TabContext& aContext,
+                            BrowsingContext* aBrowsingContext,
+                            uint32_t aChromeFlags, bool aIsTopLevel)
+     : TabContext(aContext),
+       mBrowserChildMessageManager(nullptr),
+-      mTabGroup(aTabGroup),
+       mManager(aManager),
+       mBrowsingContext(aBrowsingContext),
+       mChromeFlags(aChromeFlags),
+@@ -483,7 +479,6 @@
+ 
+ nsresult BrowserChild::Init(mozIDOMWindowProxy* aParent,
+                             WindowGlobalChild* aInitialWindowChild) {
+-  MOZ_DIAGNOSTIC_ASSERT(mTabGroup);
+   MOZ_ASSERT_IF(aInitialWindowChild,
+                 aInitialWindowChild->BrowsingContext() == mBrowsingContext);
+ 
+@@ -517,10 +512,6 @@
+ 
+   mStatusFilter = new nsBrowserStatusFilter();
+ 
+-  RefPtr<nsIEventTarget> eventTarget =
+-      TabGroup()->EventTargetFor(TaskCategory::Network);
+-
+-  mStatusFilter->SetTarget(eventTarget);
+   nsresult rv =
+       mStatusFilter->AddProgressListener(this, nsIWebProgress::NOTIFY_ALL);
+   NS_ENSURE_SUCCESS(rv, rv);
+@@ -930,13 +921,6 @@
+ void BrowserChild::DestroyWindow() {
+   mBrowsingContext = nullptr;
+ 
+-  // TabGroups contain circular references to their event queues that they break
+-  // when the last window leaves. If we never attached a window to our TabGroup,
+-  // though, it will never see a window leave, and will therefore never break
+-  // its circular references. If it hasn't had a window attached by now, it
+-  // never will, so have it destroy itself now if it's empty.
+-  mTabGroup->MaybeDestroy();
+-
+   if (mStatusFilter) {
+     if (nsCOMPtr<nsIWebProgress> webProgress =
+             do_QueryInterface(WebNavigation())) {
+@@ -3585,8 +3569,6 @@
+   return NS_OK;
+ }
+ 
+-mozilla::dom::TabGroup* BrowserChild::TabGroup() { return mTabGroup; }
+-
+ nsresult BrowserChild::GetHasSiblings(bool* aHasSiblings) {
+   *aHasSiblings = mHasSiblings;
+   return NS_OK;
+@@ -4148,24 +4130,15 @@
+ 
+ nsresult BrowserChildMessageManager::Dispatch(
+     TaskCategory aCategory, already_AddRefed<nsIRunnable>&& aRunnable) {
+-  if (mBrowserChild && mBrowserChild->TabGroup()) {
+-    return mBrowserChild->TabGroup()->Dispatch(aCategory, std::move(aRunnable));
+-  }
+   return DispatcherTrait::Dispatch(aCategory, std::move(aRunnable));
+ }
+ 
+ nsISerialEventTarget* BrowserChildMessageManager::EventTargetFor(
+     TaskCategory aCategory) const {
+-  if (mBrowserChild && mBrowserChild->TabGroup()) {
+-    return mBrowserChild->TabGroup()->EventTargetFor(aCategory);
+-  }
+   return DispatcherTrait::EventTargetFor(aCategory);
+ }
+ 
+ AbstractThread* BrowserChildMessageManager::AbstractMainThreadFor(
+     TaskCategory aCategory) {
+-  if (mBrowserChild && mBrowserChild->TabGroup()) {
+-    return mBrowserChild->TabGroup()->AbstractMainThreadFor(aCategory);
+-  }
+   return DispatcherTrait::AbstractMainThreadFor(aCategory);
+ }

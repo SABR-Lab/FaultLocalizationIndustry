@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/test/unit/test_cookies_read.js
+# Commit: d01a1a055fec
+# Full Hash: d01a1a055fece12b906b938954f984bd69278ef7
+# Author: Andrea Marchesini <amarchesini@mozilla.com>
+# Date: 2025-04-30 20:49:53
+# Regressor Bug: 1960824
+# File Overlap Count: 1
+# Description:
+#   Bug 1960824 - Introduce nsICookie::SAMESITE_UNSET, r=edgul,webdriver-reviewers,extension-reviewers,cookie-reviewers,valentin,Sasha,robwu
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D246638
+# ==============================================================================
+
+diff -r 307ff391dd02 -r d01a1a055fec netwerk/test/unit/test_cookies_read.js
+--- a/netwerk/test/unit/test_cookies_read.js	Wed Apr 30 08:53:12 2025 +0000
++++ b/netwerk/test/unit/test_cookies_read.js	Wed Apr 30 08:59:18 2025 +0000
+@@ -29,8 +29,18 @@
+   // completed. We may not be able to open one later once asynchronous writing
+   // begins.
+   Assert.ok(do_get_cookie_file(profile).exists());
++
++  // Close the profile.
++  await promise_close_profile();
++
++  // Remove the cookie file in order to create another database file.
++  do_get_cookie_file(profile).remove(false);
++
+   let db = new CookieDatabaseConnection(do_get_cookie_file(profile), 12);
+ 
++  // Reload profile.
++  await promise_load_profile();
++
+   let uri = NetUtil.newURI("http://foo.com/");
+   let channel = NetUtil.newChannel({
+     uri,

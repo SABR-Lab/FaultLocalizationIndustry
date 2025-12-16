@@ -1,0 +1,38 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/antitracking/bouncetrackingprotection/BounceTrackingStorageObserver.cpp
+# Commit: 6379a4984eba
+# Full Hash: 6379a4984ebafb659428ec3e4493f72173b3a70a
+# Author: Paul Zuehlcke <pbz@mozilla.com>
+# Date: 2023-09-22 04:22:03
+# Description:
+#   Bug 1854028 - Update BounceTrackingStorageObserver cookie check and remove nsICookieNotification isThirdPartyCookie. r=bvandersloot,cookie-reviewers,anti-tracking-reviewers,timhuang
+#   
+#   For the BounceTrackingStorageObserver, instead of passing in a third-party flag
+#   we can simply check if the changed cookie is partitioned or not.
+#   
+# ==============================================================================
+
+diff -r 24c5f04d3793 -r 6379a4984eba toolkit/components/antitracking/bouncetrackingprotection/BounceTrackingStorageObserver.cpp
+--- a/toolkit/components/antitracking/bouncetrackingprotection/BounceTrackingStorageObserver.cpp	Thu Sep 21 14:30:17 2023 +0000
++++ b/toolkit/components/antitracking/bouncetrackingprotection/BounceTrackingStorageObserver.cpp	Thu Sep 21 14:42:32 2023 +0000
+@@ -69,9 +69,16 @@
+     return NS_OK;
+   }
+ 
+-  if (!browsingContext->IsTop() && notification->GetIsThirdPartyCookie()) {
++  // Check if the cookie is partitioned. Partitioned cookies can not be used for
++  // bounce tracking.
++  nsCOMPtr<nsICookie> cookie;
++  rv = notification->GetCookie(getter_AddRefs(cookie));
++  NS_ENSURE_SUCCESS(rv, rv);
++  MOZ_ASSERT(cookie);
++
++  if (!cookie->OriginAttributesNative().mPartitionKey.IsEmpty()) {
+     MOZ_LOG(gBounceTrackingProtectionLog, LogLevel::Verbose,
+-            ("Not top or same-site with top."));
++            ("Skipping partitioned cookie."));
+     return NS_OK;
+   }
+ 

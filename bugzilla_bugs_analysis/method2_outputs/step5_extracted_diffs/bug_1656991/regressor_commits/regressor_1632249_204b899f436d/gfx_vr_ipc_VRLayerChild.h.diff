@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/vr/ipc/VRLayerChild.h
+# Commit: 204b899f436d
+# Full Hash: 204b899f436d99f0eae759af3ccfcbaabfbbb428
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-06-11 09:34:54
+# Regressor Bug: 1632249
+# File Overlap Count: 1
+# Description:
+#   Bug 1632249 - Support compositing out-of-process WebGL. r=handyman,lsalzman,nical,geckoview-reviewers,agi,imanol
+#   
+#   * Majorly simplity CanvasRenderer
+#   * Replace GLScreenBuffer with trivial GLSwapChain
+#   * Use descriptor structs so that future SharedSurface changes aren't so painful
+# ==============================================================================
+
+diff -r 3f5baab34b1f -r 204b899f436d gfx/vr/ipc/VRLayerChild.h
+--- a/gfx/vr/ipc/VRLayerChild.h	Thu Jun 11 06:36:55 2020 +0000
++++ b/gfx/vr/ipc/VRLayerChild.h	Thu Jun 11 06:37:35 2020 +0000
+@@ -50,7 +50,7 @@
+   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
+ 
+   RefPtr<dom::HTMLCanvasElement> mCanvasElement;
+-  bool mIPCOpen;
++  bool mIPCOpen = false;
+ 
+   // AddIPDLReference and ReleaseIPDLReference are only to be called by
+   // CreateIPDLActor and DestroyIPDLActor, respectively. We intentionally make
+@@ -64,10 +64,10 @@
+   gfx::Rect mRightEyeRect;
+   RefPtr<WebGLFramebufferJS> mFramebuffer;
+ 
+-  RefPtr<layers::SharedSurfaceTextureClient> mThisFrameTexture;
+-  RefPtr<layers::SharedSurfaceTextureClient> mLastFrameTexture;
++  Maybe<layers::SurfaceDescriptor> mThisFrameTextureDesc;
++  Maybe<layers::SurfaceDescriptor> mLastFrameTextureDesc;
+ 
+-  uint64_t mLastSubmittedFrameId;
++  uint64_t mLastSubmittedFrameId = 0;
+ };
+ 
+ }  // namespace gfx

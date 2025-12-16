@@ -1,0 +1,34 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/builtin/FinalizationGroupObject.cpp
+# Commit: de01e89b8da0
+# Full Hash: de01e89b8da048e07de8fc47434ea0c4829337b2
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2019-12-03 16:06:17
+# Description:
+#   Bug 1600238 - Finalize FinalizationGroup objects in the foreground to avoid depdendency on when holdings objects are finalized r=sfink
+#   
+#   The holdings objects can be foreground or background finalized, but HeapPtr's destructor depends on the referent's arena to have not been released. Making FinalizationGroups foreground finalized achieves this.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D55302
+# ==============================================================================
+
+diff -r 492e2599e9ed -r de01e89b8da0 js/src/builtin/FinalizationGroupObject.cpp
+--- a/js/src/builtin/FinalizationGroupObject.cpp	Mon Dec 02 20:18:23 2019 +0000
++++ b/js/src/builtin/FinalizationGroupObject.cpp	Mon Dec 02 22:33:45 2019 +0000
+@@ -154,10 +154,13 @@
+ ///////////////////////////////////////////////////////////////////////////
+ // FinalizationGroupObject
+ 
++// Bug 1600300: FinalizationGroupObject is foreground finalized so that HeapPtr
++// destructors never see referents with released arenas. When this is fixed we
++// may be able to make this background finalized again.
+ const JSClass FinalizationGroupObject::class_ = {
+     "FinalizationGroup",
+     JSCLASS_HAS_CACHED_PROTO(JSProto_FinalizationGroup) |
+-        JSCLASS_HAS_RESERVED_SLOTS(SlotCount) | JSCLASS_BACKGROUND_FINALIZE,
++        JSCLASS_HAS_RESERVED_SLOTS(SlotCount) | JSCLASS_FOREGROUND_FINALIZE,
+     &classOps_, &classSpec_};
+ 
+ const JSClass FinalizationGroupObject::protoClass_ = {

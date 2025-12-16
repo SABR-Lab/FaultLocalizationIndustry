@@ -1,0 +1,31 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: toolkit/xre/nsAppRunner.cpp
+# Commit: 92c0e70bf4ec
+# Full Hash: 92c0e70bf4ec3575a623058de6c51b23a28791b2
+# Author: Andrew McCreight <continuation@gmail.com>
+# Date: 2020-01-14 09:44:10
+# Description:
+#   Bug 1607703 - Initialize the JS context if -reset-profile is set and -migration is not. r=froydnj
+#   
+#   ProfileResetCleanup ends up opening a browser window and doing browser
+#   things, so it needs the JS context to be initialized. Migration does
+#   that, so if you do both then things are fine. But if you just pass in
+# ==============================================================================
+
+diff -r d1406439c461 -r 92c0e70bf4ec toolkit/xre/nsAppRunner.cpp
+--- a/toolkit/xre/nsAppRunner.cpp	Tue Jan 14 01:03:18 2020 +0200
++++ b/toolkit/xre/nsAppRunner.cpp	Mon Jan 13 23:02:57 2020 +0000
+@@ -4364,6 +4364,11 @@
+     }
+ 
+     if (gDoProfileReset) {
++      if (!initializedJSContext) {
++        xpc::InitializeJSContext();
++        initializedJSContext = true;
++      }
++
+       nsresult backupCreated =
+           ProfileResetCleanup(mProfileSvc, gResetOldProfile);
+       if (NS_FAILED(backupCreated)) {

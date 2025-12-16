@@ -1,0 +1,23 @@
+diff -r f7c96ac82c1a -r 13b7086f65cb js/src/vm/ArrayBufferObject.cpp
+--- a/js/src/vm/ArrayBufferObject.cpp	Wed Sep 17 13:35:00 2025 +0000
++++ b/js/src/vm/ArrayBufferObject.cpp	Wed Sep 17 13:36:10 2025 +0000
+@@ -546,6 +546,19 @@
+ 
+   auto* buffer = &args.thisv().toObject().as<ArrayBufferObject>();
+ 
++  // Special case for wasm with potentially 64-bits memory.
++  // Manually compute the maxByteLength to avoid an overflow on 32-bit machines.
++  if (buffer->isWasm() && buffer->isResizable()) {
++    Pages sourceMaxPages = buffer->wasmSourceMaxPages().value();
++    uint64_t sourceMaxBytes = sourceMaxPages.byteLength64();
++
++    MOZ_ASSERT(sourceMaxBytes <=
++               wasm::PageSize * wasm::MaxMemory64PagesValidation);
++    args.rval().setNumber(double(sourceMaxBytes));
++
++    return true;
++  }
++
+   // Steps 4-6.
+   size_t maxByteLength = buffer->maxByteLength();
+   MOZ_ASSERT_IF(buffer->isDetached(), maxByteLength == 0);

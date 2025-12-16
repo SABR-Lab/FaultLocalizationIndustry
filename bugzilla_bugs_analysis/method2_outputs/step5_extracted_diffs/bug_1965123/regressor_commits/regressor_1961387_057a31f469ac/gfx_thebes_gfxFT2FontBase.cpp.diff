@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxFT2FontBase.cpp
+# Commit: 057a31f469ac
+# Full Hash: 057a31f469ac2a7cf708a1ff6295c521166673a6
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2025-05-07 04:19:47
+# Regressor Bug: 1961387
+# File Overlap Count: 1
+# Description:
+#   Bug 1961387 - Account for scaling of color-bitmap fonts when setting up the font-unit scale factor. r=gfx-reviewers,lsalzman
+#   
+#   This fixes the problem of color-bitmap Noto Color Emoji getting incorrect
+#   glyph advances in vertical mode. Without the scaling correction here, we
+#   end up with a constant glyph advance regardless of the font size, just
+# ==============================================================================
+
+diff -r de68ee31172f -r 057a31f469ac gfx/thebes/gfxFT2FontBase.cpp
+--- a/gfx/thebes/gfxFT2FontBase.cpp	Tue May 06 20:12:46 2025 +0000
++++ b/gfx/thebes/gfxFT2FontBase.cpp	Tue May 06 20:12:46 2025 +0000
+@@ -353,6 +353,8 @@
+     // mFUnitsConvFactor (x scale).
+     const TT_Header* head =
+         static_cast<TT_Header*>(FT_Get_Sfnt_Table(face, ft_sfnt_head));
++    gfxFloat emUnit = head->Units_Per_EM;
++    mFUnitsConvFactor = ftMetrics.x_ppem / emUnit;
+     if (head) {
+       // Bug 1267909 - Even if the font is not explicitly scalable,
+       // if the face has color bitmaps, it should be treated as scalable
+@@ -366,9 +368,8 @@
+         mMetrics.maxDescent *= adjustScale;
+         mMetrics.maxAdvance *= adjustScale;
+         lineHeight *= adjustScale;
++        mFUnitsConvFactor *= adjustScale;
+       }
+-      gfxFloat emUnit = head->Units_Per_EM;
+-      mFUnitsConvFactor = ftMetrics.x_ppem / emUnit;
+       yScale = emHeight / emUnit;
+     }
+   }

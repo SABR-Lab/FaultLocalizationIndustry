@@ -1,0 +1,90 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/WaylandSurface.cpp
+# Commit: c1d946659c92
+# Full Hash: c1d946659c921aaaf3d329e4af69c4b5b866b9e3
+# Author: stransky <stransky@redhat.com>
+# Date: 2025-02-19 21:53:46
+# Regressor Bug: 1938033
+# File Overlap Count: 1
+# Description:
+#   Bug 1938033 [Wayland] Implement NativeLayerWayland by WaylandSurface r=lsalzman,emilio
+#   
+#   Make NativeLayerRootWayland to use WaylandSurface owned by nsWindow widget and create WaylandSurface for every NativeLayerWayland.
+#   WaylandSurface implementation is shared by native compositing code, SWWR and WR rendering so we don't duplicate the implementation here.
+#   
+# ==============================================================================
+
+diff -r 6064ee48431c -r c1d946659c92 widget/gtk/WaylandSurface.cpp
+--- a/widget/gtk/WaylandSurface.cpp	Wed Feb 19 13:54:16 2025 +0000
++++ b/widget/gtk/WaylandSurface.cpp	Wed Feb 19 13:54:17 2025 +0000
+@@ -96,6 +96,13 @@
+                      "We can't release WaylandSurface with active timer");
+   MOZ_RELEASE_ASSERT(!mIsPendingGdkCleanup,
+                      "We can't release WaylandSurface with Gdk resources!");
++  MOZ_RELEASE_ASSERT(
++      !mDMABufFormatRefreshCallback,
++      "We can't release WaylandSurface with DMABufFormatRefreshCallback!");
++  MOZ_RELEASE_ASSERT(!mGdkCommitCallback,
++                     "We can't release WaylandSurface with GdkCommitCallback!");
++  MOZ_RELEASE_ASSERT(!mUnmapCallback,
++                     "We can't release WaylandSurface with numap callback!");
+ }
+ 
+ void WaylandSurface::InitialFrameCallbackHandler(struct wl_callback* callback) {
+@@ -472,6 +479,13 @@
+   }
+ }
+ 
++void WaylandSurface::DisableDMABufFormatsLocked(
++    const WaylandSurfaceLock& aProofOfLock) {
++  mUseDMABufFormats = false;
++  mDMABufFormatRefreshCallback = nullptr;
++  mFormats = nullptr;
++}
++
+ bool WaylandSurface::MapLocked(const WaylandSurfaceLock& aProofOfLock,
+                                wl_surface* aParentWLSurface,
+                                WaylandSurfaceLock* aParentWaylandSurfaceLock,
+@@ -585,13 +599,17 @@
+   mUnmapCallback = aUnmapCB;
+ }
+ 
++void WaylandSurface::ClearUnmapCallbackLocked(
++    const WaylandSurfaceLock& aProofOfLock) {
++  mUnmapCallback = nullptr;
++}
++
+ void WaylandSurface::RunUnmapCallback() {
+   AssertIsOnMainThread();
+   MOZ_DIAGNOSTIC_ASSERT(
+       mIsMapped, "RunUnmapCallback is supposed to run before surface unmap!");
+   if (mUnmapCallback) {
+     mUnmapCallback();
+-    mUnmapCallback = nullptr;
+   }
+ }
+ 
+@@ -654,9 +672,6 @@
+   mIsReadyToDraw = false;
+   mBufferAttached = false;
+ 
+-  mUnmapCallback = nullptr;
+-  mGdkCommitCallback = nullptr;
+-
+   // Remove references to WaylandBuffers attached to mSurface,
+   // we don't want to get any buffer release callback when we're unmapped.
+   ReleaseAllWaylandBuffersLocked(aSurfaceLock);
+@@ -948,6 +963,11 @@
+   mGdkCommitCallback = aGdkCommitCB;
+ }
+ 
++void WaylandSurface::ClearGdkCommitCallbackLocked(
++    const WaylandSurfaceLock& aProofOfLock) {
++  mGdkCommitCallback = nullptr;
++}
++
+ void WaylandSurface::AfterPaintHandler(GdkFrameClock* aClock, void* aData) {
+   auto* waylandSurface = static_cast<WaylandSurface*>(aData);
+   if (waylandSurface->IsMapped()) {

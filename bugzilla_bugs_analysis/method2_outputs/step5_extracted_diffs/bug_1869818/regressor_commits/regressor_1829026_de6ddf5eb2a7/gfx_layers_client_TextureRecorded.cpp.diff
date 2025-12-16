@@ -1,0 +1,135 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/client/TextureRecorded.cpp
+# Commit: de6ddf5eb2a7
+# Full Hash: de6ddf5eb2a7bd3d8a2f58636760e0aa16c584b9
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2023-12-05 21:29:44
+# Regressor Bug: 1829026
+# File Overlap Count: 1
+# Description:
+#   Bug 1829026 - Update CanvasTranslator to work with DrawTargetWebgl. r=aosmond
+#   
+#   This adds the necessary infrastructure for CanvasTranslator to allocate DrawTargetWebgl
+#   instead of just allocating TextureData, and to use RemoteTextureMap to handle sending
+#   the DrawTargetWebgl frames to the compositor.
+# ==============================================================================
+
+diff -r 773e7b31ac6e -r de6ddf5eb2a7 gfx/layers/client/TextureRecorded.cpp
+--- a/gfx/layers/client/TextureRecorded.cpp	Tue Dec 05 09:37:03 2023 +0000
++++ b/gfx/layers/client/TextureRecorded.cpp	Tue Dec 05 09:37:03 2023 +0000
+@@ -30,6 +30,7 @@
+   // We need the translator to drop its reference for the DrawTarget first,
+   // because the TextureData might need to destroy its DrawTarget within a lock.
+   mDT = nullptr;
++  mCanvasChild->CleanupTexture(mTextureId);
+   mCanvasChild->RecordEvent(RecordedTextureDestruction(mTextureId));
+ }
+ 
+@@ -40,15 +41,25 @@
+   aInfo.hasSynchronization = true;
+ }
+ 
++void RecordedTextureData::SetRemoteTextureOwnerId(
++    RemoteTextureOwnerId aRemoteTextureOwnerId) {
++  mRemoteTextureOwnerId = aRemoteTextureOwnerId;
++}
++
+ bool RecordedTextureData::Lock(OpenMode aMode) {
+   if (!mCanvasChild->EnsureBeginTransaction()) {
+     return false;
+   }
+ 
++  if (mRemoteTextureOwnerId.IsValid()) {
++    mLastRemoteTextureId = RemoteTextureId::GetNext();
++  }
++
+   if (!mDT) {
+     mTextureId = sNextRecordedTextureId++;
+-    mCanvasChild->RecordEvent(RecordedNextTextureId(mTextureId));
+-    mDT = mCanvasChild->CreateDrawTarget(mSize, mFormat);
++    mCanvasChild->RecordEvent(
++        RecordedNextTextureId(mTextureId, mRemoteTextureOwnerId));
++    mDT = mCanvasChild->CreateDrawTarget(mTextureId, mSize, mFormat);
+     if (!mDT) {
+       return false;
+     }
+@@ -59,7 +70,8 @@
+     return true;
+   }
+ 
+-  mCanvasChild->RecordEvent(RecordedTextureLock(mTextureId, aMode));
++  mCanvasChild->RecordEvent(
++      RecordedTextureLock(mTextureId, aMode, mLastRemoteTextureId));
+   if (aMode & OpenMode::OPEN_WRITE) {
+     mCanvasChild->OnTextureWriteLock();
+   }
+@@ -75,12 +87,18 @@
+     mCanvasChild->RecordEvent(RecordedCacheDataSurface(mSnapshot.get()));
+   }
+ 
+-  mCanvasChild->RecordEvent(RecordedTextureUnlock(mTextureId));
++  mCanvasChild->RecordEvent(
++      RecordedTextureUnlock(mTextureId, mLastRemoteTextureId));
++
+   mLockedMode = OpenMode::OPEN_NONE;
+ }
+ 
+ already_AddRefed<gfx::DrawTarget> RecordedTextureData::BorrowDrawTarget() {
+   mSnapshot = nullptr;
++  if (RefPtr<gfx::SourceSurface> wrapper = do_AddRef(mSnapshotWrapper)) {
++    mCanvasChild->DetachSurface(wrapper);
++    mSnapshotWrapper = nullptr;
++  }
+   return do_AddRef(mDT);
+ }
+ 
+@@ -95,23 +113,31 @@
+ }
+ 
+ already_AddRefed<gfx::SourceSurface> RecordedTextureData::BorrowSnapshot() {
++  if (RefPtr<gfx::SourceSurface> wrapper = do_AddRef(mSnapshotWrapper)) {
++    return wrapper.forget();
++  }
++
+   // There are some failure scenarios where we have no DrawTarget and
+   // BorrowSnapshot is called in an attempt to copy to a new texture.
+   if (!mDT) {
+     return nullptr;
+   }
+ 
+-  if (mSnapshot) {
+-    return mCanvasChild->WrapSurface(mSnapshot);
+-  }
+-
+-  return mCanvasChild->WrapSurface(mDT->Snapshot());
++  RefPtr<gfx::SourceSurface> wrapper = mCanvasChild->WrapSurface(
++      mSnapshot ? mSnapshot : mDT->Snapshot(), mTextureId);
++  mSnapshotWrapper = wrapper;
++  return wrapper.forget();
+ }
+ 
+ void RecordedTextureData::Deallocate(LayersIPCChannel* aAllocator) {}
+ 
+ bool RecordedTextureData::Serialize(SurfaceDescriptor& aDescriptor) {
+-  aDescriptor = SurfaceDescriptorRecorded(mTextureId);
++  if (mRemoteTextureOwnerId.IsValid()) {
++    aDescriptor = SurfaceDescriptorRemoteTexture(mLastRemoteTextureId,
++                                                 mRemoteTextureOwnerId);
++  } else {
++    aDescriptor = SurfaceDescriptorRecorded(mTextureId);
++  }
+   return true;
+ }
+ 
+@@ -125,5 +151,9 @@
+   return TextureFlags::WAIT_HOST_USAGE_END;
+ }
+ 
++bool RecordedTextureData::RequiresRefresh() const {
++  return mCanvasChild->RequiresRefresh(mTextureId);
++}
++
+ }  // namespace layers
+ }  // namespace mozilla

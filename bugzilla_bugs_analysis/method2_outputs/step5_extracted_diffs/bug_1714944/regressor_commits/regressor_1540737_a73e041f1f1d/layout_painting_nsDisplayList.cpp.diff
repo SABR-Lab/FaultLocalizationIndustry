@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/painting/nsDisplayList.cpp
+# Commit: a73e041f1f1d
+# Full Hash: a73e041f1f1dc2537292b5e3111efda0899b53af
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2021-05-18 09:45:31
+# Regressor Bug: 1540737
+# File Overlap Count: 2
+# Description:
+#   Bug 1540737 - Don't allow constructing an AutoBuildingDisplayList with a new frame without requiring explicit rects in the new coordinate space. r=miko
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D114675
+# ==============================================================================
+
+diff -r 81f1a9d1a5e1 -r a73e041f1f1d layout/painting/nsDisplayList.cpp
+--- a/layout/painting/nsDisplayList.cpp	Mon May 17 23:53:44 2021 +0000
++++ b/layout/painting/nsDisplayList.cpp	Mon May 17 23:53:44 2021 +0000
+@@ -3641,7 +3641,10 @@
+   if ((drawBackgroundColor && color != NS_RGBA(0, 0, 0, 0)) ||
+       aBuilder->IsForEventDelivery()) {
+     if (aAutoBuildingDisplayList && !*aAutoBuildingDisplayList) {
+-      aAutoBuildingDisplayList->emplace(aBuilder, aFrame);
++      nsPoint offset = aBuilder->GetCurrentFrame()->GetOffsetTo(aFrame);
++      aAutoBuildingDisplayList->emplace(aBuilder, aFrame,
++                                        aBuilder->GetVisibleRect() + offset,
++                                        aBuilder->GetDirtyRect() + offset);
+     }
+     Maybe<DisplayListClipState::AutoSaveRestore> clipState;
+     nsRect bgColorRect = bgRect;
+@@ -3721,7 +3724,10 @@
+     }
+ 
+     if (aAutoBuildingDisplayList && !*aAutoBuildingDisplayList) {
+-      aAutoBuildingDisplayList->emplace(aBuilder, aFrame);
++      nsPoint offset = aBuilder->GetCurrentFrame()->GetOffsetTo(aFrame);
++      aAutoBuildingDisplayList->emplace(aBuilder, aFrame,
++                                        aBuilder->GetVisibleRect() + offset,
++                                        aBuilder->GetDirtyRect() + offset);
+     }
+ 
+     if (bg->mImage.mLayers[i].mBlendMode != StyleBlend::Normal) {

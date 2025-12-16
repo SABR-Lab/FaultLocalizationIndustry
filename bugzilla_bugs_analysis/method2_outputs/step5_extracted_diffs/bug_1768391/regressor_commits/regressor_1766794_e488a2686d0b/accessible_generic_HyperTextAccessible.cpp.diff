@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/generic/HyperTextAccessible.cpp
+# Commit: e488a2686d0b
+# Full Hash: e488a2686d0b6354c723dd896c6ce20749c8b3d7
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2022-12-06 03:46:09
+# Regressor Bug: 1766794
+# File Overlap Count: 1
+# Description:
+#   Bug 1802268 part 2: Reinstate partial invalidation of cached HyperText offsets for local HyperTextAccessible. r=eeejay
+#   
+#   In bug 1766794, I replaced partial invalidation of cached offsets with full cache invalidation.
+#   I did this to simplify the code, since the offsets cache was being extended to RemoteAccessible.
+#   This is fine for RemoteAccessible because offsets are only needed there when clients query them.
+# ==============================================================================
+
+diff -r 80097f40fc50 -r e488a2686d0b accessible/generic/HyperTextAccessible.cpp
+--- a/accessible/generic/HyperTextAccessible.cpp	Mon Dec 05 23:27:23 2022 +0000
++++ b/accessible/generic/HyperTextAccessible.cpp	Mon Dec 05 23:27:24 2022 +0000
+@@ -2100,13 +2100,20 @@
+ }
+ 
+ bool HyperTextAccessible::RemoveChild(LocalAccessible* aAccessible) {
+-  InvalidateCachedHyperTextOffsets();
++  const int32_t childIndex = aAccessible->IndexInParent();
++  if (childIndex < static_cast<int32_t>(mOffsets.Length())) {
++    mOffsets.RemoveLastElements(mOffsets.Length() - childIndex);
++  }
++
+   return AccessibleWrap::RemoveChild(aAccessible);
+ }
+ 
+ bool HyperTextAccessible::InsertChildAt(uint32_t aIndex,
+                                         LocalAccessible* aChild) {
+-  InvalidateCachedHyperTextOffsets();
++  if (aIndex < mOffsets.Length()) {
++    mOffsets.RemoveLastElements(mOffsets.Length() - aIndex);
++  }
++
+   return AccessibleWrap::InsertChildAt(aIndex, aChild);
+ }
+ 

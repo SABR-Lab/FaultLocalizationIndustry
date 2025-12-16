@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/PCompositorBridge.ipdl
+# Commit: ccfa767dba64
+# Full Hash: ccfa767dba644dc193e0246eb8e8ff3377e8b8a5
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Client-side bindings mirror for precise CC, and merge similar codepaths. r=handyman
+#   
+#   * Context loss using RAII
+#   * Move Program reflection Client-side
+#   
+# ==============================================================================
+
+diff -r 71c122ac0ca7 -r ccfa767dba64 gfx/layers/ipc/PCompositorBridge.ipdl
+--- a/gfx/layers/ipc/PCompositorBridge.ipdl	Wed Jan 08 22:19:14 2020 +0000
++++ b/gfx/layers/ipc/PCompositorBridge.ipdl	Wed Jan 08 22:19:16 2020 +0000
+@@ -48,10 +48,8 @@
+ using mozilla::layers::LayersObserverEpoch from "mozilla/layers/LayersTypes.h";
+ using mozilla::layers::TransactionId from "mozilla/layers/LayersTypes.h";
+ using struct DxgiAdapterDesc from "mozilla/D3DMessageUtils.h";
+-
+-using mozilla::WebGLVersion from "mozilla/GfxMessageUtils.h";
+-using shmemholder mozilla::HostWebGLCommandSink from "mozilla/dom/WebGLCrossProcessCommandQueue.h";
+-using shmemholder mozilla::HostWebGLErrorSource from "mozilla/dom/WebGLErrorQueue.h";
++using mozilla::webgl::InitContextDesc from "mozilla/dom/WebGLIpdl.h";
++using mozilla::webgl::InitContextResult from "mozilla/dom/WebGLIpdl.h";
+ 
+ namespace mozilla {
+ namespace layers {
+@@ -301,9 +299,9 @@
+   async RequestFxrOutput();
+ 
+   // Actor that represents one WebGL context.
+-  sync PWebGL(WebGLVersion aWebGLVersion,
+-              HostWebGLCommandSink aCommandSink,
+-              HostWebGLErrorSource aErrorSource);
++  // (modeled after `sync PBackgroundLSSnapshot`)
++  sync PWebGL(InitContextDesc desc)
++    returns (InitContextResult res);
+ 
+ child:
+   // Send back Compositor Frame Metrics from APZCs so tiled layers can

@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/platforms/agnostic/bytestreams/H264.cpp
+# Commit: b51b4dcd9a8a
+# Full Hash: b51b4dcd9a8acdbd1474c6312a6ef07c54ed6531
+# Author: Alastor Wu <alwu@mozilla.com>
+# Date: 2019-09-04 04:20:48
+# Regressor Bug: 1539182
+# File Overlap Count: 2
+# Description:
+#   Bug 1539182 - check slice type to decide frame type. r=jya
+#   
+#   Sometime we would encouter a file putting all its samples on the type1 NAL, so we have to check its slice type in order to know if it's a keyframe or not.
+#   
+#   The slice type is defined in the ITU-T Rec H.264 table 7.3, and it could be found in the slice_header in table 7.3.3.
+# ==============================================================================
+
+diff -r e4deba1aa285 -r b51b4dcd9a8a dom/media/platforms/agnostic/bytestreams/H264.cpp
+--- a/dom/media/platforms/agnostic/bytestreams/H264.cpp	Tue Sep 03 18:08:47 2019 +0000
++++ b/dom/media/platforms/agnostic/bytestreams/H264.cpp	Fri Aug 30 01:08:09 2019 +0000
+@@ -984,6 +984,19 @@
+       if (DecodeRecoverySEI(decodedNAL, data)) {
+         return FrameType::I_FRAME;
+       }
++    } else if (nalType == H264_NAL_SLICE) {
++      // According to ITU-T Rec H.264 Table 7.3.3, read the slice type from
++      // slice_header, and the slice type 2 and 7 are representing I slice.
++      RefPtr<mozilla::MediaByteBuffer> decodedNAL = DecodeNALUnit(p, nalLen);
++      BitReader br(decodedNAL);
++      // Skip `first_mb_in_slice`
++      br.ReadUE();
++      // The value of slice type can go from 0 to 9, but the value between 5 to
++      // 9 are actually equal to 0 to 4.
++      const uint32_t sliceType = br.ReadUE() % 5;
++      if (sliceType == SLICE_TYPES::I_SLICE || sliceType == SI_SLICE) {
++        return FrameType::I_FRAME;
++      }
+     }
+   }
+ 

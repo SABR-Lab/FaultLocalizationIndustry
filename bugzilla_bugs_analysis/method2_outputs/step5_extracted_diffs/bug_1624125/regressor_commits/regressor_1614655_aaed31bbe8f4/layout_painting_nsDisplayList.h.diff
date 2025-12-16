@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/painting/nsDisplayList.h
+# Commit: aaed31bbe8f4
+# Full Hash: aaed31bbe8f4e0a8892e632633c27033549eaf33
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2020-03-19 03:53:34
+# Regressor Bug: 1614655
+# File Overlap Count: 2
+# Description:
+#   Bug 1614655 - Part 2: Allow 1:n mapping of Gecko - WR display items r=jrmuizel
+#   
+#   This patch changes the underlying storage for WR display items in DisplayItemCache
+#   from Vec<Option<CachedDisplayItem> to Vec<Vec<CachedDisplayItem>>.
+#   This allows storing multiple WebRender display items for one Gecko display item.
+# ==============================================================================
+
+diff -r 0e791acac783 -r aaed31bbe8f4 layout/painting/nsDisplayList.h
+--- a/layout/painting/nsDisplayList.h	Wed Mar 18 23:46:27 2020 +0000
++++ b/layout/painting/nsDisplayList.h	Wed Mar 18 23:47:05 2020 +0000
+@@ -2308,6 +2308,12 @@
+ 
+   void SetCantBeReused() { mItemFlags += ItemBaseFlag::CantBeReused; }
+ 
++  bool CanBeCached() const {
++    return !mItemFlags.contains(ItemBaseFlag::CantBeCached);
++  }
++
++  void SetCantBeCached() { mItemFlags += ItemBaseFlag::CantBeCached; }
++
+   bool IsOldItem() const { return !!mOldList; }
+ 
+   /**
+@@ -2409,6 +2415,7 @@
+  private:
+   enum class ItemBaseFlag : uint8_t {
+     CantBeReused,
++    CantBeCached,
+     DeletedFrame,
+     ModifiedFrame,
+     ReusedItem,

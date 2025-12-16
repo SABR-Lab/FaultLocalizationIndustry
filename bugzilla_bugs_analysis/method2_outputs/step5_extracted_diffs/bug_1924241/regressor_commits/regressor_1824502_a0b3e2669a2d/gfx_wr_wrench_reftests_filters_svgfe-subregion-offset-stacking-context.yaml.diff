@@ -1,0 +1,71 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/wrench/reftests/filters/svgfe-subregion-offset-stacking-context.yaml
+# Commit: a0b3e2669a2d
+# Full Hash: a0b3e2669a2dc49c467521cb9b7966ca05e3dbc3
+# Author: Ashley Hale <ahale@mozilla.com>
+# Date: 2024-05-08 09:49:23
+# Regressor Bug: 1824502
+# File Overlap Count: 1
+# Description:
+#   Bug 1824502 - Implement native SVG filter rendering in WebRender r=gw
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D209646
+# ==============================================================================
+
+diff -r d1df40ba7c88 -r a0b3e2669a2d gfx/wr/wrench/reftests/filters/svgfe-subregion-offset-stacking-context.yaml
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/gfx/wr/wrench/reftests/filters/svgfe-subregion-offset-stacking-context.yaml	Wed May 08 04:38:26 2024 +0000
+@@ -0,0 +1,51 @@
++---
++root:
++  items:
++    - type: stacking-context
++      bounds: [0, 0, 800, 800]
++      items:
++        - type: stacking-context
++          bounds: [0, 200, 800, 800]
++          items:
++            - type: stacking-context
++              bounds: [0, 0, 800, 800]
++              filters:
++                - svgfe: SourceGraphic
++                - svgfe: SourceAlpha
++                - svgfe: flood
++                  color: [64, 64, 64, 1]
++                  # this is expected to show up at 0,200
++                  subregion: [0, 0, 800, 5]
++                - svgfe: flood
++                  color: [127, 127, 127, 1]
++                  # this is expected to show up at 100,500 and be completely
++                  # hidden by the blue rect (SourceGraphic)
++                  subregion: [100, 300, 90, 100]
++                - svgfe: compositeover
++                  linear: false
++                  subregion: [0, 0, 800, 800]
++                  in: 3
++                  in2: 2
++                - svgfe: compositeover
++                  linear: false
++                  subregion: [0, 0, 800, 800]
++                  in: 0
++                  in2: 4
++              items:
++                - type: rect
++                  # blue rect is expected to show up at 100,500, this should
++                  # hide the gray rect
++                  bounds: [100, 300, 100, 100]
++                  color: [0, 0, 255, 1]
++            - type: rect
++              # this is expected to show up at 0,500
++              bounds: [0, 300, 90, 5]
++              color: [0, 0, 255, 1]
++        - type: rect
++          # this is expected to show up at 0,0
++          bounds: [0, 0, 90, 5]
++          color: [255, 0, 0, 1]
++        - type: rect
++          # this is expected to show up at 0,300
++          bounds: [0, 300, 90, 5]
++          color: [0, 255, 0, 1]

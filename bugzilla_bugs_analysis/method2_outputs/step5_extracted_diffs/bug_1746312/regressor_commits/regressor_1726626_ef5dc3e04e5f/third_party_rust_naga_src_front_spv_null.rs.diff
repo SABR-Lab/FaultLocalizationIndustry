@@ -1,0 +1,241 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/naga/src/front/spv/null.rs
+# Commit: ef5dc3e04e5f
+# Full Hash: ef5dc3e04e5f271eea0636ab3a495e95cc912f1d
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-09-04 09:40:24
+# Regressor Bug: 1726626
+# File Overlap Count: 3
+# Description:
+#   Bug 1726626 - Move gfx/wgpu into a 3rd party dependency r=jgilbert,bholley
+#   
+#   This update makes wgpu a vendored dependency instead of having it in gfx/wgpu.
+#   
+#   ## Notes
+# ==============================================================================
+
+diff --git a/third_party/rust/naga/src/front/spv/null.rs b/third_party/rust/naga/src/front/spv/null.rs
+--- a/third_party/rust/naga/src/front/spv/null.rs
++++ b/third_party/rust/naga/src/front/spv/null.rs
+@@ -10,84 +10,102 @@ fn make_scalar_inner(kind: crate::Scalar
+             crate::ScalarKind::Float => crate::ScalarValue::Float(0.0),
+             crate::ScalarKind::Bool => crate::ScalarValue::Bool(false),
+         },
+     }
+ }
+ 
+ pub fn generate_null_constant(
+     ty: Handle<crate::Type>,
+-    type_arena: &mut Arena<crate::Type>,
++    type_arena: &Arena<crate::Type>,
+     constant_arena: &mut Arena<crate::Constant>,
++    span: crate::Span,
+ ) -> Result<crate::ConstantInner, Error> {
+     let inner = match type_arena[ty].inner {
+         crate::TypeInner::Scalar { kind, width } => make_scalar_inner(kind, width),
+         crate::TypeInner::Vector { size, kind, width } => {
+             let mut components = Vec::with_capacity(size as usize);
+             for _ in 0..size as usize {
+-                components.push(constant_arena.fetch_or_append(crate::Constant {
+-                    name: None,
+-                    specialization: None,
+-                    inner: make_scalar_inner(kind, width),
+-                }));
++                components.push(constant_arena.fetch_or_append(
++                    crate::Constant {
++                        name: None,
++                        specialization: None,
++                        inner: make_scalar_inner(kind, width),
++                    },
++                    span.clone(),
++                ));
+             }
+             crate::ConstantInner::Composite { ty, components }
+         }
+         crate::TypeInner::Matrix {
+             columns,
+             rows,
+             width,
+         } => {
+-            let vector_ty = type_arena.fetch_or_append(crate::Type {
+-                name: None,
+-                inner: crate::TypeInner::Vector {
+-                    kind: crate::ScalarKind::Float,
+-                    size: rows,
+-                    width,
++            // If we successfully declared a matrix type, we have declared a vector type for it too.
++            let vector_ty = type_arena
++                .fetch_if(|t| {
++                    t.inner
++                        == crate::TypeInner::Vector {
++                            kind: crate::ScalarKind::Float,
++                            size: rows,
++                            width,
++                        }
++                })
++                .unwrap();
++            let vector_inner =
++                generate_null_constant(vector_ty, type_arena, constant_arena, span.clone())?;
++            let vector_handle = constant_arena.fetch_or_append(
++                crate::Constant {
++                    name: None,
++                    specialization: None,
++                    inner: vector_inner,
+                 },
+-            });
+-            let vector_inner = generate_null_constant(vector_ty, type_arena, constant_arena)?;
+-            let vector_handle = constant_arena.fetch_or_append(crate::Constant {
+-                name: None,
+-                specialization: None,
+-                inner: vector_inner,
+-            });
++                span,
++            );
+             crate::ConstantInner::Composite {
+                 ty,
+                 components: vec![vector_handle; columns as usize],
+             }
+         }
+         crate::TypeInner::Struct { ref members, .. } => {
+             let mut components = Vec::with_capacity(members.len());
+             // copy out the types to avoid borrowing `members`
+             let member_tys = members.iter().map(|member| member.ty).collect::<Vec<_>>();
+             for member_ty in member_tys {
+-                let inner = generate_null_constant(member_ty, type_arena, constant_arena)?;
+-                components.push(constant_arena.fetch_or_append(crate::Constant {
+-                    name: None,
+-                    specialization: None,
+-                    inner,
+-                }));
++                let inner =
++                    generate_null_constant(member_ty, type_arena, constant_arena, span.clone())?;
++                components.push(constant_arena.fetch_or_append(
++                    crate::Constant {
++                        name: None,
++                        specialization: None,
++                        inner,
++                    },
++                    span.clone(),
++                ));
+             }
+             crate::ConstantInner::Composite { ty, components }
+         }
+         crate::TypeInner::Array {
+             base,
+             size: crate::ArraySize::Constant(handle),
+             ..
+         } => {
+             let size = constant_arena[handle]
+                 .to_array_length()
+                 .ok_or(Error::InvalidArraySize(handle))?;
+-            let inner = generate_null_constant(base, type_arena, constant_arena)?;
+-            let value = constant_arena.fetch_or_append(crate::Constant {
+-                name: None,
+-                specialization: None,
+-                inner,
+-            });
++            let inner = generate_null_constant(base, type_arena, constant_arena, span.clone())?;
++            let value = constant_arena.fetch_or_append(
++                crate::Constant {
++                    name: None,
++                    specialization: None,
++                    inner,
++                },
++                span,
++            );
+             crate::ConstantInner::Composite {
+                 ty,
+                 components: vec![value; size as usize],
+             }
+         }
+         ref other => {
+             log::warn!("null constant type {:?}", other);
+             return Err(Error::UnsupportedType(ty));
+@@ -95,37 +113,44 @@ pub fn generate_null_constant(
+     };
+     Ok(inner)
+ }
+ 
+ /// Create a default value for an output built-in.
+ pub fn generate_default_built_in(
+     built_in: Option<crate::BuiltIn>,
+     ty: Handle<crate::Type>,
+-    type_arena: &mut Arena<crate::Type>,
++    type_arena: &Arena<crate::Type>,
+     constant_arena: &mut Arena<crate::Constant>,
++    span: crate::Span,
+ ) -> Result<Handle<crate::Constant>, Error> {
+     let inner = match built_in {
+         Some(crate::BuiltIn::Position) => {
+-            let zero = constant_arena.fetch_or_append(crate::Constant {
+-                name: None,
+-                specialization: None,
+-                inner: crate::ConstantInner::Scalar {
+-                    value: crate::ScalarValue::Float(0.0),
+-                    width: 4,
++            let zero = constant_arena.fetch_or_append(
++                crate::Constant {
++                    name: None,
++                    specialization: None,
++                    inner: crate::ConstantInner::Scalar {
++                        value: crate::ScalarValue::Float(0.0),
++                        width: 4,
++                    },
+                 },
+-            });
+-            let one = constant_arena.fetch_or_append(crate::Constant {
+-                name: None,
+-                specialization: None,
+-                inner: crate::ConstantInner::Scalar {
+-                    value: crate::ScalarValue::Float(1.0),
+-                    width: 4,
++                span.clone(),
++            );
++            let one = constant_arena.fetch_or_append(
++                crate::Constant {
++                    name: None,
++                    specialization: None,
++                    inner: crate::ConstantInner::Scalar {
++                        value: crate::ScalarValue::Float(1.0),
++                        width: 4,
++                    },
+                 },
+-            });
++                span.clone(),
++            );
+             crate::ConstantInner::Composite {
+                 ty,
+                 components: vec![zero, zero, zero, one],
+             }
+         }
+         Some(crate::BuiltIn::PointSize) => crate::ConstantInner::Scalar {
+             value: crate::ScalarValue::Float(1.0),
+             width: 4,
+@@ -134,16 +159,19 @@ pub fn generate_default_built_in(
+             value: crate::ScalarValue::Float(0.0),
+             width: 4,
+         },
+         Some(crate::BuiltIn::SampleMask) => crate::ConstantInner::Scalar {
+             value: crate::ScalarValue::Uint(!0),
+             width: 4,
+         },
+         //Note: `crate::BuiltIn::ClipDistance` is intentionally left for the default path
+-        _ => generate_null_constant(ty, type_arena, constant_arena)?,
++        _ => generate_null_constant(ty, type_arena, constant_arena, span.clone())?,
+     };
+-    Ok(constant_arena.fetch_or_append(crate::Constant {
+-        name: None,
+-        specialization: None,
+-        inner,
+-    }))
++    Ok(constant_arena.fetch_or_append(
++        crate::Constant {
++            name: None,
++            specialization: None,
++            inner,
++        },
++        span,
++    ))
+ }

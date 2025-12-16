@@ -1,0 +1,201 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/AudioConduit.cpp
+# Commit: c7dbdd82e8e8
+# Full Hash: c7dbdd82e8e8f9cf93fe92dca922755320f36b29
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 3
+# Description:
+#   Bug 1654112 - Set main thread as current TaskQueue when calling into libwebrtc so that audio calling works. r=bwc
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D102286
+# ==============================================================================
+
+diff -r 7e00d78d6389 -r c7dbdd82e8e8 dom/media/webrtc/libwebrtcglue/AudioConduit.cpp
+--- a/dom/media/webrtc/libwebrtcglue/AudioConduit.cpp	Tue Feb 16 17:46:07 2021 +0100
++++ b/dom/media/webrtc/libwebrtcglue/AudioConduit.cpp	Mon Feb 01 09:28:23 2021 +0100
+@@ -149,6 +149,7 @@
+ Maybe<webrtc::AudioReceiveStream::Stats> WebrtcAudioConduit::GetReceiverStats()
+     const {
+   MOZ_ASSERT(NS_IsMainThread());
++  auto current = TaskQueueWrapper::MainAsCurrent();
+   if (!mRecvStream) {
+     return Nothing();
+   }
+@@ -158,6 +159,7 @@
+ Maybe<webrtc::AudioSendStream::Stats> WebrtcAudioConduit::GetSenderStats()
+     const {
+   MOZ_ASSERT(NS_IsMainThread());
++  auto current = TaskQueueWrapper::MainAsCurrent();
+   if (!mSendStream) {
+     return Nothing();
+   }
+@@ -166,6 +168,7 @@
+ 
+ webrtc::Call::Stats WebrtcAudioConduit::GetCallStats() const {
+   MOZ_ASSERT(NS_IsMainThread());
++  auto current = TaskQueueWrapper::MainAsCurrent();
+   return mCall->Call()->GetStats();
+ }
+ 
+@@ -188,6 +191,8 @@
+ 
+   MOZ_DIAGNOSTIC_ASSERT(mDtmfPayloadType != -1);
+   MOZ_DIAGNOSTIC_ASSERT(mDtmfPayloadFrequency != -1);
++
++  auto current = TaskQueueWrapper::MainAsCurrent();
+   return mSendStream->SendTelephoneEvent(
+       mDtmfPayloadType, mDtmfPayloadFrequency, eventCode, lengthMs);
+ }
+@@ -205,6 +210,7 @@
+   if (!mRecvStream) {
+     return;
+   }
++  auto current = TaskQueueWrapper::MainAsCurrent();
+   std::vector<webrtc::RtpSource> sources = mRecvStream->GetSources();
+   for (const auto& source : sources) {
+     dom::RTCRtpSourceEntry domEntry;
+@@ -240,6 +246,7 @@
+     const uint32_t aRtpTimestamp, const bool aHasAudioLevel,
+     const uint8_t aAudioLevel) {
+   MOZ_ASSERT(NS_IsMainThread());
++  auto current = TaskQueueWrapper::MainAsCurrent();
+ 
+   if (!mRecvStream) {
+     return;
+@@ -383,6 +390,7 @@
+ 
+   // If we are here, at least one codec should have been set
+   {
++    auto current = TaskQueueWrapper::MainAsCurrent();
+     MutexAutoLock lock(mMutex);
+     DeleteRecvStream();
+     condError = StartReceivingLocked();
+@@ -628,6 +636,7 @@
+ 
+ MediaConduitErrorCode WebrtcAudioConduit::StopTransmitting() {
+   MOZ_ASSERT(NS_IsMainThread());
++  auto current = TaskQueueWrapper::MainAsCurrent();
+   MutexAutoLock lock(mMutex);
+ 
+   return StopTransmittingLocked();
+@@ -635,6 +644,7 @@
+ 
+ MediaConduitErrorCode WebrtcAudioConduit::StartTransmitting() {
+   MOZ_ASSERT(NS_IsMainThread());
++  auto current = TaskQueueWrapper::MainAsCurrent();
+   MutexAutoLock lock(mMutex);
+ 
+   return StartTransmittingLocked();
+@@ -642,6 +652,7 @@
+ 
+ MediaConduitErrorCode WebrtcAudioConduit::StopReceiving() {
+   MOZ_ASSERT(NS_IsMainThread());
++  auto current = TaskQueueWrapper::MainAsCurrent();
+   MutexAutoLock lock(mMutex);
+ 
+   return StopReceivingLocked();
+@@ -649,6 +660,7 @@
+ 
+ MediaConduitErrorCode WebrtcAudioConduit::StartReceiving() {
+   MOZ_ASSERT(NS_IsMainThread());
++  auto current = TaskQueueWrapper::MainAsCurrent();
+   MutexAutoLock lock(mMutex);
+ 
+   return StartReceivingLocked();
+@@ -734,7 +746,12 @@
+     CSFLogDebug(LOGTAG, "%s Sent RTP Packet ", __FUNCTION__);
+     if (options.packet_id >= 0) {
+       int64_t now_ms = PR_Now() / 1000;
+-      mCall->Call()->OnSentPacket({options.packet_id, now_ms});
++      NS_DispatchToMainThread(NS_NewRunnableFunction(
++          __func__, [call = mCall, packet_id = options.packet_id, now_ms] {
++            if (call->Call()) {
++              call->Call()->OnSentPacket({packet_id, now_ms});
++            }
++          }));
+     }
+     return true;
+   }
+@@ -867,6 +884,7 @@
+ 
+ void WebrtcAudioConduit::DeleteSendStream() {
+   MOZ_ASSERT(NS_IsMainThread());
++  auto current = TaskQueueWrapper::MainAsCurrent();
+   mMutex.AssertCurrentThreadOwns();
+   if (mSendStream) {
+     mSendStream->Stop();
+@@ -878,6 +896,7 @@
+ 
+ MediaConduitErrorCode WebrtcAudioConduit::CreateSendStream() {
+   MOZ_ASSERT(NS_IsMainThread());
++  auto current = TaskQueueWrapper::MainAsCurrent();
+   mMutex.AssertCurrentThreadOwns();
+ 
+   mSendStream = mCall->Call()->CreateAudioSendStream(mSendStreamConfig);
+@@ -890,6 +909,7 @@
+ 
+ void WebrtcAudioConduit::DeleteRecvStream() {
+   MOZ_ASSERT(NS_IsMainThread());
++  auto current = TaskQueueWrapper::MainAsCurrent();
+   mMutex.AssertCurrentThreadOwns();
+   if (mRecvStream) {
+     mRecvStream->Stop();
+@@ -901,6 +921,7 @@
+ 
+ MediaConduitErrorCode WebrtcAudioConduit::CreateRecvStream() {
+   MOZ_ASSERT(NS_IsMainThread());
++  auto current = TaskQueueWrapper::MainAsCurrent();
+   mMutex.AssertCurrentThreadOwns();
+ 
+   mRecvStreamConfig.rtcp_send_transport = this;
+@@ -913,6 +934,7 @@
+ }
+ 
+ bool WebrtcAudioConduit::RecreateSendStreamIfExists() {
++  auto current = TaskQueueWrapper::MainAsCurrent();
+   MutexAutoLock lock(mMutex);
+   bool wasTransmitting = mSendStreamRunning;
+   bool hadSendStream = mSendStream;
+@@ -932,6 +954,7 @@
+ 
+ bool WebrtcAudioConduit::RecreateRecvStreamIfExists() {
+   MOZ_ASSERT(NS_IsMainThread());
++  auto current = TaskQueueWrapper::MainAsCurrent();
+   MutexAutoLock lock(mMutex);
+   bool wasReceiving = mRecvStreamRunning;
+   bool hadRecvStream = mRecvStream;
+@@ -951,11 +974,26 @@
+ 
+ MediaConduitErrorCode WebrtcAudioConduit::DeliverPacket(const void* data,
+                                                         int len) {
+-  // Bug 1499796 - we need to get passed the time the packet was received
++  using PacketPromise =
++      MozPromise<webrtc::PacketReceiver::DeliveryStatus, bool, true>;
++
++  auto syncPromise =
++      InvokeAsync(GetMainThreadSerialEventTarget(), __func__, [&] {
++        auto current = TaskQueueWrapper::MainAsCurrent();
++        // Bug 1499796 - we need to get passed the time the
++        // packet was received
++        webrtc::PacketReceiver::DeliveryStatus status =
++            mCall->Call()->Receiver()->DeliverPacket(
++                webrtc::MediaType::AUDIO,
++                rtc::CopyOnWriteBuffer(static_cast<const uint8_t*>(data), len),
++                -1);
++        return PacketPromise::CreateAndResolve(status, __func__);
++      });
++
+   webrtc::PacketReceiver::DeliveryStatus status =
+-      mCall->Call()->Receiver()->DeliverPacket(
+-          webrtc::MediaType::AUDIO,
+-          rtc::CopyOnWriteBuffer(static_cast<const uint8_t*>(data), len), -1);
++      media::Await(GetMediaThreadPool(MediaThreadType::WEBRTC_DECODER),
++                   syncPromise)
++          .ResolveValue();
+ 
+   if (status != webrtc::PacketReceiver::DELIVERY_OK) {
+     CSFLogError(LOGTAG, "%s DeliverPacket Failed, %d", __FUNCTION__, status);

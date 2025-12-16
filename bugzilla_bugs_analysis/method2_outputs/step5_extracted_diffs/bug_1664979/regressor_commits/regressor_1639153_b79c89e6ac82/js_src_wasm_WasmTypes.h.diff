@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmTypes.h
+# Commit: b79c89e6ac82
+# Full Hash: b79c89e6ac82e947d6805ce7fb4ee52f28c55a5a
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-09-11 15:10:42
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 3: Implement the algorithm for obtaining tls and use it for wasm signal handling. r=lth
+#   
+#   
+#   This is the third part of series of patches to Frame without tls pointer.
+#   Here we preserve initial tls in all entry stubs and then use it to find a proper tls instance for a given frame.
+# ==============================================================================
+
+diff -r ab5825b43bb5 -r b79c89e6ac82 js/src/wasm/WasmTypes.h
+--- a/js/src/wasm/WasmTypes.h	Thu Aug 27 09:02:50 2020 +0000
++++ b/js/src/wasm/WasmTypes.h	Thu Aug 27 10:26:17 2020 +0000
+@@ -2576,6 +2576,7 @@
+   }
+   uint32_t lineOrBytecode() const { return lineOrBytecode_; }
+   Kind kind() const { return Kind(kind_); }
++  bool mightBeCrossInstance() const { return kind() == CallSiteDesc::Dynamic; }
+ };
+ 
+ class CallSite : public CallSiteDesc {
+@@ -3295,10 +3296,13 @@
+ static_assert(!std::is_polymorphic_v<Frame>, "Frame doesn't need a vtable.");
+ 
+ class FrameWithTls : public Frame {
+- public:
+   TlsData* calleeTls_;
+   TlsData* callerTls_;
+ 
++ public:
++  TlsData* calleeTls() { return calleeTls_; }
++  TlsData* callerTls() { return callerTls_; }
++
+   constexpr static uint32_t sizeWithoutFrame() {
+     return sizeof(wasm::FrameWithTls) - sizeof(wasm::Frame);
+   }

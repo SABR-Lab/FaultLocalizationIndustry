@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/nsFlexContainerFrame.cpp
+# Commit: 04e34f384702
+# Full Hash: 04e34f384702433246bcc3d80c46506c1ad2f933
+# Author: Ting-Yu Lin <tlin@mozilla.com>
+# Date: 2022-12-02 09:34:01
+# Regressor Bug: 1803486
+# File Overlap Count: 1
+# Description:
+#   Bug 1803486 Part 2 - Move prevInFlow definition up in nsFlexContainerFrame::Reflow(). r=dholbert
+#   
+#   Depends on D163545
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D163546
+# ==============================================================================
+
+diff -r a0dbe91979ec -r 04e34f384702 layout/generic/nsFlexContainerFrame.cpp
+--- a/layout/generic/nsFlexContainerFrame.cpp	Thu Dec 01 22:29:54 2022 +0000
++++ b/layout/generic/nsFlexContainerFrame.cpp	Thu Dec 01 22:29:55 2022 +0000
+@@ -4490,7 +4490,8 @@
+   ComputedFlexContainerInfo* containerInfo = CreateOrClearFlexContainerInfo();
+ 
+   FlexLayoutResult flr;
+-  if (!GetPrevInFlow()) {
++  const nsIFrame* prevInFlow = GetPrevInFlow();
++  if (!prevInFlow) {
+     const LogicalSize tentativeContentBoxSize = aReflowInput.ComputedSize();
+     const nscoord tentativeContentBoxMainSize =
+         axisTracker.MainComponent(tentativeContentBoxSize);
+@@ -4574,7 +4575,6 @@
+                aReflowInput.AvailableBSize()));
+   const nsSize containerSize = tentativeBorderBoxSize.GetPhysicalSize(wm);
+ 
+-  const auto* prevInFlow = static_cast<nsFlexContainerFrame*>(GetPrevInFlow());
+   OverflowAreas ocBounds;
+   nsReflowStatus ocStatus;
+   nscoord sumOfChildrenBlockSize;
+@@ -4645,7 +4645,7 @@
+   if (aReflowInput.AvailableBSize() != NS_UNCONSTRAINEDSIZE) {
+     // If we are the first-in-flow, we want to store data for our next-in-flows,
+     // or clear the existing data if it is not needed.
+-    if (!GetPrevInFlow()) {
++    if (!prevInFlow) {
+       SharedFlexData* data = GetProperty(SharedFlexData::Prop());
+       if (!aStatus.IsFullyComplete()) {
+         if (!data) {

@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmIonCompile.cpp
+# Commit: 67ae30727ed8
+# Full Hash: 67ae30727ed835cf73153a4ee8f0c9c7931aab09
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2021-12-23 09:34:36
+# Regressor Bug: 1642412
+# File Overlap Count: 7
+# Description:
+#   Bug 1642412 - wasm: Remove unnecessary code from Instance for inline table methods. r=lth
+#   
+#   This commit removes support for anyref in Instance::tableGet/tableSet,
+#   making it clear that these functions are only used for function tables.
+#   Instance::tableSize is removed as no longer needed.
+# ==============================================================================
+
+diff -r 90fa382b5a20 -r 67ae30727ed8 js/src/wasm/WasmIonCompile.cpp
+--- a/js/src/wasm/WasmIonCompile.cpp	Wed Dec 22 17:36:30 2021 +0000
++++ b/js/src/wasm/WasmIonCompile.cpp	Wed Dec 22 17:36:30 2021 +0000
+@@ -5442,7 +5442,7 @@
+ 
+   uint32_t lineOrBytecode = f.readCallSiteLineOrBytecode();
+ 
+-  const SymbolicAddressSignature& callee = SASigTableGet;
++  const SymbolicAddressSignature& callee = SASigTableGetFunc;
+   CallCompileState args;
+   if (!f.passInstance(callee.argTypes[0], &args)) {
+     return false;
+@@ -5549,7 +5549,7 @@
+     return true;
+   }
+ 
+-  const SymbolicAddressSignature& callee = SASigTableSet;
++  const SymbolicAddressSignature& callee = SASigTableSetFunc;
+   CallCompileState args;
+   if (!f.passInstance(callee.argTypes[0], &args)) {
+     return false;

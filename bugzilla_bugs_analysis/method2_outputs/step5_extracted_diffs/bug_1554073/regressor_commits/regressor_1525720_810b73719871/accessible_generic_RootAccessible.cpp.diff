@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/generic/RootAccessible.cpp
+# Commit: 810b73719871
+# Full Hash: 810b7371987139844429d0206f9da6a7701a1efc
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2019-05-23 04:41:59
+# Regressor Bug: 1525720
+# File Overlap Count: 1
+# Description:
+#   Bug 1525720, part 13 - Stop inheriting nsIRemoteTab interface in BrowserParent. r=nika
+#   
+#   This commit removes nsIRemoteTab as a parent class from BrowserParent,
+#   so that BrowserHost is the only concrete implementation of nsIRemoteTab.
+#   
+# ==============================================================================
+
+diff -r ee10a8254481 -r 810b73719871 accessible/generic/RootAccessible.cpp
+--- a/accessible/generic/RootAccessible.cpp	Wed May 08 11:45:23 2019 -0500
++++ b/accessible/generic/RootAccessible.cpp	Wed May 08 14:34:47 2019 -0500
+@@ -27,6 +27,7 @@
+ #include "mozilla/dom/CustomEvent.h"
+ #include "mozilla/dom/Element.h"
+ #include "mozilla/dom/ScriptSettings.h"
++#include "mozilla/dom/BrowserHost.h"
+ 
+ #include "nsIDocShellTreeItem.h"
+ #include "nsIDocShellTreeOwner.h"
+@@ -669,12 +670,12 @@
+   mDocumentNode->GetDocShell()->GetTreeOwner(getter_AddRefs(owner));
+   NS_ENSURE_TRUE(owner, nullptr);
+ 
+-  nsCOMPtr<nsIRemoteTab> browserParent;
+-  owner->GetPrimaryRemoteTab(getter_AddRefs(browserParent));
+-  if (!browserParent) {
++  nsCOMPtr<nsIRemoteTab> remoteTab;
++  owner->GetPrimaryRemoteTab(getter_AddRefs(remoteTab));
++  if (!remoteTab) {
+     return nullptr;
+   }
+ 
+-  auto tab = static_cast<dom::BrowserParent*>(browserParent.get());
++  auto tab = static_cast<dom::BrowserHost*>(remoteTab.get());
+   return tab->GetTopLevelDocAccessible();
+ }

@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentParent.cpp
+# Commit: 0d57b435d872
+# Full Hash: 0d57b435d872751c2a26879fb04bf8745314e37a
+# Author: Andrea Marchesini <amarchesini@mozilla.com>
+# Date: 2024-09-12 09:23:07
+# Regressor Bug: 1475599
+# File Overlap Count: 1
+# Description:
+#   Bug 1475599 - part 8 - CookieStore API - e10s support, r=smaug,cookie-reviewers,timhuang
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D217574
+# ==============================================================================
+
+diff -r a63a5bcb0524 -r 0d57b435d872 dom/ipc/ContentParent.cpp
+--- a/dom/ipc/ContentParent.cpp	Wed Sep 11 16:26:57 2024 +0000
++++ b/dom/ipc/ContentParent.cpp	Wed Sep 11 16:26:57 2024 +0000
+@@ -3845,6 +3845,8 @@
+       return NS_OK;
+     }
+     auto* cs = static_cast<CookieServiceParent*>(csParent);
++    MOZ_ASSERT(mCookieInContentListCache.IsEmpty());
++
+     if (action == nsICookieNotification::COOKIES_BATCH_DELETED) {
+       nsCOMPtr<nsIArray> cookieList;
+       DebugOnly<nsresult> rv =
+@@ -6139,6 +6141,17 @@
+   return NS_OK;
+ }
+ 
++void ContentParent::AddPrincipalToCookieInProcessCache(
++    nsIPrincipal* aPrincipal) {
++  MOZ_ASSERT(aPrincipal);
++  mCookieInContentListCache.AppendElement(aPrincipal);
++}
++
++void ContentParent::TakeCookieInProcessCache(
++    nsTArray<nsCOMPtr<nsIPrincipal>>& aList) {
++  aList.SwapElements(mCookieInContentListCache);
++}
++
+ void ContentParent::TransmitBlobURLsForPrincipal(nsIPrincipal* aPrincipal) {
+   // If we're already broadcasting BlobURLs with this principal, we don't need
+   // to send them here.

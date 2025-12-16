@@ -1,0 +1,66 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: remote/marionette/cookie.sys.mjs
+# Commit: d01a1a055fec
+# Full Hash: d01a1a055fece12b906b938954f984bd69278ef7
+# Author: Andrea Marchesini <amarchesini@mozilla.com>
+# Date: 2025-04-30 20:49:53
+# Regressor Bug: 1960824
+# File Overlap Count: 1
+# Description:
+#   Bug 1960824 - Introduce nsICookie::SAMESITE_UNSET, r=edgul,webdriver-reviewers,extension-reviewers,cookie-reviewers,valentin,Sasha,robwu
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D246638
+# ==============================================================================
+
+diff -r 307ff391dd02 -r d01a1a055fec remote/marionette/cookie.sys.mjs
+--- a/remote/marionette/cookie.sys.mjs	Wed Apr 30 08:53:12 2025 +0000
++++ b/remote/marionette/cookie.sys.mjs	Wed Apr 30 08:59:18 2025 +0000
+@@ -13,9 +13,10 @@
+ const IPV4_PORT_EXPR = /:\d+$/;
+ 
+ const SAMESITE_MAP = new Map([
+-  ["None", Ci.nsICookie.SAMESITE_NONE],
+-  ["Lax", Ci.nsICookie.SAMESITE_LAX],
+-  ["Strict", Ci.nsICookie.SAMESITE_STRICT],
++  [Ci.nsICookie.SAMESITE_NONE, "None"],
++  [Ci.nsICookie.SAMESITE_LAX, "Lax"],
++  [Ci.nsICookie.SAMESITE_STRICT, "Strict"],
++  [Ci.nsICookie.SAMESITE_UNSET, "None"],
+ ]);
+ 
+ /** @namespace */
+@@ -98,7 +99,7 @@
+     );
+   }
+   if (typeof json.sameSite != "undefined") {
+-    const validOptions = Array.from(SAMESITE_MAP.keys());
++    const validOptions = Array.from(SAMESITE_MAP.values());
+     newCookie.sameSite = lazy.assert.in(
+       json.sameSite,
+       validOptions,
+@@ -173,7 +174,11 @@
+   } else {
+     newCookie.session = false;
+   }
+-  newCookie.sameSite = SAMESITE_MAP.get(newCookie.sameSite || "None");
++
++  let sameSite = [...SAMESITE_MAP].find(
++    ([, value]) => newCookie.sameSite === value
++  );
++  newCookie.sameSite = sameSite ? sameSite[0] : Ci.nsICookie.SAMESITE_UNSET;
+ 
+   let isIpAddress = false;
+   try {
+@@ -307,9 +312,7 @@
+           data.expiry = cookie.expiry;
+         }
+ 
+-        data.sameSite = [...SAMESITE_MAP].find(
+-          ([, value]) => cookie.sameSite === value
+-        )[0];
++        data.sameSite = SAMESITE_MAP.get(cookie.sameSite) || "None";
+ 
+         yield data;
+       }

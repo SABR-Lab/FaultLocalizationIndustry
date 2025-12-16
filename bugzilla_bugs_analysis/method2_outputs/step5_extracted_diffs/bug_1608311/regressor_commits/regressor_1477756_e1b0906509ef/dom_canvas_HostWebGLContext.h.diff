@@ -1,0 +1,81 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/HostWebGLContext.h
+# Commit: e1b0906509ef
+# Full Hash: e1b0906509efa6433978b9f980ec639b7eafbc6d
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Fix non-webgl CI tests. r=handyman
+#   
+#   * Revert some partial webgl+oop+vr code.
+#   * More missing FuncScope.
+#   * Fix compile errors.
+# ==============================================================================
+
+diff -r 7e2a2b1b416f -r e1b0906509ef dom/canvas/HostWebGLContext.h
+--- a/dom/canvas/HostWebGLContext.h	Wed Jan 08 22:19:23 2020 +0000
++++ b/dom/canvas/HostWebGLContext.h	Wed Jan 08 22:19:26 2020 +0000
+@@ -130,12 +130,8 @@
+     AutoResolveT(const HostWebGLContext& parent, const ObjectId id)
+         : mParent(parent), mId(id) {}
+ 
+-    template <typename T>
+-    T* As() const = delete;
+-
+ #define _(X)                                              \
+-  template <>                                             \
+-  WebGL##X* As<WebGL##X>() const {                        \
++  WebGL##X* As(WebGL##X*) const {                         \
+     const auto maybe = MaybeFind(mParent.m##X##Map, mId); \
+     if (!maybe) return nullptr;                           \
+     return maybe->get();                                  \
+@@ -156,19 +152,22 @@
+ #undef _
+     template <typename T>
+     MOZ_IMPLICIT operator T*() const {
+-      return As<T>();
++      T* coercer = nullptr;
++      return As(coercer);
+     }
+ 
+     template <typename T>
+     MOZ_IMPLICIT operator const T*() const {
+-      return As<T>();
++      T* coercer = nullptr;
++      return As(coercer);
+     }
+   };
+ 
+   AutoResolveT AutoResolve(const ObjectId id) const { return {*this, id}; }
+   template <typename T>
+   T* ById(const ObjectId id) const {
+-    return AutoResolve(id).As<T>();
++    T* coercer = nullptr;
++    return AutoResolve(id).As(coercer);
+   }
+ 
+   // -------------------------------------------------------------------------
+@@ -183,7 +182,7 @@
+   }
+ 
+   void Present() { mContext->Present(); }
+-  void ClearVRFrame() { mContext->ClearVRFrame(); }
++  void ClearVRFrame() const { mContext->ClearVRFrame(); }
+ 
+   Maybe<ICRData> InitializeCanvasRenderer(layers::LayersBackend backend) {
+     return mContext->InitializeCanvasRenderer(backend);
+@@ -782,9 +781,7 @@
+ 
+   // Etc
+  public:
+-  already_AddRefed<layers::SharedSurfaceTextureClient> GetVRFrame() const {
+-    return mContext->GetVRFrame();
+-  }
++  RefPtr<layers::SharedSurfaceTextureClient> GetVRFrame() const;
+ 
+  protected:
+   WebGL2Context* GetWebGL2Context() const {

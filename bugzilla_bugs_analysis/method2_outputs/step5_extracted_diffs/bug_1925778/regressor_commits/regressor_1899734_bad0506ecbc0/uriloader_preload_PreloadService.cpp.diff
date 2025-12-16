@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: uriloader/preload/PreloadService.cpp
+# Commit: bad0506ecbc0
+# Full Hash: bad0506ecbc0f1448e23a4398bf1c2e6aeb3f529
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2024-09-26 21:26:53
+# Regressor Bug: 1899734
+# File Overlap Count: 1
+# Description:
+#   Bug 1921110 - Distinguish rel=preload from early-hints preload. r=arai,firefox-style-system-reviewers,zrhoffman
+#   
+#   No behavior change right now, but this is needed to fix the initiator in
+#   bug 1899734.
+#   
+# ==============================================================================
+
+diff -r 722852dd8923 -r bad0506ecbc0 uriloader/preload/PreloadService.cpp
+--- a/uriloader/preload/PreloadService.cpp	Thu Sep 26 15:23:51 2024 +0000
++++ b/uriloader/preload/PreloadService.cpp	Thu Sep 26 15:33:15 2024 +0000
+@@ -212,11 +212,17 @@
+                   aFetchPriority, aIntegrity, true /* isInHead - TODO */,
+                   aEarlyHintPreloaderId);
+   } else if (aAs.LowerCaseEqualsASCII("style")) {
++    const auto preloadKind = [&] {
++      if (aEarlyHintPreloaderId) {
++        MOZ_ASSERT(aFromHeader);
++        return css::StylePreloadKind::FromEarlyHintsHeader;
++      }
++      return aFromHeader ? css::StylePreloadKind::FromLinkRelPreloadHeader
++                         : css::StylePreloadKind::FromLinkRelPreloadElement;
++    }();
+     auto status = mDocument->PreloadStyle(
+         aURI, Encoding::ForLabel(aCharset), aCORS,
+-        PreloadReferrerPolicy(aReferrerPolicy), aNonce, aIntegrity,
+-        aFromHeader ? css::StylePreloadKind::FromLinkRelPreloadHeader
+-                    : css::StylePreloadKind::FromLinkRelPreloadElement,
++        PreloadReferrerPolicy(aReferrerPolicy), aNonce, aIntegrity, preloadKind,
+         aEarlyHintPreloaderId, aFetchPriority);
+     switch (status) {
+       case dom::SheetPreloadStatus::AlreadyComplete:

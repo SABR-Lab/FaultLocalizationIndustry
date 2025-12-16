@@ -1,0 +1,75 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fs/api/FileSystemManager.cpp
+# Commit: a1c3f1590850
+# Full Hash: a1c3f15908502273c13d28e50bc0448157f2d6f9
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2022-10-20 21:51:26
+# Regressor Bug: 1792245
+# File Overlap Count: 2
+# Description:
+#   Bug 1792245 - Improve FileSystemManager shutdown; r=dom-storage-reviewers,jesup
+#   
+#   Changes:
+#   - new MozPromise requests are not created after shutdown
+#   - existing MozPromise requests are disconnected during shutdown
+# ==============================================================================
+
+diff -r 214c4d6bf7f9 -r a1c3f1590850 dom/fs/api/FileSystemManager.cpp
+--- a/dom/fs/api/FileSystemManager.cpp	Thu Oct 20 04:21:30 2022 +0000
++++ b/dom/fs/api/FileSystemManager.cpp	Thu Oct 20 04:21:30 2022 +0000
+@@ -73,11 +73,19 @@
+ NS_IMPL_CYCLE_COLLECTING_RELEASE(FileSystemManager);
+ NS_IMPL_CYCLE_COLLECTION(FileSystemManager, mGlobal, mStorageManager);
+ 
+-void FileSystemManager::Shutdown() { mBackgroundRequestHandler->Shutdown(); }
++void FileSystemManager::Shutdown() {
++  mShutdown.Flip();
++
++  mBackgroundRequestHandler->Shutdown();
++
++  mCreateFileSystemManagerChildPromiseRequestHolder.DisconnectIfExists();
++}
+ 
+ void FileSystemManager::BeginRequest(
+     std::function<void(const RefPtr<FileSystemManagerChild>&)>&& aSuccess,
+     std::function<void(nsresult)>&& aFailure) {
++  MOZ_ASSERT(!mShutdown);
++
+   if (mBackgroundRequestHandler->FileSystemManagerChildStrongRef()) {
+     aSuccess(mBackgroundRequestHandler->FileSystemManagerChildStrongRef());
+     return;
+@@ -89,17 +97,21 @@
+                  [&aFailure](nsresult rv) { aFailure(rv); });
+ 
+   mBackgroundRequestHandler->CreateFileSystemManagerChild(principalInfo)
+-      ->Then(GetCurrentSerialEventTarget(), __func__,
+-             [self = RefPtr<FileSystemManager>(this),
+-              success = std::move(aSuccess), failure = std::move(aFailure)](
+-                 const BoolPromise::ResolveOrRejectValue& aValue) {
+-               if (aValue.IsResolve()) {
+-                 success(self->mBackgroundRequestHandler
+-                             ->FileSystemManagerChildStrongRef());
+-               } else {
+-                 failure(aValue.RejectValue());
+-               }
+-             });
++      ->Then(
++          GetCurrentSerialEventTarget(), __func__,
++          [self = RefPtr<FileSystemManager>(this),
++           success = std::move(aSuccess), failure = std::move(aFailure)](
++              const BoolPromise::ResolveOrRejectValue& aValue) {
++            self->mCreateFileSystemManagerChildPromiseRequestHolder.Complete();
++
++            if (aValue.IsResolve()) {
++              success(self->mBackgroundRequestHandler
++                          ->FileSystemManagerChildStrongRef());
++            } else {
++              failure(aValue.RejectValue());
++            }
++          })
++      ->Track(mCreateFileSystemManagerChildPromiseRequestHolder);
+ }
+ 
+ already_AddRefed<Promise> FileSystemManager::GetDirectory(ErrorResult& aError) {

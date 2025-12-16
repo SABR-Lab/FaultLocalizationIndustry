@@ -1,0 +1,99 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fs/parent/FileSystemManagerParent.cpp
+# Commit: ce78177f190e
+# Full Hash: ce78177f190e37e90d7bc04d27ca6c15e396dfdb
+# Author: Randell Jesup <rjesup@wgate.com>
+# Date: 2022-09-11 21:40:30
+# Regressor Bug: 1786465
+# File Overlap Count: 1
+# Description:
+#   Bug 1786465 - Simplify FileSystemManagerChild by using the VirtualSendImpl attribute in PFileSystemManager definition; r=dom-storage-reviewers,jesup
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D155352
+# ==============================================================================
+
+diff -r dbbf940538fa -r ce78177f190e dom/fs/parent/FileSystemManagerParent.cpp
+--- a/dom/fs/parent/FileSystemManagerParent.cpp	Sun Sep 11 12:00:15 2022 +0000
++++ b/dom/fs/parent/FileSystemManagerParent.cpp	Sun Sep 11 12:00:15 2022 +0000
+@@ -46,8 +46,8 @@
+   mDataManager->AssertIsOnIOTarget();
+ }
+ 
+-IPCResult FileSystemManagerParent::RecvGetRootHandleMsg(
+-    GetRootHandleMsgResolver&& aResolver) {
++IPCResult FileSystemManagerParent::RecvGetRootHandle(
++    GetRootHandleResolver&& aResolver) {
+   AssertIsOnIOTarget();
+ 
+   FileSystemGetHandleResponse response(mRootEntry);
+@@ -56,9 +56,9 @@
+   return IPC_OK();
+ }
+ 
+-IPCResult FileSystemManagerParent::RecvGetDirectoryHandleMsg(
++IPCResult FileSystemManagerParent::RecvGetDirectoryHandle(
+     FileSystemGetHandleRequest&& aRequest,
+-    GetDirectoryHandleMsgResolver&& aResolver) {
++    GetDirectoryHandleResolver&& aResolver) {
+   AssertIsOnIOTarget();
+   MOZ_ASSERT(!aRequest.handle().parentId().IsEmpty());
+   MOZ_ASSERT(mDataManager);
+@@ -80,9 +80,8 @@
+   return IPC_OK();
+ }
+ 
+-IPCResult FileSystemManagerParent::RecvGetFileHandleMsg(
+-    FileSystemGetHandleRequest&& aRequest,
+-    GetFileHandleMsgResolver&& aResolver) {
++IPCResult FileSystemManagerParent::RecvGetFileHandle(
++    FileSystemGetHandleRequest&& aRequest, GetFileHandleResolver&& aResolver) {
+   AssertIsOnIOTarget();
+   MOZ_ASSERT(!aRequest.handle().parentId().IsEmpty());
+   MOZ_ASSERT(mDataManager);
+@@ -104,8 +103,8 @@
+   return IPC_OK();
+ }
+ 
+-IPCResult FileSystemManagerParent::RecvGetFileMsg(
+-    FileSystemGetFileRequest&& aRequest, GetFileMsgResolver&& aResolver) {
++IPCResult FileSystemManagerParent::RecvGetFile(
++    FileSystemGetFileRequest&& aRequest, GetFileResolver&& aResolver) {
+   AssertIsOnIOTarget();
+ 
+   FileSystemGetFileResponse response(NS_ERROR_NOT_IMPLEMENTED);
+@@ -114,8 +113,8 @@
+   return IPC_OK();
+ }
+ 
+-IPCResult FileSystemManagerParent::RecvResolveMsg(
+-    FileSystemResolveRequest&& aRequest, ResolveMsgResolver&& aResolver) {
++IPCResult FileSystemManagerParent::RecvResolve(
++    FileSystemResolveRequest&& aRequest, ResolveResolver&& aResolver) {
+   AssertIsOnIOTarget();
+   MOZ_ASSERT(!aRequest.endpoints().parentId().IsEmpty());
+   MOZ_ASSERT(!aRequest.endpoints().childId().IsEmpty());
+@@ -152,8 +151,8 @@
+   return IPC_OK();
+ }
+ 
+-IPCResult FileSystemManagerParent::RecvGetEntriesMsg(
+-    FileSystemGetEntriesRequest&& aRequest, GetEntriesMsgResolver&& aResolver) {
++IPCResult FileSystemManagerParent::RecvGetEntries(
++    FileSystemGetEntriesRequest&& aRequest, GetEntriesResolver&& aResolver) {
+   AssertIsOnIOTarget();
+   MOZ_ASSERT(!aRequest.parentId().IsEmpty());
+   MOZ_ASSERT(mDataManager);
+@@ -174,9 +173,8 @@
+   return IPC_OK();
+ }
+ 
+-IPCResult FileSystemManagerParent::RecvRemoveEntryMsg(
+-    FileSystemRemoveEntryRequest&& aRequest,
+-    RemoveEntryMsgResolver&& aResolver) {
++IPCResult FileSystemManagerParent::RecvRemoveEntry(
++    FileSystemRemoveEntryRequest&& aRequest, RemoveEntryResolver&& aResolver) {
+   AssertIsOnIOTarget();
+   MOZ_ASSERT(!aRequest.handle().parentId().IsEmpty());
+   MOZ_ASSERT(mDataManager);

@@ -1,0 +1,90 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/promise/tests/unit/test_promise_unhandled_rejection.js
+# Commit: 039e8fd2928d
+# Full Hash: 039e8fd2928d8d368ad892fb065bb2471e13d86e
+# Author: Boris Zbarsky <bzbarsky@mit.edu>
+# Date: 2020-02-22 09:52:08
+# Regressor Bug: 267645
+# File Overlap Count: 1
+# Description:
+#   Bug 267645 part 2.  Sanitize exceptions from exported functions. r=xeonchen,bholley
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D35996
+# ==============================================================================
+
+diff -r 942a92874526 -r 039e8fd2928d dom/promise/tests/unit/test_promise_unhandled_rejection.js
+--- a/dom/promise/tests/unit/test_promise_unhandled_rejection.js	Sat Feb 22 04:56:52 2020 +0000
++++ b/dom/promise/tests/unit/test_promise_unhandled_rejection.js	Sat Feb 22 05:01:59 2020 +0000
+@@ -12,6 +12,7 @@
+ );
+ 
+ PromiseTestUtils.expectUncaughtRejection(/could not be cloned/);
++PromiseTestUtils.expectUncaughtRejection(/An exception was thrown/);
+ PromiseTestUtils.expectUncaughtRejection(/Bleah/);
+ 
+ const filename = "resource://foo/Bar.jsm";
+@@ -84,15 +85,56 @@
+     });`
+   );
+ 
+-  equal(messages.length, 1, "Got one console message");
++  equal(messages.length, 2, "Got two console messages");
++
++  let [msg1, msg2] = messages;
++  ok(msg1 instanceof Ci.nsIScriptError, "Message is a script error");
++  equal(msg1.sourceName, filename, "Got expected filename");
++  equal(msg1.lineNumber, 2, "Got expected line number");
++  equal(
++    msg1.errorMessage,
++    "NS_ERROR_FAILURE: Bleah.",
++    "Got expected error message"
++  );
++
++  ok(msg2 instanceof Ci.nsIScriptError, "Message is a script error");
++  equal(msg2.sourceName, filename, "Got expected filename");
++  equal(msg2.lineNumber, 2, "Got expected line number");
++  equal(
++    msg2.errorMessage,
++    "InvalidStateError: An exception was thrown",
++    "Got expected error message"
++  );
++});
++
++add_task(async function test_unhandled_dom_exception_from_sandbox() {
++  let sandbox = Cu.Sandbox(
++    Services.scriptSecurityManager.createContentPrincipalFromOrigin(
++      "http://example.com/"
++    ),
++    { wantGlobalProperties: ["DOMException"] }
++  );
++  let ctor = Cu.evalInSandbox("DOMException", sandbox);
++  Cu.exportFunction(
++    function frick() {
++      throw new ctor("Bleah.");
++    },
++    sandbox,
++    { defineAs: "frick" }
++  );
++
++  let messages = await getSandboxMessages(
++    sandbox,
++    `new Promise(() => {
++      frick();
++    });`
++  );
++
++  equal(messages.length, 1, "Got one console messages");
+ 
+   let [msg] = messages;
+   ok(msg instanceof Ci.nsIScriptError, "Message is a script error");
+   equal(msg.sourceName, filename, "Got expected filename");
+   equal(msg.lineNumber, 2, "Got expected line number");
+-  equal(
+-    msg.errorMessage,
+-    "NS_ERROR_FAILURE: Bleah.",
+-    "Got expected error message"
+-  );
++  equal(msg.errorMessage, "Error: Bleah.", "Got expected error message");
+ });

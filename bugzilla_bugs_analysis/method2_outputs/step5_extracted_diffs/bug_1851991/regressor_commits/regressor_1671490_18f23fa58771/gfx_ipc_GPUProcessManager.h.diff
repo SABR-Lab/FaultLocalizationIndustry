@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/ipc/GPUProcessManager.h
+# Commit: 18f23fa58771
+# Full Hash: 18f23fa5877125926953f6d53a9e2c881d0b9be2
+# Author: Florian Queze <florian@queze.net>
+# Date: 2022-11-14 21:44:03
+# Regressor Bug: 1671490
+# File Overlap Count: 1
+# Description:
+#   Bug 1671490 - Mark the GPU process as being in the foreground whenever the parent process is in the foreground to make their priorities (and priority boosts) match, r=bas.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D161065
+# ==============================================================================
+
+diff -r c1fef68a839f -r 18f23fa58771 gfx/ipc/GPUProcessManager.h
+--- a/gfx/ipc/GPUProcessManager.h	Mon Nov 14 11:03:18 2022 -0500
++++ b/gfx/ipc/GPUProcessManager.h	Mon Nov 14 16:05:34 2022 +0000
+@@ -199,6 +199,10 @@
+   // Returns the process host
+   GPUProcessHost* Process() { return mProcess; }
+ 
++  // Sets the value of mAppInForeground, and (on Windows) adjusts the priority
++  // of the GPU process accordingly.
++  void SetAppInForeground(bool aInForeground);
++
+   /*
+    * ** Test-only Method **
+    *
+@@ -285,6 +289,10 @@
+   void EnsureImageBridgeChild();
+   void EnsureVRManager();
+ 
++#if defined(XP_WIN)
++  void SetProcessIsForeground();
++#endif
++
+ #if defined(MOZ_WIDGET_ANDROID)
+   already_AddRefed<UiCompositorControllerChild> CreateUiCompositorController(
+       nsBaseWidget* aWidget, const LayersId aId);

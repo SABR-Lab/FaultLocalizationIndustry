@@ -1,0 +1,155 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/angle/checkout/src/libANGLE/Display.h
+# Commit: 13282d7a47a5
+# Full Hash: 13282d7a47a57a73be8d060efd9645b4d642f03e
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2019-09-08 09:46:52
+# Regressor Bug: 1578576
+# File Overlap Count: 4
+# Description:
+#   Bug 1578576 - Part 2: Update to ANGLE 3865 r=jgilbert
+#   
+#   Depends on D44561
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44579
+# ==============================================================================
+
+diff -r 3064469c073d -r 13282d7a47a5 gfx/angle/checkout/src/libANGLE/Display.h
+--- a/gfx/angle/checkout/src/libANGLE/Display.h	Sat Sep 07 13:36:46 2019 +0000
++++ b/gfx/angle/checkout/src/libANGLE/Display.h	Sat Sep 07 13:38:36 2019 +0000
+@@ -23,6 +23,13 @@
+ #include "libANGLE/LoggingAnnotator.h"
+ #include "libANGLE/MemoryProgramCache.h"
+ #include "libANGLE/Version.h"
++#include "platform/Feature.h"
++#include "platform/FrontendFeatures.h"
++
++namespace angle
++{
++class FrameCapture;
++}  // namespace angle
+ 
+ namespace gl
+ {
+@@ -53,6 +60,8 @@
+ 
+     EGLLabelKHR label;
+     SurfaceSet surfaceSet;
++    std::vector<std::string> featureOverridesEnabled;
++    std::vector<std::string> featureOverridesDisabled;
+ };
+ 
+ // Constant coded here as a sanity limit.
+@@ -72,11 +81,13 @@
+     static Display *GetDisplayFromDevice(Device *device, const AttributeMap &attribMap);
+     static Display *GetDisplayFromNativeDisplay(EGLNativeDisplayType nativeDisplay,
+                                                 const AttributeMap &attribMap);
++    static Display *GetExistingDisplayFromNativeDisplay(EGLNativeDisplayType nativeDisplay);
+ 
+     static const ClientExtensions &GetClientExtensions();
+     static const std::string &GetClientExtensionString();
+ 
+     std::vector<const Config *> getConfigs(const AttributeMap &attribs) const;
++    std::vector<const Config *> chooseConfig(const AttributeMap &attribs) const;
+ 
+     Error createWindowSurface(const Config *configuration,
+                               EGLNativeWindowType window,
+@@ -105,12 +116,19 @@
+ 
+     Error createContext(const Config *configuration,
+                         const gl::Context *shareContext,
++                        const EGLenum clientType,
+                         const AttributeMap &attribs,
+                         gl::Context **outContext);
+ 
+-    Error createSync(EGLenum type, const AttributeMap &attribs, Sync **outSync);
++    Error createSync(const gl::Context *currentContext,
++                     EGLenum type,
++                     const AttributeMap &attribs,
++                     Sync **outSync);
+ 
+-    Error makeCurrent(Surface *drawSurface, Surface *readSurface, gl::Context *context);
++    Error makeCurrent(const Thread *thread,
++                      Surface *drawSurface,
++                      Surface *readSurface,
++                      gl::Context *context);
+ 
+     Error destroySurface(Surface *surface);
+     void destroyImage(Image *image);
+@@ -148,6 +166,8 @@
+     bool areBlobCacheFuncsSet() const { return mBlobCache.areBlobCacheFuncsSet(); }
+     BlobCache &getBlobCache() { return mBlobCache; }
+ 
++    static EGLClientBuffer GetNativeClientBuffer(const struct AHardwareBuffer *buffer);
++
+     Error waitClient(const gl::Context *context);
+     Error waitNative(const gl::Context *context, EGLint engine);
+ 
+@@ -169,14 +189,12 @@
+                                EGLint binarysize);
+     EGLint programCacheResize(EGLint limit, EGLenum mode);
+ 
+-    Error clientWaitSync(Sync *sync, EGLint flags, EGLTime timeout, EGLint *outResult);
+-    Error waitSync(Sync *sync, EGLint flags);
+-
+     const AttributeMap &getAttributeMap() const { return mAttributeMap; }
+     EGLNativeDisplayType getNativeDisplayId() const { return mDisplayId; }
+ 
+     rx::DisplayImpl *getImplementation() const { return mImplementation; }
+     Device *getDevice() const;
++    Surface *getWGLSurface() const;
+     EGLenum getPlatform() const { return mPlatform; }
+ 
+     gl::Version getMaxSupportedESVersion() const;
+@@ -186,6 +204,17 @@
+     typedef std::set<gl::Context *> ContextSet;
+     const ContextSet &getContextSet() { return mContextSet; }
+ 
++    const angle::FrontendFeatures &getFrontendFeatures() { return mFrontendFeatures; }
++
++    const angle::FeatureList &getFeatures() const { return mFeatures; }
++
++    const char *queryStringi(const EGLint name, const EGLint index);
++
++    EGLAttrib queryAttrib(const EGLint attribute);
++
++    angle::FrameCapture *getFrameCapture() { return mFrameCapture; }
++    void onPostSwap() const;
++
+   private:
+     Display(EGLenum platform, EGLNativeDisplayType displayId, Device *eglDevice);
+ 
+@@ -195,6 +224,7 @@
+ 
+     void initDisplayExtensions();
+     void initVendorString();
++    void initializeFrontendFeatures();
+ 
+     DisplayState mState;
+     rx::DisplayImpl *mImplementation;
+@@ -226,6 +256,7 @@
+     std::string mVendorString;
+ 
+     Device *mDevice;
++    Surface *mSurface;
+     EGLenum mPlatform;
+     angle::LoggingAnnotator mAnnotator;
+ 
+@@ -233,6 +264,15 @@
+     BlobCache mBlobCache;
+     gl::MemoryProgramCache mMemoryProgramCache;
+     size_t mGlobalTextureShareGroupUsers;
++
++    angle::FrontendFeatures mFrontendFeatures;
++
++    angle::FeatureList mFeatures;
++
++    // Might want to revisit who owns this and has access in the future. Threaded use would mean
++    // it might make sense to use different captures for EGL and GLES contexts.
++    // Note: we use a raw pointer here so we can exclude frame capture sources from the build.
++    angle::FrameCapture *mFrameCapture;
+ };
+ 
+ }  // namespace egl

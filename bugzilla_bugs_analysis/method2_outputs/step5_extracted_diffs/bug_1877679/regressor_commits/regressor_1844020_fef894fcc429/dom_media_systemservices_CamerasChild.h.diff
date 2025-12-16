@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/systemservices/CamerasChild.h
+# Commit: fef894fcc429
+# Full Hash: fef894fcc4294027fdfb62af3997b87411bef554
+# Author: Jan Grulich <jgrulich@redhat.com>
+# Date: 2023-11-30 17:23:44
+# Regressor Bug: 1844020
+# File Overlap Count: 1
+# Description:
+#   Bug 1844020 - Add a camera device placeholder in case PipeWire is not initialized yet r=pehrsons
+#   
+#   Implement DeviceInfoPipeWire with option to add a device placeholder
+#   when there is a camera device, but we don't have access to PipeWire yet.
+#   We ask the Camera portal whether there is a camera device present.
+# ==============================================================================
+
+diff -r ed31b2acb5fb -r fef894fcc429 dom/media/systemservices/CamerasChild.h
+--- a/dom/media/systemservices/CamerasChild.h	Thu Nov 30 11:49:35 2023 +0000
++++ b/dom/media/systemservices/CamerasChild.h	Thu Nov 30 11:49:36 2023 +0000
+@@ -160,7 +160,7 @@
+       const VideoCaptureCapability& capability) override;
+   mozilla::ipc::IPCResult RecvReplyGetCaptureDevice(
+       const nsACString& device_name, const nsACString& device_id,
+-      const bool& scary) override;
++      const bool& scary, const bool& device_is_placeholder) override;
+   mozilla::ipc::IPCResult RecvReplyFailure(void) override;
+   mozilla::ipc::IPCResult RecvReplySuccess(void) override;
+   void ActorDestroy(ActorDestroyReason aWhy) override;
+@@ -187,8 +187,8 @@
+                        char* device_nameUTF8,
+                        const unsigned int device_nameUTF8Length,
+                        char* unique_idUTF8,
+-                       const unsigned int unique_idUTF8Length,
+-                       bool* scary = nullptr);
++                       const unsigned int unique_idUTF8Length, bool* scary,
++                       bool* device_is_placeholder);
+   int EnsureInitialized(CaptureEngine aCapEngine);
+ 
+   template <typename This>
+@@ -253,6 +253,7 @@
+   nsCString mReplyDeviceName;
+   nsCString mReplyDeviceID;
+   bool mReplyScary;
++  bool mReplyDeviceIsPlaceholder;
+   MediaEventProducer<void> mDeviceListChangeEvent;
+ };
+ 

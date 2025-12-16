@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/BufferTexture.h
+# Commit: 7a990fa02246
+# Full Hash: 7a990fa022462c702adacfac907a0fc178940b9d
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2020-10-21 09:51:28
+# Regressor Bug: 1595994
+# File Overlap Count: 1
+# Description:
+#   Bug 1595994 - P1D. Properly serialize display size when sending image over IPC. r=mattwoodrow
+#   
+#   The code always assumed that the size of the image with the Y plane dimensions, which, while often the case, isn't correct.
+#   We remove the assertions that the display offset was always (0,0) and properly carry the actual data over IPC.
+#   
+# ==============================================================================
+
+diff -r 4c7f671c7b69 -r 7a990fa02246 gfx/layers/BufferTexture.h
+--- a/gfx/layers/BufferTexture.h	Tue Oct 20 23:29:30 2020 +0000
++++ b/gfx/layers/BufferTexture.h	Tue Oct 20 23:30:04 2020 +0000
+@@ -7,11 +7,11 @@
+ #ifndef MOZILLA_LAYERS_BUFFERETEXTURE
+ #define MOZILLA_LAYERS_BUFFERETEXTURE
+ 
+-#include "mozilla/layers/TextureClient.h"
+-#include "mozilla/ipc/SharedMemory.h"
++#include "mozilla/RefPtr.h"
++#include "mozilla/gfx/2D.h"
+ #include "mozilla/gfx/Types.h"
+-#include "mozilla/gfx/2D.h"
+-#include "mozilla/RefPtr.h"
++#include "mozilla/ipc/SharedMemory.h"
++#include "mozilla/layers/TextureClient.h"
+ 
+ namespace mozilla {
+ namespace layers {
+@@ -34,10 +34,12 @@
+                                    ShmemAllocator aAllocator);
+ 
+   static BufferTextureData* CreateForYCbCr(
+-      KnowsCompositor* aAllocator, gfx::IntSize aYSize, uint32_t aYStride,
+-      gfx::IntSize aCbCrSize, uint32_t aCbCrStride, StereoMode aStereoMode,
+-      gfx::ColorDepth aColorDepth, gfx::YUVColorSpace aYUVColorSpace,
+-      gfx::ColorRange aColorRange, TextureFlags aTextureFlags);
++      KnowsCompositor* aAllocator, const gfx::IntRect& aDisplay,
++      const gfx::IntSize& aYSize, uint32_t aYStride,
++      const gfx::IntSize& aCbCrSize, uint32_t aCbCrStride,
++      StereoMode aStereoMode, gfx::ColorDepth aColorDepth,
++      gfx::YUVColorSpace aYUVColorSpace, gfx::ColorRange aColorRange,
++      TextureFlags aTextureFlags);
+ 
+   bool Lock(OpenMode aMode) override { return true; }
+ 
+@@ -73,6 +75,7 @@
+ 
+  protected:
+   gfx::IntSize GetSize() const;
++  gfx::IntRect GetPictureRect() const;
+ 
+   gfx::SurfaceFormat GetFormat() const;
+ 

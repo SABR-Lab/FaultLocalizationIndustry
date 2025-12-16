@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/error-support-macros/src/lib.rs
+# Commit: 57b2cda7e0db
+# Full Hash: 57b2cda7e0db8b07fcc1e09113ce26add178c68a
+# Author: Sammy Khamis <skhamis@mozilla.com>
+# Date: 2023-03-01 03:56:13
+# Regressor Bug: 1818349
+# File Overlap Count: 23
+# Overlapping Files: third_party/rust/sync15/src/client/coll_update.rs, third_party/rust/sync15/src/client/mod.rs, third_party/rust/sync15/.cargo-checksum.json, third_party/rust/sync15/src/client/sync.rs, Cargo.toml
+# Description:
+#   Bug 1818349 Part 1: Vendor new version of application-services r=markh
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D171181
+# ==============================================================================
+
+diff -r eaf9f12a1481 -r 57b2cda7e0db third_party/rust/error-support-macros/src/lib.rs
+--- a/third_party/rust/error-support-macros/src/lib.rs	Tue Feb 28 04:22:35 2023 +0000
++++ b/third_party/rust/error-support-macros/src/lib.rs	Tue Feb 28 05:14:29 2023 +0000
+@@ -48,9 +48,11 @@
+ ///    }
+ /// }
+ ///
+-/// #[handle_error]
++/// // The `handle_error` macro maps from the error supplied in the mandatory argument
++/// // (ie, `Error` in this example) to the error returned by the function (`ExternalError`
++/// // in this example)
++/// #[handle_error(Error)]
+ /// fn do_something() -> std::result::Result<String, ExternalError> {
+-///    // The `handle_error` macro maps from `Error` to `ExternalError`
+ ///    Err(Error{})
+ /// }
+ ///
+@@ -72,18 +74,13 @@
+     arguments: &syn::AttributeArgs,
+ ) -> syn::Result<proc_macro2::TokenStream> {
+     if let syn::Item::Fn(item_fn) = input {
+-        argument::validate(arguments)?;
++        let err_path = argument::validate(arguments)?;
+         let original_body = &item_fn.block;
+ 
+         let mut new_fn = item_fn.clone();
+         new_fn.block = parse_quote! {
+             {
+-                // Note: the `Result` here is a smell
+-                // because the macro is **assuming** a `Result` exists
+-                // that reflects the return value of the block
+-                // An improvement would include the error of the `original_block`
+-                // as an attribute to the macro itself.
+-                (|| -> Result<_> {
++                (|| -> ::std::result::Result<_, #err_path> {
+                     #original_body
+                 })().map_err(::error_support::convert_log_report_error)
+             }
+@@ -95,7 +92,7 @@
+     } else {
+         Err(syn::Error::new(
+             input.span(),
+-            "#[handle_error] can only be used on functions",
++            "#[handle_error(..)] can only be used on functions",
+         ))
+     }
+ }

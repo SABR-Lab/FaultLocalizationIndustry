@@ -1,0 +1,144 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/ash/src/allocator.rs
+# Commit: ef5dc3e04e5f
+# Full Hash: ef5dc3e04e5f271eea0636ab3a495e95cc912f1d
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-09-04 09:40:24
+# Regressor Bug: 1726626
+# File Overlap Count: 3
+# Description:
+#   Bug 1726626 - Move gfx/wgpu into a 3rd party dependency r=jgilbert,bholley
+#   
+#   This update makes wgpu a vendored dependency instead of having it in gfx/wgpu.
+#   
+#   ## Notes
+# ==============================================================================
+
+diff --git a/third_party/rust/ash/src/allocator.rs b/third_party/rust/ash/src/allocator.rs
+deleted file mode 100644
+--- a/third_party/rust/ash/src/allocator.rs
++++ /dev/null
+@@ -1,120 +0,0 @@
+-#![allow(dead_code)]
+-use vk;
+-use std::os::raw::c_void;
+-use std::ptr;
+-pub trait VkAllocation {
+-    unsafe extern "system" fn allocation(
+-        *mut (),
+-        usize,
+-        usize,
+-        vk::SystemAllocationScope,
+-    ) -> *mut ();
+-    unsafe extern "system" fn reallocation(
+-        *mut c_void,
+-        *mut c_void,
+-        usize,
+-        usize,
+-        vk::SystemAllocationScope,
+-    ) -> *mut c_void;
+-    unsafe extern "system" fn free(*mut c_void, *mut c_void);
+-    unsafe extern "system" fn internal_allocation(
+-        *mut c_void,
+-        usize,
+-        vk::InternalAllocationType,
+-        vk::SystemAllocationScope,
+-    );
+-    unsafe extern "system" fn internal_free(
+-        *mut c_void,
+-        usize,
+-        vk::InternalAllocationType,
+-        vk::SystemAllocationScope,
+-    );
+-    fn create_allocation_callback() -> Option<vk::AllocationCallbacks> {
+-        let alloc = vk::AllocationCallbacks {
+-            p_user_data: ptr::null_mut(),
+-            pfn_allocation: Self::allocation,
+-            pfn_reallocation: Self::reallocation,
+-            pfn_free: Self::free,
+-            pfn_internal_allocation: Self::internal_allocation,
+-            pfn_internal_free: Self::internal_free,
+-        };
+-        Some(alloc)
+-    }
+-}
+-
+-pub struct DefaultAllocatorCallback;
+-pub struct TestAlloc;
+-
+-impl VkAllocation for TestAlloc {
+-    unsafe extern "system" fn allocation(
+-        _: *mut (),
+-        _: usize,
+-        _: usize,
+-        _: vk::SystemAllocationScope,
+-    ) -> *mut () {
+-        ptr::null_mut()
+-    }
+-
+-    unsafe extern "system" fn reallocation(
+-        _: *mut c_void,
+-        _: *mut c_void,
+-        _: usize,
+-        _: usize,
+-        _: vk::SystemAllocationScope,
+-    ) -> *mut c_void {
+-        ptr::null_mut()
+-    }
+-    unsafe extern "system" fn free(_: *mut c_void, _: *mut c_void) {}
+-    unsafe extern "system" fn internal_allocation(
+-        _: *mut c_void,
+-        _: usize,
+-        _: vk::InternalAllocationType,
+-        _: vk::SystemAllocationScope,
+-    ) {
+-    }
+-    unsafe extern "system" fn internal_free(
+-        _: *mut c_void,
+-        _: usize,
+-        _: vk::InternalAllocationType,
+-        _: vk::SystemAllocationScope,
+-    ) {
+-    }
+-}
+-impl VkAllocation for DefaultAllocatorCallback {
+-    unsafe extern "system" fn allocation(
+-        _: *mut (),
+-        _: usize,
+-        _: usize,
+-        _: vk::SystemAllocationScope,
+-    ) -> *mut () {
+-        ptr::null_mut()
+-    }
+-
+-    unsafe extern "system" fn reallocation(
+-        _: *mut c_void,
+-        _: *mut c_void,
+-        _: usize,
+-        _: usize,
+-        _: vk::SystemAllocationScope,
+-    ) -> *mut c_void {
+-        ptr::null_mut()
+-    }
+-    unsafe extern "system" fn free(_: *mut c_void, _: *mut c_void) {}
+-    unsafe extern "system" fn internal_allocation(
+-        _: *mut c_void,
+-        _: usize,
+-        _: vk::InternalAllocationType,
+-        _: vk::SystemAllocationScope,
+-    ) {
+-    }
+-    unsafe extern "system" fn internal_free(
+-        _: *mut c_void,
+-        _: usize,
+-        _: vk::InternalAllocationType,
+-        _: vk::SystemAllocationScope,
+-    ) {
+-    }
+-    fn create_allocation_callback() -> Option<vk::AllocationCallbacks> {
+-        None
+-    }
+-}
+\ No newline at end of file

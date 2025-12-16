@@ -1,0 +1,49 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/Http2Session.cpp
+# Commit: 69e5de33bd07
+# Full Hash: 69e5de33bd0797d51b019982741eb927920dd471
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2020-06-23 21:38:40
+# Description:
+#   Bug 1644239, r=dragana
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D80365
+# ==============================================================================
+
+diff -r a40b3c017a19 -r 69e5de33bd07 netwerk/protocol/http/Http2Session.cpp
+--- a/netwerk/protocol/http/Http2Session.cpp	Tue Jun 23 08:16:57 2020 +0000
++++ b/netwerk/protocol/http/Http2Session.cpp	Tue Jun 23 07:51:25 2020 +0000
+@@ -2050,7 +2050,7 @@
+       mozilla::OriginAttributes oa;
+       pushedWeak->GetOriginAttributes(&oa);
+       RefPtr<Http2Session> session = self;
+-      auto callback = [session, promisedID](bool aAccepted) {
++      auto cachePushCheckCallback = [session, promisedID](bool aAccepted) {
+         MOZ_ASSERT(OnSocketThread());
+ 
+         if (!aAccepted) {
+@@ -2061,7 +2061,7 @@
+       RefPtr<CachePushChecker> checker = new CachePushChecker(
+           pushedURL, oa,
+           static_cast<Http2PushedStream*>(pushedWeak.get())->GetRequestString(),
+-          std::move(callback));
++          std::move(cachePushCheckCallback));
+       if (NS_FAILED(checker->DoCheck())) {
+         LOG3(
+             ("Http2Session::RecvPushPromise %p failed to open cache entry for "
+@@ -2071,6 +2071,13 @@
+     }
+   }
+ 
++  if (!pushedWeak) {
++    // We have an up to date entry in our cache, so the stream was closed
++    // and released in the cachePushCheckCallback above.
++    self->ResetDownstreamState();
++    return NS_OK;
++  }
++
+   pushedWeak->SetHTTPState(Http2Stream::RESERVED_BY_REMOTE);
+   static_assert(Http2Stream::kWorstPriority >= 0,
+                 "kWorstPriority out of range");

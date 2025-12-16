@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/BrowsingContext.h
+# Commit: 40b61344f0da
+# Full Hash: 40b61344f0da14f9700a75a8a1c67458e440b68a
+# Author: Kris Maglione <maglione.k@gmail.com>
+# Date: 2019-08-15 09:46:49
+# Regressor Bug: 1562292
+# File Overlap Count: 1
+# Description:
+#   Bug 1562292: Part 1f - Implement BrowsingContext::LoadURI. r=nika
+#   
+#   In order to do cross-process targeted window.open() and link click operations,
+#   we need a way to load URIs in the current DocShell of a BrowsingContext,
+#   whichever process it lives in.
+# ==============================================================================
+
+diff -r 3bffe760e2db -r 40b61344f0da docshell/base/BrowsingContext.h
+--- a/docshell/base/BrowsingContext.h	Thu Aug 01 16:36:32 2019 -0700
++++ b/docshell/base/BrowsingContext.h	Thu Aug 01 18:00:32 2019 -0700
+@@ -20,6 +20,7 @@
+ #include "nsWrapperCache.h"
+ #include "nsILoadInfo.h"
+ 
++class nsDocShellLoadState;
+ class nsGlobalWindowOuter;
+ class nsIPrincipal;
+ class nsOuterWindowProxy;
+@@ -179,6 +180,11 @@
+   // Restore cached browsing contexts.
+   void RestoreChildren(Children&& aChildren, bool aFromIPC = false);
+ 
++  // Triggers a load in the process which currently owns this BrowsingContext.
++  // aAccessor is the context which initiated the load, and may be null only for
++  // in-process BrowsingContexts.
++  void LoadURI(BrowsingContext* aAccessor, nsDocShellLoadState* aLoadState);
++
+   // Determine if the current BrowsingContext was 'cached' by the logic in
+   // CacheChildren.
+   bool IsCached();

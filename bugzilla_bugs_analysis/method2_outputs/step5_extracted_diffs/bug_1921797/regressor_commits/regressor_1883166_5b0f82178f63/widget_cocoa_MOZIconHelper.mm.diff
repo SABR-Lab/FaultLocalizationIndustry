@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/cocoa/MOZIconHelper.mm
+# Commit: 5b0f82178f63
+# Full Hash: 5b0f82178f636ffde1d06fdf400f547fb3deb06c
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2024-03-02 21:55:19
+# Regressor Bug: 1883166
+# File Overlap Count: 1
+# Description:
+#   Bug 1883166 - Support SVG images without intrinsic size (just ratio) on macOS menus. r=mac-reviewers,tnikkel
+#   
+#   Images like the one in comment 1 would end with a zero size otherwise
+#   and fail to render. The caller usually knows the size it wants to render
+#   into, so use that.
+# ==============================================================================
+
+diff -r 99d8110cbb26 -r 5b0f82178f63 widget/cocoa/MOZIconHelper.mm
+--- a/widget/cocoa/MOZIconHelper.mm	Sat Mar 02 07:56:42 2024 +0000
++++ b/widget/cocoa/MOZIconHelper.mm	Sat Mar 02 08:50:43 2024 +0000
+@@ -32,11 +32,11 @@
+   if (aScaleFactor != 0.0f) {
+     rv = nsCocoaUtils::CreateNSImageFromImageContainer(
+         aImage, imgIContainer::FRAME_CURRENT, aPresContext, aComputedStyle,
+-        &retainedImage, aScaleFactor, &isEntirelyBlack);
++        aSize, &retainedImage, aScaleFactor, &isEntirelyBlack);
+   } else {
+     rv = nsCocoaUtils::CreateDualRepresentationNSImageFromImageContainer(
+         aImage, imgIContainer::FRAME_CURRENT, aPresContext, aComputedStyle,
+-        &retainedImage, &isEntirelyBlack);
++        aSize, &retainedImage, &isEntirelyBlack);
+   }
+ 
+   NSImage* image = [retainedImage autorelease];
+@@ -45,10 +45,6 @@
+     return nil;
+   }
+ 
+-  int32_t origWidth = 0, origHeight = 0;
+-  aImage->GetWidth(&origWidth);
+-  aImage->GetHeight(&origHeight);
+-
+   // If all the color channels in the image are black, treat the image as a
+   // template. This will cause macOS to use the image's alpha channel as a mask
+   // and it will fill it with a color that looks good in the context that it's

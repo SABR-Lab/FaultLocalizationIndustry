@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/animation/AnimationEventDispatcher.cpp
+# Commit: 63603267402e
+# Full Hash: 63603267402ee93d6551ef60c35191d99aaee06b
+# Author: Zach Hoffman <zach@zrhoffman.net>
+# Date: 2023-12-18 17:17:57
+# Regressor Bug: 1846516
+# File Overlap Count: 3
+# Description:
+#   Bug 1846516 - [css-properties-values-api] Introduce AnimatedPropertyID/AnimatedPropertIDSet. r=firefox-animation-reviewers,firefox-style-system-reviewers,layout-reviewers,emilio,hiro
+#   
+#   This will make possible to animate custom properties on Gecko side. For now, the
+#   animation code keeps only dealing with nsCSSPropertyID, so behavior is unchanged.
+#   
+# ==============================================================================
+
+diff -r 753bc39f59ff -r 63603267402e dom/animation/AnimationEventDispatcher.cpp
+--- a/dom/animation/AnimationEventDispatcher.cpp	Mon Dec 18 09:24:07 2023 +0000
++++ b/dom/animation/AnimationEventDispatcher.cpp	Mon Dec 18 09:24:08 2023 +0000
+@@ -92,7 +92,7 @@
+       if (dom::KeyframeEffect* keyFrameEffect = effect->AsKeyframeEffect()) {
+         keyFrameEffect->GetTarget()->Describe(target, true);
+         for (const AnimationProperty& property : keyFrameEffect->Properties()) {
+-          propertySet.AddProperty(property.mProperty);
++          propertySet.AddProperty(property.mProperty.mID);
+         }
+       }
+     }
+@@ -136,7 +136,7 @@
+           mAnimation->GetOwner()
+               ? MarkerInnerWindowId(mAnimation->GetOwner()->WindowID())
+               : MarkerInnerWindowId::NoId()),
+-      CSSTransitionMarker, NS_ConvertUTF16toUTF8(target), data.mPropertyId,
++      CSSTransitionMarker, NS_ConvertUTF16toUTF8(target), data.mProperty.mID,
+       message == eTransitionCancel);
+ }
+ 

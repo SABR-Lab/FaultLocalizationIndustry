@@ -1,0 +1,73 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/AnimationInfo.cpp
+# Commit: 63603267402e
+# Full Hash: 63603267402ee93d6551ef60c35191d99aaee06b
+# Author: Zach Hoffman <zach@zrhoffman.net>
+# Date: 2023-12-18 17:17:57
+# Regressor Bug: 1846516
+# File Overlap Count: 3
+# Description:
+#   Bug 1846516 - [css-properties-values-api] Introduce AnimatedPropertyID/AnimatedPropertIDSet. r=firefox-animation-reviewers,firefox-style-system-reviewers,layout-reviewers,emilio,hiro
+#   
+#   This will make possible to animate custom properties on Gecko side. For now, the
+#   animation code keeps only dealing with nsCSSPropertyID, so behavior is unchanged.
+#   
+# ==============================================================================
+
+diff -r 753bc39f59ff -r 63603267402e gfx/layers/AnimationInfo.cpp
+--- a/gfx/layers/AnimationInfo.cpp	Mon Dec 18 09:24:07 2023 +0000
++++ b/gfx/layers/AnimationInfo.cpp	Mon Dec 18 09:24:08 2023 +0000
+@@ -453,7 +453,9 @@
+       static_cast<float>(computedTiming.mIterationStart);
+   animation->direction() = static_cast<uint8_t>(timing.Direction());
+   animation->fillMode() = static_cast<uint8_t>(computedTiming.mFill);
+-  animation->property() = aProperty.mProperty;
++  MOZ_ASSERT(!aProperty.mProperty.IsCustom(),
++             "We don't animate custom properties in the compositor");
++  animation->property() = aProperty.mProperty.mID;
+   animation->playbackRate() =
+       static_cast<float>(aAnimation->CurrentOrPendingPlaybackRate());
+   animation->previousPlaybackRate() =
+@@ -478,7 +480,7 @@
+       aAnimation->GetEffect()->AsKeyframeEffect()->BaseStyle(
+           aProperty.mProperty);
+   if (!baseStyle.IsNull()) {
+-    SetAnimatable(aProperty.mProperty, baseStyle, aFrame, refBox,
++    SetAnimatable(aProperty.mProperty.mID, baseStyle, aFrame, refBox,
+                   animation->baseStyle());
+   } else {
+     animation->baseStyle() = null_t();
+@@ -488,9 +490,9 @@
+     const AnimationPropertySegment& segment = aProperty.mSegments[segIdx];
+ 
+     AnimationSegment* animSegment = animation->segments().AppendElement();
+-    SetAnimatable(aProperty.mProperty, segment.mFromValue, aFrame, refBox,
++    SetAnimatable(aProperty.mProperty.mID, segment.mFromValue, aFrame, refBox,
+                   animSegment->startState());
+-    SetAnimatable(aProperty.mProperty, segment.mToValue, aFrame, refBox,
++    SetAnimatable(aProperty.mProperty.mID, segment.mToValue, aFrame, refBox,
+                   animSegment->endState());
+ 
+     animSegment->startPortion() = segment.mFromKey;
+@@ -541,14 +543,16 @@
+     const dom::KeyframeEffect* effect = anim->GetEffect()->AsKeyframeEffect();
+     MOZ_ASSERT(effect);
+     for (const AnimationProperty& property : effect->Properties()) {
+-      if (!aPropertySet.HasProperty(property.mProperty)) {
++      // TODO(zrhoffman, bug 1869475): Handle custom properties
++      if (!aPropertySet.HasProperty(property.mProperty.mID)) {
+         continue;
+       }
+ 
+-      auto animsForPropertyPtr = groupedAnims.lookupForAdd(property.mProperty);
++      auto animsForPropertyPtr =
++          groupedAnims.lookupForAdd(property.mProperty.mID);
+       if (!animsForPropertyPtr) {
+         DebugOnly<bool> rv =
+-            groupedAnims.add(animsForPropertyPtr, property.mProperty,
++            groupedAnims.add(animsForPropertyPtr, property.mProperty.mID,
+                              nsTArray<RefPtr<dom::Animation>>());
+         MOZ_ASSERT(rv, "Should have enough memory");
+       }

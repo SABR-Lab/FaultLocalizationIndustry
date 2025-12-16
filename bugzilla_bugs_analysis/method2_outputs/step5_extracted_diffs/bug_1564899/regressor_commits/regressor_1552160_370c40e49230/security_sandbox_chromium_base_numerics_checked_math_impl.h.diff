@@ -1,0 +1,183 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/base/numerics/checked_math_impl.h
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 2
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/base/numerics/checked_math_impl.h
+--- a/security/sandbox/chromium/base/numerics/checked_math_impl.h	Wed Jun 12 21:55:59 2019 +1200
++++ b/security/sandbox/chromium/base/numerics/checked_math_impl.h	Wed Jun 12 11:10:48 2019 +0100
+@@ -21,7 +21,7 @@
+ namespace internal {
+ 
+ template <typename T>
+-bool CheckedAddImpl(T x, T y, T* result) {
++constexpr bool CheckedAddImpl(T x, T y, T* result) {
+   static_assert(std::is_integral<T>::value, "Type must be integral");
+   // Since the value of x+y is undefined if we have a signed type, we compute
+   // it using the unsigned type of the same size.
+@@ -48,7 +48,7 @@
+                                             std::is_integral<U>::value>::type> {
+   using result_type = typename MaxExponentPromotion<T, U>::type;
+   template <typename V>
+-  static bool Do(T x, U y, V* result) {
++  static constexpr bool Do(T x, U y, V* result) {
+     // TODO(jschuh) Make this "constexpr if" once we're C++17.
+     if (CheckedAddFastOp<T, U>::is_supported)
+       return CheckedAddFastOp<T, U>::Do(x, y, result);
+@@ -67,7 +67,7 @@
+       return false;
+     }
+ 
+-    Promotion presult;
++    Promotion presult = {};
+     bool is_valid = true;
+     if (IsIntegerArithmeticSafe<Promotion, T, U>::value) {
+       presult = static_cast<Promotion>(x) + static_cast<Promotion>(y);
+@@ -81,7 +81,7 @@
+ };
+ 
+ template <typename T>
+-bool CheckedSubImpl(T x, T y, T* result) {
++constexpr bool CheckedSubImpl(T x, T y, T* result) {
+   static_assert(std::is_integral<T>::value, "Type must be integral");
+   // Since the value of x+y is undefined if we have a signed type, we compute
+   // it using the unsigned type of the same size.
+@@ -108,7 +108,7 @@
+                                             std::is_integral<U>::value>::type> {
+   using result_type = typename MaxExponentPromotion<T, U>::type;
+   template <typename V>
+-  static bool Do(T x, U y, V* result) {
++  static constexpr bool Do(T x, U y, V* result) {
+     // TODO(jschuh) Make this "constexpr if" once we're C++17.
+     if (CheckedSubFastOp<T, U>::is_supported)
+       return CheckedSubFastOp<T, U>::Do(x, y, result);
+@@ -127,7 +127,7 @@
+       return false;
+     }
+ 
+-    Promotion presult;
++    Promotion presult = {};
+     bool is_valid = true;
+     if (IsIntegerArithmeticSafe<Promotion, T, U>::value) {
+       presult = static_cast<Promotion>(x) - static_cast<Promotion>(y);
+@@ -141,7 +141,7 @@
+ };
+ 
+ template <typename T>
+-bool CheckedMulImpl(T x, T y, T* result) {
++constexpr bool CheckedMulImpl(T x, T y, T* result) {
+   static_assert(std::is_integral<T>::value, "Type must be integral");
+   // Since the value of x*y is potentially undefined if we have a signed type,
+   // we compute it using the unsigned type of the same size.
+@@ -170,7 +170,7 @@
+                                             std::is_integral<U>::value>::type> {
+   using result_type = typename MaxExponentPromotion<T, U>::type;
+   template <typename V>
+-  static bool Do(T x, U y, V* result) {
++  static constexpr bool Do(T x, U y, V* result) {
+     // TODO(jschuh) Make this "constexpr if" once we're C++17.
+     if (CheckedMulFastOp<T, U>::is_supported)
+       return CheckedMulFastOp<T, U>::Do(x, y, result);
+@@ -183,7 +183,7 @@
+       return false;
+     }
+ 
+-    Promotion presult;
++    Promotion presult = {};
+     bool is_valid = true;
+     if (CheckedMulFastOp<Promotion, Promotion>::is_supported) {
+       // The fast op may be available with the promoted type.
+@@ -211,7 +211,7 @@
+                                             std::is_integral<U>::value>::type> {
+   using result_type = typename MaxExponentPromotion<T, U>::type;
+   template <typename V>
+-  static bool Do(T x, U y, V* result) {
++  static constexpr bool Do(T x, U y, V* result) {
+     if (BASE_NUMERICS_UNLIKELY(!y))
+       return false;
+ 
+@@ -250,7 +250,7 @@
+                                             std::is_integral<U>::value>::type> {
+   using result_type = typename MaxExponentPromotion<T, U>::type;
+   template <typename V>
+-  static bool Do(T x, U y, V* result) {
++  static constexpr bool Do(T x, U y, V* result) {
+     using Promotion = typename BigEnoughPromotion<T, U>::type;
+     if (BASE_NUMERICS_LIKELY(y)) {
+       Promotion presult = static_cast<Promotion>(x) % static_cast<Promotion>(y);
+@@ -274,7 +274,7 @@
+                                             std::is_integral<U>::value>::type> {
+   using result_type = T;
+   template <typename V>
+-  static bool Do(T x, U shift, V* result) {
++  static constexpr bool Do(T x, U shift, V* result) {
+     // Disallow negative numbers and verify the shift is in bounds.
+     if (BASE_NUMERICS_LIKELY(!IsValueNegative(x) &&
+                              as_unsigned(shift) <
+@@ -328,7 +328,7 @@
+   using result_type = typename std::make_unsigned<
+       typename MaxExponentPromotion<T, U>::type>::type;
+   template <typename V>
+-  static bool Do(T x, U y, V* result) {
++  static constexpr bool Do(T x, U y, V* result) {
+     result_type tmp = static_cast<result_type>(x) & static_cast<result_type>(y);
+     *result = static_cast<V>(tmp);
+     return IsValueInRangeForNumericType<V>(tmp);
+@@ -347,7 +347,7 @@
+   using result_type = typename std::make_unsigned<
+       typename MaxExponentPromotion<T, U>::type>::type;
+   template <typename V>
+-  static bool Do(T x, U y, V* result) {
++  static constexpr bool Do(T x, U y, V* result) {
+     result_type tmp = static_cast<result_type>(x) | static_cast<result_type>(y);
+     *result = static_cast<V>(tmp);
+     return IsValueInRangeForNumericType<V>(tmp);
+@@ -366,7 +366,7 @@
+   using result_type = typename std::make_unsigned<
+       typename MaxExponentPromotion<T, U>::type>::type;
+   template <typename V>
+-  static bool Do(T x, U y, V* result) {
++  static constexpr bool Do(T x, U y, V* result) {
+     result_type tmp = static_cast<result_type>(x) ^ static_cast<result_type>(y);
+     *result = static_cast<V>(tmp);
+     return IsValueInRangeForNumericType<V>(tmp);
+@@ -386,7 +386,7 @@
+                             std::is_arithmetic<U>::value>::type> {
+   using result_type = typename MaxExponentPromotion<T, U>::type;
+   template <typename V>
+-  static bool Do(T x, U y, V* result) {
++  static constexpr bool Do(T x, U y, V* result) {
+     result_type tmp = IsGreater<T, U>::Test(x, y) ? static_cast<result_type>(x)
+                                                   : static_cast<result_type>(y);
+     *result = static_cast<V>(tmp);
+@@ -407,7 +407,7 @@
+                             std::is_arithmetic<U>::value>::type> {
+   using result_type = typename LowestValuePromotion<T, U>::type;
+   template <typename V>
+-  static bool Do(T x, U y, V* result) {
++  static constexpr bool Do(T x, U y, V* result) {
+     result_type tmp = IsLess<T, U>::Test(x, y) ? static_cast<result_type>(x)
+                                                : static_cast<result_type>(y);
+     *result = static_cast<V>(tmp);
+@@ -425,7 +425,7 @@
+                               std::is_floating_point<U>::value>::type> { \
+     using result_type = typename MaxExponentPromotion<T, U>::type;       \
+     template <typename V>                                                \
+-    static bool Do(T x, U y, V* result) {                                \
++    static constexpr bool Do(T x, U y, V* result) {                      \
+       using Promotion = typename MaxExponentPromotion<T, U>::type;       \
+       Promotion presult = x OP y;                                        \
+       *result = static_cast<V>(presult);                                 \

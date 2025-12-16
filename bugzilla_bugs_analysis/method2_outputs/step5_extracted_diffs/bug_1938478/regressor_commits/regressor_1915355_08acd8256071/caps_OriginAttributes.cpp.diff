@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: caps/OriginAttributes.cpp
+# Commit: 08acd8256071
+# Full Hash: 08acd8256071ad86345dec3fa66767635b07a4b1
+# Author: Tim Huang <tihuang@mozilla.com>
+# Date: 2025-01-09 04:16:57
+# Regressor Bug: 1915355
+# File Overlap Count: 1
+# Description:
+#   Bug 1915355 - Part 4: Implement the third-party cookie blocking excpetion in CookieService. r=cookie-reviewers,baku,valentin
+#   
+#   The patch integrates the third-party cookie blocking excpetion in
+#   CookieService.
+#   
+# ==============================================================================
+
+diff -r 3ae9463ee988 -r 08acd8256071 caps/OriginAttributes.cpp
+--- a/caps/OriginAttributes.cpp	Wed Jan 08 19:25:58 2025 +0000
++++ b/caps/OriginAttributes.cpp	Wed Jan 08 19:25:59 2025 +0000
+@@ -61,7 +61,7 @@
+                                         bool aForeignByAncestorContext,
+                                         bool aIsFirstPartyEnabled, bool aForced,
+                                         bool aUseSite,
+-                                        nsString OriginAttributes::*aTarget,
++                                        nsString OriginAttributes::* aTarget,
+                                         OriginAttributes& aOriginAttributes) {
+   nsresult rv;
+ 
+@@ -514,4 +514,23 @@
+   return fieldIndex > 1;
+ }
+ 
++/* static */
++bool OriginAttributes::ExtractSiteFromPartitionKey(
++    const nsAString& aPartitionKey, nsAString& aOutSite) {
++  nsAutoString scheme, host;
++  int32_t port;
++  bool unused;
++  if (!ParsePartitionKey(aPartitionKey, scheme, host, port, unused)) {
++    return false;
++  }
++
++  if (port == -1) {
++    aOutSite.Assign(scheme + u"://"_ns + host);
++  } else {
++    aOutSite.Assign(scheme + u"://"_ns + host + u":"_ns);
++    aOutSite.AppendInt(port);
++  }
++  return true;
++}
++
+ }  // namespace mozilla

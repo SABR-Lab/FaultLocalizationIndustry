@@ -1,0 +1,95 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/performance/PerformanceWorker.cpp
+# Commit: b1ab6c750d04
+# Full Hash: b1ab6c750d04299011c1446b1752c2ff98a92b33
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2023-06-07 03:30:33
+# Regressor Bug: 1800659
+# File Overlap Count: 1
+# Description:
+#   Bug 1800659 - P3 Remove WorkerPrivate::ClearMainEventQueue() r=asuth,smaug
+#   
+#   Pending->Canceling->Killing (WorkerNeverRan)
+#   
+#   Need to clear WorkerPrivate::mPreStartRunnables
+# ==============================================================================
+
+diff -r 32515f9b41c7 -r b1ab6c750d04 dom/performance/PerformanceWorker.cpp
+--- a/dom/performance/PerformanceWorker.cpp	Tue Jun 06 06:36:50 2023 +0000
++++ b/dom/performance/PerformanceWorker.cpp	Tue Jun 06 06:36:50 2023 +0000
+@@ -10,22 +10,27 @@
+ 
+ namespace mozilla::dom {
+ 
+-PerformanceWorker::PerformanceWorker(WorkerPrivate* aWorkerPrivate)
+-    : Performance(aWorkerPrivate->GlobalScope()),
+-      mWorkerPrivate(aWorkerPrivate) {
+-  mWorkerPrivate->AssertIsOnWorkerThread();
++PerformanceWorker::PerformanceWorker(WorkerGlobalScope* aGlobalScope)
++    : Performance(aGlobalScope) {
++  MOZ_ASSERT(aGlobalScope);
++  WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
++  MOZ_DIAGNOSTIC_ASSERT(workerPrivate);
++  workerPrivate->AssertIsOnWorkerThread();
+ }
+ 
+ PerformanceWorker::~PerformanceWorker() {
+-  if (mWorkerPrivate) {
+-    mWorkerPrivate->AssertIsOnWorkerThread();
++  WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
++  if (workerPrivate) {
++    workerPrivate->AssertIsOnWorkerThread();
+   }
+ }
+ 
+ void PerformanceWorker::InsertUserEntry(PerformanceEntry* aEntry) {
+   if (StaticPrefs::dom_performance_enable_user_timing_logging()) {
+     nsAutoCString uri;
+-    nsCOMPtr<nsIURI> scriptURI = mWorkerPrivate->GetResolvedScriptURI();
++    WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
++    MOZ_DIAGNOSTIC_ASSERT(workerPrivate);
++    nsCOMPtr<nsIURI> scriptURI = workerPrivate->GetResolvedScriptURI();
+     if (!scriptURI || NS_FAILED(scriptURI->GetHost(uri))) {
+       // If we have no URI, just put in "none".
+       uri.AssignLiteral("none");
+@@ -36,29 +41,21 @@
+ }
+ 
+ TimeStamp PerformanceWorker::CreationTimeStamp() const {
+-  MOZ_DIAGNOSTIC_ASSERT(mWorkerPrivate);
+-  if (mWorkerPrivate) {
+-    return mWorkerPrivate->CreationTimeStamp();
+-  }
+-  return TimeStamp();
++  WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
++  MOZ_DIAGNOSTIC_ASSERT(workerPrivate);
++  return workerPrivate->CreationTimeStamp();
+ }
+ 
+ DOMHighResTimeStamp PerformanceWorker::CreationTime() const {
+-  MOZ_DIAGNOSTIC_ASSERT(mWorkerPrivate);
+-  if (mWorkerPrivate) {
+-    return mWorkerPrivate->CreationTime();
+-  }
+-  return DOMHighResTimeStamp();
++  WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
++  MOZ_DIAGNOSTIC_ASSERT(workerPrivate);
++  return workerPrivate->CreationTime();
+ }
+ 
+ uint64_t PerformanceWorker::GetRandomTimelineSeed() {
+-  MOZ_DIAGNOSTIC_ASSERT(mWorkerPrivate);
+-  if (mWorkerPrivate) {
+-    return mWorkerPrivate->GetRandomTimelineSeed();
+-  }
+-  return 0;
++  WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
++  MOZ_DIAGNOSTIC_ASSERT(workerPrivate);
++  return workerPrivate->GetRandomTimelineSeed();
+ }
+ 
+-void PerformanceWorker::NoteShuttingDown() { mWorkerPrivate = nullptr; }
+-
+ }  // namespace mozilla::dom

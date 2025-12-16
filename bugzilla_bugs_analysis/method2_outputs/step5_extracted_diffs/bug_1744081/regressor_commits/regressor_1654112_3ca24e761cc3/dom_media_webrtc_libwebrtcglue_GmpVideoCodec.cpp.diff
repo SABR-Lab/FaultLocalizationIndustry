@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/GmpVideoCodec.cpp
+# Commit: 3ca24e761cc3
+# Full Hash: 3ca24e761cc31bbb71c659661874a995ef3d3db1
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 6
+# Description:
+#   Bug 1654112 - Remove WebrtcGmpPCHandleSetter and plumb pc handles explicitly. r=bwc
+#   
+#   With the libwebrtc update codecs will be created off-main.
+#   WebrtcGmpPCHandleSetter not only adds a lot of indirection, it is also
+#   main-thread-only. With this patch we can create gmp codecs on any thread.
+# ==============================================================================
+
+diff -r 1913c332695e -r 3ca24e761cc3 dom/media/webrtc/libwebrtcglue/GmpVideoCodec.cpp
+--- a/dom/media/webrtc/libwebrtcglue/GmpVideoCodec.cpp	Wed Feb 10 09:58:11 2021 +0100
++++ b/dom/media/webrtc/libwebrtcglue/GmpVideoCodec.cpp	Wed Feb 10 10:34:14 2021 +0100
+@@ -7,12 +7,13 @@
+ 
+ namespace mozilla {
+ 
+-WebrtcVideoEncoder* GmpVideoCodec::CreateEncoder() {
+-  return new WebrtcVideoEncoderProxy(new WebrtcGmpVideoEncoder());
++WebrtcVideoEncoder* GmpVideoCodec::CreateEncoder(std::string aPCHandle) {
++  return new WebrtcVideoEncoderProxy(
++      new WebrtcGmpVideoEncoder(std::move(aPCHandle)));
+ }
+ 
+-WebrtcVideoDecoder* GmpVideoCodec::CreateDecoder() {
+-  return new WebrtcVideoDecoderProxy();
++WebrtcVideoDecoder* GmpVideoCodec::CreateDecoder(std::string aPCHandle) {
++  return new WebrtcVideoDecoderProxy(std::move(aPCHandle));
+ }
+ 
+ }  // namespace mozilla

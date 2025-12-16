@@ -1,0 +1,37 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/WidgetUtilsGtk.cpp
+# Commit: 6770fb6b8d92
+# Full Hash: 6770fb6b8d9217b7d75ed7169cb1389c868498ed
+# Author: Martin Stransky <stransky@redhat.com>
+# Date: 2024-09-06 21:37:32
+# Regressor Bug: 1915596
+# File Overlap Count: 2
+# Description:
+#   Bug 1915596 [Wayland] Get touchpad hold event directly from Wayland display r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D220551
+# ==============================================================================
+
+diff -r 791b8e439bbd -r 6770fb6b8d92 widget/gtk/WidgetUtilsGtk.cpp
+--- a/widget/gtk/WidgetUtilsGtk.cpp	Fri Sep 06 08:37:00 2024 +0000
++++ b/widget/gtk/WidgetUtilsGtk.cpp	Fri Sep 06 09:16:28 2024 +0000
+@@ -305,7 +305,7 @@
+ 
+ RefPtr<FocusRequestPromise> RequestWaylandFocusPromise() {
+ #ifdef MOZ_WAYLAND
+-  if (!GdkIsWaylandDisplay() || !KeymapWrapper::GetSeat()) {
++  if (!GdkIsWaylandDisplay() || !WaylandDisplayGet()->GetSeat()) {
+     LOGW("RequestWaylandFocusPromise() failed.");
+     return nullptr;
+   }
+@@ -349,7 +349,7 @@
+       aXdgToken, &token_listener,
+       new XDGTokenRequest(aXdgToken, transferPromise));
+   xdg_activation_token_v1_set_serial(aXdgToken, focusSerial,
+-                                     KeymapWrapper::GetSeat());
++                                     WaylandDisplayGet()->GetSeat());
+   xdg_activation_token_v1_set_surface(aXdgToken, focusSurface);
+   xdg_activation_token_v1_commit(aXdgToken);
+ 

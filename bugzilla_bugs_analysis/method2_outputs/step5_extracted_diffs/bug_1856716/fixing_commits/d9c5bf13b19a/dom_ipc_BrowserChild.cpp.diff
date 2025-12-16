@@ -1,0 +1,43 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/BrowserChild.cpp
+# Commit: d9c5bf13b19a
+# Full Hash: d9c5bf13b19a73883abad0a4e61b234aee446079
+# Author: Dan Robertson <dan@dlrobertson.com>
+# Date: 2023-10-06 15:27:33
+# Description:
+#   Bug 1856716 - Ensure that we hold a strong reference to the APZ event state. r=hiro
+#   
+#   - Ensure that we hold a strong reference to the APZ event state before
+#      calling ProcessSingleTap, as ProcessSingleTap fires events.
+#    - Mark ProcessSingleTap as MOZ_CAN_RUN_SCRIPT since it can fire events.
+# ==============================================================================
+
+diff -r 5c2d783060b0 -r d9c5bf13b19a dom/ipc/BrowserChild.cpp
+--- a/dom/ipc/BrowserChild.cpp	Thu Oct 05 22:18:54 2023 +0000
++++ b/dom/ipc/BrowserChild.cpp	Thu Oct 05 22:34:32 2023 +0000
+@@ -1341,8 +1341,9 @@
+   switch (aType) {
+     case GeckoContentController::TapType::eSingleTap:
+       if (mBrowserChildMessageManager) {
+-        mAPZEventState->ProcessSingleTap(point, scale, aModifiers, 1,
+-                                         aInputBlockId);
++        RefPtr<APZEventState> eventState(mAPZEventState);
++        eventState->ProcessSingleTap(point, scale, aModifiers, 1,
++                                     aInputBlockId);
+       }
+       break;
+     case GeckoContentController::TapType::eDoubleTap:
+@@ -1350,8 +1351,9 @@
+       break;
+     case GeckoContentController::TapType::eSecondTap:
+       if (mBrowserChildMessageManager) {
+-        mAPZEventState->ProcessSingleTap(point, scale, aModifiers, 2,
+-                                         aInputBlockId);
++        RefPtr<APZEventState> eventState(mAPZEventState);
++        eventState->ProcessSingleTap(point, scale, aModifiers, 2,
++                                     aInputBlockId);
+       }
+       break;
+     case GeckoContentController::TapType::eLongTap:

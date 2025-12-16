@@ -1,0 +1,32 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/webrender_bindings/WebRenderAPI.cpp
+# Commit: 9bfd4e60ec4e
+# Full Hash: 9bfd4e60ec4e36b680c1722a3bd3e4b7359f7e36
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2019-03-23 09:46:24
+# Regressor Bug: 1441308
+# File Overlap Count: 2
+# Description:
+#   Bug 1441308 - Always send parent commands when sending mDestroyedActors r=kats,sotaro
+#   
+#   If we try to send them separately as we were before, we can run into
+#   cases where we try to destroy the actors and then send the OpRemoveTexture,
+#   which crashes.
+# ==============================================================================
+
+diff -r 8761ce294d2c -r 9bfd4e60ec4e gfx/webrender_bindings/WebRenderAPI.cpp
+--- a/gfx/webrender_bindings/WebRenderAPI.cpp	Fri Mar 22 18:29:00 2019 +0000
++++ b/gfx/webrender_bindings/WebRenderAPI.cpp	Fri Mar 22 18:29:04 2019 +0000
+@@ -730,8 +730,8 @@
+   wr_api_finalize_builder(SubBuilder(aOutTransaction.mRenderRoot).mWrState,
+                           &aOutTransaction.mContentSize,
+                           &aOutTransaction.mDLDesc, &dl.inner);
+-  aOutTransaction.mDL =
+-      ipc::ByteBuf(dl.inner.data, dl.inner.length, dl.inner.capacity);
++  aOutTransaction.mDL.emplace(dl.inner.data, dl.inner.length,
++                              dl.inner.capacity);
+   dl.inner.capacity = 0;
+   dl.inner.data = nullptr;
+ }

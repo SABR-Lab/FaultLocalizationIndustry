@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/MacroAssembler.cpp
+# Commit: c7eae2ddd714
+# Full Hash: c7eae2ddd71487cbb16eeb32e3d0c347206cdd12
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2021-09-15 15:26:38
+# Regressor Bug: 1730699
+# File Overlap Count: 1
+# Description:
+#   Bug 1730699 part 1 - Treat empty iterators for null/undefined as immutable and unlinked. r=jonco
+#   
+#   This changes the empty iterator objects we create for for-in with null/undefined
+#   to be immutable and unlinked.
+#   
+# ==============================================================================
+
+diff -r 61c4f93eaf75 -r c7eae2ddd714 js/src/jit/MacroAssembler.cpp
+--- a/js/src/jit/MacroAssembler.cpp	Wed Sep 15 08:52:32 2021 +0000
++++ b/js/src/jit/MacroAssembler.cpp	Wed Sep 15 09:20:44 2021 +0000
+@@ -4580,6 +4580,13 @@
+                                    Register temp3) {
+   LoadNativeIterator(*this, obj, temp1);
+ 
++  // The shared iterator used for for-in with null/undefined is immutable and
++  // unlinked. See NativeIterator::isEmptyIteratorSingleton.
++  Label done;
++  branchPtr(Assembler::Equal,
++            Address(temp1, NativeIterator::offsetOfObjectBeingIterated()),
++            ImmPtr(nullptr), &done);
++
+   // Clear active bit.
+   and32(Imm32(~NativeIterator::Flags::Active),
+         Address(temp1, NativeIterator::offsetOfFlagsAndCount()));
+@@ -4599,6 +4606,8 @@
+   storePtr(ImmPtr(nullptr), Address(temp1, NativeIterator::offsetOfNext()));
+   storePtr(ImmPtr(nullptr), Address(temp1, NativeIterator::offsetOfPrev()));
+ #endif
++
++  bind(&done);
+ }
+ 
+ void MacroAssembler::toHashableNonGCThing(ValueOperand value,

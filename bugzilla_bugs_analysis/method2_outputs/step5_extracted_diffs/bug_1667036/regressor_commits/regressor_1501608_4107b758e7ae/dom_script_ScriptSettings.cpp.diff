@@ -1,0 +1,29 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/script/ScriptSettings.cpp
+# Commit: 4107b758e7ae
+# Full Hash: 4107b758e7aea25d4529511f47bbd54531640dc4
+# Author: Denis Palmeiro <dpalmeiro@mozilla.com>
+# Date: 2020-05-01 09:42:47
+# Regressor Bug: 1501608
+# File Overlap Count: 1
+# Description:
+#   Bug 1501608 - Remove the ELEMENT_SLOT in the ScriptSourceObject and instead use a callback function to return the script element based on the value of the privateValue in the SSO. r=jonco,smaug
+#   
+#   We can reduce the size of the SSO by removing the element slot entirely, and instead retrieve the element through a callback function.  The callback will take in the value in the private slot of the SSO, which is either a LoadedScript* (from the browser) or a JSObject* (from the shell).  In addition, this removes the requirement of having a script dom element ready when parsing a JS script which can open up new opportunities for performance.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D70417
+# ==============================================================================
+
+diff -r d3a637853a36 -r 4107b758e7ae dom/script/ScriptSettings.cpp
+--- a/dom/script/ScriptSettings.cpp	Thu Apr 30 14:32:56 2020 +0000
++++ b/dom/script/ScriptSettings.cpp	Thu Apr 30 16:21:23 2020 +0000
+@@ -303,6 +303,7 @@
+   mOldWarningReporter.emplace(JS::GetWarningReporter(aCx));
+ 
+   JS::SetWarningReporter(aCx, WarningOnlyErrorReporter);
++  JS::SetGetElementCallback(aCx, &GetElementCallback);
+ 
+ #ifdef DEBUG
+   if (haveException) {

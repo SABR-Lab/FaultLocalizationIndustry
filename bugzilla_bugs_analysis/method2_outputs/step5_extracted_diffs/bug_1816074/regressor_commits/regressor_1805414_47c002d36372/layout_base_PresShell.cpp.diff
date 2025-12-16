@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/base/PresShell.cpp
+# Commit: 47c002d36372
+# Full Hash: 47c002d3637247e71ee901f32421deaecc9d8ea3
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-01-05 03:40:49
+# Regressor Bug: 1805414
+# File Overlap Count: 2
+# Description:
+#   Bug 1805414 - Remove nsMenuFrame and nsMenuParent. r=smaug,Jamie,desktop-theme-reviewers,settings-reviewers,dao
+#   
+#   Move most the event handling stuff to the DOM. I've left nsMenuBarFrame
+#   for now, but I will be removing that in the future.
+#   
+# ==============================================================================
+
+diff -r 0c989b2bcd78 -r 47c002d36372 layout/base/PresShell.cpp
+--- a/layout/base/PresShell.cpp	Wed Jan 04 18:28:34 2023 +0000
++++ b/layout/base/PresShell.cpp	Wed Jan 04 19:01:13 2023 +0000
+@@ -150,7 +150,6 @@
+ // For style data reconstruction
+ #include "nsStyleChangeList.h"
+ #include "nsCSSFrameConstructor.h"
+-#include "nsMenuFrame.h"
+ #include "nsTreeBodyFrame.h"
+ #include "XULTreeElement.h"
+ #include "nsMenuPopupFrame.h"
+@@ -8851,12 +8850,11 @@
+     WidgetMouseEvent* aMouseEvent) {
+   // if a menu is open, open the context menu relative to the active item on the
+   // menu.
+-  nsXULPopupManager* pm = nsXULPopupManager::GetInstance();
+-  if (pm) {
++  if (nsXULPopupManager* pm = nsXULPopupManager::GetInstance()) {
+     nsIFrame* popupFrame = pm->GetTopPopup(ePopupTypeMenu);
+     if (popupFrame) {
+-      nsIFrame* itemFrame =
+-          (static_cast<nsMenuPopupFrame*>(popupFrame))->GetCurrentMenuItem();
++      nsIFrame* itemFrame = (static_cast<nsMenuPopupFrame*>(popupFrame))
++                                ->GetCurrentMenuItemFrame();
+       if (!itemFrame) itemFrame = popupFrame;
+ 
+       nsCOMPtr<nsIWidget> widget = popupFrame->GetNearestWidget();

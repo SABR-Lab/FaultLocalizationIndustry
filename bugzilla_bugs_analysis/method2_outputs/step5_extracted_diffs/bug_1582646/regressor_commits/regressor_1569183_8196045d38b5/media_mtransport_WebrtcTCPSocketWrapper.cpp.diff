@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/mtransport/WebrtcTCPSocketWrapper.cpp
+# Commit: 8196045d38b5
+# Full Hash: 8196045d38b50e04313725215c36ba1618c50486
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2019-09-18 21:49:27
+# Regressor Bug: 1569183
+# File Overlap Count: 2
+# Description:
+#   Bug 1569183: Create an ipdl struct called WebrtcProxyConfig, to cut down on the arg count on lots of functions. r=mjf,mayhemer
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D45562
+# ==============================================================================
+
+diff -r 6e1eba5c88ad -r 8196045d38b5 media/mtransport/WebrtcTCPSocketWrapper.cpp
+--- a/media/mtransport/WebrtcTCPSocketWrapper.cpp	Wed Sep 18 14:27:42 2019 +0000
++++ b/media/mtransport/WebrtcTCPSocketWrapper.cpp	Tue Sep 17 18:19:04 2019 +0000
+@@ -57,21 +57,10 @@
+     return;
+   }
+ 
+-  Maybe<net::LoadInfoArgs> loadInfoArgs;
+-  Maybe<nsCString> alpn;
+-  Maybe<dom::TabId> tabId;
+-  Maybe<NrSocketProxyConfig::ProxyPolicy> proxyPolicy;
+-  if (aConfig) {
+-    loadInfoArgs = Some(aConfig->GetLoadInfoArgs());
+-    alpn = Some(aConfig->GetAlpn());
+-    tabId = Some(dom::TabId(aConfig->GetTabId()));
+-    proxyPolicy = Some(aConfig->GetProxyPolicy());
+-  }
+-
+   MOZ_ASSERT(!mWebrtcTCPSocket, "wrapper already open");
+   mWebrtcTCPSocket = new WebrtcTCPSocketChild(this);
+   mWebrtcTCPSocket->AsyncOpen(aHost, aPort, aLocalAddress, aLocalPort, aUseTls,
+-                              loadInfoArgs, alpn, tabId, proxyPolicy);
++                              aConfig);
+ }
+ 
+ void WebrtcTCPSocketWrapper::SendWrite(nsTArray<uint8_t>&& aReadData) {

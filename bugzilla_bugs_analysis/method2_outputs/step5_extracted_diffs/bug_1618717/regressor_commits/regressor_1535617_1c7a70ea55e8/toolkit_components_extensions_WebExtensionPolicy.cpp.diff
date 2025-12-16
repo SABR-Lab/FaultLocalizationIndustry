@@ -1,0 +1,36 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/extensions/WebExtensionPolicy.cpp
+# Commit: 1c7a70ea55e8
+# Full Hash: 1c7a70ea55e881a42d6bbe2375945f8b532edbb5
+# Author: Kris Maglione <maglione.k@gmail.com>
+# Date: 2020-02-26 09:27:57
+# Regressor Bug: 1535617
+# File Overlap Count: 1
+# Description:
+#   Bug 1535617: Part 2 - Clear weak references for most cycle collected objects on unlink. r=mccr8
+#   
+#   This covers most cycle collected objects which support weak references, but
+#   not the ones which inherit from a cycle collected class and don't do any cycle
+#   collection on their own.
+# ==============================================================================
+
+diff -r 275198c0a966 -r 1c7a70ea55e8 toolkit/components/extensions/WebExtensionPolicy.cpp
+--- a/toolkit/components/extensions/WebExtensionPolicy.cpp	Tue Feb 25 19:44:27 2020 +0000
++++ b/toolkit/components/extensions/WebExtensionPolicy.cpp	Tue Feb 25 19:44:39 2020 +0000
+@@ -485,9 +485,11 @@
+   }
+ }
+ 
+-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(WebExtensionPolicy, mParent,
+-                                      mLocalizeCallback, mHostPermissions,
+-                                      mWebAccessiblePaths, mContentScripts)
++NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_WEAK_PTR(WebExtensionPolicy, mParent,
++                                               mLocalizeCallback,
++                                               mHostPermissions,
++                                               mWebAccessiblePaths,
++                                               mContentScripts)
+ 
+ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(WebExtensionPolicy)
+   NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY

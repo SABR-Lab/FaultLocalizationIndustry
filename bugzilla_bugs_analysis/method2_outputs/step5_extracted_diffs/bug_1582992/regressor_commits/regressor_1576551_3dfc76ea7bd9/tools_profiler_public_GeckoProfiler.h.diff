@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: tools/profiler/public/GeckoProfiler.h
+# Commit: 3dfc76ea7bd9
+# Full Hash: 3dfc76ea7bd9606fbdbe6a632b4bf5fb09be9828
+# Author: Gerald Squelart <gsquelart@mozilla.com>
+# Date: 2019-09-18 09:56:40
+# Regressor Bug: 1576551
+# File Overlap Count: 1
+# Description:
+#   Bug 1576551 - Assume capacity is in 8-byte entries - r=gregtatum
+#   
+#   Now that we are using a byte-oriented `BlocksRingBuffer` instead of an array of
+#   9-byte `ProfileBufferEntry`'s, internally the profiler sets the buffer size in
+#   bytes. However all external users (popup, tests, etc.) still assume that the
+# ==============================================================================
+
+diff -r 524f84e0fc78 -r 3dfc76ea7bd9 tools/profiler/public/GeckoProfiler.h
+--- a/tools/profiler/public/GeckoProfiler.h	Wed Sep 18 01:19:12 2019 +0000
++++ b/tools/profiler/public/GeckoProfiler.h	Wed Sep 18 01:19:14 2019 +0000
+@@ -250,18 +250,18 @@
+ 
+ static constexpr mozilla::PowerOfTwo32 PROFILER_DEFAULT_ENTRIES =
+ #  if !defined(ARCH_ARMV6)
+-    mozilla::MakePowerOfTwo32<1u << 20>();  // 1'048'576
++    mozilla::MakePowerOfTwo32<1u << 20>();  // 1'048'576 entries = 8MB
+ #  else
+-    mozilla::MakePowerOfTwo32<1u << 17>();  // 131'072
++    mozilla::MakePowerOfTwo32<1u << 17>();  // 131'072 entries = 1MB
+ #  endif
+ 
+ // Startup profiling usually need to capture more data, especially on slow
+ // systems.
+ static constexpr mozilla::PowerOfTwo32 PROFILER_DEFAULT_STARTUP_ENTRIES =
+ #  if !defined(ARCH_ARMV6)
+-    mozilla::MakePowerOfTwo32<1u << 22>();  // 4'194'304
++    mozilla::MakePowerOfTwo32<1u << 22>();  // 4'194'304 entries = 32MB
+ #  else
+-    mozilla::MakePowerOfTwo32<1u << 17>();  // 131'072
++    mozilla::MakePowerOfTwo32<1u << 17>();  // 131'072 entries = 1MB
+ #  endif
+ 
+ #  define PROFILER_DEFAULT_DURATION 20
+@@ -284,8 +284,8 @@
+ // selected options. Stops and restarts the profiler if it is already active.
+ // After starting the profiler is "active". The samples will be recorded in a
+ // circular buffer.
+-//   "aCapacity" is the maximum number of entries in the profiler's circular
+-//               buffer.
++//   "aCapacity" is the maximum number of 8-bytes entries in the profiler's
++//               circular buffer.
+ //   "aInterval" the sampling interval, measured in millseconds.
+ //   "aFeatures" is the feature set. Features unsupported by this
+ //               platform/configuration are ignored.
+@@ -541,7 +541,7 @@
+   uint64_t mRangeStart;
+   // Index of the newest entry.
+   uint64_t mRangeEnd;
+-  // Buffer capacity in number of entries.
++  // Buffer capacity in number of 8-byte entries.
+   uint32_t mEntryCount;
+   // Sampling stats: Interval between successive samplings.
+   ProfilerStats mIntervalsNs;

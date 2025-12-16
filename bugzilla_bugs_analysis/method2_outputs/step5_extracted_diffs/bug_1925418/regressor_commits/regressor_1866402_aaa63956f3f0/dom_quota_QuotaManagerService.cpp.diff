@@ -1,0 +1,115 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/QuotaManagerService.cpp
+# Commit: aaa63956f3f0
+# Full Hash: aaa63956f3f022575b29059d5909f63079723d3a
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-10-10 09:22:33
+# Regressor Bug: 1866402
+# File Overlap Count: 1
+# Description:
+#   Bug 1866402 - Add nsIQuotaManagerService::PersistentOriginInitialized and nsIQuotaManagerService::TemporaryOriginInitialized methods; r=dom-storage-reviewers,jari
+#   
+#   This additional testing infrastructure is needed for verifying origin
+#   initialization status.
+#   
+# ==============================================================================
+
+diff -r f799f35b1c84 -r aaa63956f3f0 dom/quota/QuotaManagerService.cpp
+--- a/dom/quota/QuotaManagerService.cpp	Wed Oct 09 22:16:50 2024 +0000
++++ b/dom/quota/QuotaManagerService.cpp	Wed Oct 09 22:16:50 2024 +0000
+@@ -545,6 +545,93 @@
+ }
+ 
+ NS_IMETHODIMP
++QuotaManagerService::PersistentOriginInitialized(nsIPrincipal* aPrincipal,
++                                                 nsIQuotaRequest** _retval) {
++  MOZ_ASSERT(NS_IsMainThread());
++  MOZ_ASSERT(aPrincipal);
++  MOZ_ASSERT(nsContentUtils::IsCallerChrome());
++
++  QM_TRY(MOZ_TO_RESULT(StaticPrefs::dom_quotaManager_testing()),
++         NS_ERROR_UNEXPECTED);
++
++  QM_TRY(MOZ_TO_RESULT(EnsureBackgroundActor()));
++
++  QM_TRY_INSPECT(
++      const auto& principalInfo,
++      ([&aPrincipal]() -> Result<PrincipalInfo, nsresult> {
++        PrincipalInfo principalInfo;
++        QM_TRY(MOZ_TO_RESULT(
++            PrincipalToPrincipalInfo(aPrincipal, &principalInfo)));
++
++        QM_TRY(MOZ_TO_RESULT(QuotaManager::IsPrincipalInfoValid(principalInfo)),
++               Err(NS_ERROR_INVALID_ARG));
++
++        return principalInfo;
++      }()));
++
++  RefPtr<Request> request = new Request();
++
++  mBackgroundActor->SendPersistentOriginInitialized(principalInfo)
++      ->Then(GetCurrentSerialEventTarget(), __func__,
++             BoolResponsePromiseResolveOrRejectCallback(request));
++
++  request.forget(_retval);
++  return NS_OK;
++}
++
++NS_IMETHODIMP
++QuotaManagerService::TemporaryOriginInitialized(
++    const nsACString& aPersistenceType, nsIPrincipal* aPrincipal,
++    nsIQuotaRequest** _retval) {
++  MOZ_ASSERT(NS_IsMainThread());
++  MOZ_ASSERT(aPrincipal);
++  MOZ_ASSERT(nsContentUtils::IsCallerChrome());
++
++  QM_TRY(MOZ_TO_RESULT(StaticPrefs::dom_quotaManager_testing()),
++         NS_ERROR_UNEXPECTED);
++
++  QM_TRY(MOZ_TO_RESULT(EnsureBackgroundActor()));
++
++  QM_TRY_INSPECT(
++      const auto& persistenceType,
++      ([&aPersistenceType]() -> Result<PersistenceType, nsresult> {
++        const auto persistenceType =
++            PersistenceTypeFromString(aPersistenceType, fallible);
++        QM_TRY(MOZ_TO_RESULT(persistenceType.isSome()),
++               Err(NS_ERROR_INVALID_ARG));
++
++        QM_TRY(
++            MOZ_TO_RESULT(IsBestEffortPersistenceType(persistenceType.ref())),
++            Err(NS_ERROR_INVALID_ARG));
++
++        return persistenceType.ref();
++      }()));
++
++  QM_TRY_INSPECT(
++      const auto& principalInfo,
++      ([&aPrincipal]() -> Result<PrincipalInfo, nsresult> {
++        PrincipalInfo principalInfo;
++        QM_TRY(MOZ_TO_RESULT(
++            PrincipalToPrincipalInfo(aPrincipal, &principalInfo)));
++
++        QM_TRY(MOZ_TO_RESULT(QuotaManager::IsPrincipalInfoValid(principalInfo)),
++               Err(NS_ERROR_INVALID_ARG));
++
++        return principalInfo;
++      }()));
++
++  RefPtr<Request> request = new Request();
++
++  mBackgroundActor
++      ->SendTemporaryOriginInitialized(persistenceType, principalInfo)
++      ->Then(GetCurrentSerialEventTarget(), __func__,
++             BoolResponsePromiseResolveOrRejectCallback(request));
++
++  request.forget(_retval);
++  return NS_OK;
++}
++
++NS_IMETHODIMP
+ QuotaManagerService::Init(nsIQuotaRequest** _retval) {
+   MOZ_ASSERT(NS_IsMainThread());
+   MOZ_ASSERT(nsContentUtils::IsCallerChrome());

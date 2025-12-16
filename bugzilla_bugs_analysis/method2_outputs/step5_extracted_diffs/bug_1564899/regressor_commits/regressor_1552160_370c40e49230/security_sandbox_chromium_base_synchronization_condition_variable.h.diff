@@ -1,0 +1,84 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/base/synchronization/condition_variable.h
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 2
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/base/synchronization/condition_variable.h
+--- a/security/sandbox/chromium/base/synchronization/condition_variable.h	Wed Jun 12 21:55:59 2019 +1200
++++ b/security/sandbox/chromium/base/synchronization/condition_variable.h	Wed Jun 12 11:10:48 2019 +0100
+@@ -65,18 +65,18 @@
+ #ifndef BASE_SYNCHRONIZATION_CONDITION_VARIABLE_H_
+ #define BASE_SYNCHRONIZATION_CONDITION_VARIABLE_H_
+ 
++#if defined(OS_POSIX) || defined(OS_FUCHSIA)
++#include <pthread.h>
++#endif
++
+ #include "base/base_export.h"
+ #include "base/logging.h"
+ #include "base/macros.h"
+ #include "base/synchronization/lock.h"
+ #include "build/build_config.h"
+ 
+-#if defined(OS_POSIX)
+-#include <pthread.h>
+-#endif
+-
+ #if defined(OS_WIN)
+-#include <windows.h>
++#include "base/win/windows_types.h"
+ #endif
+ 
+ namespace base {
+@@ -102,20 +102,34 @@
+   // Signal() revives one waiting thread.
+   void Signal();
+ 
++  // Declares that this ConditionVariable will only ever be used by a thread
++  // that is idle at the bottom of its stack and waiting for work (in
++  // particular, it is not synchronously waiting on this ConditionVariable
++  // before resuming ongoing work). This is useful to avoid telling
++  // base-internals that this thread is "blocked" when it's merely idle and
++  // ready to do work. As such, this is only expected to be used by thread and
++  // thread pool impls.
++  void declare_only_used_while_idle() { waiting_is_blocking_ = false; }
++
+  private:
+ 
+ #if defined(OS_WIN)
+-  CONDITION_VARIABLE cv_;
+-  SRWLOCK* const srwlock_;
+-#elif defined(OS_POSIX)
++  CHROME_CONDITION_VARIABLE cv_;
++  CHROME_SRWLOCK* const srwlock_;
++#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
+   pthread_cond_t condition_;
+   pthread_mutex_t* user_mutex_;
+ #endif
+ 
+-#if DCHECK_IS_ON() && (defined(OS_WIN) || defined(OS_POSIX))
++#if DCHECK_IS_ON()
+   base::Lock* const user_lock_;  // Needed to adjust shadow lock state on wait.
+ #endif
+ 
++  // Whether a thread invoking Wait() on this ConditionalVariable should be
++  // considered blocked as opposed to idle (and potentially replaced if part of
++  // a pool).
++  bool waiting_is_blocking_ = true;
++
+   DISALLOW_COPY_AND_ASSIGN(ConditionVariable);
+ };
+ 

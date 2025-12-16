@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: startupcache/StartupCache.cpp
+# Commit: ebdcd96a9d20
+# Full Hash: ebdcd96a9d206adb38553089f9499e6029022fba
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2020-07-07 21:31:11
+# Regressor Bug: 1627075
+# File Overlap Count: 1
+# Description:
+#   Bug 1627075 - Build Omnijar file list from startup cache r=froydnj
+#   
+#   We would like to be able to defer opening the omnijar files until after startup
+#   if the StartupCache has already been populated. Opening the omnijar files takes
+#   a nontrivial time, at least on Windows, and almost everything in the omnijar
+# ==============================================================================
+
+diff -r 2aa3b889d603 -r ebdcd96a9d20 startupcache/StartupCache.cpp
+--- a/startupcache/StartupCache.cpp	Mon Jul 06 19:50:20 2020 +0000
++++ b/startupcache/StartupCache.cpp	Tue Jul 07 04:33:49 2020 +0000
+@@ -439,7 +439,7 @@
+   return NS_OK;
+ }
+ 
+-// Makes a copy of the buffer, client retains ownership of inbuf.
++// Takes ownership of the input buffer
+ nsresult StartupCache::PutBuffer(const char* id, UniquePtr<char[]>&& inbuf,
+                                  uint32_t len) {
+   NS_ASSERTION(NS_IsMainThread(),

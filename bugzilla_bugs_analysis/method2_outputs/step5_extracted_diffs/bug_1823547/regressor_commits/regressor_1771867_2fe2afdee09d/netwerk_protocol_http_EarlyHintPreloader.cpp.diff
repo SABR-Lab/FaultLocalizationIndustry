@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/EarlyHintPreloader.cpp
+# Commit: 2fe2afdee09d
+# Full Hash: 2fe2afdee09dd5d18d7208f5b4186e659ebdde7e
+# Author: Manuel Bucher <manuel@mozilla.com>
+# Date: 2022-12-02 21:26:33
+# Regressor Bug: 1771867
+# File Overlap Count: 1
+# Description:
+#   Bug 1771867 - Early Hints Phase 2 - Part 11: Don't preload anchored links from early hints r=necko-reviewers,valentin
+#   
+#   They won't get passed to the PreloadService anyway. Resulting in an unnecessary
+#   additional load
+#   
+# ==============================================================================
+
+diff -r 8bdb1f682d22 -r 2fe2afdee09d netwerk/protocol/http/EarlyHintPreloader.cpp
+--- a/netwerk/protocol/http/EarlyHintPreloader.cpp	Fri Dec 02 09:45:27 2022 +0000
++++ b/netwerk/protocol/http/EarlyHintPreloader.cpp	Fri Dec 02 09:45:28 2022 +0000
+@@ -177,8 +177,15 @@
+   }
+ 
+   nsCOMPtr<nsIURI> uri;
+-  // use the base uri
+-  NS_ENSURE_SUCCESS_VOID(aHeader.NewResolveHref(getter_AddRefs(uri), aBaseURI));
++  NS_ENSURE_SUCCESS_VOID(
++      NS_NewURI(getter_AddRefs(uri), aHeader.mHref, nullptr, aBaseURI));
++  // The link relation may apply to a different resource, specified
++  // in the anchor parameter. For the link relations supported so far,
++  // we simply abort if the link applies to a resource different to the
++  // one we've loaded
++  if (!nsContentUtils::LinkContextIsURI(aHeader.mAnchor, uri)) {
++    return;
++  }
+ 
+   // only preload secure context urls
+   if (!uri->SchemeIs("https")) {

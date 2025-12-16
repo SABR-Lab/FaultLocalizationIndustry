@@ -1,0 +1,81 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: servo/components/style_traits/arc_slice.rs
+# Commit: 73ee44ffb320
+# Full Hash: 73ee44ffb32056a47a020486d3f8d1ba5dfe381f
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-07-12 21:49:07
+# Regressor Bug: 1842221
+# File Overlap Count: 1
+# Description:
+#   Bug 1842221 - Simplify ThinArc and friends. r=boris
+#   
+#   ThinArc is way more complex than it needs to be, and miri complains
+#   about various things when using the selectors crate with it.
+#   
+# ==============================================================================
+
+diff -r c32acbd14a56 -r 73ee44ffb320 servo/components/style_traits/arc_slice.rs
+--- a/servo/components/style_traits/arc_slice.rs	Wed Jul 12 07:03:02 2023 +0000
++++ b/servo/components/style_traits/arc_slice.rs	Wed Jul 12 07:17:25 2023 +0000
+@@ -24,9 +24,6 @@
+ const ARC_SLICE_CANARY: u64 = 0xf3f3f3f3f3f3f3f3;
+ 
+ /// A wrapper type for a refcounted slice using ThinArc.
+-///
+-/// cbindgen:derive-eq=false
+-/// cbindgen:derive-neq=false
+ #[repr(C)]
+ #[derive(Debug, Eq, PartialEq, ToShmem)]
+ pub struct ArcSlice<T>(#[shmem(field_bound)] ThinArc<u64, T>);
+@@ -36,8 +33,8 @@
+ 
+     #[inline]
+     fn deref(&self) -> &Self::Target {
+-        debug_assert_eq!(self.0.header.header, ARC_SLICE_CANARY);
+-        &self.0.slice
++        debug_assert_eq!(self.0.header, ARC_SLICE_CANARY);
++        self.0.slice()
+     }
+ }
+ 
+@@ -111,9 +108,9 @@
+     where
+         I: Iterator<Item = T> + ExactSizeIterator,
+     {
+-        let thin_arc = ThinArc::from_header_and_iter(ARC_SLICE_CANARY, items);
+-        thin_arc.with_arc(|a| a.mark_as_intentionally_leaked());
+-        ArcSlice(thin_arc)
++        let arc = ThinArc::from_header_and_iter(ARC_SLICE_CANARY, items);
++        arc.mark_as_intentionally_leaked();
++        ArcSlice(arc)
+     }
+ 
+     /// Creates a value that can be passed via FFI, and forgets this value
+@@ -122,7 +119,7 @@
+     #[allow(unsafe_code)]
+     pub fn forget(self) -> ForgottenArcSlicePtr<T> {
+         let ret = unsafe {
+-            ForgottenArcSlicePtr(NonNull::new_unchecked(self.0.ptr() as *const _ as *mut _))
++            ForgottenArcSlicePtr(NonNull::new_unchecked(self.0.raw_ptr() as *const _ as *mut _))
+         };
+         mem::forget(self);
+         ret
+@@ -133,14 +130,14 @@
+     #[inline]
+     pub fn leaked_empty_ptr() -> *mut std::os::raw::c_void {
+         let empty: ArcSlice<_> = EMPTY_ARC_SLICE.clone();
+-        let ptr = empty.0.ptr();
++        let ptr = empty.0.raw_ptr();
+         std::mem::forget(empty);
+         ptr as *mut _
+     }
+ 
+     /// Returns whether there's only one reference to this ArcSlice.
+     pub fn is_unique(&self) -> bool {
+-        self.0.with_arc(|arc| arc.is_unique())
++        self.0.is_unique()
+     }
+ }
+ 

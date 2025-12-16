@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: modules/libpref/init/StaticPrefList.yaml
+# Commit: 8839a3ba6243
+# Full Hash: 8839a3ba62436bd0ea7e5bd07e2b63a8d45b8609
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2023-12-09 09:33:28
+# Regressor Bug: 1863914
+# File Overlap Count: 2
+# Description:
+#   Bug 1863914: Use multiple shmem buffers for remote canvas recording. r=aosmond
+#   
+#   This replaces the use of a single large ring buffer.
+#   The buffers are still processed in parallel and are recycled to reduce
+#   allocation. Events that do not fit in the default sized buffer have a separate
+# ==============================================================================
+
+diff -r f088b7a21045 -r 8839a3ba6243 modules/libpref/init/StaticPrefList.yaml
+--- a/modules/libpref/init/StaticPrefList.yaml	Fri Dec 08 15:56:39 2023 +0000
++++ b/modules/libpref/init/StaticPrefList.yaml	Fri Dec 08 16:11:27 2023 +0000
+@@ -5744,6 +5744,36 @@
+ #endif
+   mirror: once
+ 
++# Default size of the shmem buffers used for recording
++- name: gfx.canvas.remote.default-buffer-size
++  type: RelaxedAtomicUint32
++  value: 32 * 1024
++  mirror: always
++
++# How many times to spin before waiting in remote canvas
++- name: gfx.canvas.remote.max-spin-count
++  type: RelaxedAtomicUint32
++  value: 500
++  mirror: always
++
++# How long to wait in milliseconds for the next event while in a transaction
++- name: gfx.canvas.remote.event-timeout-ms
++  type: RelaxedAtomicUint32
++  value: 2
++  mirror: always
++
++# How many times we have a spare buffer before we drop one
++- name: gfx.canvas.remote.drop-buffer-limit
++  type: RelaxedAtomicUint32
++  value: 100
++  mirror: always
++
++# Delay in milliseconds to drop buffers when there have been no non-empty transactions
++- name: gfx.canvas.remote.drop-buffer-milliseconds
++  type: RelaxedAtomicUint32
++  value: 10000
++  mirror: always
++
+ - name: gfx.canvas.willreadfrequently.enabled
+   type: bool
+ #if defined(XP_WIN)

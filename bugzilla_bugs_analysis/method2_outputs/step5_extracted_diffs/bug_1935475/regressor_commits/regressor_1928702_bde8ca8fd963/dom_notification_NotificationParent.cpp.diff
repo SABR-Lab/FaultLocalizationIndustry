@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/notification/NotificationParent.cpp
+# Commit: bde8ca8fd963
+# Full Hash: bde8ca8fd9636bc6650ee6768dfb8e60fc1da596
+# Author: Kagami Sascha Rosylight <saschanaz@outlook.com>
+# Date: 2024-11-12 09:32:50
+# Regressor Bug: 1928702
+# File Overlap Count: 1
+# Description:
+#   Bug 1928702 - Part 6: Move NotificationObserver functions to NotificationUtils r=asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D227691
+# ==============================================================================
+
+diff -r fca3921d09a5 -r bde8ca8fd963 dom/notification/NotificationParent.cpp
+--- a/dom/notification/NotificationParent.cpp	Mon Nov 11 20:34:13 2024 +0000
++++ b/dom/notification/NotificationParent.cpp	Mon Nov 11 20:34:13 2024 +0000
+@@ -19,6 +19,20 @@
+ NS_IMETHODIMP
+ NotificationParent::Observe(nsISupports* aSubject, const char* aTopic,
+                             const char16_t* aData) {
++  if (!strcmp("alertdisablecallback", aTopic)) {
++    return RemovePermission(mPrincipal);
++  }
++  if (!strcmp("alertsettingscallback", aTopic)) {
++    return OpenSettings(mPrincipal);
++  }
++  if (!strcmp("alertshow", aTopic)) {
++    (void)NS_WARN_IF(NS_FAILED(
++        AdjustPushQuota(mPrincipal, NotificationStatusChange::Shown)));
++  }
++  if (!strcmp("alertfinished", aTopic)) {
++    (void)NS_WARN_IF(NS_FAILED(
++        AdjustPushQuota(mPrincipal, NotificationStatusChange::Closed)));
++  }
+   return NS_OK;
+ }
+ 

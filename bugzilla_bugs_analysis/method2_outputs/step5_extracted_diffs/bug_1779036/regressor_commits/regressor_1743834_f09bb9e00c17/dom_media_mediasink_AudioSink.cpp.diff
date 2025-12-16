@@ -1,0 +1,31 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasink/AudioSink.cpp
+# Commit: f09bb9e00c17
+# Full Hash: f09bb9e00c172dc2be0a7d970f1ef4d33301d7f0
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2022-05-10 03:50:31
+# Regressor Bug: 1743834
+# File Overlap Count: 1
+# Description:
+#   Bug 1743834 - After unmuting, re-initialize the AudioSink asynchronously. r=alwu
+#   
+#   On Windows (in particular, but also not quick on other OS, depending on the
+#   hardware being used), opening a system-level audio stream (using cubeb)
+#   can be very long. It's a blocking call from the MDSM thread. The MDSM can't
+# ==============================================================================
+
+diff -r 569b8d3a9fcd -r f09bb9e00c17 dom/media/mediasink/AudioSink.cpp
+--- a/dom/media/mediasink/AudioSink.cpp	Mon May 09 13:20:53 2022 +0000
++++ b/dom/media/mediasink/AudioSink.cpp	Mon May 09 13:20:54 2022 +0000
+@@ -34,8 +34,7 @@
+ using media::TimeUnit;
+ 
+ AudioSink::AudioSink(AbstractThread* aThread,
+-                     MediaQueue<AudioData>& aAudioQueue,
+-                     const AudioInfo& aInfo,
++                     MediaQueue<AudioData>& aAudioQueue, const AudioInfo& aInfo,
+                      AudioDeviceInfo* aAudioDevice)
+     : mInfo(aInfo),
+       mAudioDevice(aAudioDevice),

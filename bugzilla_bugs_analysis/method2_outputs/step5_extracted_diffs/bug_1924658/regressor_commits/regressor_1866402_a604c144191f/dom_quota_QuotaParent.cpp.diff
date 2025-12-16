@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/QuotaParent.cpp
+# Commit: a604c144191f
+# Full Hash: a604c144191f5c3c65169c072d4e52a1e2c1c23f
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-10-09 09:46:37
+# Regressor Bug: 1866402
+# File Overlap Count: 1
+# Description:
+#   Bug 1866402 - Change nsIQuotaManagerService::ClearStoragesForPrincipal to support clearing of entire origins only; r=dom-storage-reviewers,jari
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D195505
+# ==============================================================================
+
+diff -r 281a926003fd -r a604c144191f dom/quota/QuotaParent.cpp
+--- a/dom/quota/QuotaParent.cpp	Wed Oct 09 05:34:36 2024 +0000
++++ b/dom/quota/QuotaParent.cpp	Wed Oct 09 05:34:37 2024 +0000
+@@ -626,7 +626,7 @@
+ 
+ mozilla::ipc::IPCResult Quota::RecvClearStoragesForOrigin(
+     const Maybe<PersistenceType>& aPersistenceType,
+-    const PrincipalInfo& aPrincipalInfo, const Maybe<Type>& aClientType,
++    const PrincipalInfo& aPrincipalInfo,
+     ClearStoragesForOriginResolver&& aResolver) {
+   AssertIsOnBackgroundThread();
+ 
+@@ -641,19 +641,13 @@
+ 
+     QM_TRY(MOZ_TO_RESULT(QuotaManager::IsPrincipalInfoValid(aPrincipalInfo)),
+            QM_CUF_AND_IPC_FAIL(this));
+-
+-    if (aClientType) {
+-      QM_TRY(MOZ_TO_RESULT(Client::IsValidType(*aClientType)),
+-             QM_CUF_AND_IPC_FAIL(this));
+-    }
+   }
+ 
+   QM_TRY_UNWRAP(const NotNull<RefPtr<QuotaManager>> quotaManager,
+                 QuotaManager::GetOrCreate(),
+                 ResolveBoolResponseAndReturn(aResolver));
+ 
+-  quotaManager
+-      ->ClearStoragesForOrigin(aPersistenceType, aPrincipalInfo, aClientType)
++  quotaManager->ClearStoragesForOrigin(aPersistenceType, aPrincipalInfo)
+       ->Then(GetCurrentSerialEventTarget(), __func__,
+              BoolPromiseResolveOrRejectCallback(this, std::move(aResolver)));
+ 

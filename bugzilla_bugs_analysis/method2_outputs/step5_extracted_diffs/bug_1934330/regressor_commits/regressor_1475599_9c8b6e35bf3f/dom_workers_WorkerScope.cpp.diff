@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/WorkerScope.cpp
+# Commit: 9c8b6e35bf3f
+# Full Hash: 9c8b6e35bf3f9916e114ced0473be4b778c7bab1
+# Author: Andrea Marchesini <amarchesini@mozilla.com>
+# Date: 2024-09-11 09:21:34
+# Regressor Bug: 1475599
+# File Overlap Count: 1
+# Description:
+#   Bug 1475599 - part 1 - CookieStore API - WebIDL, r=smaug,edgul
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D215144
+# ==============================================================================
+
+diff -r a9b3b52f33a5 -r 9c8b6e35bf3f dom/workers/WorkerScope.cpp
+--- a/dom/workers/WorkerScope.cpp	Tue Sep 10 16:21:33 2024 +0000
++++ b/dom/workers/WorkerScope.cpp	Tue Sep 10 16:31:38 2024 +0000
+@@ -48,6 +48,7 @@
+ #include "mozilla/dom/ClientSource.h"
+ #include "mozilla/dom/Clients.h"
+ #include "mozilla/dom/Console.h"
++#include "mozilla/dom/CookieStore.h"
+ #include "mozilla/dom/DOMMozPromiseRequestHolder.h"
+ #include "mozilla/dom/DebuggerNotification.h"
+ #include "mozilla/dom/DebuggerNotificationBinding.h"
+@@ -1099,7 +1100,8 @@
+ }
+ 
+ NS_IMPL_CYCLE_COLLECTION_INHERITED(ServiceWorkerGlobalScope, WorkerGlobalScope,
+-                                   mClients, mExtensionBrowser, mRegistration)
++                                   mClients, mExtensionBrowser, mRegistration,
++                                   mCookieStore)
+ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(ServiceWorkerGlobalScope)
+ NS_INTERFACE_MAP_END_INHERITING(WorkerGlobalScope)
+ 
+@@ -1246,6 +1248,14 @@
+   return mExtensionBrowser.clonePtr();
+ }
+ 
++already_AddRefed<CookieStore> ServiceWorkerGlobalScope::CookieStore() {
++  if (!mCookieStore) {
++    mCookieStore = CookieStore::Create(this);
++  }
++
++  return do_AddRef(mCookieStore);
++}
++
+ bool WorkerDebuggerGlobalScope::WrapGlobalObject(
+     JSContext* aCx, JS::MutableHandle<JSObject*> aReflector) {
+   AssertIsOnWorkerThread();

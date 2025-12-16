@@ -1,0 +1,79 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/WebrtcGmpVideoCodec.cpp
+# Commit: 709078257c62
+# Full Hash: 709078257c628fae054382894de5864b1f5f5c2a
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 3
+# Description:
+#   Bug 1654112 - Re-wire GMP PluginID between codecs and VideoConduit. r=bwc
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D104724
+# ==============================================================================
+
+diff -r 3ca24e761cc3 -r 709078257c62 dom/media/webrtc/libwebrtcglue/WebrtcGmpVideoCodec.cpp
+--- a/dom/media/webrtc/libwebrtcglue/WebrtcGmpVideoCodec.cpp	Wed Feb 10 10:34:14 2021 +0100
++++ b/dom/media/webrtc/libwebrtcglue/WebrtcGmpVideoCodec.cpp	Wed Feb 10 15:17:29 2021 +0100
+@@ -32,7 +32,6 @@
+       mMaxPayloadSize(0),
+       mCallbackMutex("WebrtcGmpVideoEncoder encoded callback mutex"),
+       mCallback(nullptr),
+-      mCachedPluginId(0),
+       mPCHandle(std::move(aPCHandle)) {
+   mCodecParams.mGMPApiVersion = 0;
+   mCodecParams.mCodecType = kGMPVideoCodecInvalid;
+@@ -200,7 +199,8 @@
+ 
+   mGMP = aGMP;
+   mHost = aHost;
+-  mCachedPluginId = mGMP->GetPluginId();
++  mCachedPluginId = Some(mGMP->GetPluginId());
++  mInitPluginEvent.Notify(*mCachedPluginId);
+   return WEBRTC_VIDEO_CODEC_OK;
+ }
+ 
+@@ -226,6 +226,11 @@
+   mHost = nullptr;
+   mInitting = false;
+ 
++  if (mCachedPluginId) {
++    mReleasePluginEvent.Notify(*mCachedPluginId);
++  }
++  mCachedPluginId = Nothing();
++
+   if (gmp) {
+     // Do this last, since this could cause us to be destroyed
+     gmp->Close();
+@@ -618,7 +623,6 @@
+       mHost(nullptr),
+       mCallbackMutex("WebrtcGmpVideoDecoder decoded callback mutex"),
+       mCallback(nullptr),
+-      mCachedPluginId(0),
+       mDecoderStatus(GMPNoErr),
+       mPCHandle(std::move(aPCHandle)) {
+   MOZ_ASSERT(!mPCHandle.empty());
+@@ -694,7 +698,8 @@
+ 
+   mGMP = aGMP;
+   mHost = aHost;
+-  mCachedPluginId = mGMP->GetPluginId();
++  mCachedPluginId = Some(mGMP->GetPluginId());
++  mInitPluginEvent.Notify(*mCachedPluginId);
+   // Bug XXXXXX: transfer settings from codecSettings to codec.
+   GMPVideoCodec codec;
+   memset(&codec, 0, sizeof(codec));
+@@ -741,6 +746,11 @@
+   mHost = nullptr;
+   mInitting = false;
+ 
++  if (mCachedPluginId) {
++    mReleasePluginEvent.Notify(*mCachedPluginId);
++  }
++  mCachedPluginId = Nothing();
++
+   if (gmp) {
+     // Do this last, since this could cause us to be destroyed
+     gmp->Close();

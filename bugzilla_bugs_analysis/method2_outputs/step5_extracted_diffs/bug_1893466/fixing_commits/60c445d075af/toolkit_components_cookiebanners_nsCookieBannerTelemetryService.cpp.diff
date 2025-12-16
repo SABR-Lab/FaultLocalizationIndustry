@@ -1,0 +1,32 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/cookiebanners/nsCookieBannerTelemetryService.cpp
+# Commit: 60c445d075af
+# Full Hash: 60c445d075af1489936998ed8dcb0a15d9dd5e0e
+# Author: Tim Huang <tihuang@mozilla.com>
+# Date: 2024-04-29 15:51:47
+# Description:
+#   Bug 1893466 - Don't collect Google GDRP telemetry if no default search engine is available. r=pbz
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D208724
+# ==============================================================================
+
+diff -r dc004fe2ce2e -r 60c445d075af toolkit/components/cookiebanners/nsCookieBannerTelemetryService.cpp
+--- a/toolkit/components/cookiebanners/nsCookieBannerTelemetryService.cpp	Mon Apr 29 08:40:01 2024 +0000
++++ b/toolkit/components/cookiebanners/nsCookieBannerTelemetryService.cpp	Mon Apr 29 08:57:42 2024 +0000
+@@ -247,6 +247,14 @@
+   rv = searchService->GetDefaultEngine(getter_AddRefs(engine));
+   NS_ENSURE_SUCCESS(rv, rv);
+ 
++  // Bail out early if no default search engine is available. This could happen
++  // if no search engine is shipped with the Gecko.
++  if (!engine) {
++    MOZ_LOG(gCookieBannerTelemetryLog, LogLevel::Debug,
++            ("No default search engine is available."));
++    return NS_OK;
++  }
++
+   nsAutoString id;
+   rv = engine->GetId(id);
+   NS_ENSURE_SUCCESS(rv, rv);

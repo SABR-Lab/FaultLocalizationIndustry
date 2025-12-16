@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/nsHttpConnectionMgr.cpp
+# Commit: 373bc48d5325
+# Full Hash: 373bc48d5325e17cb67a11035d4542d221023594
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2023-09-19 09:37:28
+# Regressor Bug: 1784261
+# File Overlap Count: 1
+# Description:
+#   Bug 1784261 - Add telemetry to understand the reason of connection closure, r=necko-reviewers,valentin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D188132
+# ==============================================================================
+
+diff -r f2fee3884997 -r 373bc48d5325 netwerk/protocol/http/nsHttpConnectionMgr.cpp
+--- a/netwerk/protocol/http/nsHttpConnectionMgr.cpp	Mon Sep 18 14:28:30 2023 +0000
++++ b/netwerk/protocol/http/nsHttpConnectionMgr.cpp	Mon Sep 18 14:44:18 2023 +0000
+@@ -848,6 +848,8 @@
+             ("UpdateCoalescingForNewConn() found existing active H2 conn that "
+              "could have served newConn, but new connection is H3, therefore "
+              "close the H2 conncetion"));
++        existingConn->SetCloseReason(
++            ConnectionCloseReason::CLOSE_EXISTING_CONN_FOR_COALESCING);
+         existingConn->DontReuse();
+       }
+     } else if (existingConn->UsingHttp3() && newConn->UsingSpdy()) {
+@@ -858,6 +860,8 @@
+              "could have served H2 newConn graceful close of newConn=%p to "
+              "migrate to existingConn %p\n",
+              newConn, existingConn));
++        existingConn->SetCloseReason(
++            ConnectionCloseReason::CLOSE_NEW_CONN_FOR_COALESCING);
+         newConn->DontReuse();
+         return;
+       }
+@@ -867,6 +871,8 @@
+            "have served newConn "
+            "graceful close of newConn=%p to migrate to existingConn %p\n",
+            newConn, existingConn));
++      existingConn->SetCloseReason(
++          ConnectionCloseReason::CLOSE_NEW_CONN_FOR_COALESCING);
+       newConn->DontReuse();
+       return;
+     }
+@@ -2513,6 +2519,7 @@
+       ent->RemoveH2WebsocketConns(conn);
+     }
+     LOG(("  connection cannot be reused; closing connection\n"));
++    conn->SetCloseReason(ConnectionCloseReason::CANT_REUSED);
+     conn->Close(NS_ERROR_ABORT);
+   }
+ 

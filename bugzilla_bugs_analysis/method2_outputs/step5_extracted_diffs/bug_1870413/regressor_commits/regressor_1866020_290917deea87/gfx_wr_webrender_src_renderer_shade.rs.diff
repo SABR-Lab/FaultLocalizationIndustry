@@ -1,0 +1,104 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/renderer/shade.rs
+# Commit: 290917deea87
+# Full Hash: 290917deea879f965f6f1ad441df945c41c01c14
+# Author: Jamie Nicol <jnicol@mozilla.com>
+# Date: 2023-12-13 21:42:49
+# Regressor Bug: 1866020
+# File Overlap Count: 1
+# Description:
+#   Bug 1866020 - Override buggy colorspace conversion on Pixel devices. r=gw,padenot,geckoview-reviewers,owlish
+#   
+#   Pixel 6, 7, and 8 devices running Android 14 are affected by a bug
+#   where video frames with SMPTE 432 color primaries are rendered
+#   incorrectly when sampled from an external texture in GLES. To work
+# ==============================================================================
+
+diff -r 12e266e296c1 -r 290917deea87 gfx/wr/webrender/src/renderer/shade.rs
+--- a/gfx/wr/webrender/src/renderer/shade.rs	Wed Dec 13 08:29:00 2023 +0000
++++ b/gfx/wr/webrender/src/renderer/shade.rs	Wed Dec 13 09:06:29 2023 +0000
+@@ -39,23 +39,27 @@
+         (ImageBufferKind::TextureRect, _) => "TEXTURE_RECT",
+         (ImageBufferKind::TextureExternal, TextureExternalVersion::ESSL3) => "TEXTURE_EXTERNAL",
+         (ImageBufferKind::TextureExternal, TextureExternalVersion::ESSL1) => "TEXTURE_EXTERNAL_ESSL1",
++        (ImageBufferKind::TextureExternalBT709, _) => "TEXTURE_EXTERNAL_BT709",
+     }
+ }
+ 
+-fn has_platform_support(kind: ImageBufferKind, gl_type: &GlType) -> bool {
+-    match (kind, gl_type) {
++fn has_platform_support(kind: ImageBufferKind, device: &Device) -> bool {
++    match (kind, device.gl().get_type()) {
+         (ImageBufferKind::Texture2D, _) => true,
+-        (ImageBufferKind::TextureRect, &GlType::Gles) => false,
+-        (ImageBufferKind::TextureRect, &GlType::Gl) => true,
+-        (ImageBufferKind::TextureExternal, &GlType::Gles) => true,
+-        (ImageBufferKind::TextureExternal, &GlType::Gl) => false,
++        (ImageBufferKind::TextureRect, GlType::Gles) => false,
++        (ImageBufferKind::TextureRect, GlType::Gl) => true,
++        (ImageBufferKind::TextureExternal, GlType::Gles) => true,
++        (ImageBufferKind::TextureExternal, GlType::Gl) => false,
++        (ImageBufferKind::TextureExternalBT709, GlType::Gles) => device.supports_extension("GL_EXT_YUV_target"),
++        (ImageBufferKind::TextureExternalBT709, GlType::Gl) => false,
+     }
+ }
+ 
+-pub const IMAGE_BUFFER_KINDS: [ImageBufferKind; 3] = [
++pub const IMAGE_BUFFER_KINDS: [ImageBufferKind; 4] = [
+     ImageBufferKind::Texture2D,
+     ImageBufferKind::TextureRect,
+     ImageBufferKind::TextureExternal,
++    ImageBufferKind::TextureExternalBT709,
+ ];
+ 
+ const ADVANCED_BLEND_FEATURE: &str = "ADVANCED_BLEND";
+@@ -830,7 +834,7 @@
+             cs_scale.push(None);
+         }
+         for image_buffer_kind in &IMAGE_BUFFER_KINDS {
+-            if has_platform_support(*image_buffer_kind, &gl_type) {
++            if has_platform_support(*image_buffer_kind, device) {
+                 let feature_string = get_feature_string(
+                     *image_buffer_kind,
+                     texture_external_version,
+@@ -933,7 +937,7 @@
+             brush_fast_image.push(None);
+         }
+         for buffer_kind in 0 .. IMAGE_BUFFER_KINDS.len() {
+-            if !has_platform_support(IMAGE_BUFFER_KINDS[buffer_kind], &gl_type)
++            if !has_platform_support(IMAGE_BUFFER_KINDS[buffer_kind], device)
+                 // Brush shaders are not ESSL1 compatible
+                 || (IMAGE_BUFFER_KINDS[buffer_kind] == ImageBufferKind::TextureExternal
+                     && texture_external_version == TextureExternalVersion::ESSL1)
+@@ -988,7 +992,7 @@
+             brush_yuv_image.push(None);
+         }
+         for image_buffer_kind in &IMAGE_BUFFER_KINDS {
+-            if has_platform_support(*image_buffer_kind, &gl_type) {
++            if has_platform_support(*image_buffer_kind, device) {
+                 yuv_features.push("YUV");
+                 fast_path_features.push("FAST_PATH");
+ 
+@@ -1361,7 +1365,7 @@
+         }
+ 
+         for image_buffer_kind in &IMAGE_BUFFER_KINDS {
+-            if !has_platform_support(*image_buffer_kind, &gl_type) {
++            if !has_platform_support(*image_buffer_kind, device) {
+                 continue;
+             }
+ 
+@@ -1486,7 +1490,10 @@
+         GlType::Gl => ShaderFeatureFlags::GL,
+         GlType::Gles => {
+             let texture_external_flag = match texture_external_version {
+-                TextureExternalVersion::ESSL3 => ShaderFeatureFlags::TEXTURE_EXTERNAL,
++                TextureExternalVersion::ESSL3 => {
++                    ShaderFeatureFlags::TEXTURE_EXTERNAL
++                        | ShaderFeatureFlags::TEXTURE_EXTERNAL_BT709
++                }
+                 TextureExternalVersion::ESSL1 => ShaderFeatureFlags::TEXTURE_EXTERNAL_ESSL1,
+             };
+             ShaderFeatureFlags::GLES | texture_external_flag

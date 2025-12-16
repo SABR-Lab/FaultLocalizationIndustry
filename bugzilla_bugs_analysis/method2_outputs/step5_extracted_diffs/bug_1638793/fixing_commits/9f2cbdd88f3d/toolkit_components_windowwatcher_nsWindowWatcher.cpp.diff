@@ -1,0 +1,32 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/windowwatcher/nsWindowWatcher.cpp
+# Commit: 9f2cbdd88f3d
+# Full Hash: 9f2cbdd88f3d159632d73f77fb97ee89042e93b8
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-06-15 21:48:38
+# Description:
+#   Bug 1638793 - Ensure OriginAttributes is set on OpenWindowInfo for expanded principals, r=kmag
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D79471
+# ==============================================================================
+
+diff -r 50324c6ce855 -r 9f2cbdd88f3d toolkit/components/windowwatcher/nsWindowWatcher.cpp
+--- a/toolkit/components/windowwatcher/nsWindowWatcher.cpp	Mon Jun 15 20:36:02 2020 +0300
++++ b/toolkit/components/windowwatcher/nsWindowWatcher.cpp	Fri Jun 12 19:39:51 2020 +0000
+@@ -793,7 +793,14 @@
+         !nsContentUtils::IsSystemOrExpandedPrincipal(subjectPrincipal)) {
+       openWindowInfo->mOriginAttributes =
+           subjectPrincipal->OriginAttributesRef();
++    } else if (parentBC) {
++      openWindowInfo->mOriginAttributes = parentBC->OriginAttributesRef();
+     }
++
++    MOZ_DIAGNOSTIC_ASSERT(
++        !parentBC || openWindowInfo->mOriginAttributes.EqualsIgnoringFPD(
++                         parentBC->OriginAttributesRef()),
++        "subject principal origin attributes doesn't match opener");
+   }
+ 
+   uint32_t activeDocsSandboxFlags = 0;

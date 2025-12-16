@@ -1,0 +1,455 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wgpu/wgpu-core/src/binding_model.rs
+# Commit: ef5dc3e04e5f
+# Full Hash: ef5dc3e04e5f271eea0636ab3a495e95cc912f1d
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-09-04 09:40:24
+# Regressor Bug: 1726626
+# File Overlap Count: 3
+# Description:
+#   Bug 1726626 - Move gfx/wgpu into a 3rd party dependency r=jgilbert,bholley
+#   
+#   This update makes wgpu a vendored dependency instead of having it in gfx/wgpu.
+#   
+#   ## Notes
+# ==============================================================================
+
+diff --git a/gfx/wgpu/wgpu-core/src/binding_model.rs b/third_party/rust/wgpu-core/src/binding_model.rs
+rename from gfx/wgpu/wgpu-core/src/binding_model.rs
+rename to third_party/rust/wgpu-core/src/binding_model.rs
+--- a/gfx/wgpu/wgpu-core/src/binding_model.rs
++++ b/third_party/rust/wgpu-core/src/binding_model.rs
+@@ -1,23 +1,17 @@
+-/* This Source Code Form is subject to the terms of the Mozilla Public
+- * License, v. 2.0. If a copy of the MPL was not distributed with this
+- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+-
+ use crate::{
+-    device::{
+-        descriptor::{DescriptorSet, DescriptorTotalCount},
+-        DeviceError, MissingFeatures, SHADER_STAGE_COUNT,
+-    },
++    device::{DeviceError, MissingDownlevelFlags, MissingFeatures, SHADER_STAGE_COUNT},
++    error::{ErrorFormatter, PrettyError},
+     hub::Resource,
+     id::{BindGroupLayoutId, BufferId, DeviceId, SamplerId, TextureViewId, Valid},
+-    memory_init_tracker::MemoryInitTrackerAction,
++    init_tracker::BufferInitTrackerAction,
+     track::{TrackerSet, UsageConflict, DUMMY_SELECTOR},
+     validation::{MissingBufferUsageError, MissingTextureUsageError},
+-    FastHashMap, Label, LifeGuard, MultiRefCount, Stored, MAX_BIND_GROUPS,
++    FastHashMap, Label, LifeGuard, MultiRefCount, Stored,
+ };
+ 
+ use arrayvec::ArrayVec;
+ 
+ #[cfg(feature = "replay")]
+ use serde::Deserialize;
+ #[cfg(feature = "trace")]
+ use serde::Serialize;
+@@ -26,20 +20,24 @@ use std::{
+     borrow::{Borrow, Cow},
+     ops::Range,
+ };
+ 
+ use thiserror::Error;
+ 
+ #[derive(Clone, Debug, Error)]
+ pub enum BindGroupLayoutEntryError {
++    #[error("cube dimension is not expected for texture storage")]
++    StorageTextureCube,
+     #[error("arrays of bindings unsupported for this type of binding")]
+     ArrayUnsupported,
+     #[error(transparent)]
+     MissingFeatures(#[from] MissingFeatures),
++    #[error(transparent)]
++    MissingDownlevelFlags(#[from] MissingDownlevelFlags),
+ }
+ 
+ #[derive(Clone, Debug, Error)]
+ pub enum CreateBindGroupLayoutError {
+     #[error(transparent)]
+     Device(#[from] DeviceError),
+     #[error("conflicting binding at index {0}")]
+     ConflictBinding(u32),
+@@ -90,18 +88,16 @@ pub enum CreateBindGroupError {
+     #[error("unable to find a corresponding declaration for the given binding {0}")]
+     MissingBindingDeclaration(u32),
+     #[error(transparent)]
+     MissingBufferUsage(#[from] MissingBufferUsageError),
+     #[error(transparent)]
+     MissingTextureUsage(#[from] MissingTextureUsageError),
+     #[error("binding declared as a single item, but bind group is using it as an array")]
+     SingleBindingExpected,
+-    #[error("unable to create a bind group with a swap chain image")]
+-    SwapChainImage,
+     #[error("buffer offset {0} does not respect `BIND_BUFFER_ALIGNMENT`")]
+     UnalignedBufferOffset(wgt::BufferAddress),
+     #[error(
+         "buffer binding {binding} range {given} exceeds `max_*_buffer_binding_size` limit {limit}"
+     )]
+     BufferRangeTooLarge {
+         binding: u32,
+         given: u32,
+@@ -135,40 +131,69 @@ pub enum CreateBindGroupError {
+         view_dimension: wgt::TextureViewDimension,
+     },
+     #[error("storage texture binding {binding} expects format = {layout_format:?}, but given a view with format = {view_format:?}")]
+     InvalidStorageTextureFormat {
+         binding: u32,
+         layout_format: wgt::TextureFormat,
+         view_format: wgt::TextureFormat,
+     },
++    #[error("storage texture bindings must have a single mip level, but given a view with mip_level_count = {mip_level_count:?} at binding {binding}")]
++    InvalidStorageTextureMipLevelCount { binding: u32, mip_level_count: u32 },
+     #[error("sampler binding {binding} expects comparison = {layout_cmp}, but given a sampler with comparison = {sampler_cmp}")]
+     WrongSamplerComparison {
+         binding: u32,
+         layout_cmp: bool,
+         sampler_cmp: bool,
+     },
+     #[error("sampler binding {binding} expects filtering = {layout_flt}, but given a sampler with filtering = {sampler_flt}")]
+     WrongSamplerFiltering {
+         binding: u32,
+         layout_flt: bool,
+         sampler_flt: bool,
+     },
+     #[error("bound texture views can not have both depth and stencil aspects enabled")]
+     DepthStencilAspect,
+-    #[error("the adapter does not support simultaneous read + write storage texture access for the format {0:?}")]
+-    StorageReadWriteNotSupported(wgt::TextureFormat),
++    #[error("the adapter does not support read access for storages texture of format {0:?}")]
++    StorageReadNotSupported(wgt::TextureFormat),
+     #[error(transparent)]
+     ResourceUsageConflict(#[from] UsageConflict),
+ }
+ 
++impl PrettyError for CreateBindGroupError {
++    fn fmt_pretty(&self, fmt: &mut ErrorFormatter) {
++        fmt.error(self);
++        match *self {
++            Self::BindingZeroSize(id) => {
++                fmt.buffer_label(&id);
++            }
++            Self::BindingRangeTooLarge { buffer, .. } => {
++                fmt.buffer_label(&buffer);
++            }
++            Self::BindingSizeTooSmall { buffer, .. } => {
++                fmt.buffer_label(&buffer);
++            }
++            Self::InvalidBuffer(id) => {
++                fmt.buffer_label(&id);
++            }
++            Self::InvalidTextureView(id) => {
++                fmt.texture_view_label(&id);
++            }
++            Self::InvalidSampler(id) => {
++                fmt.sampler_label(&id);
++            }
++            _ => {}
++        };
++    }
++}
++
+ #[derive(Clone, Debug, Error)]
+ pub enum BindingZone {
+     #[error("stage {0:?}")]
+-    Stage(wgt::ShaderStage),
++    Stage(wgt::ShaderStages),
+     #[error("whole pipeline")]
+     Pipeline,
+ }
+ 
+ #[derive(Clone, Debug, Error)]
+ #[error("too many bindings of type {kind:?} in {zone}, limit is {limit}, count was {count}")]
+ pub struct BindingTypeMaxCountError {
+     pub kind: BindingTypeMaxCountErrorKind,
+@@ -191,39 +216,39 @@ pub enum BindingTypeMaxCountErrorKind {
+ #[derive(Debug, Default)]
+ pub(crate) struct PerStageBindingTypeCounter {
+     vertex: u32,
+     fragment: u32,
+     compute: u32,
+ }
+ 
+ impl PerStageBindingTypeCounter {
+-    pub(crate) fn add(&mut self, stage: wgt::ShaderStage, count: u32) {
+-        if stage.contains(wgt::ShaderStage::VERTEX) {
++    pub(crate) fn add(&mut self, stage: wgt::ShaderStages, count: u32) {
++        if stage.contains(wgt::ShaderStages::VERTEX) {
+             self.vertex += count;
+         }
+-        if stage.contains(wgt::ShaderStage::FRAGMENT) {
++        if stage.contains(wgt::ShaderStages::FRAGMENT) {
+             self.fragment += count;
+         }
+-        if stage.contains(wgt::ShaderStage::COMPUTE) {
++        if stage.contains(wgt::ShaderStages::COMPUTE) {
+             self.compute += count;
+         }
+     }
+ 
+     pub(crate) fn max(&self) -> (BindingZone, u32) {
+         let max_value = self.vertex.max(self.fragment.max(self.compute));
+-        let mut stage = wgt::ShaderStage::NONE;
++        let mut stage = wgt::ShaderStages::NONE;
+         if max_value == self.vertex {
+-            stage |= wgt::ShaderStage::VERTEX
++            stage |= wgt::ShaderStages::VERTEX
+         }
+         if max_value == self.fragment {
+-            stage |= wgt::ShaderStage::FRAGMENT
++            stage |= wgt::ShaderStages::FRAGMENT
+         }
+         if max_value == self.compute {
+-            stage |= wgt::ShaderStage::COMPUTE
++            stage |= wgt::ShaderStages::COMPUTE
+         }
+         (BindingZone::Stage(stage), max_value)
+     }
+ 
+     pub(crate) fn merge(&mut self, other: &Self) {
+         self.vertex = self.vertex.max(other.vertex);
+         self.fragment = self.fragment.max(other.fragment);
+         self.compute = self.compute.max(other.compute);
+@@ -384,29 +409,28 @@ pub struct BindGroupLayoutDescriptor<'a>
+     pub label: Label<'a>,
+     /// Array of entries in this BindGroupLayout
+     pub entries: Cow<'a, [wgt::BindGroupLayoutEntry]>,
+ }
+ 
+ pub(crate) type BindEntryMap = FastHashMap<u32, wgt::BindGroupLayoutEntry>;
+ 
+ #[derive(Debug)]
+-pub struct BindGroupLayout<B: hal::Backend> {
+-    pub(crate) raw: B::DescriptorSetLayout,
++pub struct BindGroupLayout<A: hal::Api> {
++    pub(crate) raw: A::BindGroupLayout,
+     pub(crate) device_id: Stored<DeviceId>,
+     pub(crate) multi_ref_count: MultiRefCount,
+     pub(crate) entries: BindEntryMap,
+-    pub(crate) desc_count: DescriptorTotalCount,
+     pub(crate) dynamic_count: usize,
+     pub(crate) count_validator: BindingTypeMaxCountValidator,
+     #[cfg(debug_assertions)]
+     pub(crate) label: String,
+ }
+ 
+-impl<B: hal::Backend> Resource for BindGroupLayout<B> {
++impl<A: hal::Api> Resource for BindGroupLayout<A> {
+     const TYPE: &'static str = "BindGroupLayout";
+ 
+     fn life_guard(&self) -> &LifeGuard {
+         unreachable!()
+     }
+ 
+     fn label(&self) -> &str {
+         #[cfg(debug_assertions)]
+@@ -427,56 +451,65 @@ pub enum CreatePipelineLayoutError {
+         wgt::PUSH_CONSTANT_ALIGNMENT
+     )]
+     MisalignedPushConstantRange { index: usize, bound: u32 },
+     #[error(transparent)]
+     MissingFeatures(#[from] MissingFeatures),
+     #[error("push constant range (index {index}) provides for stage(s) {provided:?} but there exists another range that provides stage(s) {intersected:?}. Each stage may only be provided by one range")]
+     MoreThanOnePushConstantRangePerStage {
+         index: usize,
+-        provided: wgt::ShaderStage,
+-        intersected: wgt::ShaderStage,
++        provided: wgt::ShaderStages,
++        intersected: wgt::ShaderStages,
+     },
+     #[error("push constant at index {index} has range {}..{} which exceeds device push constant size limit 0..{max}", range.start, range.end)]
+     PushConstantRangeTooLarge {
+         index: usize,
+         range: Range<u32>,
+         max: u32,
+     },
+     #[error(transparent)]
+     TooManyBindings(BindingTypeMaxCountError),
+     #[error("bind group layout count {actual} exceeds device bind group limit {max}")]
+     TooManyGroups { actual: usize, max: usize },
+ }
+ 
++impl PrettyError for CreatePipelineLayoutError {
++    fn fmt_pretty(&self, fmt: &mut ErrorFormatter) {
++        fmt.error(self);
++        if let Self::InvalidBindGroupLayout(id) = *self {
++            fmt.bind_group_layout_label(&id);
++        };
++    }
++}
++
+ #[derive(Clone, Debug, Error)]
+ pub enum PushConstantUploadError {
+     #[error("provided push constant with indices {offset}..{end_offset} overruns matching push constant range at index {idx}, with stage(s) {:?} and indices {:?}", range.stages, range.range)]
+     TooLarge {
+         offset: u32,
+         end_offset: u32,
+         idx: usize,
+         range: wgt::PushConstantRange,
+     },
+     #[error("provided push constant is for stage(s) {actual:?}, stage with a partial match found at index {idx} with stage(s) {matched:?}, however push constants must be complete matches")]
+     PartialRangeMatch {
+-        actual: wgt::ShaderStage,
++        actual: wgt::ShaderStages,
+         idx: usize,
+-        matched: wgt::ShaderStage,
++        matched: wgt::ShaderStages,
+     },
+     #[error("provided push constant is for stage(s) {actual:?}, but intersects a push constant range (at index {idx}) with stage(s) {missing:?}. Push constants must provide the stages for all ranges they intersect")]
+     MissingStages {
+-        actual: wgt::ShaderStage,
++        actual: wgt::ShaderStages,
+         idx: usize,
+-        missing: wgt::ShaderStage,
++        missing: wgt::ShaderStages,
+     },
+     #[error("provided push constant is for stage(s) {actual:?}, however the pipeline layout has no push constant range for the stage(s) {unmatched:?}")]
+     UnmatchedStages {
+-        actual: wgt::ShaderStage,
+-        unmatched: wgt::ShaderStage,
++        actual: wgt::ShaderStages,
++        unmatched: wgt::ShaderStages,
+     },
+     #[error("provided push constant offset {0} does not respect `PUSH_CONSTANT_ALIGNMENT`")]
+     Unaligned(u32),
+ }
+ 
+ /// Describes a pipeline layout.
+ ///
+ /// A `PipelineLayoutDescriptor` can be used to create a pipeline layout.
+@@ -493,29 +526,29 @@ pub struct PipelineLayoutDescriptor<'a> 
+     /// must define the range in push constant memory that corresponds to its single `layout(push_constant)`
+     /// uniform block.
+     ///
+     /// If this array is non-empty, the [`Features::PUSH_CONSTANTS`](wgt::Features::PUSH_CONSTANTS) must be enabled.
+     pub push_constant_ranges: Cow<'a, [wgt::PushConstantRange]>,
+ }
+ 
+ #[derive(Debug)]
+-pub struct PipelineLayout<B: hal::Backend> {
+-    pub(crate) raw: B::PipelineLayout,
++pub struct PipelineLayout<A: hal::Api> {
++    pub(crate) raw: A::PipelineLayout,
+     pub(crate) device_id: Stored<DeviceId>,
+     pub(crate) life_guard: LifeGuard,
+-    pub(crate) bind_group_layout_ids: ArrayVec<[Valid<BindGroupLayoutId>; MAX_BIND_GROUPS]>,
+-    pub(crate) push_constant_ranges: ArrayVec<[wgt::PushConstantRange; SHADER_STAGE_COUNT]>,
++    pub(crate) bind_group_layout_ids: ArrayVec<Valid<BindGroupLayoutId>, { hal::MAX_BIND_GROUPS }>,
++    pub(crate) push_constant_ranges: ArrayVec<wgt::PushConstantRange, { SHADER_STAGE_COUNT }>,
+ }
+ 
+-impl<B: hal::Backend> PipelineLayout<B> {
++impl<A: hal::Api> PipelineLayout<A> {
+     /// Validate push constants match up with expected ranges.
+     pub(crate) fn validate_push_constant_ranges(
+         &self,
+-        stages: wgt::ShaderStage,
++        stages: wgt::ShaderStages,
+         offset: u32,
+         end_offset: u32,
+     ) -> Result<(), PushConstantUploadError> {
+         // Don't need to validate size against the push constant size limit here,
+         // as push constant ranges are already validated to be within bounds,
+         // and we validate that they are within the ranges.
+ 
+         if offset % wgt::PUSH_CONSTANT_ALIGNMENT != 0 {
+@@ -536,17 +569,17 @@ impl<B: hal::Backend> PipelineLayout<B> 
+         // 3. All push constant ranges are the only range that can access that stage.
+         //    i.e. if one range has VERTEX, no other range has VERTEX
+         //
+         // Therefore we can simplify the checks in the following ways:
+         // - Because 3 guarantees that the push constant range has a unique stage,
+         //   when we check for 1, we can simply check that our entire updated range
+         //   is within a push constant range. i.e. our range for a specific stage cannot
+         //   intersect more than one push constant range.
+-        let mut used_stages = wgt::ShaderStage::NONE;
++        let mut used_stages = wgt::ShaderStages::NONE;
+         for (idx, range) in self.push_constant_ranges.iter().enumerate() {
+             // contains not intersects due to 2
+             if stages.contains(range.stages) {
+                 if !(range.range.start <= offset && end_offset <= range.range.end) {
+                     return Err(PushConstantUploadError::TooLarge {
+                         offset,
+                         end_offset,
+                         idx,
+@@ -581,17 +614,17 @@ impl<B: hal::Backend> PipelineLayout<B> 
+                 actual: stages,
+                 unmatched: stages - used_stages,
+             });
+         }
+         Ok(())
+     }
+ }
+ 
+-impl<B: hal::Backend> Resource for PipelineLayout<B> {
++impl<A: hal::Api> Resource for PipelineLayout<A> {
+     const TYPE: &'static str = "PipelineLayout";
+ 
+     fn life_guard(&self) -> &LifeGuard {
+         &self.life_guard
+     }
+ }
+ 
+ #[repr(C)]
+@@ -631,27 +664,27 @@ pub enum BindError {
+ 
+ #[derive(Debug)]
+ pub struct BindGroupDynamicBindingData {
+     /// The maximum value the dynamic offset can have before running off the end of the buffer.
+     pub(crate) maximum_dynamic_offset: wgt::BufferAddress,
+ }
+ 
+ #[derive(Debug)]
+-pub struct BindGroup<B: hal::Backend> {
+-    pub(crate) raw: DescriptorSet<B>,
++pub struct BindGroup<A: hal::Api> {
++    pub(crate) raw: A::BindGroup,
+     pub(crate) device_id: Stored<DeviceId>,
+     pub(crate) layout_id: Valid<BindGroupLayoutId>,
+     pub(crate) life_guard: LifeGuard,
+     pub(crate) used: TrackerSet,
+-    pub(crate) used_buffer_ranges: Vec<MemoryInitTrackerAction<BufferId>>,
++    pub(crate) used_buffer_ranges: Vec<BufferInitTrackerAction>,
+     pub(crate) dynamic_binding_info: Vec<BindGroupDynamicBindingData>,
+ }
+ 
+-impl<B: hal::Backend> BindGroup<B> {
++impl<A: hal::Api> BindGroup<A> {
+     pub(crate) fn validate_dynamic_bindings(
+         &self,
+         offsets: &[wgt::DynamicOffset],
+     ) -> Result<(), BindError> {
+         if self.dynamic_binding_info.len() != offsets.len() {
+             return Err(BindError::MismatchedDynamicOffsetCount {
+                 expected: self.dynamic_binding_info.len(),
+                 actual: offsets.len(),
+@@ -676,23 +709,23 @@ impl<B: hal::Backend> BindGroup<B> {
+                 });
+             }
+         }
+ 
+         Ok(())
+     }
+ }
+ 
+-impl<B: hal::Backend> Borrow<()> for BindGroup<B> {
++impl<A: hal::Api> Borrow<()> for BindGroup<A> {
+     fn borrow(&self) -> &() {
+         &DUMMY_SELECTOR
+     }
+ }
+ 
+-impl<B: hal::Backend> Resource for BindGroup<B> {
++impl<A: hal::Api> Resource for BindGroup<A> {
+     const TYPE: &'static str = "BindGroup";
+ 
+     fn life_guard(&self) -> &LifeGuard {
+         &self.life_guard
+     }
+ }
+ 
+ #[derive(Clone, Debug, Error)]

@@ -1,0 +1,82 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/forms/nsRangeFrame.cpp
+# Commit: 13735d3c75cb
+# Full Hash: 13735d3c75cb7a6fabbdcae93bdfce3376d526e4
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2025-06-17 09:24:05
+# Regressor Bug: 1971450
+# File Overlap Count: 1
+# Description:
+#   Bug 1971450 - Remove internal appearance values for meter / progress / range thumb / chunk. r=dshin
+#   
+#   This is technically a behavior change because we don't really look at
+#   the appearance value of the progressbar etc anymore. We could do that if
+#   wanted, but it's more consistent to just look at the individual frame
+# ==============================================================================
+
+diff -r 275b63046ac5 -r 13735d3c75cb layout/forms/nsRangeFrame.cpp
+--- a/layout/forms/nsRangeFrame.cpp	Mon Jun 16 22:22:24 2025 +0000
++++ b/layout/forms/nsRangeFrame.cpp	Mon Jun 16 22:28:59 2025 +0000
+@@ -134,16 +134,7 @@
+   const nsStyleDisplay* disp = StyleDisplay();
+   if (IsThemed(disp)) {
+     DisplayBorderBackgroundOutline(aBuilder, aLists);
+-    // Only create items for the thumb. Specifically, we do not want the track
+-    // to paint, since *our* background is used to paint the track, and we don't
+-    // want the unthemed track painting over the top of the themed track.
+-    // This logic is copied from
+-    // nsContainerFrame::BuildDisplayListForNonBlockChildren as
+-    // called by BuildDisplayListForInline.
+-    if (nsIFrame* thumb = mThumbDiv->GetPrimaryFrame()) {
+-      nsDisplayListSet set(aLists, aLists.Content());
+-      BuildDisplayListForChild(aBuilder, thumb, set, DisplayChildFlag::Inline);
+-    }
++    // Don't paint our children.
+   } else {
+     BuildDisplayListForInline(aBuilder, aLists);
+   }
+@@ -335,19 +326,10 @@
+     // Themed ranges draw on the border-box rect.
+     rangeRect = GetRectRelativeToSelf();
+     // We need to get the size of the thumb from the theme.
+-    nsPresContext* pc = PresContext();
+-    LayoutDeviceIntSize size = pc->Theme()->GetMinimumWidgetSize(
+-        pc, this, StyleAppearance::RangeThumb);
+-    thumbSize =
+-        LayoutDeviceIntSize::ToAppUnits(size, pc->AppUnitsPerDevPixel());
+-    // For GTK, GetMinimumWidgetSize returns zero for the thumb dimension
+-    // perpendicular to the orientation of the slider.  That's okay since we
+-    // only care about the dimension in the direction of the slider when using
+-    // |thumbSize| below, but it means this assertion need to check
+-    // IsHorizontal().
+-    MOZ_ASSERT((IsHorizontal() && thumbSize.width > 0) ||
+-                   (!IsHorizontal() && thumbSize.height > 0),
+-               "The thumb is expected to take up some slider space");
++    nscoord min = CSSPixel::ToAppUnits(
++        PresContext()->Theme()->GetMinimumRangeThumbSize());
++    MOZ_ASSERT(min, "The thumb is expected to take up some slider space");
++    thumbSize = nsSize(min, min);
+   } else {
+     rangeRect = GetContentRectRelativeToSelf();
+     nsIFrame* thumbFrame = mThumbDiv->GetPrimaryFrame();
+@@ -614,14 +596,10 @@
+ }
+ 
+ nscoord nsRangeFrame::AutoCrossSize() {
+-  nscoord minCrossSize(0);
+-  if (IsThemed()) {
+-    nsPresContext* pc = PresContext();
+-    LayoutDeviceIntSize size = pc->Theme()->GetMinimumWidgetSize(
+-        pc, this, StyleAppearance::RangeThumb);
+-    minCrossSize =
+-        pc->DevPixelsToAppUnits(IsHorizontal() ? size.height : size.width);
+-  }
++  nscoord minCrossSize =
++      IsThemed() ? CSSPixel::ToAppUnits(
++                       PresContext()->Theme()->GetMinimumRangeThumbSize())
++                 : 0;
+   return std::max(minCrossSize,
+                   NSToCoordRound(OneEmInAppUnits() * CROSS_AXIS_EM_SIZE));
+ }

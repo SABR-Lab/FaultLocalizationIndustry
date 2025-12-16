@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/generic/LocalAccessible.cpp
+# Commit: 2f75e063b5f9
+# Full Hash: 2f75e063b5f903dec563f53045a46e2ba56bef2c
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2023-11-30 04:12:04
+# Regressor Bug: 1862802
+# File Overlap Count: 1
+# Description:
+#   Bug 1862802 part 1: Provide an argument to PlatformCaretMoveEvent specifying whether the event was caused by user input. r=eeejay
+#   
+#   This is needed in order to support find in page on Android using remote caret events instead of virtual cursor change events.
+#   
+#   Depends on D192641
+# ==============================================================================
+
+diff -r 70924ad2b7e3 -r 2f75e063b5f9 accessible/generic/LocalAccessible.cpp
+--- a/accessible/generic/LocalAccessible.cpp	Wed Nov 29 05:51:34 2023 +0200
++++ b/accessible/generic/LocalAccessible.cpp	Wed Nov 29 03:53:19 2023 +0000
+@@ -915,7 +915,8 @@
+           AccCaretMoveEvent* event = downcast_accEvent(aEvent);
+           ipcDoc->SendCaretMoveEvent(
+               id, event->GetCaretOffset(), event->IsSelectionCollapsed(),
+-              event->IsAtEndOfLine(), event->GetGranularity());
++              event->IsAtEndOfLine(), event->GetGranularity(),
++              event->IsFromUserInput());
+           break;
+         }
+         case nsIAccessibleEvent::EVENT_TEXT_INSERTED:
+@@ -1038,9 +1039,9 @@
+       // AccessibleWrap::UpdateSystemCaretFor currently needs to call
+       // HyperTextAccessible::GetCaretRect again to get the widget and there's
+       // no point calling it twice.
+-      PlatformCaretMoveEvent(target, event->GetCaretOffset(),
+-                             event->IsSelectionCollapsed(),
+-                             event->GetGranularity(), rect);
++      PlatformCaretMoveEvent(
++          target, event->GetCaretOffset(), event->IsSelectionCollapsed(),
++          event->GetGranularity(), rect, event->IsFromUserInput());
+       break;
+     }
+     case nsIAccessibleEvent::EVENT_TEXT_INSERTED:

@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/atk/Platform.cpp
+# Commit: e31bbc878029
+# Full Hash: e31bbc878029d2155fabd8089c9b3f65d802f690
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2025-08-05 04:22:56
+# Regressor Bug: 1980822
+# File Overlap Count: 1
+# Description:
+#   Bug 1980822 - Modernize GSettings interface. r=stransky
+#   
+#   We don't really need to support scripting except for a single shell
+#   test. Expose a much more reduced API for that instead.
+#   
+# ==============================================================================
+
+diff -r 4dcb7e0802c5 -r e31bbc878029 accessible/atk/Platform.cpp
+--- a/accessible/atk/Platform.cpp	Mon Aug 04 13:36:42 2025 +0000
++++ b/accessible/atk/Platform.cpp	Mon Aug 04 13:39:54 2025 +0000
+@@ -10,8 +10,8 @@
+ #include "mozilla/GRefPtr.h"
+ #include "mozilla/GUniquePtr.h"
+ #include "mozilla/UniquePtrExtensions.h"
++#include "mozilla/widget/GSettings.h"
+ #include "nsIAccessibleEvent.h"
+-#include "nsIGSettingsService.h"
+ #include "nsMai.h"
+ #include "nsServiceManagerUtils.h"
+ #include "nsWindow.h"
+@@ -258,24 +258,9 @@
+ #endif
+ 
+   // check GSettings
+-  nsCOMPtr<nsIGSettingsService> gsettings =
+-      do_GetService(NS_GSETTINGSSERVICE_CONTRACTID);
+-
+-  if (gsettings) {
+-    bool shouldEnable = false;
+-    nsCOMPtr<nsIGSettingsCollection> a11y_settings;
+-    gsettings->GetCollectionForSchema(
+-        nsLiteralCString("org.gnome.desktop.interface"),
+-        getter_AddRefs(a11y_settings));
+-    if (a11y_settings) {
+-      a11y_settings->GetBoolean(nsLiteralCString("toolkit-accessibility"),
+-                                &shouldEnable);
+-    }
+-
+-    return shouldEnable;
+-  }
+-
+-  return false;
++  return widget::GSettings::GetBoolean("org.gnome.desktop.interface"_ns,
++                                       "toolkit-accessibility"_ns)
++      .valueOr(false);
+ }
+ 
+ uint64_t a11y::GetCacheDomainsForKnownClients(uint64_t aCacheDomains) {

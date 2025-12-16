@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/EditorUtils.cpp
+# Commit: d61ac9d43588
+# Full Hash: d61ac9d4358882e3b27761a6344eb9ad0e13466c
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-08-04 04:34:13
+# Regressor Bug: 1774704
+# File Overlap Count: 1
+# Description:
+#   Bug 1774704 - part 4-1: Move `HTMLEditor::GetParentListElementAtSelection` into `AutoRangeArray` r=m_kato
+#   
+#   It oddly retrieve an ancestor list element which contains one range in the
+#   selection ranges.  So, working it with `AutoRangeArray` which is initialized
+#   with `Selection` makes `HTMLEditor` smaller...
+# ==============================================================================
+
+diff -r 0b2613e3fdfe -r d61ac9d43588 editor/libeditor/EditorUtils.cpp
+--- a/editor/libeditor/EditorUtils.cpp	Thu Aug 04 04:45:47 2022 +0300
++++ b/editor/libeditor/EditorUtils.cpp	Thu Aug 04 01:50:28 2022 +0000
+@@ -1157,6 +1157,22 @@
+   return NS_OK;
+ }
+ 
++Element* AutoRangeArray::GetClosestAncestorAnyListElementOfRange() const {
++  for (const OwningNonNull<nsRange>& range : mRanges) {
++    nsINode* commonAncestorNode = range->GetClosestCommonInclusiveAncestor();
++    if (MOZ_UNLIKELY(!commonAncestorNode)) {
++      continue;
++    }
++    for (Element* element :
++         commonAncestorNode->InclusiveAncestorsOfType<Element>()) {
++      if (HTMLEditUtils::IsAnyListElement(element)) {
++        return element;
++      }
++    }
++  }
++  return nullptr;
++}
++
+ /******************************************************************************
+  * some general purpose editor utils
+  *****************************************************************************/

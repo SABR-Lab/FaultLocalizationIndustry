@@ -1,0 +1,71 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentChild.cpp
+# Commit: 22b6ef4463c6
+# Full Hash: 22b6ef4463c68ed2a9a22a86cbb36956fc20627a
+# Author: Jamie Nicol <jnicol@mozilla.com>
+# Date: 2023-09-27 03:49:15
+# Regressor Bug: 1850573
+# File Overlap Count: 1
+# Description:
+#   Bug 1850573 - Create/destroy PerformanceHintSession in ContentChild based on process priority. r=smaug
+#   
+#   We use a PerformanceHintSession where supported to ensure the content
+#   process main thread and stylo threads are scheduled at a high
+#   priority. Previously we created the session when the
+# ==============================================================================
+
+diff -r 653daffe1a6b -r 22b6ef4463c6 dom/ipc/ContentChild.cpp
+--- a/dom/ipc/ContentChild.cpp	Tue Sep 26 16:53:51 2023 +0300
++++ b/dom/ipc/ContentChild.cpp	Tue Sep 26 12:55:37 2023 +0000
+@@ -131,6 +131,7 @@
+ #include "nsIStringBundle.h"
+ #include "nsIURIMutator.h"
+ #include "nsQueryObject.h"
++#include "nsRefreshDriver.h"
+ #include "nsSandboxFlags.h"
+ #include "mozmemory.h"
+ 
+@@ -2781,6 +2782,8 @@
+     glean::RecordPowerMetrics();
+   }
+ 
++  ConfigureThreadPerformanceHints(aPriority);
++
+   mProcessPriority = aPriority;
+ 
+   os->NotifyObservers(static_cast<nsIPropertyBag2*>(props),
+@@ -4688,6 +4691,32 @@
+   return IPC_OK();
+ }
+ 
++void ContentChild::ConfigureThreadPerformanceHints(
++    const hal::ProcessPriority& aPriority) {
++  if (aPriority >= hal::PROCESS_PRIORITY_FOREGROUND) {
++    static bool canUsePerformanceHintSession = true;
++    if (!mPerformanceHintSession && canUsePerformanceHintSession) {
++      nsTArray<PlatformThreadHandle> threads;
++      Servo_ThreadPool_GetThreadHandles(&threads);
++#ifdef XP_WIN
++      threads.AppendElement(GetCurrentThread());
++#else
++      threads.AppendElement(pthread_self());
++#endif
++
++      mPerformanceHintSession = hal::CreatePerformanceHintSession(
++          threads, GetPerformanceHintTarget(TimeDuration::FromMilliseconds(
++                       nsRefreshDriver::DefaultInterval())));
++
++      // Avoid repeatedly attempting to create a session if it is not
++      // supported.
++      canUsePerformanceHintSession = mPerformanceHintSession != nullptr;
++    }
++  } else {
++    mPerformanceHintSession = nullptr;
++  }
++}
++
+ }  // namespace dom
+ 
+ #if defined(__OpenBSD__) && defined(MOZ_SANDBOX)

@@ -1,0 +1,37 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: extensions/permissions/PermissionDelegateHandler.cpp
+# Commit: fe8a43ec580c
+# Full Hash: fe8a43ec580c0772ad7e80ca72efdc379a30d351
+# Author: Tim Huang <tihuang@mozilla.com>
+# Date: 2020-08-12 15:55:27
+# Description:
+#   Bug 1654803 - Fixing the crash issue in PermissionDelegateHandler::GetPermission(). r=baku
+#   
+#   At very rare situations, we won't be able to get the top level window
+#   context. Perhaps, it's the case that the window has been detached from
+#   the dom tree while checking the permission. So, we need to check the top
+# ==============================================================================
+
+diff -r 1e2a698cb187 -r fe8a43ec580c extensions/permissions/PermissionDelegateHandler.cpp
+--- a/extensions/permissions/PermissionDelegateHandler.cpp	Wed Aug 12 09:11:01 2020 +0000
++++ b/extensions/permissions/PermissionDelegateHandler.cpp	Wed Aug 12 07:53:35 2020 +0000
+@@ -262,7 +262,7 @@
+       bc) {
+     RefPtr<WindowContext> topWC = bc->GetTopWindowContext();
+ 
+-    if (topWC->IsInProcess()) {
++    if (topWC && topWC->IsInProcess()) {
+       // If the top-level window context is in the same process, we directly get
+       // the node principal from the top-level document to test the permission.
+       // We cannot check the lists in the window context in this case since the
+@@ -276,7 +276,7 @@
+       if (topDoc) {
+         principal = topDoc->NodePrincipal();
+       }
+-    } else {
++    } else if (topWC) {
+       // Get the delegated permissions from the top-level window context.
+       DelegatedPermissionList list =
+           aExactHostMatch ? topWC->GetDelegatedExactHostMatchPermissions()

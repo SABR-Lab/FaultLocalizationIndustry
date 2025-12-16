@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/serviceworkers/ServiceWorkerPrivateImpl.cpp
+# Commit: 48eaa84c206d
+# Full Hash: 48eaa84c206dbdda637c57b55ddbd07e975ba103
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2020-06-23 16:15:06
+# Regressor Bug: 1637500
+# File Overlap Count: 2
+# Description:
+#   Bug 1637500 - P2. Rename methods as they are not always dealing with "threads". r=froydnj
+#   
+#   Before P1, GetCurrentThreadSerialEventTarget would have always returned the same data as NS_GetCurrentThread, making the comment incorrect Now it will properly return the running TaskQueue if any.
+#   
+#   This change of name more clearly exposes what they are doing, as we aren't always dealing with threads directly; but a nsISerialEventTarget
+# ==============================================================================
+
+diff -r 00687d06a8a6 -r 48eaa84c206d dom/serviceworkers/ServiceWorkerPrivateImpl.cpp
+--- a/dom/serviceworkers/ServiceWorkerPrivateImpl.cpp	Tue Jun 23 05:02:39 2020 +0000
++++ b/dom/serviceworkers/ServiceWorkerPrivateImpl.cpp	Tue Jun 23 05:05:36 2020 +0000
+@@ -401,7 +401,7 @@
+         // If a termination operation was already issued using `holder`...
+         if (self->mControllerChild != holder) {
+           holder->OnDestructor()->Then(
+-              GetCurrentThreadSerialEventTarget(), __func__,
++              GetCurrentSerialEventTarget(), __func__,
+               [callback = std::move(callback)](
+                   const GenericPromise::ResolveOrRejectValue&) {
+                 callback->SetResult(false);
+@@ -422,7 +422,7 @@
+         swm->BlockShutdownOn(promise, shutdownStateId);
+ 
+         promise->Then(
+-            GetCurrentThreadSerialEventTarget(), __func__,
++            GetCurrentSerialEventTarget(), __func__,
+             [callback = std::move(callback)](
+                 const GenericNonExclusivePromise::ResolveOrRejectValue&) {
+               callback->SetResult(false);
+@@ -854,7 +854,7 @@
+   FetchEventOpChild::SendFetchEvent(
+       mControllerChild->get(), std::move(aArgs), std::move(aChannel),
+       std::move(aRegistration), mOuter->CreateEventKeepAliveToken())
+-      ->Then(GetCurrentThreadSerialEventTarget(), __func__,
++      ->Then(GetCurrentSerialEventTarget(), __func__,
+              [holder = std::move(holder)](
+                  const GenericPromise::ResolveOrRejectValue& aResult) {
+                Unused << NS_WARN_IF(aResult.IsReject());
+@@ -1048,7 +1048,7 @@
+    * can accept rvalue references rather than just const references.
+    */
+   mControllerChild->get()->SendExecServiceWorkerOp(aArgs)->Then(
+-      GetCurrentThreadSerialEventTarget(), __func__,
++      GetCurrentSerialEventTarget(), __func__,
+       [self = std::move(self), holder = std::move(holder),
+        token = std::move(token), onSuccess = std::move(aSuccessCallback),
+        onFailure = std::move(aFailureCallback)](

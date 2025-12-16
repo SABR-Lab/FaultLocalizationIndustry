@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/shistory/nsSHistory.h
+# Commit: ab54092b8afc
+# Full Hash: ab54092b8afc8e56dd3f8162344a4ce38ec45999
+# Author: Niklas Goegge <ngogge@mozilla.com>
+# Date: 2021-04-29 09:26:05
+# Regressor Bug: 1708150
+# File Overlap Count: 1
+# Description:
+#   Bug 1708150 - Add user activation flag to reload, goBack and goForward r=ckerschb,Gijs,smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D110245
+# ==============================================================================
+
+diff -r a9a52f01de13 -r ab54092b8afc docshell/shistory/nsSHistory.h
+--- a/docshell/shistory/nsSHistory.h	Wed Apr 28 11:09:38 2021 +0000
++++ b/docshell/shistory/nsSHistory.h	Wed Apr 28 11:26:49 2021 +0000
+@@ -165,7 +165,7 @@
+                   nsTArray<LoadEntryResult>& aLoadResults);
+   nsresult ReloadCurrentEntry(nsTArray<LoadEntryResult>& aLoadResults);
+   nsresult GotoIndex(int32_t aIndex, nsTArray<LoadEntryResult>& aLoadResults,
+-                     bool aSameEpoch = false);
++                     bool aSameEpoch = false, bool aUserActivation = false);
+ 
+   void WindowIndices(int32_t aIndex, int32_t* aOutStartIndex,
+                      int32_t* aOutEndIndex);
+@@ -221,14 +221,16 @@
+   bool LoadDifferingEntries(nsISHEntry* aPrevEntry, nsISHEntry* aNextEntry,
+                             mozilla::dom::BrowsingContext* aParent,
+                             long aLoadType,
+-                            nsTArray<LoadEntryResult>& aLoadResults);
++                            nsTArray<LoadEntryResult>& aLoadResults,
++                            bool aUserActivation);
+   void InitiateLoad(nsISHEntry* aFrameEntry,
+                     mozilla::dom::BrowsingContext* aFrameBC, long aLoadType,
+-                    nsTArray<LoadEntryResult>& aLoadResult);
++                    nsTArray<LoadEntryResult>& aLoadResult,
++                    bool aUserActivation);
+ 
+   nsresult LoadEntry(int32_t aIndex, long aLoadType, uint32_t aHistCmd,
+                      nsTArray<LoadEntryResult>& aLoadResults,
+-                     bool aSameEpoch = false);
++                     bool aSameEpoch = false, bool aUserActivation = false);
+ 
+   // Find the history entry for a given bfcache entry. It only looks up between
+   // the range where alive viewers may exist (i.e nsSHistory::VIEWER_WINDOW).
+@@ -248,7 +250,8 @@
+ 
+   nsresult LoadNextPossibleEntry(int32_t aNewIndex, long aLoadType,
+                                  uint32_t aHistCmd,
+-                                 nsTArray<LoadEntryResult>& aLoadResults);
++                                 nsTArray<LoadEntryResult>& aLoadResults,
++                                 bool aUserActivation);
+ 
+   // aIndex is the index of the entry which may be removed.
+   // If aKeepNext is true, aIndex is compared to aIndex + 1,

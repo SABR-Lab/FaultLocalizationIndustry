@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/MacroAssembler.cpp
+# Commit: 82fbedcdde75
+# Full Hash: 82fbedcdde758a2ff7de93dabcd70675010822d1
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-10-30 03:48:30
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 3: Implement the algorithm for obtaining tls and use it for wasm signal handling. r=lth
+#   
+#   This is the third part of series of patches to Frame without tls pointer.
+#   Here we preserve initial tls in all entry stubs and then use it to find a proper tls instance for a given frame.
+#   
+# ==============================================================================
+
+diff -r 3e82e75c4992 -r 82fbedcdde75 js/src/jit/MacroAssembler.cpp
+--- a/js/src/jit/MacroAssembler.cpp	Fri Oct 23 18:17:37 2020 +0000
++++ b/js/src/jit/MacroAssembler.cpp	Fri Oct 23 18:17:37 2020 +0000
+@@ -3796,6 +3796,7 @@
+            Address(getStackPointer(), WasmCallerTLSOffsetBeforeCall));
+   storePtr(WasmTlsReg,
+            Address(getStackPointer(), WasmCalleeTLSOffsetBeforeCall));
++
+   if (instanceArg.kind() == ABIArg::GPR) {
+     loadPtr(Address(WasmTlsReg, offsetof(wasm::TlsData, instance)),
+             instanceArg.gpr());
+@@ -4656,6 +4657,18 @@
+ template void AutoGenericRegisterScope<Register>::reacquire();
+ template void AutoGenericRegisterScope<FloatRegister>::reacquire();
+ 
++wasm::TlsData* ExtractCallerTlsFromFrameWithTls(wasm::Frame* fp) {
++  return *reinterpret_cast<wasm::TlsData**>(
++      reinterpret_cast<uint8_t*>(fp) + sizeof(wasm::Frame) + ShadowStackSpace +
++      wasm::FrameWithTls::callerTLSOffset());
++}
++
++wasm::TlsData* ExtractCalleeTlsFromFrameWithTls(wasm::Frame* fp) {
++  return *reinterpret_cast<wasm::TlsData**>(
++      reinterpret_cast<uint8_t*>(fp) + sizeof(wasm::Frame) + ShadowStackSpace +
++      wasm::FrameWithTls::calleeTLSOffset());
++}
++
+ #endif  // DEBUG
+ 
+ }  // namespace jit

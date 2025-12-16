@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/GCRuntime.h
+# Commit: 982a80b202c3
+# Full Hash: 982a80b202c370876dafc72ac31be7a12ebeae58
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2021-01-08 03:45:03
+# Regressor Bug: 1681533
+# File Overlap Count: 2
+# Description:
+#   Bug 1681533 - Only collect the nursery when necessary in major GC r=sfink
+#   
+#   This rearranges a few things so that we can run a minor GC inside a major GC
+#   slice, so we don't have to be conservative about collecting the nursery at the
+#   start of a slice.
+# ==============================================================================
+
+diff -r 83f3726c41f9 -r 982a80b202c3 js/src/gc/GCRuntime.h
+--- a/js/src/gc/GCRuntime.h	Thu Jan 07 15:57:41 2021 +0000
++++ b/js/src/gc/GCRuntime.h	Mon Jan 04 17:01:50 2021 +0000
+@@ -464,12 +464,10 @@
+   }
+ 
+   uint64_t gcNumber() const { return number; }
++  void incGcNumber() { ++number; }
+ 
+   uint64_t minorGCCount() const { return minorGCNumber; }
+-  void incMinorGcNumber() {
+-    ++minorGCNumber;
+-    ++number;
+-  }
++  void incMinorGcNumber() { ++minorGCNumber; }
+ 
+   uint64_t majorGCCount() const { return majorGCNumber; }
+   void incMajorGcNumber() { ++majorGCNumber; }
+@@ -689,12 +687,14 @@
+                                          const MaybeInvocationKind& gckind,
+                                          JS::GCReason reason);
+   bool shouldRepeatForDeadZone(JS::GCReason reason);
++
+   void incrementalSlice(SliceBudget& budget, const MaybeInvocationKind& gckind,
+-                        JS::GCReason reason, AutoGCSession& session);
+-  MOZ_MUST_USE bool shouldCollectNurseryForSlice(bool nonincrementalByAPI,
+-                                                 SliceBudget& budget);
++                        JS::GCReason reason);
++
++  void waitForBackgroundTasksBeforeSlice();
+   bool mightSweepInThisSlice(bool nonIncremental);
+-  bool mightCompactInThisSlice(bool nonIncremental);
++  void collectNurseryFromMajorGC(const MaybeInvocationKind& gckind,
++                                 JS::GCReason reason);
+   void collectNursery(JSGCInvocationKind kind, JS::GCReason reason,
+                       gcstats::PhaseKind phase);
+ 

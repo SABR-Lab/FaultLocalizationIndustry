@@ -1,0 +1,31 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit-test/tests/gc/bug-1698543.js
+# Commit: 438ac889a639
+# Full Hash: 438ac889a6392ea938fa83f49749ac818846e4b0
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2021-03-23 05:39:48
+# Regressor Bug: 1698543
+# File Overlap Count: 1
+# Description:
+#   Bug 1699736 - Update testcase for bug 1698543 to ignore stack space exhaustion in regexp compilation r=sfink
+#   
+#   The problem here is that the test relies on triggering overrecursion but this can also trigger regexp compilation to fail with the error 'regexp too big'. It's ambiguous as to whether this indicates overrecursion or a regexp that's too large, so I don't think we can check for this in the test runner.
+#   
+#   I checked that the testcase still triggers the original problem.
+# ==============================================================================
+
+diff -r 5461febd021f -r 438ac889a639 js/src/jit-test/tests/gc/bug-1698543.js
+--- a/js/src/jit-test/tests/gc/bug-1698543.js	Mon Mar 22 17:57:35 2021 +0000
++++ b/js/src/jit-test/tests/gc/bug-1698543.js	Mon Mar 22 17:59:46 2021 +0000
+@@ -27,6 +27,8 @@
+     if (e instanceof SyntaxError)
+       doit(x);
+   }
+-  x = x.replace(/!/g, "");
++  try {
++    x = x.replace(/!/g, "");
++  } catch (e) {}
+   foo += x + " ";
+ }

@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentChild.h
+# Commit: 06c26e973285
+# Full Hash: 06c26e97328589418681f58d637df751451f04ca
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2020-05-26 21:37:52
+# Regressor Bug: 1640119
+# File Overlap Count: 1
+# Description:
+#   Bug 1640119 - Pass shared-memory blocks for the font list as part of SetXPCOMProcessAttributes. r=jwatt
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D76507
+# ==============================================================================
+
+diff -r fbdbe0cdce92 -r 06c26e973285 dom/ipc/ContentChild.h
+--- a/dom/ipc/ContentChild.h	Tue May 26 11:38:58 2020 +0000
++++ b/dom/ipc/ContentChild.h	Tue May 26 09:30:17 2020 +0000
+@@ -540,7 +540,8 @@
+       nsTArray<LookAndFeelInt>&& aLookAndFeelIntCache,
+       nsTArray<SystemFontListEntry>&& aFontList,
+       const Maybe<base::SharedMemoryHandle>& aSharedUASheetHandle,
+-      const uintptr_t& aSharedUASheetAddress);
++      const uintptr_t& aSharedUASheetAddress,
++      nsTArray<base::SharedMemoryHandle>&& aSharedFontListBlocks);
+ 
+   mozilla::ipc::IPCResult RecvProvideAnonymousTemporaryFile(
+       const uint64_t& aID, const FileDescOrError& aFD);
+@@ -578,6 +579,10 @@
+     return mFontList;
+   }
+ 
++  nsTArray<base::SharedMemoryHandle>& SharedFontListBlocks() {
++    return mSharedFontListBlocks;
++  }
++
+   // PURLClassifierChild
+   PURLClassifierChild* AllocPURLClassifierChild(const Principal& aPrincipal,
+                                                 bool* aSuccess);
+@@ -813,6 +818,8 @@
+   nsTArray<mozilla::dom::SystemFontListEntry> mFontList;
+   // Temporary storage for nsXPLookAndFeel flags.
+   nsTArray<LookAndFeelInt> mLookAndFeelCache;
++  // Temporary storage for list of shared-fontlist memory blocks.
++  nsTArray<base::SharedMemoryHandle> mSharedFontListBlocks;
+ 
+   /**
+    * An ID unique to the process containing our corresponding

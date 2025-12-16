@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/VideoConduit.cpp
+# Commit: 844625c1d96d
+# Full Hash: 844625c1d96dc53ec2e0ecf009a84a8ed6d469da
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 2
+# Description:
+#   Bug 1654112 - Make the GmpPluginNotifier owner thread injectable. r=bwc
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D112850
+# ==============================================================================
+
+diff -r 8c904d1fcdf3 -r 844625c1d96d dom/media/webrtc/libwebrtcglue/VideoConduit.cpp
+--- a/dom/media/webrtc/libwebrtcglue/VideoConduit.cpp	Wed Apr 07 09:45:07 2021 +0200
++++ b/dom/media/webrtc/libwebrtcglue/VideoConduit.cpp	Sun Apr 18 22:14:28 2021 +0200
+@@ -314,9 +314,10 @@
+     : mTransportMonitor("WebrtcVideoConduit"),
+       mStsThread(aStsThread),
+       mMutex("WebrtcVideoConduit::mMutex"),
+-      mDecoderFactory(MakeUnique<WebrtcVideoDecoderFactory>(aPCHandle)),
+-      mEncoderFactory(
+-          MakeUnique<WebrtcVideoEncoderFactory>(std::move(aPCHandle))),
++      mDecoderFactory(MakeUnique<WebrtcVideoDecoderFactory>(
++          GetMainThreadSerialEventTarget(), aPCHandle)),
++      mEncoderFactory(MakeUnique<WebrtcVideoEncoderFactory>(
++          GetMainThreadSerialEventTarget(), std::move(aPCHandle))),
+       mVideoAdapter(MakeUnique<cricket::VideoAdapter>()),
+       mBufferPool(false, SCALER_BUFFER_POOL_SIZE),
+       mEngineTransmitting(false),

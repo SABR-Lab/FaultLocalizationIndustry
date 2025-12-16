@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: ipc/glue/BackgroundParentImpl.cpp
+# Commit: 1f3365d25033
+# Full Hash: 1f3365d25033f9dbc52b13e8fc4c64f3cdd35946
+# Author: Kagami Sascha Rosylight <saschanaz@outlook.com>
+# Date: 2024-11-12 09:32:50
+# Regressor Bug: 1928702
+# File Overlap Count: 1
+# Description:
+#   Bug 1928702 - Part 2: Create PNotification via PBackground r=asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D227687
+# ==============================================================================
+
+diff -r cc25e5c94813 -r 1f3365d25033 ipc/glue/BackgroundParentImpl.cpp
+--- a/ipc/glue/BackgroundParentImpl.cpp	Mon Nov 11 20:34:11 2024 +0000
++++ b/ipc/glue/BackgroundParentImpl.cpp	Mon Nov 11 20:34:11 2024 +0000
+@@ -54,6 +54,7 @@
+ #include "mozilla/dom/locks/LockManagerParent.h"
+ #include "mozilla/dom/localstorage/ActorsParent.h"
+ #include "mozilla/dom/network/UDPSocketParent.h"
++#include "mozilla/dom/notification/NotificationParent.h"
+ #include "mozilla/dom/quota/ActorsParent.h"
+ #include "mozilla/dom/quota/QuotaParent.h"
+ #include "mozilla/dom/simpledb/ActorsParent.h"
+@@ -479,6 +480,23 @@
+   return IPC_OK();
+ }
+ 
++mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateNotificationParent(
++    Endpoint<dom::notification::PNotificationParent>&& aParentEndpoint,
++    NotNull<nsIPrincipal*> aPrincipal,
++    NotNull<nsIPrincipal*> aEffectiveStoragePrincipal,
++    const bool& aIsSecureContext, const nsAString& aId, const nsAString& aScope,
++    const IPCNotificationOptions& aOptions,
++    CreateNotificationParentResolver&& aResolver) {
++  AssertIsInMainProcess();
++  AssertIsOnBackgroundThread();
++
++  auto actor = MakeRefPtr<dom::notification::NotificationParent>(
++      aPrincipal, aEffectiveStoragePrincipal, aIsSecureContext, aId, aScope,
++      aOptions);
++  actor->BindToMainThread(std::move(aParentEndpoint), std::move(aResolver));
++  return IPC_OK();
++}
++
+ already_AddRefed<PIdleSchedulerParent>
+ BackgroundParentImpl::AllocPIdleSchedulerParent() {
+   AssertIsOnBackgroundThread();
+@@ -1381,8 +1399,7 @@
+ already_AddRefed<dom::locks::PLockManagerParent>
+ BackgroundParentImpl::AllocPLockManagerParent(NotNull<nsIPrincipal*> aPrincipal,
+                                               const Maybe<nsID>& aClientId) {
+-  return MakeAndAddRef<mozilla::dom::locks::LockManagerParent>(aPrincipal,
+-                                                               aClientId);
++  return MakeAndAddRef<dom::locks::LockManagerParent>(aPrincipal, aClientId);
+ }
+ 
+ already_AddRefed<dom::PFetchParent> BackgroundParentImpl::AllocPFetchParent() {

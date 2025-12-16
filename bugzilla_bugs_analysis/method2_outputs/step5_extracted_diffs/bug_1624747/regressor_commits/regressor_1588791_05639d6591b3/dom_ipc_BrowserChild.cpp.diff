@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/BrowserChild.cpp
+# Commit: 05639d6591b3
+# Full Hash: 05639d6591b3251c31fdaf5fe5d37dd162009a8b
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2020-01-13 15:45:24
+# Regressor Bug: 1588791
+# File Overlap Count: 1
+# Description:
+#   Bug 1588791 - Make fission iframes honor and deal with the scrolling attribute. r=mattwoodrow
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D59630
+# ==============================================================================
+
+diff -r e4eb188ccbe0 -r 05639d6591b3 dom/ipc/BrowserChild.cpp
+--- a/dom/ipc/BrowserChild.cpp	Mon Jan 13 11:30:36 2020 +0000
++++ b/dom/ipc/BrowserChild.cpp	Mon Jan 13 11:30:44 2020 +0000
+@@ -1111,7 +1111,8 @@
+ }
+ 
+ void BrowserChild::DoFakeShow(const ParentShowInfo& aParentShowInfo) {
+-  OwnerShowInfo ownerInfo{ScreenIntSize(), mParentIsActive, nsSizeMode_Normal};
++  OwnerShowInfo ownerInfo{ScreenIntSize(), ScrollbarPreference::Auto,
++                          mParentIsActive, nsSizeMode_Normal};
+   RecvShow(aParentShowInfo, ownerInfo);
+   mDidFakeShow = true;
+ }
+@@ -1187,6 +1188,9 @@
+ 
+   ApplyParentShowInfo(aParentInfo);
+   RecvParentActivated(aOwnerInfo.parentWindowIsActive());
++  if (!mIsTopLevel) {
++    RecvScrollbarPreferenceChanged(aOwnerInfo.scrollbarPreference());
++  }
+ 
+   if (!res) {
+     return IPC_FAIL_NO_REASON(this);
+@@ -1213,6 +1217,16 @@
+   return IPC_OK();
+ }
+ 
++mozilla::ipc::IPCResult BrowserChild::RecvScrollbarPreferenceChanged(
++    ScrollbarPreference aPreference) {
++  MOZ_ASSERT(!mIsTopLevel,
++             "Scrollbar visibility should be derived from chrome flags for "
++             "top-level windows");
++  nsCOMPtr<nsIDocShell> docShell = do_GetInterface(WebNavigation());
++  nsDocShell::Cast(docShell)->SetScrollbarPreference(aPreference);
++  return IPC_OK();
++}
++
+ mozilla::ipc::IPCResult BrowserChild::RecvCompositorOptionsChanged(
+     const CompositorOptions& aNewOptions) {
+   MOZ_ASSERT(mCompositorOptions);

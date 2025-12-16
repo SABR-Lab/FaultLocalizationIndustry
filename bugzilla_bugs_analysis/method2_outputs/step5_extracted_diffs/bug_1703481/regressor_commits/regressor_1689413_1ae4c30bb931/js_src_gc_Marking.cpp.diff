@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/Marking.cpp
+# Commit: 1ae4c30bb931
+# Full Hash: 1ae4c30bb931a8ba0361ac1a49a2de71340a2ed8
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2021-03-06 09:33:16
+# Regressor Bug: 1689413
+# File Overlap Count: 1
+# Description:
+#   Bug 1689413 part 1 - Move ShapeCachePtr from BaseShape to Shape. r=jonco
+#   
+#   This adds a pointer to Shape, but it lets us remove owned BaseShapes in the next patch.
+#   
+#   Accessing the ShapeTable/ShapeIC is now a bit more efficient because it removes a
+# ==============================================================================
+
+diff -r 14445d08a3a4 -r 1ae4c30bb931 js/src/gc/Marking.cpp
+--- a/js/src/gc/Marking.cpp	Sat Mar 06 00:15:47 2021 +0000
++++ b/js/src/gc/Marking.cpp	Sat Mar 06 01:05:19 2021 +0000
+@@ -1249,6 +1249,8 @@
+     }
+   }
+ 
++  cache_.trace(trc);
++
+   if (hasGetterObject()) {
+     TraceManuallyBarrieredEdge(trc, &asAccessorShape().getterObj, "getter");
+   }
+@@ -1260,14 +1262,10 @@
+   MOZ_ASSERT(shape->isMarked(markColor()));
+ 
+   do {
+-    // Special case: if a base shape has a shape table then all its pointers
+-    // must point to this shape or an anscestor.  Since these pointers will
+-    // be traced by this loop they do not need to be traced here as well.
+     BaseShape* base = shape->base();
+     checkTraversedEdge(shape, base);
+     if (mark(base)) {
+-      MOZ_ASSERT(base->canSkipMarkingShapeCache(shape));
+-      base->traceChildrenSkipShapeCache(this);
++      base->traceChildren(this);
+     }
+ 
+     markAndTraverseEdge(shape, shape->propidRef().get());
+@@ -1279,6 +1277,11 @@
+       markAndTraverseEdge(shape, shape->dictNext.toObject());
+     }
+ 
++    // Special case: if a shape has a shape table then all its pointers
++    // must point to this shape or an anscestor.  Since these pointers will
++    // be traced by this loop they do not need to be traced here as well.
++    MOZ_ASSERT(shape->canSkipMarkingShapeCache());
++
+     // When triggered between slices on behalf of a barrier, these
+     // objects may reside in the nursery, so require an extra check.
+     // FIXME: Bug 1157967 - remove the isTenured checks.

@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/printing/content/print.js
+# Commit: 8b047a24a91d
+# Full Hash: 8b047a24a91df99818fd01165b6b00d05258a3d4
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2022-03-31 09:35:41
+# Regressor Bug: 1760836
+# File Overlap Count: 1
+# Description:
+#   Bug 1760836 - Support printing to an nsIOutputStream. r=jfkthame,jrmuizel,webdriver-reviewers,geckoview-reviewers,agi
+#   
+#   The trickiest bits are the PrintTargetCG ones, the rest is just plumbing
+#   and cleanups and tests, but let me know if you want those to be split
+#   out, can do.
+# ==============================================================================
+
+diff -r a04583558158 -r 8b047a24a91d toolkit/components/printing/content/print.js
+--- a/toolkit/components/printing/content/print.js	Wed Mar 30 18:46:53 2022 +0000
++++ b/toolkit/components/printing/content/print.js	Wed Mar 30 18:51:58 2022 +0000
+@@ -1181,15 +1181,18 @@
+       printerInfo.defaultSettings.toFileName = "";
+       printerInfo.defaultSettings.outputFormat =
+         Ci.nsIPrintSettings.kOutputFormatPDF;
+-      printerInfo.defaultSettings.printToFile = true;
++      printerInfo.defaultSettings.outputDestination =
++        Ci.nsIPrintSettings.kOutputDestinationFile;
+       printerInfo.paperList = this.fallbackPaperList;
+     }
+     printerInfo.settings = printerInfo.defaultSettings.clone();
+     // Apply any previously persisted user values
+     // Don't apply kInitSavePrintToFile though, that should only be true for
+     // the PDF printer.
+-    printerInfo.settings.printToFile =
+-      printerName == PrintUtils.SAVE_TO_PDF_PRINTER;
++    printerInfo.settings.outputDestination =
++      printerName == PrintUtils.SAVE_TO_PDF_PRINTER
++        ? Ci.nsIPrintSettings.kOutputDestinationFile
++        : Ci.nsIPrintSettings.kOutputDestinationPrinter;
+     let flags =
+       printerInfo.settings.kInitSaveAll ^
+       printerInfo.settings.kInitSavePrintToFile;
+@@ -2615,7 +2618,7 @@
+   update(settings) {
+     this.numCopies = settings.numCopies;
+     this.duplex = settings.duplex;
+-    this.printToFile = settings.printToFile;
++    this.outputDestination = settings.outputDestination;
+     this.render();
+   }
+ 
+@@ -2628,7 +2631,10 @@
+ 
+     // When printing to a printer (not to a file) update
+     // the sheet count to account for duplex printing.
+-    if (!this.printToFile && this.duplex != Ci.nsIPrintSettings.kDuplexNone) {
++    if (
++      this.outputDestination == Ci.nsIPrintSettings.kOutputDestinationPrinter &&
++      this.duplex != Ci.nsIPrintSettings.kDuplexNone
++    ) {
+       sheetCount = Math.ceil(sheetCount / 2);
+     }
+ 

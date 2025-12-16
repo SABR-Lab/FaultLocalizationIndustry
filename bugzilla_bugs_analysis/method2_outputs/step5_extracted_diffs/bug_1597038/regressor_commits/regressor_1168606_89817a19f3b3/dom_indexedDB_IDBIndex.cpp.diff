@@ -1,0 +1,67 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/IDBIndex.cpp
+# Commit: 89817a19f3b3
+# Full Hash: 89817a19f3b38187bca7eecd50cbf39867c4dad8
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2019-11-05 22:07:34
+# Regressor Bug: 1168606
+# File Overlap Count: 1
+# Description:
+#   Bug 1168606 - Send extra records with every ObjectStoreCursorResponse if enabled by pref. r=ttung,asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D43252
+# ==============================================================================
+
+diff -r 2f0447b228c7 -r 89817a19f3b3 dom/indexedDB/IDBIndex.cpp
+--- a/dom/indexedDB/IDBIndex.cpp	Tue Nov 05 14:40:33 2019 +0000
++++ b/dom/indexedDB/IDBIndex.cpp	Tue Nov 05 14:40:37 2019 +0000
+@@ -333,6 +333,11 @@
+         IDB_LOG_STRINGIFY(this), IDB_LOG_STRINGIFY(keyRange));
+   }
+ 
++  // TODO: This is necessary to preserve request ordering only. Proper
++  // sequencing of requests should be done in a more sophisticated manner that
++  // doesn't require invalidating cursor caches (Bug 1580499).
++  transaction->InvalidateCursorCaches();
++
+   transaction->StartRequest(request, params);
+ 
+   return request.forget();
+@@ -403,6 +408,11 @@
+         IDB_LOG_STRINGIFY(aLimit));
+   }
+ 
++  // TODO: This is necessary to preserve request ordering only. Proper
++  // sequencing of requests should be done in a more sophisticated manner that
++  // doesn't require invalidating cursor caches (Bug 1580499).
++  transaction->InvalidateCursorCaches();
++
+   transaction->StartRequest(request, params);
+ 
+   return request.forget();
+@@ -480,6 +490,11 @@
+   BackgroundCursorChild* const actor =
+       new BackgroundCursorChild(request, this, direction);
+ 
++  // TODO: This is necessary to preserve request ordering only. Proper
++  // sequencing of requests should be done in a more sophisticated manner that
++  // doesn't require invalidating cursor caches (Bug 1580499).
++  transaction->InvalidateCursorCaches();
++
+   mObjectStore->Transaction()->OpenCursor(actor, params);
+ 
+   return request.forget();
+@@ -529,6 +544,11 @@
+       IDB_LOG_STRINGIFY(transaction), IDB_LOG_STRINGIFY(mObjectStore),
+       IDB_LOG_STRINGIFY(this), IDB_LOG_STRINGIFY(keyRange));
+ 
++  // TODO: This is necessary to preserve request ordering only. Proper
++  // sequencing of requests should be done in a more sophisticated manner that
++  // doesn't require invalidating cursor caches (Bug 1580499).
++  transaction->InvalidateCursorCaches();
++
+   transaction->StartRequest(request, params);
+ 
+   return request.forget();

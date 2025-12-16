@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/crashreporter/nsExceptionHandler.cpp
+# Commit: 881add28e309
+# Full Hash: 881add28e30909baaaa42c7eb290d48f23782767
+# Author: Gabriele Svelto <gsvelto@mozilla.com>
+# Date: 2022-09-12 21:40:55
+# Regressor Bug: 1789421
+# File Overlap Count: 1
+# Description:
+#   Bug 1789421 - Generate crash reports for content process shutdown hangs only when we can confirm that the process did not shut down in time r=jstutte
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D156838
+# ==============================================================================
+
+diff -r 41bbf2081f1b -r 881add28e309 toolkit/crashreporter/nsExceptionHandler.cpp
+--- a/toolkit/crashreporter/nsExceptionHandler.cpp	Mon Sep 12 19:05:54 2022 +0000
++++ b/toolkit/crashreporter/nsExceptionHandler.cpp	Mon Sep 12 19:05:24 2022 +0000
+@@ -3042,24 +3042,39 @@
+   }
+ }
+ 
+-void DeleteMinidumpFilesForID(const nsAString& id) {
++void DeleteMinidumpFilesForID(const nsAString& aId,
++                              const Maybe<nsString>& aAdditionalMinidump) {
+   nsCOMPtr<nsIFile> minidumpFile;
+-  if (GetMinidumpForID(id, getter_AddRefs(minidumpFile))) {
++  if (GetMinidumpForID(aId, getter_AddRefs(minidumpFile))) {
+     minidumpFile->Remove(false);
+   }
+ 
+   nsCOMPtr<nsIFile> extraFile;
+-  if (GetExtraFileForID(id, getter_AddRefs(extraFile))) {
++  if (GetExtraFileForID(aId, getter_AddRefs(extraFile))) {
+     extraFile->Remove(false);
+   }
++
++  if (aAdditionalMinidump && GetMinidumpForID(aId, getter_AddRefs(minidumpFile),
++                                              aAdditionalMinidump)) {
++    minidumpFile->Remove(false);
++  }
+ }
+ 
+-bool GetMinidumpForID(const nsAString& id, nsIFile** minidump) {
++bool GetMinidumpForID(const nsAString& id, nsIFile** minidump,
++                      const Maybe<nsString>& aAdditionalMinidump) {
+   if (!GetMinidumpLimboDir(minidump)) {
+     return false;
+   }
+ 
+-  (*minidump)->Append(id + u".dmp"_ns);
++  nsAutoString fileName(id);
++
++  if (aAdditionalMinidump) {
++    fileName.Append('-');
++    fileName.Append(*aAdditionalMinidump);
++  }
++
++  fileName.Append(u".dmp"_ns);
++  (*minidump)->Append(fileName);
+ 
+   bool exists;
+   if (NS_FAILED((*minidump)->Exists(&exists)) || !exists) {

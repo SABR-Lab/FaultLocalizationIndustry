@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webaudio/blink/HRTFKernel.cpp
+# Commit: e519654e5d8b
+# Full Hash: e519654e5d8b7e0dc682c316fa0d16318b962765
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2024-02-28 04:30:28
+# Regressor Bug: 1879873
+# File Overlap Count: 1
+# Description:
+#   Bug 1879873 - Scale the inverse FFT result using tx instead of pre- or post-processing the data. r=karlt
+#   
+#   This skips a copy at the expense of having to do a `const_cast`.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D202434
+# ==============================================================================
+
+diff -r 9b17ac4800c6 -r e519654e5d8b dom/media/webaudio/blink/HRTFKernel.cpp
+--- a/dom/media/webaudio/blink/HRTFKernel.cpp	Tue Feb 27 12:40:23 2024 +0000
++++ b/dom/media/webaudio/blink/HRTFKernel.cpp	Tue Feb 27 12:40:24 2024 +0000
+@@ -38,7 +38,7 @@
+   // Check for power-of-2.
+   MOZ_ASSERT(length && (length & (length - 1)) == 0);
+ 
+-  FFTBlock estimationFrame(length);
++  FFTBlock estimationFrame(length, 1.f / length);
+   estimationFrame.PerformFFT(impulseP);
+ 
+   float frameDelay =

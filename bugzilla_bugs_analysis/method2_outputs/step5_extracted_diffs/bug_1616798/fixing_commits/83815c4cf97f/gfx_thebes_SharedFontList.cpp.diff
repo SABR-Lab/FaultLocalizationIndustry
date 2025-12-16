@@ -1,0 +1,47 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/SharedFontList.cpp
+# Commit: 83815c4cf97f
+# Full Hash: 83815c4cf97ff21836996defd83442e843d23e4f
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2020-02-23 21:42:28
+# Description:
+#   Bug 1616798 - Ensure SetCharMapRunnable holds a reference to the charmap. r=jwatt
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D63461
+# ==============================================================================
+
+diff -r b4e30e9317ad -r 83815c4cf97f gfx/thebes/SharedFontList.cpp
+--- a/gfx/thebes/SharedFontList.cpp	Sun Feb 23 12:06:40 2020 +0000
++++ b/gfx/thebes/SharedFontList.cpp	Sun Feb 23 12:15:00 2020 +0000
+@@ -92,7 +92,7 @@
+ class SetCharMapRunnable : public mozilla::Runnable {
+  public:
+   SetCharMapRunnable(uint32_t aListGeneration, Face* aFace,
+-                     const gfxSparseBitSet* aCharMap)
++                     gfxCharacterMap* aCharMap)
+       : Runnable("SetCharMapRunnable"),
+         mListGeneration(aListGeneration),
+         mFace(aFace),
+@@ -111,18 +111,16 @@
+  private:
+   uint32_t mListGeneration;
+   Face* mFace;
+-  const gfxSparseBitSet* mCharMap;
++  RefPtr<gfxCharacterMap> mCharMap;
+ };
+ 
+-void Face::SetCharacterMap(FontList* aList, const gfxSparseBitSet* aCharMap) {
++void Face::SetCharacterMap(FontList* aList, gfxCharacterMap* aCharMap) {
+   if (!XRE_IsParentProcess()) {
+     if (NS_IsMainThread()) {
+       Pointer ptr = aList->ToSharedPointer(this);
+       dom::ContentChild::GetSingleton()->SendSetCharacterMap(
+           aList->GetGeneration(), ptr, *aCharMap);
+     } else {
+-      // aCharMap is kept alive by our caller until it has been successfully
+-      // recorded in the Face, so we don't need to make/pass a copy.
+       NS_DispatchToMainThread(
+           new SetCharMapRunnable(aList->GetGeneration(), this, aCharMap));
+     }

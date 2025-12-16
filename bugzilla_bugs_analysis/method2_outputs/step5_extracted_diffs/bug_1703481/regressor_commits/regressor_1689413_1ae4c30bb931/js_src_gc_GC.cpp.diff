@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/GC.cpp
+# Commit: 1ae4c30bb931
+# Full Hash: 1ae4c30bb931a8ba0361ac1a49a2de71340a2ed8
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2021-03-06 09:33:16
+# Regressor Bug: 1689413
+# File Overlap Count: 1
+# Description:
+#   Bug 1689413 part 1 - Move ShapeCachePtr from BaseShape to Shape. r=jonco
+#   
+#   This adds a pointer to Shape, but it lets us remove owned BaseShapes in the next patch.
+#   
+#   Accessing the ShapeTable/ShapeIC is now a bit more efficient because it removes a
+# ==============================================================================
+
+diff -r 14445d08a3a4 -r 1ae4c30bb931 js/src/gc/GC.cpp
+--- a/js/src/gc/GC.cpp	Sat Mar 06 00:15:47 2021 +0000
++++ b/js/src/gc/GC.cpp	Sat Mar 06 01:05:19 2021 +0000
+@@ -4084,9 +4084,13 @@
+     if (!canRelocateZone(zone) || zone->keepShapeCaches()) {
+       continue;
+     }
+-    for (auto baseShape = zone->cellIterUnsafe<BaseShape>(); !baseShape.done();
+-         baseShape.next()) {
+-      baseShape->maybePurgeCache(rt->defaultFreeOp());
++    for (auto shape = zone->cellIterUnsafe<Shape>(); !shape.done();
++         shape.next()) {
++      shape->maybePurgeCache(rt->defaultFreeOp());
++    }
++    for (auto shape = zone->cellIterUnsafe<AccessorShape>(); !shape.done();
++         shape.next()) {
++      shape->maybePurgeCache(rt->defaultFreeOp());
+     }
+   }
+ }
+@@ -8395,9 +8399,14 @@
+     zone->checkScriptMapsAfterMovingGC();
+ 
+     JS::AutoCheckCannotGC nogc;
+-    for (auto baseShape = zone->cellIterUnsafe<BaseShape>(); !baseShape.done();
+-         baseShape.next()) {
+-      ShapeCachePtr p = baseShape->getCache(nogc);
++    for (auto shape = zone->cellIterUnsafe<Shape>(); !shape.done();
++         shape.next()) {
++      ShapeCachePtr p = shape->getCache(nogc);
++      p.checkAfterMovingGC();
++    }
++    for (auto shape = zone->cellIterUnsafe<AccessorShape>(); !shape.done();
++         shape.next()) {
++      ShapeCachePtr p = shape->getCache(nogc);
+       p.checkAfterMovingGC();
+     }
+   }

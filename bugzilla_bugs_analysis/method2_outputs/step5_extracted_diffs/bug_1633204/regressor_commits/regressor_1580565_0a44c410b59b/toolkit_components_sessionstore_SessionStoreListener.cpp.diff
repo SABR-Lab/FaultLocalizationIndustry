@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/sessionstore/SessionStoreListener.cpp
+# Commit: 0a44c410b59b
+# Full Hash: 0a44c410b59bbc54bfd80ce598562e4362961d7e
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-04-24 09:51:27
+# Regressor Bug: 1580565
+# File Overlap Count: 3
+# Description:
+#   Bug 1580565 - Part 4: Use WindowContext to manage BrowsingContext cached status, r=farre
+#   
+#   The existing infrastructure which stored cached BrowsingContexts on the
+#   BrowsingContextGroup was added before WindowContexts were added, and can cause
+#   racing issues with partially discarded trees during process switches.
+# ==============================================================================
+
+diff -r 20dbcfc9eacc -r 0a44c410b59b toolkit/components/sessionstore/SessionStoreListener.cpp
+--- a/toolkit/components/sessionstore/SessionStoreListener.cpp	Thu Apr 23 21:52:44 2020 +0000
++++ b/toolkit/components/sessionstore/SessionStoreListener.cpp	Thu Apr 23 21:52:47 2020 +0000
+@@ -487,7 +487,7 @@
+ 
+   /* Collect data from all child frame */
+   // This is not going to work for fission. Bug 1572084 for tracking it.
+-  for (auto& child : aBrowsingContext->GetChildren()) {
++  for (auto& child : aBrowsingContext->Children()) {
+     aPositionDescendants[currentIdx] +=
+         CollectPositions(child, aPositions, aPositionDescendants);
+   }
+@@ -576,7 +576,7 @@
+ 
+   /* Collect data from all child frame */
+   // This is not going to work for fission. Bug 1572084 for tracking it.
+-  for (auto& child : aBrowsingContext->GetChildren()) {
++  for (auto& child : aBrowsingContext->Children()) {
+     aInputs[currentIdx].descendants +=
+         CollectInputs(child, aInputs, aIdVals, aXPathVals);
+   }

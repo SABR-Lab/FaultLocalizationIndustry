@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/QuotaCommon.h
+# Commit: dc0c88b81dc2
+# Full Hash: dc0c88b81dc26894c34ae58fb304dc349dd062f0
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2020-12-05 09:38:58
+# Regressor Bug: 1678030
+# File Overlap Count: 1
+# Description:
+#   Bug 1678030 - Generalize CreateAndExecuteSingleStepStatement to accept an optional bind functor. r=dom-workers-and-storage-reviewers,ttung
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D97462
+# ==============================================================================
+
+diff -r 2fb182664097 -r dc0c88b81dc2 dom/quota/QuotaCommon.h
+--- a/dom/quota/QuotaCommon.h	Fri Dec 04 15:10:07 2020 +0000
++++ b/dom/quota/QuotaCommon.h	Fri Dec 04 15:15:31 2020 +0000
+@@ -979,6 +979,9 @@
+ Result<nsCOMPtr<nsIFile>, nsresult> CloneFileAndAppend(
+     nsIFile& aDirectory, const nsAString& aPathElement);
+ 
++Result<nsCOMPtr<mozIStorageStatement>, nsresult> CreateStatement(
++    mozIStorageConnection& aConnection, const nsACString& aStatementString);
++
+ enum class SingleStepResult { AssertHasResult, ReturnNullIfNoResult };
+ 
+ template <SingleStepResult ResultHandling>
+@@ -987,6 +990,10 @@
+                        NotNull<nsCOMPtr<mozIStorageStatement>>,
+                        nsCOMPtr<mozIStorageStatement>>;
+ 
++template <SingleStepResult ResultHandling>
++Result<SingleStepSuccessType<ResultHandling>, nsresult> ExecuteSingleStep(
++    nsCOMPtr<mozIStorageStatement>&& aStatement);
++
+ // Creates a statement with the specified aStatementString, executes a single
+ // step, and returns the statement.
+ // Depending on the value ResultHandling,
+@@ -1095,6 +1102,19 @@
+ 
+ QM_META_HANDLE_ERROR("QuotaManager"_ns)
+ 
++template <SingleStepResult ResultHandling = SingleStepResult::AssertHasResult,
++          typename BindFunctor>
++Result<SingleStepSuccessType<ResultHandling>, nsresult>
++CreateAndExecuteSingleStepStatement(mozIStorageConnection& aConnection,
++                                    const nsACString& aStatementString,
++                                    BindFunctor aBindFunctor) {
++  QM_TRY_UNWRAP(auto stmt, CreateStatement(aConnection, aStatementString));
++
++  QM_TRY(aBindFunctor(*stmt));
++
++  return ExecuteSingleStep<ResultHandling>(std::move(stmt));
++}
++
+ }  // namespace quota
+ }  // namespace dom
+ }  // namespace mozilla

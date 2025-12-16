@@ -1,0 +1,51 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/loader/WorkerModuleLoader.cpp
+# Commit: e47abb2b8ac7
+# Full Hash: e47abb2b8ac70efe89371c67766def82374c0f36
+# Author: Alexandru Marc <amarc@mozilla.com>
+# Date: 2025-09-27 12:29 +0300
+# Description:
+#   Revert "Bug 1968890 - Part 9: Add test for dynamic import. r=jonco" as potential cause of javascript engine crashes (bug 1991268)
+# ==============================================================================
+
+diff -r 7e2611c97326 -r e47abb2b8ac7 dom/workers/loader/WorkerModuleLoader.cpp
+--- a/dom/workers/loader/WorkerModuleLoader.cpp	Sat Sep 27 11:41:54 2025 +0300
++++ b/dom/workers/loader/WorkerModuleLoader.cpp	Sat Sep 27 12:29:56 2025 +0300
+@@ -220,21 +220,20 @@
+ }
+ 
+ void WorkerModuleLoader::OnModuleLoadComplete(ModuleLoadRequest* aRequest) {
+-  if (aRequest->IsStaticImport()) {
+-    return;
+-  }
+-
+-  AutoJSAPI jsapi;
+-  if (NS_WARN_IF(!jsapi.Init(GetGlobalObject()))) {
+-    return;
+-  }
+-  RefPtr<WorkerScriptLoader> requestScriptLoader = GetScriptLoaderFor(aRequest);
+-  if (aRequest->IsDynamicImport()) {
+-    aRequest->ProcessDynamicImport();
+-    requestScriptLoader->TryShutdown();
+-  } else {
+-    requestScriptLoader->MaybeMoveToLoadedList(aRequest);
+-    requestScriptLoader->ProcessPendingRequests(jsapi.cx());
++  if (aRequest->IsTopLevel()) {
++    AutoJSAPI jsapi;
++    if (NS_WARN_IF(!jsapi.Init(GetGlobalObject()))) {
++      return;
++    }
++    RefPtr<WorkerScriptLoader> requestScriptLoader =
++        GetScriptLoaderFor(aRequest);
++    if (aRequest->IsDynamicImport()) {
++      aRequest->ProcessDynamicImport();
++      requestScriptLoader->TryShutdown();
++    } else {
++      requestScriptLoader->MaybeMoveToLoadedList(aRequest);
++      requestScriptLoader->ProcessPendingRequests(jsapi.cx());
++    }
+   }
+ }
+ 

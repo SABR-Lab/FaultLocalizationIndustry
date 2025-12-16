@@ -1,0 +1,74 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/sandbox/win/src/sandbox.cc
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 2
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/sandbox/win/src/sandbox.cc
+--- a/security/sandbox/chromium/sandbox/win/src/sandbox.cc	Wed Jun 12 21:55:59 2019 +1200
++++ b/security/sandbox/chromium/sandbox/win/src/sandbox.cc	Wed Jun 12 11:10:48 2019 +0100
+@@ -2,25 +2,25 @@
+ // Use of this source code is governed by a BSD-style license that can be
+ // found in the LICENSE file.
+ 
+-#include <stdio.h>
++#include "sandbox/win/src/sandbox.h"
++
+ #include <windows.h>
+-#include "sandbox/win/src/sandbox.h"
++
++#include "sandbox/win/src/broker_services.h"
+ #include "sandbox/win/src/sandbox_factory.h"
+-#include "sandbox/win/src/broker_services.h"
+ #include "sandbox/win/src/target_services.h"
+ 
+ namespace sandbox {
+ // The section for IPC and policy.
+-SANDBOX_INTERCEPT HANDLE  g_shared_section;
+-static bool               s_is_broker = false;
++SANDBOX_INTERCEPT HANDLE g_shared_section;
++static bool s_is_broker = false;
+ 
+ // GetBrokerServices: the current implementation relies on a shared section
+ // that is created by the broker and opened by the target.
+ BrokerServices* SandboxFactory::GetBrokerServices() {
+   // Can't be the broker if the shared section is open.
+-  if (NULL != g_shared_section) {
+-    return NULL;
+-  }
++  if (g_shared_section)
++    return nullptr;
+   // If the shared section does not exist we are the broker, then create
+   // the broker object.
+   s_is_broker = true;
+@@ -31,9 +31,8 @@
+ // GetBrokerServices, but in this case the logic is the opposite.
+ TargetServices* SandboxFactory::GetTargetServices() {
+   // Can't be the target if the section handle is not valid.
+-  if (NULL == g_shared_section) {
+-    return NULL;
+-  }
++  if (!g_shared_section)
++    return nullptr;
+   // We are the target
+   s_is_broker = false;
+   // Creates and returns the target services implementation.
+@@ -44,5 +43,5 @@
+ 
+ // Allows querying for whether the current process has been sandboxed.
+ extern "C" bool __declspec(dllexport) IsSandboxedProcess() {
+-  return sandbox::g_shared_section != NULL;
++  return !!sandbox::g_shared_section;
+ }

@@ -1,0 +1,72 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/serviceworkers/ServiceWorkerPrivate.cpp
+# Commit: b668d0c685e8
+# Full Hash: b668d0c685e8d0bbcd3bf5b1856389ca41be31f3
+# Author: Tim Huang <tihuang@mozilla.com>
+# Date: 2025-01-09 04:16:57
+# Regressor Bug: 1915355
+# File Overlap Count: 1
+# Description:
+#   Bug 1915355 - Part 5: Exempt third-party cookie blocking if the channel is on the exception list. r=cookie-reviewers,bvandersloot,valentin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D223384
+# ==============================================================================
+
+diff -r 08acd8256071 -r b668d0c685e8 dom/serviceworkers/ServiceWorkerPrivate.cpp
+--- a/dom/serviceworkers/ServiceWorkerPrivate.cpp	Wed Jan 08 19:25:59 2025 +0000
++++ b/dom/serviceworkers/ServiceWorkerPrivate.cpp	Wed Jan 08 19:25:59 2025 +0000
+@@ -49,6 +49,7 @@
+ #include "mozilla/ipc/PBackgroundChild.h"
+ #include "mozilla/ipc/URIUtils.h"
+ #include "mozilla/net/CookieJarSettings.h"
++#include "mozilla/net/CookieService.h"
+ #include "nsContentUtils.h"
+ #include "nsDebug.h"
+ #include "nsError.h"
+@@ -556,6 +557,7 @@
+   Maybe<RFPTarget> overriddenFingerprintingSettings;
+   nsCOMPtr<nsIURI> firstPartyURI;
+   bool foreignByAncestorContext = false;
++  bool isOn3PCBExceptionList = false;
+   if (!principal->OriginAttributesRef().mPartitionKey.IsEmpty()) {
+     net::CookieJarSettings::Cast(cookieJarSettings)
+         ->SetPartitionKey(principal->OriginAttributesRef().mPartitionKey);
+@@ -583,6 +585,12 @@
+           overriddenFingerprintingSettingsArg.emplace(
+               uint64_t(overriddenFingerprintingSettings.ref()));
+         }
++
++        RefPtr<net::CookieService> csSingleton =
++            net::CookieService::GetSingleton();
++        isOn3PCBExceptionList =
++            csSingleton->ThirdPartyCookieBlockingExceptionsRef()
++                .CheckExceptionForURIs(firstPartyURI, uri);
+       }
+     }
+   } else if (!principal->OriginAttributesRef().mFirstPartyDomain.IsEmpty()) {
+@@ -609,6 +617,13 @@
+               : nsRFPService::GetOverriddenFingerprintingSettingsForURI(
+                     uri, nullptr);
+ 
++      RefPtr<net::CookieService> csSingleton =
++          net::CookieService::GetSingleton();
++      isOn3PCBExceptionList =
++          isThirdParty ? csSingleton->ThirdPartyCookieBlockingExceptionsRef()
++                             .CheckExceptionForURIs(firstPartyURI, uri)
++                       : false;
++
+       if (overriddenFingerprintingSettings.isSome()) {
+         overriddenFingerprintingSettingsArg.emplace(
+             uint64_t(overriddenFingerprintingSettings.ref()));
+@@ -726,8 +741,7 @@
+       /* referrerInfo */ nullptr,
+ 
+       storageAccess, isThirdPartyContextToTopWindow, shouldResistFingerprinting,
+-      overriddenFingerprintingSettingsArg,
+-      false /* TODO: We will set the value in a later patch */,
++      overriddenFingerprintingSettingsArg, isOn3PCBExceptionList,
+       // Origin trials are associated to a window, so it doesn't make sense on
+       // service workers.
+       OriginTrials(), std::move(serviceWorkerData), regInfo->AgentClusterId(),

@@ -1,0 +1,119 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/mac/Sandbox.mm
+# Commit: 5194f8d4d589
+# Full Hash: 5194f8d4d5890aafe62c42f9b1fa75d6a9a64bf5
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2020-10-21 09:51:28
+# Regressor Bug: 1595994
+# File Overlap Count: 1
+# Description:
+#   Bug 1595994 - P12. Allow ffvpx and the AppleDecoderModule in the RDD. r=haik,jolin
+#   
+#   Ultimately, we should be able to remove everything that got added to the RDD sandbox from the content's one.
+#   
+#   Fly-by fix; allow checking if AVX512 is supported in content sandbox.
+# ==============================================================================
+
+diff -r 84b82a60dc74 -r 5194f8d4d589 security/sandbox/mac/Sandbox.mm
+--- a/security/sandbox/mac/Sandbox.mm	Tue Oct 20 23:27:36 2020 +0000
++++ b/security/sandbox/mac/Sandbox.mm	Tue Oct 20 23:27:52 2020 +0000
+@@ -11,22 +11,23 @@
+ 
+ #include "Sandbox.h"
+ 
++#include <CoreFoundation/CoreFoundation.h>
+ #include <stdio.h>
+ #include <stdlib.h>
++#include <sys/sysctl.h>
+ #include <sys/types.h>
+-#include <sys/sysctl.h>
+-#include <CoreFoundation/CoreFoundation.h>
+ 
+ #include <iostream>
+ #include <sstream>
+ #include <vector>
+ 
+-#include "mozilla/Assertions.h"
+ #include "SandboxPolicyContent.h"
+ #include "SandboxPolicyFlash.h"
+ #include "SandboxPolicyGMP.h"
++#include "SandboxPolicyRDD.h"
++#include "SandboxPolicySocket.h"
+ #include "SandboxPolicyUtility.h"
+-#include "SandboxPolicySocket.h"
++#include "mozilla/Assertions.h"
+ 
+ // Undocumented sandbox setup routines.
+ extern "C" int sandbox_init_with_parameters(const char* profile, uint64_t flags,
+@@ -168,8 +169,9 @@
+       this->AppendDebugWriteDirParam(aParams);
+ #endif
+       break;
++    case MacSandboxType_RDD:
++    case MacSandboxType_Socket:
+     case MacSandboxType_Utility:
+-    case MacSandboxType_Socket:
+       break;
+     case MacSandboxType_GMP:
+       this->AppendPluginPathParam(aParams);
+@@ -333,6 +335,20 @@
+       params.push_back("CRASH_PORT");
+       params.push_back(aInfo.crashServerPort.c_str());
+     }
++  } else if (aInfo.type == MacSandboxType_RDD) {
++    profile = const_cast<char*>(SandboxPolicyRDD);
++    params.push_back("SHOULD_LOG");
++    params.push_back(aInfo.shouldLog ? "TRUE" : "FALSE");
++    params.push_back("MAC_OS_VERSION");
++    params.push_back(combinedVersion.c_str());
++    params.push_back("APP_PATH");
++    params.push_back(aInfo.appPath.c_str());
++    params.push_back("HOME_PATH");
++    params.push_back(getenv("HOME"));
++    if (!aInfo.crashServerPort.empty()) {
++      params.push_back("CRASH_PORT");
++      params.push_back(aInfo.crashServerPort.c_str());
++    }
+   } else if (aInfo.type == MacSandboxType_Socket) {
+     profile = const_cast<char*>(SandboxPolicySocket);
+     params.push_back("SHOULD_LOG");
+@@ -713,6 +729,10 @@
+   return true;
+ }
+ 
++bool GetRDDSandboxParamsFromArgs(int aArgc, char** aArgv, MacSandboxInfo& aInfo) {
++  return GetUtilitySandboxParamsFromArgs(aArgc, aArgv, aInfo);
++}
++
+ /*
+  * Returns true if no errors were encountered or if early sandbox startup is
+  * not enabled for this process. Returns false if an error was encountered.
+@@ -748,8 +768,13 @@
+         return false;
+       }
+       break;
+-    case MacSandboxType_Utility:
+-      if (!GetUtilitySandboxParamsFromArgs(aArgc, aArgv, info)) {
++    case MacSandboxType_GMP:
++      if (!GetPluginSandboxParamsFromArgs(aArgc, aArgv, info)) {
++        return false;
++      }
++      break;
++    case MacSandboxType_RDD:
++      if (!GetRDDSandboxParamsFromArgs(aArgc, aArgv, info)) {
+         return false;
+       }
+       break;
+@@ -758,8 +783,8 @@
+         return false;
+       }
+       break;
+-    case MacSandboxType_GMP:
+-      if (!GetPluginSandboxParamsFromArgs(aArgc, aArgv, info)) {
++    case MacSandboxType_Utility:
++      if (!GetUtilitySandboxParamsFromArgs(aArgc, aArgv, info)) {
+         return false;
+       }
+       break;

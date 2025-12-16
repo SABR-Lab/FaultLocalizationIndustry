@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/cache/QuotaClient.cpp
+# Commit: 74d480f1bfa8
+# Full Hash: 74d480f1bfa8f5d63e71818e9ee4dcfe8095a973
+# Author: Tom Tung <ttung@mozilla.com>
+# Date: 2019-10-02 16:35:54
+# Regressor Bug: 1581067
+# File Overlap Count: 1
+# Description:
+#   Bug 1581067 - P5 - Only remove the temporary body files & body directories when it's in the initializing stage; r=asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D47770
+# ==============================================================================
+
+diff -r 0a3fd8b7865a -r 74d480f1bfa8 dom/cache/QuotaClient.cpp
+--- a/dom/cache/QuotaClient.cpp	Tue Oct 01 13:08:15 2019 +0000
++++ b/dom/cache/QuotaClient.cpp	Wed Oct 02 10:38:55 2019 +0000
+@@ -37,7 +37,7 @@
+ using mozilla::ipc::AssertIsOnBackgroundThread;
+ 
+ static nsresult GetBodyUsage(nsIFile* aMorgueDir, const Atomic<bool>& aCanceled,
+-                             UsageInfo* aUsageInfo) {
++                             UsageInfo* aUsageInfo, const bool aInitializing) {
+   AssertIsOnIOThread();
+ 
+   nsCOMPtr<nsIDirectoryEnumerator> entries;
+@@ -88,6 +88,8 @@
+       return NS_OK;
+     };
+     rv = mozilla::dom::cache::BodyTraverseFiles(dummy, bodyDir, getUsage,
++                                                /* aCanRemoveFiles */
++                                                aInitializing,
+                                                 /* aTrackQuota */ false);
+     if (NS_WARN_IF(NS_FAILED(rv))) {
+       return rv;
+@@ -474,7 +476,7 @@
+ 
+       if (isDir) {
+         if (leafName.EqualsLiteral("morgue")) {
+-          rv = GetBodyUsage(file, aCanceled, aUsageInfo);
++          rv = GetBodyUsage(file, aCanceled, aUsageInfo, aInitializing);
+           if (NS_WARN_IF(NS_FAILED(rv))) {
+             if (rv != NS_ERROR_ABORT) {
+               REPORT_TELEMETRY_ERR_IN_INIT(aInitializing, kQuotaExternalError,

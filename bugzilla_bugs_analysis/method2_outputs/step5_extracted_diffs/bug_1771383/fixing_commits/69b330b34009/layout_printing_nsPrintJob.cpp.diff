@@ -1,0 +1,32 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: layout/printing/nsPrintJob.cpp
+# Commit: 69b330b34009
+# Full Hash: 69b330b340096f4d934672b99686713ca6fcd5c2
+# Author: Andrew McCreight <continuation@gmail.com>
+# Date: 2022-06-15 21:49:08
+# Description:
+#   Bug 1771383 - Null check mPrintObject in nsPrintJob::SetupToPrintContent(). r=emilio
+#   
+#   We're seeing a lot of null crashes here. Maybe we're running script since
+#   we last checked mPrintObject and the printer was disconnected or
+#   something along those lines, so just add a null check.
+# ==============================================================================
+
+diff -r 0a19857097ac -r 69b330b34009 layout/printing/nsPrintJob.cpp
+--- a/layout/printing/nsPrintJob.cpp	Wed Jun 15 13:04:57 2022 +0000
++++ b/layout/printing/nsPrintJob.cpp	Wed Jun 15 13:34:11 2022 +0000
+@@ -945,6 +945,12 @@
+   // then PrintDocContent will be called again.
+ 
+   if (mIsDoingPrinting) {
++    // Double-check that mPrintObject is non-null, because it could have
++    // gotten cleared while running script since we last checked it.
++    if (NS_WARN_IF(!mPrintObject)) {
++      return NS_ERROR_FAILURE;
++    }
++
+     PrintDocContent(mPrintObject, rv);  // ignore return value
+   }
+ 

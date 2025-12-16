@@ -1,0 +1,32 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/ipc/RDDProcessHost.cpp
+# Commit: 493b443954fe
+# Full Hash: 493b443954fe15f7b542ba14671f25e5f8531dff
+# Author: Jed Davis <jld@mozilla.com>
+# Date: 2019-02-28 10:55:23
+# Regressor Bug: 1506291
+# File Overlap Count: 1
+# Description:
+#   Bug 1506291 - Add Linux sandboxing for the RDD (media decoder) process. r=gcp,mjf,flod
+#   
+#   The seccomp-bpf policy is currently just the "common" policy with no
+#   additions (but with the fixes in bug 1511560 to enable shared memory
+#   creation).  The file broker policy allows shared memory creation and
+# ==============================================================================
+
+diff -r bf58d8320f5a -r 493b443954fe dom/media/ipc/RDDProcessHost.cpp
+--- a/dom/media/ipc/RDDProcessHost.cpp	Mon Feb 25 16:20:50 2019 +0000
++++ b/dom/media/ipc/RDDProcessHost.cpp	Wed Feb 27 20:14:54 2019 +0000
+@@ -128,7 +128,9 @@
+         mRDDChild->Open(GetChannel(), base::GetProcId(GetChildProcessHandle()));
+     MOZ_ASSERT(rv);
+ 
+-    mRDDChild->Init();
++    if (!mRDDChild->Init()) {
++      KillHard("ActorInitFailed");
++    }
+   }
+ 
+   if (mListener) {

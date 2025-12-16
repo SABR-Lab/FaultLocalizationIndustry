@@ -1,0 +1,45 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/GC.cpp
+# Commit: 3ee14a586d1a
+# Full Hash: 3ee14a586d1a14b79502ba1100dbb2ddc50e7bd5
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2022-08-31 09:32:58
+# Description:
+#   Bug 1787351 - Don't remove the atoms zone from the zones list until after we've marked everything black r=sfink
+#   
+#   Iterating cells in the atoms zone will try to evict the nursery (it's empty in
+#   this case) and if the appropriate zeal mode is set we will then try to check
+#   the heap. This causes an assertion failure because the the zones list is
+# ==============================================================================
+
+diff -r fbebfb6cd235 -r 3ee14a586d1a js/src/gc/GC.cpp
+--- a/js/src/gc/GC.cpp	Tue Aug 30 20:59:08 2022 +0300
++++ b/js/src/gc/GC.cpp	Tue Aug 30 18:10:03 2022 +0000
+@@ -943,13 +943,10 @@
+   MOZ_ASSERT(!atomsZone()->wasGCStarted());
+   MOZ_ASSERT(!atomsZone()->needsIncrementalBarrier());
+ 
+-  sharedAtomsZone_ = atomsZone();
+-  zones().clear();
+-
+-  sharedAtomsZone_->arenas.clearFreeLists();
++  atomsZone()->arenas.clearFreeLists();
+ 
+   for (auto kind : AllAllocKinds()) {
+-    for (auto thing = sharedAtomsZone_->cellIterUnsafe<TenuredCell>(kind);
++    for (auto thing = atomsZone()->cellIterUnsafe<TenuredCell>(kind);
+          !thing.done(); thing.next()) {
+       TenuredCell* cell = thing.getCell();
+       MOZ_ASSERT((cell->is<JSString>() &&
+@@ -960,6 +957,9 @@
+     }
+   }
+ 
++  sharedAtomsZone_ = atomsZone();
++  zones().clear();
++
+   UniquePtr<Zone> zone = MakeUnique<Zone>(rt, Zone::AtomsZone);
+   if (!zone || !zone->init()) {
+     return false;

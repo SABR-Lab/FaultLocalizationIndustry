@@ -1,0 +1,90 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ProcessHangMonitor.cpp
+# Commit: 2d4545c274d7
+# Full Hash: 2d4545c274d7a34fd32d22f82abb5d39f24d64a8
+# Author: Jim Porter <jporter@mozilla.com>
+# Date: 2019-06-07 09:47:19
+# Description:
+#   Bug 1557243 - Fix crash in HangMonitorChild::InterruptCallback; r=smaug
+#   
+#   This patch just adds a check to ensure that the BrowserChild from our window
+#   is non-null. The other changes are just reordering some lines and removing a
+#   level of indentation.
+# ==============================================================================
+
+diff -r 8cff011ed07a -r 2d4545c274d7 dom/ipc/ProcessHangMonitor.cpp
+--- a/dom/ipc/ProcessHangMonitor.cpp	Thu Jun 06 20:18:42 2019 +0000
++++ b/dom/ipc/ProcessHangMonitor.cpp	Thu Jun 06 20:02:38 2019 +0000
+@@ -416,41 +416,44 @@
+ 
+   if (cancelContentJS) {
+     js::AutoAssertNoContentJS nojs(mContext);
+-    TabId currentJSTabId = BrowserChild::GetFrom(win)->GetTabId();
+-    if (currentJSTabId != cancelContentJSTab) {
++
++    RefPtr<BrowserChild> browserChild =
++        BrowserChild::FindBrowserChild(cancelContentJSTab);
++    RefPtr<BrowserChild> browserChildFromWin = BrowserChild::GetFrom(win);
++    if (!browserChild || !browserChildFromWin) {
++      return true;
++    }
++
++    TabId tabIdFromWin = browserChildFromWin->GetTabId();
++    if (tabIdFromWin != cancelContentJSTab) {
+       // The currently-executing content JS doesn't belong to the tab that
+       // requested cancellation of JS. Just return and let the JS continue.
+       return true;
+     }
+ 
+-    RefPtr<BrowserChild> browserChild =
+-        BrowserChild::FindBrowserChild(cancelContentJSTab);
+-    if (browserChild) {
+-      nsresult rv;
+-      nsCOMPtr<nsIURI> uri;
++    nsresult rv;
++    nsCOMPtr<nsIURI> uri;
++
++    if (cancelContentJSNavigationURI) {
++      rv = NS_NewURI(getter_AddRefs(uri), cancelContentJSNavigationURI.value());
++      if (NS_FAILED(rv)) {
++        return true;
++      }
++    }
+ 
+-      if (cancelContentJSNavigationURI) {
+-        rv = NS_NewURI(getter_AddRefs(uri),
+-                       cancelContentJSNavigationURI.value());
+-        if (NS_FAILED(rv)) {
+-          return true;
++    bool canCancel;
++    rv = browserChild->CanCancelContentJS(cancelContentJSNavigationType,
++                                          cancelContentJSNavigationIndex, uri,
++                                          cancelContentJSEpoch, &canCancel);
++    if (NS_SUCCEEDED(rv) && canCancel) {
++      // Don't add this page to the BF cache, since we're cancelling its JS.
++      if (Document* doc = win->GetExtantDoc()) {
++        if (Document* topLevelDoc = doc->GetTopLevelContentDocument()) {
++          topLevelDoc->DisallowBFCaching();
+         }
+       }
+ 
+-      bool canCancel;
+-      rv = browserChild->CanCancelContentJS(cancelContentJSNavigationType,
+-                                            cancelContentJSNavigationIndex, uri,
+-                                            cancelContentJSEpoch, &canCancel);
+-      if (NS_SUCCEEDED(rv) && canCancel) {
+-        // Don't add this page to the BF cache, since we're cancelling its JS.
+-        if (Document* doc = win->GetExtantDoc()) {
+-          if (Document* topLevelDoc = doc->GetTopLevelContentDocument()) {
+-            topLevelDoc->DisallowBFCaching();
+-          }
+-        }
+-
+-        return false;
+-      }
++      return false;
+     }
+   }
+ 

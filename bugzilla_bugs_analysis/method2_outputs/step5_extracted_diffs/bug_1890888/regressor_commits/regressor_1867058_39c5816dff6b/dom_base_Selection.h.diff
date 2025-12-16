@@ -1,0 +1,75 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/Selection.h
+# Commit: 39c5816dff6b
+# Full Hash: 39c5816dff6b63055f41ca7daa5dcc9805fee475
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2024-03-23 09:29:17
+# Regressor Bug: 1867058
+# File Overlap Count: 1
+# Description:
+#   Bug 1867058 - Part 8: Update Selection to support across shadow dom selection r=smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D195310
+# ==============================================================================
+
+diff -r 42e226158dc9 -r 39c5816dff6b dom/base/Selection.h
+--- a/dom/base/Selection.h	Fri Mar 22 17:05:50 2024 +0000
++++ b/dom/base/Selection.h	Fri Mar 22 17:05:51 2024 +0000
+@@ -64,6 +64,9 @@
+ class Selection final : public nsSupportsWeakReference,
+                         public nsWrapperCache,
+                         public SupportsWeakPtr {
++  using AllowRangeCrossShadowBoundary =
++      mozilla::dom::AllowRangeCrossShadowBoundary;
++
+  protected:
+   virtual ~Selection();
+ 
+@@ -327,6 +330,30 @@
+     return offset ? *offset : 0;
+   }
+ 
++  nsINode* GetMayCrossShadowBoundaryAnchorNode() const {
++    const RangeBoundary& anchor = AnchorRef(AllowRangeCrossShadowBoundary::Yes);
++    return anchor.IsSet() ? anchor.Container() : nullptr;
++  }
++
++  uint32_t MayCrossShadowBoundaryAnchorOffset() const {
++    const RangeBoundary& anchor = AnchorRef(AllowRangeCrossShadowBoundary::Yes);
++    const Maybe<uint32_t> offset =
++        anchor.Offset(RangeBoundary::OffsetFilter::kValidOffsets);
++    return offset ? *offset : 0;
++  }
++
++  nsINode* GetMayCrossShadowBoundaryFocusNode() const {
++    const RangeBoundary& focus = FocusRef(AllowRangeCrossShadowBoundary::Yes);
++    return focus.IsSet() ? focus.Container() : nullptr;
++  }
++
++  uint32_t MayCrossShadowBoundaryFocusOffset() const {
++    const RangeBoundary& focus = FocusRef(AllowRangeCrossShadowBoundary::Yes);
++    const Maybe<uint32_t> offset =
++        focus.Offset(RangeBoundary::OffsetFilter::kValidOffsets);
++    return offset ? *offset : 0;
++  }
++
+   nsIContent* GetChildAtAnchorOffset() {
+     const RangeBoundary& anchor = AnchorRef();
+     return anchor.IsSet() ? anchor.GetChildAtOffset() : nullptr;
+@@ -336,8 +363,12 @@
+     return focus.IsSet() ? focus.GetChildAtOffset() : nullptr;
+   }
+ 
+-  const RangeBoundary& AnchorRef() const;
+-  const RangeBoundary& FocusRef() const;
++  const RangeBoundary& AnchorRef(
++      AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary =
++          AllowRangeCrossShadowBoundary::No) const;
++  const RangeBoundary& FocusRef(
++      AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary =
++          AllowRangeCrossShadowBoundary::No) const;
+ 
+   /*
+    * IsCollapsed -- is the whole selection just one point, or unset?

@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/loader/CacheLoadHandler.h
+# Commit: 5f483f0b842a
+# Full Hash: 5f483f0b842afdfad82ea041256f9d8bce37f421
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-11-02 04:41:32
+# Regressor Bug: 1797327
+# File Overlap Count: 3
+# Description:
+#   Bug 1797327 - Use RefPtrs for all WorkerLoadContexts; r=asuth
+#   
+#   As WorkerLoadContexts now inherit from a non-CC'd loadContextBase, we have two outcomes.
+#   1) we need to break cycles with ScriptLoadRequests manually, so that ScriptLoadRequests can be collected (ScriptLoadRequests must be CC'd).
+#   2) we can now have refptrs to WorkerLoadContexts in the CacheLoadHandler and NetworkLoadHandler classes, and remove any remaining raw pointers to ScriptLoadRequest/WorkerLoadContext. There are cases where the NetworkLoadHandler or CacheLoadHandler might outlive the Worker Loader, so having refpointers here should help us recover in those cases.
+# ==============================================================================
+
+diff -r 7ade701781f5 -r 5f483f0b842a dom/workers/loader/CacheLoadHandler.h
+--- a/dom/workers/loader/CacheLoadHandler.h	Tue Nov 01 18:03:34 2022 +0000
++++ b/dom/workers/loader/CacheLoadHandler.h	Tue Nov 01 18:03:34 2022 +0000
+@@ -105,7 +105,7 @@
+                                  const nsACString& aReferrerPolicyHeaderValue);
+   void DataReceived();
+ 
+-  WorkerLoadContext* mLoadContext;
++  RefPtr<WorkerLoadContext> mLoadContext;
+   const RefPtr<WorkerScriptLoader> mLoader;
+   RefPtr<ThreadSafeWorkerRef> mWorkerRef;
+   const bool mIsWorkerScript;
+@@ -198,7 +198,7 @@
+   NS_DECL_ISUPPORTS
+ 
+   CachePromiseHandler(WorkerScriptLoader* aLoader,
+-                      JS::loader::ScriptLoadRequest* aRequest);
++                      WorkerLoadContext* aLoadContext);
+ 
+   virtual void ResolvedCallback(JSContext* aCx, JS::Handle<JS::Value> aValue,
+                                 ErrorResult& aRv) override;
+@@ -210,7 +210,7 @@
+   ~CachePromiseHandler() { AssertIsOnMainThread(); }
+ 
+   RefPtr<WorkerScriptLoader> mLoader;
+-  WorkerLoadContext* mLoadContext;
++  RefPtr<WorkerLoadContext> mLoadContext;
+ };
+ 
+ }  // namespace workerinternals::loader

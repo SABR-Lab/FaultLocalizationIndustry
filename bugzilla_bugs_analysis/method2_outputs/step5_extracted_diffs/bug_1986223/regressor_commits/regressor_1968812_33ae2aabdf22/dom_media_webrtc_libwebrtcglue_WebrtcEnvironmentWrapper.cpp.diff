@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/WebrtcEnvironmentWrapper.cpp
+# Commit: 33ae2aabdf22
+# Full Hash: 33ae2aabdf225a72dfceb09424e4e43ae9430e69
+# Author: Atila Butkovits <abutkovits@mozilla.com>
+# Date: 2025-06-12 16:31:09
+# Regressor Bug: 1968812
+# File Overlap Count: 1
+# Description:
+#   Revert "Bug 1968812 - Remove the CallWorker thread and use TaskQueue::Observer instead. r=bwc" for causing failures complaining about mutexLock.
+#   
+#   This reverts commit d53f26b530b4ad59aebe314c55a8af2c62a80fc3.
+#   
+#   Revert "Bug 1968812 - Copy WebrtcTaskQueueWrapper.h to WebrtcTaskQueueWrapper.cpp. r=bwc"
+# ==============================================================================
+
+diff -r ca232b0163c7 -r 33ae2aabdf22 dom/media/webrtc/libwebrtcglue/WebrtcEnvironmentWrapper.cpp
+--- a/dom/media/webrtc/libwebrtcglue/WebrtcEnvironmentWrapper.cpp	Wed Jun 11 22:34:11 2025 +0300
++++ b/dom/media/webrtc/libwebrtcglue/WebrtcEnvironmentWrapper.cpp	Wed Jun 11 23:24:24 2025 +0300
+@@ -6,7 +6,7 @@
+ 
+ #include "WebrtcEnvironmentWrapper.h"
+ 
+-#include "WebrtcTaskQueueWrapper.h"
++#include "TaskQueueWrapper.h"
+ 
+ // libwebrtc includes
+ #include "api/environment/environment_factory.h"
+@@ -16,7 +16,8 @@
+ /* static */ RefPtr<WebrtcEnvironmentWrapper> WebrtcEnvironmentWrapper::Create(
+     const dom::RTCStatsTimestampMaker& aTimestampMaker) {
+   RefPtr<WebrtcEnvironmentWrapper> wrapper = new WebrtcEnvironmentWrapper(
+-      MakeUnique<webrtc::RtcEventLogNull>(), CreateWebrtcTaskQueueFactory(),
++      MakeUnique<webrtc::RtcEventLogNull>(),
++      MakeUnique<SharedThreadPoolWebRtcTaskQueueFactory>(),
+       WrapUnique(new webrtc::MozTrialsConfig()), aTimestampMaker);
+ 
+   return wrapper;

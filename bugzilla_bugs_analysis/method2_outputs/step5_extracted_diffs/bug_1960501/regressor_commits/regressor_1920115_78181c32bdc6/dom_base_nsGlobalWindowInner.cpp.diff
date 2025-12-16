@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsGlobalWindowInner.cpp
+# Commit: 78181c32bdc6
+# Full Hash: 78181c32bdc6b1d66eac04f3ce11a2902f477823
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2025-02-27 21:52:52
+# Regressor Bug: 1920115
+# File Overlap Count: 2
+# Description:
+#   Bug 1920115 - Add the setup for WebTaskSchedulingState r=jjaschke,dom-core,arai
+#   
+#   Spec: https://wicg.github.io/scheduling-apis/#scheduling-state
+#   
+#   This patch add the setup for WebTaskSchedulingState so that it
+# ==============================================================================
+
+diff -r 912cf1adac80 -r 78181c32bdc6 dom/base/nsGlobalWindowInner.cpp
+--- a/dom/base/nsGlobalWindowInner.cpp	Thu Feb 27 16:17:34 2025 +0000
++++ b/dom/base/nsGlobalWindowInner.cpp	Thu Feb 27 16:17:35 2025 +0000
+@@ -1400,6 +1400,8 @@
+ 
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWebTaskScheduler)
+ 
++  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWebTaskSchedulingState)
++
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTrustedTypePolicyFactory)
+ 
+ #ifdef MOZ_WEBSPEECH
+@@ -1511,6 +1513,8 @@
+     NS_IMPL_CYCLE_COLLECTION_UNLINK(mWebTaskScheduler)
+   }
+ 
++  NS_IMPL_CYCLE_COLLECTION_UNLINK(mWebTaskSchedulingState)
++
+   NS_IMPL_CYCLE_COLLECTION_UNLINK(mTrustedTypePolicyFactory)
+ 
+ #ifdef MOZ_WEBSPEECH
+@@ -1827,6 +1831,7 @@
+   if (mWebTaskScheduler) {
+     mWebTaskScheduler->Disconnect();
+     mWebTaskScheduler = nullptr;
++    mWebTaskSchedulingState = nullptr;
+   }
+ 
+   // This must be called after nullifying the internal objects because here we
+@@ -4095,6 +4100,11 @@
+   return mWebTaskScheduler;
+ }
+ 
++inline void nsGlobalWindowInner::SetWebTaskSchedulingState(
++    WebTaskSchedulingState* aState) {
++  mWebTaskSchedulingState = aState;
++}
++
+ bool nsGlobalWindowInner::Find(const nsAString& aString, bool aCaseSensitive,
+                                bool aBackwards, bool aWrapAround,
+                                bool aWholeWord, bool aSearchInFrames,

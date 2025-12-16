@@ -1,0 +1,78 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/ModuleBuilder.h
+# Commit: cb0e58368cd4
+# Full Hash: cb0e58368cd4d8e1f79b193b7ccae9586cc2ab50
+# Author: Tooru Fujisawa <arai_a@mac.com>
+# Date: 2020-11-14 09:46:25
+# Regressor Bug: 1675241
+# File Overlap Count: 1
+# Description:
+#   Bug 1675241 - Part 10: Use TaggedParserAtomIndex in StencilModuleEntry. r=tcampbell
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D96917
+# ==============================================================================
+
+diff -r 73cc5fa0e0bd -r cb0e58368cd4 js/src/vm/ModuleBuilder.h
+--- a/js/src/vm/ModuleBuilder.h	Sat Nov 14 00:03:20 2020 +0000
++++ b/js/src/vm/ModuleBuilder.h	Sat Nov 14 00:03:28 2020 +0000
+@@ -13,12 +13,12 @@
+ #include "builtin/ModuleObject.h"  // js::{{Im,Ex}portEntry,Requested{Module,}}Object
+ #include "frontend/CompilationInfo.h"  // js::frontend::CompilationInfo
+ #include "frontend/EitherParser.h"     // js::frontend::EitherParser
+-#include "frontend/ParserAtom.h"       // js::frontend::ParserAtom
+-#include "frontend/Stencil.h"          // js::frontend::StencilModuleEntry
+-#include "js/GCHashTable.h"            // JS::GCHash{Map,Set}
+-#include "js/GCVector.h"               // JS::GCVector
+-#include "js/RootingAPI.h"             // JS::{Handle,Rooted}
+-#include "vm/AtomsTable.h"             // js::AtomSet
++#include "frontend/ParserAtom.h"  // js::frontend::{ParserAtom, TaggedParserAtomIndex}
++#include "frontend/Stencil.h"  // js::frontend::StencilModuleEntry
++#include "js/GCHashTable.h"    // JS::GCHash{Map,Set}
++#include "js/GCVector.h"       // JS::GCVector
++#include "js/RootingAPI.h"     // JS::{Handle,Rooted}
++#include "vm/AtomsTable.h"     // js::AtomSet
+ 
+ struct JS_PUBLIC_API JSContext;
+ class JS_PUBLIC_API JSAtom;
+@@ -33,6 +33,20 @@
+ 
+ }  // namespace frontend
+ 
++class TaggedParserAtomIndexHasher {
++ public:
++  using Lookup = frontend::TaggedParserAtomIndex;
++
++  static inline HashNumber hash(const Lookup& l) {
++    return HashNumber(
++        *const_cast<frontend::TaggedParserAtomIndex&>(l).rawData());
++  }
++  static inline bool match(frontend::TaggedParserAtomIndex entry,
++                           const Lookup& l) {
++    return l == entry;
++  }
++};
++
+ // Process a module's parse tree to collate the import and export data used when
+ // creating a ModuleObject.
+ class MOZ_STACK_CLASS ModuleBuilder {
+@@ -63,7 +77,8 @@
+   using AtomSet = HashSet<const frontend::ParserAtom*>;
+   using ExportEntryVector = Vector<frontend::StencilModuleEntry>;
+   using ImportEntryMap =
+-      HashMap<const frontend::ParserAtom*, frontend::StencilModuleEntry>;
++      HashMap<frontend::TaggedParserAtomIndex, frontend::StencilModuleEntry,
++              TaggedParserAtomIndexHasher>;
+ 
+   JSContext* cx_;
+   frontend::EitherParser eitherParser_;
+@@ -79,7 +94,7 @@
+   frontend::FunctionDeclarationVector functionDecls_;
+ 
+   frontend::StencilModuleEntry* importEntryFor(
+-      const frontend::ParserAtom* localName) const;
++      frontend::TaggedParserAtomIndex localName) const;
+ 
+   bool processExportBinding(frontend::ParseNode* pn);
+   bool processExportArrayBinding(frontend::ListNode* array);

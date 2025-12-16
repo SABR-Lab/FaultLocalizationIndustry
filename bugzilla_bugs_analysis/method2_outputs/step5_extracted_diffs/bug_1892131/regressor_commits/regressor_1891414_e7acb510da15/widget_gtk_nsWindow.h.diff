@@ -1,0 +1,77 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/nsWindow.h
+# Commit: e7acb510da15
+# Full Hash: e7acb510da15fa91629c3d97eae4e7dbb1c4ffa9
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2024-04-16 21:40:37
+# Regressor Bug: 1891414
+# File Overlap Count: 1
+# Description:
+#   Bug 1891414 - Improve opaque region tracking in GTK. r=stransky
+#   
+#   Use the opaque region we get from Gecko, rather than hardcoding the
+#   titlebar rect / corners.
+#   
+# ==============================================================================
+
+diff -r 235e497e1648 -r e7acb510da15 widget/gtk/nsWindow.h
+--- a/widget/gtk/nsWindow.h	Tue Apr 16 13:45:09 2024 +0000
++++ b/widget/gtk/nsWindow.h	Tue Apr 16 13:58:07 2024 +0000
+@@ -19,6 +19,7 @@
+ #include "mozilla/RefPtr.h"
+ #include "mozilla/TouchEvents.h"
+ #include "mozilla/UniquePtr.h"
++#include "mozilla/RWLock.h"
+ #include "mozilla/widget/WindowSurface.h"
+ #include "mozilla/widget/WindowSurfaceProvider.h"
+ #include "nsBaseWidget.h"
+@@ -257,7 +258,9 @@
+ 
+   gint GetInputRegionMarginInGdkCoords();
+ 
+-  void UpdateTopLevelOpaqueRegion();
++  void UpdateOpaqueRegionInternal();
++  void UpdateOpaqueRegion(const LayoutDeviceIntRegion&) override;
++  LayoutDeviceIntRegion GetOpaqueRegion() const;
+ 
+   already_AddRefed<mozilla::gfx::DrawTarget> StartRemoteDrawingInRegion(
+       const LayoutDeviceIntRegion& aInvalidRegion,
+@@ -369,9 +372,7 @@
+ 
+   nsresult SetNonClientMargins(const LayoutDeviceIntMargin&) override;
+   void SetDrawsInTitlebar(bool aState);
+-  void SetTitlebarRect();
+   mozilla::LayoutDeviceIntCoord GetTitlebarRadius();
+-  LayoutDeviceIntRect GetTitlebarRect();
+   void UpdateWindowDraggingRegion(
+       const LayoutDeviceIntRegion& aRegion) override;
+ 
+@@ -389,6 +390,7 @@
+   GdkPoint DevicePixelsToGdkPointRoundDown(const LayoutDeviceIntPoint&);
+   GdkRectangle DevicePixelsToGdkSizeRoundUp(const LayoutDeviceIntSize&);
+   GdkRectangle DevicePixelsToGdkRectRoundOut(const LayoutDeviceIntRect&);
++  GdkRectangle DevicePixelsToGdkRectRoundIn(const LayoutDeviceIntRect&);
+ 
+   // From GDK
+   int GdkCoordToDevicePixels(gint);
+@@ -631,9 +633,6 @@
+   // If true, draw our own window titlebar.
+   bool mDrawInTitlebar = false;
+ 
+-  mozilla::Mutex mTitlebarRectMutex;
+-  LayoutDeviceIntRect mTitlebarRect MOZ_GUARDED_BY(mTitlebarRectMutex);
+-
+   // This mutex protect window visibility changes.
+   mozilla::Mutex mWindowVisibilityMutex;
+ 
+@@ -1018,6 +1017,8 @@
+   // Running in kiosk mode and requested to stay on specified monitor.
+   // If monitor is removed minimize the window.
+   mozilla::Maybe<int> mKioskMonitor;
++  LayoutDeviceIntRegion mOpaqueRegion MOZ_GUARDED_BY(mOpaqueRegionLock);
++  mutable mozilla::RWLock mOpaqueRegionLock{"nsWindow::mOpaqueRegion"};
+ };
+ 
+ #endif /* __nsWindow_h__ */

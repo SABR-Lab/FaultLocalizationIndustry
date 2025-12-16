@@ -1,0 +1,36 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLTextureUpload.cpp
+# Commit: 5005fe56b7b0
+# Full Hash: 5005fe56b7b0153d2069d25c6f1f4e311e2c1eb1
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-02-21 05:56:31
+# Regressor Bug: 1616715
+# File Overlap Count: 1
+# Description:
+#   Bug 1616715 - SurfaceFromElement gets alpha Premult unless opt-in to NonPremult. r=lsalzman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D63421
+# ==============================================================================
+
+diff -r 985dccd11e97 -r 5005fe56b7b0 dom/canvas/WebGLTextureUpload.cpp
+--- a/dom/canvas/WebGLTextureUpload.cpp	Thu Feb 20 21:12:05 2020 +0000
++++ b/dom/canvas/WebGLTextureUpload.cpp	Thu Feb 20 20:52:10 2020 +0000
+@@ -170,14 +170,12 @@
+   // same as drawImage.
+   uint32_t flags = nsLayoutUtils::SFE_WANT_FIRST_FRAME_IF_IMAGE |
+                    nsLayoutUtils::SFE_WANT_IMAGE_SURFACE |
+-                   nsLayoutUtils::SFE_USE_ELEMENT_SIZE_IF_VECTOR;
++                   nsLayoutUtils::SFE_USE_ELEMENT_SIZE_IF_VECTOR |
++                   nsLayoutUtils::SFE_ALLOW_NON_PREMULT;
+ 
+   if (mPixelStore.mColorspaceConversion == LOCAL_GL_NONE)
+     flags |= nsLayoutUtils::SFE_NO_COLORSPACE_CONVERSION;
+ 
+-  if (!mPixelStore.mPremultiplyAlpha)
+-    flags |= nsLayoutUtils::SFE_PREFER_NO_PREMULTIPLY_ALPHA;
+-
+   RefPtr<gfx::DrawTarget> idealDrawTarget = nullptr;  // Don't care for now.
+   auto sfer = nsLayoutUtils::SurfaceFromElement(
+       const_cast<dom::Element*>(&elem), flags, idealDrawTarget);

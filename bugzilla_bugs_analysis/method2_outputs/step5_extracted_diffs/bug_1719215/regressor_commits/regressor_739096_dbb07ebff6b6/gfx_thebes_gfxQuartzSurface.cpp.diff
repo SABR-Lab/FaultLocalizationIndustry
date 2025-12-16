@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxQuartzSurface.cpp
+# Commit: dbb07ebff6b6
+# Full Hash: dbb07ebff6b6d0f08ac91fdd2c989c705b016e43
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2021-04-29 09:26:05
+# Regressor Bug: 739096
+# File Overlap Count: 1
+# Description:
+#   Bug 739096 - Remove support for CGLayer-backed cairo quartz surface. r=jrmuizel
+#   
+#   This was a performance optimization that we no longer care about.
+#   Removing it will avoid the need to merge the additions into the new
+#   cairo-quartz-surface code from upstream.
+# ==============================================================================
+
+diff --git a/gfx/thebes/gfxQuartzSurface.cpp b/gfx/thebes/gfxQuartzSurface.cpp
+--- a/gfx/thebes/gfxQuartzSurface.cpp
++++ b/gfx/thebes/gfxQuartzSurface.cpp
+@@ -77,30 +77,16 @@ gfxQuartzSurface::gfxQuartzSurface(unsig
+   CGContextRetain(mCGContext);
+ 
+   Init(surf);
+   if (mSurfaceValid) {
+     RecordMemoryUsed(mSize.height * stride + sizeof(gfxQuartzSurface));
+   }
+ }
+ 
+-already_AddRefed<gfxASurface> gfxQuartzSurface::CreateSimilarSurface(
+-    gfxContentType aType, const mozilla::gfx::IntSize& aSize) {
+-  cairo_surface_t* surface = cairo_quartz_surface_create_cg_layer(
+-      mSurface, (cairo_content_t)aType, aSize.width, aSize.height);
+-  if (cairo_surface_status(surface)) {
+-    cairo_surface_destroy(surface);
+-    return nullptr;
+-  }
+-
+-  RefPtr<gfxASurface> result = Wrap(surface, aSize);
+-  cairo_surface_destroy(surface);
+-  return result.forget();
+-}
+-
+ already_AddRefed<gfxImageSurface> gfxQuartzSurface::GetAsImageSurface() {
+   cairo_surface_t* surface = cairo_quartz_surface_get_image(mSurface);
+   if (!surface || cairo_surface_status(surface)) return nullptr;
+ 
+   RefPtr<gfxASurface> img = Wrap(surface);
+ 
+   // cairo_quartz_surface_get_image returns a referenced image, and thebes
+   // shares the refcounts of Cairo surfaces. However, Wrap also adds a

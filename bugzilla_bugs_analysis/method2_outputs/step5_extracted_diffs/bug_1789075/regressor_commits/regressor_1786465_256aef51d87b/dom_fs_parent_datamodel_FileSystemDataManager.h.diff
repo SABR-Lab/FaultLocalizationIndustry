@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fs/parent/datamodel/FileSystemDataManager.h
+# Commit: 256aef51d87b
+# Full Hash: 256aef51d87b1ab1733d8d4fb306a03674b6c22b
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2022-08-31 21:54:47
+# Regressor Bug: 1786465
+# File Overlap Count: 3
+# Description:
+#   Bug 1786465 - Move TaskQueue ownership from FileSystemManagerParent to FileSystemDataManager; r=dom-storage-reviewers,jesup
+#   
+#   After this change, we will create only one task queue per origin.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D155554
+# ==============================================================================
+
+diff -r cfa7bbd206c3 -r 256aef51d87b dom/fs/parent/datamodel/FileSystemDataManager.h
+--- a/dom/fs/parent/datamodel/FileSystemDataManager.h	Wed Aug 31 09:34:55 2022 +0000
++++ b/dom/fs/parent/datamodel/FileSystemDataManager.h	Wed Aug 31 09:34:55 2022 +0000
+@@ -8,6 +8,7 @@
+ #define DOM_FS_PARENT_DATAMODEL_FILESYSTEMDATAMANAGER_H_
+ 
+ #include "mozilla/NotNull.h"
++#include "mozilla/TaskQueue.h"
+ #include "mozilla/dom/FileSystemTypes.h"
+ #include "mozilla/dom/quota/CheckedUnsafePtr.h"
+ #include "nsCOMPtr.h"
+@@ -24,7 +25,8 @@
+ class FileSystemDataManager
+     : public SupportsCheckedUnsafePtr<CheckIf<DiagnosticAssertEnabled>> {
+  public:
+-  explicit FileSystemDataManager(const Origin& aOrigin);
++  FileSystemDataManager(const Origin& aOrigin,
++                        MovingNotNull<RefPtr<TaskQueue>> aIOTaskQueue);
+ 
+   using result_t = Result<RefPtr<FileSystemDataManager>, nsresult>;
+   static FileSystemDataManager::result_t GetOrCreateFileSystemDataManager(
+@@ -36,11 +38,16 @@
+     return mBackgroundTarget.get();
+   }
+ 
++  nsISerialEventTarget* MutableIOTargetPtr() const {
++    return mIOTaskQueue.get();
++  }
++
+  protected:
+   ~FileSystemDataManager();
+ 
+   const Origin mOrigin;
+   const NotNull<nsCOMPtr<nsISerialEventTarget>> mBackgroundTarget;
++  const NotNull<RefPtr<TaskQueue>> mIOTaskQueue;
+ };
+ 
+ }  // namespace dom::fs::data

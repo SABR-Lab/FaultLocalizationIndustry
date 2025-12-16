@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/BrowserHost.cpp
+# Commit: 4b76024db21c
+# Full Hash: 4b76024db21cff006a7424a35c412c6e0a153eb0
+# Author: Kris Maglione <maglione.k@gmail.com>
+# Date: 2020-09-22 03:47:42
+# Regressor Bug: 1655866
+# File Overlap Count: 1
+# Description:
+#   Bug 1655866: Part 5 - Use native PermitUnload implementation from front-end code. r=nika,mconley
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D88318
+# ==============================================================================
+
+diff -r 55fb069319f1 -r 4b76024db21c dom/ipc/BrowserHost.cpp
+--- a/dom/ipc/BrowserHost.cpp	Mon Sep 21 22:41:01 2020 +0000
++++ b/dom/ipc/BrowserHost.cpp	Mon Sep 21 22:41:04 2020 +0000
+@@ -259,30 +259,6 @@
+   return GetContentParent()->TransmitPermissionsForPrincipal(aPrincipal);
+ }
+ 
+-/* readonly attribute boolean hasBeforeUnload; */
+-NS_IMETHODIMP
+-BrowserHost::GetHasBeforeUnload(bool* aHasBeforeUnload) {
+-  if (!mRoot || !GetBrowsingContext()) {
+-    *aHasBeforeUnload = false;
+-    return NS_OK;
+-  }
+-
+-  bool result = false;
+-
+-  GetBrowsingContext()->PreOrderWalk(
+-      [&result](BrowsingContext* aBrowsingContext) {
+-        WindowGlobalParent* windowGlobal =
+-            aBrowsingContext->Canonical()->GetCurrentWindowGlobal();
+-
+-        if (windowGlobal) {
+-          result |= windowGlobal->HasBeforeUnload();
+-        }
+-      });
+-
+-  *aHasBeforeUnload = result;
+-  return NS_OK;
+-}
+-
+ /* boolean startApzAutoscroll (in float aAnchorX, in float aAnchorY, in nsViewID
+  * aScrollId, in uint32_t aPresShellId); */
+ NS_IMETHODIMP

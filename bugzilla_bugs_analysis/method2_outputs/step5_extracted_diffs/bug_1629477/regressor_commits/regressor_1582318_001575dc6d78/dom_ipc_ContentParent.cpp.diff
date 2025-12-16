@@ -1,0 +1,69 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentParent.cpp
+# Commit: 001575dc6d78
+# Full Hash: 001575dc6d78bf77bda6bd4949c887ba499e4fa7
+# Author: Kris Maglione <maglione.k@gmail.com>
+# Date: 2020-04-09 09:55:00
+# Regressor Bug: 1582318
+# File Overlap Count: 1
+# Description:
+#   Bug 1582318: Remove shutting-down processes from pool immediately. r=nika
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D69441
+# ==============================================================================
+
+diff -r 5349e5225018 -r 001575dc6d78 dom/ipc/ContentParent.cpp
+--- a/dom/ipc/ContentParent.cpp	Wed Apr 08 21:10:10 2020 +0000
++++ b/dom/ipc/ContentParent.cpp	Wed Apr 08 21:13:18 2020 +0000
+@@ -809,8 +809,9 @@
+ 
+   for (uint32_t i = 0; i < maxSelectable; i++) {
+     ContentParent* p = aContentParents[i];
+-    NS_ASSERTION(!p->IsDead(), "Dead contentparent in sBrowserContentParents?");
+-    if (!p->mShutdownPending && p->mOpener == aOpener) {
++    MOZ_DIAGNOSTIC_ASSERT(!p->IsDead());
++    MOZ_DIAGNOSTIC_ASSERT(!p->mShutdownPending);
++    if (p->mOpener == aOpener) {
+       uint32_t tabCount = cpm->GetBrowserParentCountByProcessId(p->ChildID());
+       if (tabCount < min) {
+         candidate = p;
+@@ -830,7 +831,9 @@
+   uint32_t numberOfParents = aContentParents.Length();
+   nsTArray<RefPtr<nsIContentProcessInfo>> infos(numberOfParents);
+   for (auto* cp : aContentParents) {
+-    infos.AppendElement(cp->mScriptableHelper);
++    if (cp->mScriptableHelper) {
++      infos.AppendElement(cp->mScriptableHelper);
++    }
+   }
+ 
+   if (aPreferUsed && numberOfParents) {
+@@ -871,6 +874,7 @@
+       (p = PreallocatedProcessManager::Take()) && !p->mShutdownPending) {
+     // For pre-allocated process we have not set the opener yet.
+     p->mOpener = aOpener;
++    MOZ_DIAGNOSTIC_ASSERT(p->mScriptableHelper);
+     aContentParents.AppendElement(p);
+     p->mActivateTS = TimeStamp::Now();
+     return p.forget();
+@@ -1482,6 +1486,7 @@
+       // Stop sending input events with input priority when shutting down.
+       SetInputPriorityEventEnabled(false);
+       if (SendShutdown()) {
++        RemoveFromList();
+         mShutdownPending = true;
+         // Start the force-kill timer if we haven't already.
+         StartForceKillTimer();
+@@ -1584,7 +1589,9 @@
+ }
+ 
+ void ContentParent::MarkAsDead() {
+-  RemoveFromList();
++  if (!mShutdownPending) {
++    RemoveFromList();
++  }
+ 
+ #ifdef MOZ_WIDGET_ANDROID
+   if (mLifecycleState == LifecycleState::ALIVE) {

@@ -1,0 +1,42 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/script/ScriptLoadContext.h
+# Commit: d2647082c823
+# Full Hash: d2647082c823595eddd3e051bd99c3cbfc53ae73
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-02-24 21:46:01
+# Description:
+#   Bug 1756550 - propagate webext global to all dynamically imported modules; r=jonco
+#   
+#   The crashes were occurring due to the missing webext global on dynamically imported modules from a referencing script. There is likely a more elegant way to reintroduce this, but for now this is a quick fix.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D139511
+# ==============================================================================
+
+diff -r e076ff6e02d1 -r d2647082c823 dom/script/ScriptLoadContext.h
+--- a/dom/script/ScriptLoadContext.h	Thu Feb 24 12:18:19 2022 +0000
++++ b/dom/script/ScriptLoadContext.h	Thu Feb 24 12:25:25 2022 +0000
+@@ -85,8 +85,7 @@
+   virtual ~ScriptLoadContext();
+ 
+  public:
+-  explicit ScriptLoadContext(Element* aElement,
+-                             nsIGlobalObject* aWebExtGlobal = nullptr);
++  explicit ScriptLoadContext(Element* aElement);
+ 
+   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
+   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(ScriptLoadContext)
+@@ -196,12 +195,6 @@
+   bool mIsPreload;
+   nsCOMPtr<Element> mElement;
+ 
+-  /* The Web Extension global -- Only used on DOM Modules.
+-   *     Specifies a SandBox global with which to associate and run this script.
+-   *     Propagated throughout the module tree if present.
+-   */
+-  nsCOMPtr<nsIGlobalObject> mWebExtGlobal;
+-
+   RefPtr<JS::loader::ScriptLoadRequest> mRequest;
+ 
+   // Non-null if there is a document that this request is blocking from loading.

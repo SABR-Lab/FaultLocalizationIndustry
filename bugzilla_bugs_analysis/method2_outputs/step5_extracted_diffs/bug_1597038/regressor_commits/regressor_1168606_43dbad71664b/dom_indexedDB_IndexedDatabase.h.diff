@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/IndexedDatabase.h
+# Commit: 43dbad71664b
+# Full Hash: 43dbad71664bb2c5779b54decd5133db076ec6a0
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2019-11-08 21:36:09
+# Regressor Bug: 1168606
+# File Overlap Count: 1
+# Description:
+#   Bug 1168606 - Replace pseudo-move constructor of StructuredCloneReadInfo by explicit DeserializeStructuredCloneReadInfo function. r=ttung,asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D46593
+# ==============================================================================
+
+diff -r 19188ca45113 -r 43dbad71664b dom/indexedDB/IndexedDatabase.h
+--- a/dom/indexedDB/IndexedDatabase.h	Fri Nov 08 14:28:39 2019 +0000
++++ b/dom/indexedDB/IndexedDatabase.h	Fri Nov 08 13:22:08 2019 +0000
+@@ -39,7 +39,10 @@
+   FileType mType;
+ 
+   // In IndexedDatabaseInlines.h
+-  inline StructuredCloneFile();
++  inline explicit StructuredCloneFile(FileType aType, RefPtr<Blob> aBlob = {});
++
++  // In IndexedDatabaseInlines.h
++  inline explicit StructuredCloneFile(RefPtr<IDBMutableFile> aMutableFile);
+ 
+   // In IndexedDatabaseInlines.h
+   inline ~StructuredCloneFile();
+@@ -61,17 +64,39 @@
+   inline StructuredCloneReadInfo();
+ 
+   // In IndexedDatabaseInlines.h
++  inline StructuredCloneReadInfo(JSStructuredCloneData&& aData,
++                                 nsTArray<StructuredCloneFile> aFiles,
++                                 IDBDatabase* aDatabase,
++                                 bool aHasPreprocessInfo);
++
++#ifdef NS_BUILD_REFCNT_LOGGING
++  // In IndexedDatabaseInlines.h
+   inline ~StructuredCloneReadInfo();
+ 
+   // In IndexedDatabaseInlines.h
+-  inline StructuredCloneReadInfo(StructuredCloneReadInfo&& aOther);
++  //
++  // This custom implementation of the move ctor is only necessary because of
++  // MOZ_COUNT_CTOR. It is less efficient as the compiler-generated move ctor,
++  // since it unnecessarily clears elements on the source.
++  inline StructuredCloneReadInfo(StructuredCloneReadInfo&& aOther) noexcept;
+ 
+   // In IndexedDatabaseInlines.h
+-  inline StructuredCloneReadInfo& operator=(StructuredCloneReadInfo&& aOther);
++  //
++  // This custom implementation of the move assignment operator is only there
++  // for symmetry with the move ctor. It is less efficient as the
++  // compiler-generated move assignment operator, since it unnecessarily clears
++  // elements on the source.
++  inline StructuredCloneReadInfo& operator=(
++      StructuredCloneReadInfo&& aOther) noexcept;
++#else
++  StructuredCloneReadInfo(StructuredCloneReadInfo&& aOther) = default;
++  StructuredCloneReadInfo& operator=(StructuredCloneReadInfo&& aOther) =
++      default;
++#endif
+ 
+-  // In IndexedDatabaseInlines.h
+-  inline MOZ_IMPLICIT StructuredCloneReadInfo(
+-      SerializedStructuredCloneReadInfo&& aOther);
++  StructuredCloneReadInfo(const StructuredCloneReadInfo& aOther) = delete;
++  StructuredCloneReadInfo& operator=(const StructuredCloneReadInfo& aOther) =
++      delete;
+ 
+   // In IndexedDatabaseInlines.h
+   inline size_t Size() const;

@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/wr/WebRenderScrollData.h
+# Commit: 0c25260c4edf
+# Full Hash: 0c25260c4edf97fdfef11320c2a91bc0698b4c11
+# Author: Alexis Beingessner <a.beingessner@gmail.com>
+# Date: 2019-07-25 03:53:31
+# Regressor Bug: 1547351
+# File Overlap Count: 2
+# Description:
+#   Bug 1547351 - Automatically set content process render root r=kats
+#   
+#   This implements the idea of automatically setting a content proc's
+#   render root based on the render root enclosing the iframe that
+#   points to it. There was a bit of cleanup in here that was a bit
+# ==============================================================================
+
+diff -r f96bd2aae39c -r 0c25260c4edf gfx/layers/wr/WebRenderScrollData.h
+--- a/gfx/layers/wr/WebRenderScrollData.h	Wed Jul 24 14:10:56 2019 +0000
++++ b/gfx/layers/wr/WebRenderScrollData.h	Wed Jul 24 14:10:56 2019 +0000
+@@ -21,6 +21,7 @@
+ #include "mozilla/layers/RenderRootBoundary.h"
+ #include "mozilla/layers/WebRenderMessageUtils.h"
+ #include "mozilla/webrender/WebRenderTypes.h"
++#include "mozilla/HashTable.h"
+ #include "mozilla/Maybe.h"
+ #include "nsTArrayForwardDeclare.h"
+ 
+@@ -199,8 +200,7 @@
+   void SetPaintSequenceNumber(uint32_t aPaintSequenceNumber);
+   uint32_t GetPaintSequenceNumber() const;
+ 
+-  void ApplyUpdates(const ScrollUpdatesMap& aUpdates,
+-                    uint32_t aPaintSequenceNumber);
++  void ApplyUpdates(ScrollUpdatesMap& aUpdates, uint32_t aPaintSequenceNumber);
+ 
+   friend struct IPC::ParamTraits<WebRenderScrollData>;
+ 
+@@ -223,7 +223,7 @@
+   // valid on both the child and parent.
+   // The key into this map is the scrollId of a ScrollMetadata, and the value is
+   // an index into the mScrollMetadatas array.
+-  std::map<ScrollableLayerGuid::ViewID, size_t> mScrollIdMap;
++  HashMap<ScrollableLayerGuid::ViewID, size_t> mScrollIdMap;
+ 
+   // A list of all the unique ScrollMetadata objects from the layer tree. Each
+   // ScrollMetadata in this list must have a unique scroll id.

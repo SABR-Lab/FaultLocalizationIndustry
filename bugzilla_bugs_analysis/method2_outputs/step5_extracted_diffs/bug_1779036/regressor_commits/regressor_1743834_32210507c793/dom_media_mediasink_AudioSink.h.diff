@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasink/AudioSink.h
+# Commit: 32210507c793
+# Full Hash: 32210507c793a2b86b7d4582eb66bef331687671
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2022-04-20 21:53:00
+# Regressor Bug: 1743834
+# File Overlap Count: 1
+# Description:
+#   Bug 1743834 - Create and manage the lifetime of the AudioStream EndedPromise in AudioSinkWrapper. r=alwu,media-playback-reviewers
+#   
+#   We're going to shutdown the AudioStream in a subsequent patch, when audio is
+#   muted. This will allow resolving it at the right time when the media ends while
+#   muted.
+# ==============================================================================
+
+diff -r b15369c023af -r 32210507c793 dom/media/mediasink/AudioSink.h
+--- a/dom/media/mediasink/AudioSink.h	Wed Apr 20 12:07:08 2022 +0000
++++ b/dom/media/mediasink/AudioSink.h	Wed Apr 20 12:07:09 2022 +0000
+@@ -42,10 +42,9 @@
+ 
+   ~AudioSink();
+ 
+-  // Start audio playback and return a promise which will be resolved when the
+-  // playback finishes, or return an error result if any error occurs.
+-  Result<already_AddRefed<MediaSink::EndedPromise>, nsresult> Start(
+-      const PlaybackParams& aParams);
++  // Start audio playback.
++  nsresult Start(const PlaybackParams& aParams,
++                 MozPromiseHolder<MediaSink::EndedPromise>& aEndedPromise);
+ 
+   /*
+    * All public functions are not thread-safe.
+@@ -61,8 +60,10 @@
+   // The duration of the buffered frames.
+   media::TimeUnit UnplayedDuration() const;
+ 
+-  // Shut down the AudioSink's resources.
+-  void Shutdown();
++  // Shut down the AudioSink's resources. If an AudioStream existed, return the
++  // ended promise it had, if it's shutting down-mid stream becaues it's muting.
++  Maybe<MozPromiseHolder<MediaSink::EndedPromise>> Shutdown(
++      ShutdownCause aShutdownCause = ShutdownCause::Regular);
+ 
+   void SetVolume(double aVolume);
+   void SetStreamName(const nsAString& aStreamName);
+@@ -87,6 +88,15 @@
+                      bool aAudioThreadChanged) override;
+   bool Ended() const override;
+ 
++  // When shutting down, it's important to not lose any audio data, it might be
++  // still of use, in two scenarios:
++  // - If the audio is now captured to a MediaStream, whatever is enqueued in
++  // the ring buffer needs to be played out now ;
++  // - If the AudioSink is shutting down because the audio is muted, it's
++  // important to keep the audio around in case it's quickly unmuted,
++  // and in general to keep A/V sync correct when unmuted.
++  void ReenqueueUnplayedAudioDataIfNeeded();
++
+   void CheckIsAudible(const Span<AudioDataValue>& aInterleaved,
+                       size_t aChannel);
+ 

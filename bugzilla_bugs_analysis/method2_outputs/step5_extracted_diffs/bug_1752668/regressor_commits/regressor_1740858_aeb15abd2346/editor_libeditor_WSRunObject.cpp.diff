@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/WSRunObject.cpp
+# Commit: aeb15abd2346
+# Full Hash: aeb15abd23467a3627da58edb9d9d7bacc118f21
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2021-11-24 15:52:24
+# Regressor Bug: 1740858
+# File Overlap Count: 1
+# Description:
+#   Bug 1740858 - Improve `SplitNodeResult` r=m_kato
+#   
+#   First, left/right node accessors are not used so that we can get rid of them.
+#   However, we should have similar methods which can retrieve original node and
+#   new node.  Therefore, this adds `GetNewContent()` and `GetOriginalContent()`.
+# ==============================================================================
+
+diff -r 891cba7d04e9 -r aeb15abd2346 editor/libeditor/WSRunObject.cpp
+--- a/editor/libeditor/WSRunObject.cpp	Wed Nov 24 00:46:38 2021 +0000
++++ b/editor/libeditor/WSRunObject.cpp	Wed Nov 24 00:56:33 2021 +0000
+@@ -495,14 +495,15 @@
+       }
+ 
+       if (splitResult.Handled()) {
+-        if (splitResult.GetNextNode()) {
+-          atPreviousContent.Set(splitResult.GetNextNode());
++        if (nsIContent* nextContentAtSplitPoint =
++                splitResult.GetNextContent()) {
++          atPreviousContent.Set(nextContentAtSplitPoint);
+           if (!atPreviousContent.IsSet()) {
+             NS_WARNING("Next node of split point was orphaned");
+             return EditActionResult(NS_ERROR_NULL_POINTER);
+           }
+         } else {
+-          atPreviousContent = splitResult.SplitPoint();
++          atPreviousContent = splitResult.AtSplitPoint<EditorDOMPoint>();
+           if (!atPreviousContent.IsSet()) {
+             NS_WARNING("Split node was orphaned");
+             return EditActionResult(NS_ERROR_NULL_POINTER);

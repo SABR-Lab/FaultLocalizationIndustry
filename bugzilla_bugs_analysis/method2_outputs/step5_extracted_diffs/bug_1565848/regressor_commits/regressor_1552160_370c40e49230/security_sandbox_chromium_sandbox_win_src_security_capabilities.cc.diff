@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/sandbox/win/src/security_capabilities.cc
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 3
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/sandbox/win/src/security_capabilities.cc
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/security/sandbox/chromium/sandbox/win/src/security_capabilities.cc	Wed Jun 12 11:10:48 2019 +0100
+@@ -0,0 +1,33 @@
++// Copyright 2017 The Chromium Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include "sandbox/win/src/security_capabilities.h"
++#include "base/numerics/safe_conversions.h"
++
++namespace sandbox {
++
++SecurityCapabilities::SecurityCapabilities(const Sid& package_sid,
++                                           const std::vector<Sid>& capabilities)
++    : SECURITY_CAPABILITIES(),
++      capabilities_(capabilities),
++      package_sid_(package_sid) {
++  AppContainerSid = package_sid_.GetPSID();
++  if (capabilities_.empty())
++    return;
++
++  capability_sids_.resize(capabilities_.size());
++  for (size_t index = 0; index < capabilities_.size(); ++index) {
++    capability_sids_[index].Sid = capabilities_[index].GetPSID();
++    capability_sids_[index].Attributes = SE_GROUP_ENABLED;
++  }
++  CapabilityCount = base::checked_cast<DWORD>(capability_sids_.size());
++  Capabilities = capability_sids_.data();
++}
++
++SecurityCapabilities::SecurityCapabilities(const Sid& package_sid)
++    : SecurityCapabilities(package_sid, std::vector<Sid>()) {}
++
++SecurityCapabilities::~SecurityCapabilities() {}
++
++}  // namespace sandbox

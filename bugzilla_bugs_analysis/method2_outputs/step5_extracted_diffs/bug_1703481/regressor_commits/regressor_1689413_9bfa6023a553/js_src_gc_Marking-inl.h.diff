@@ -1,0 +1,32 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/Marking-inl.h
+# Commit: 9bfa6023a553
+# Full Hash: 9bfa6023a5539598e824e3d2a95dec25d099a378
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2021-03-06 09:33:16
+# Regressor Bug: 1689413
+# File Overlap Count: 1
+# Description:
+#   Bug 1689413 part 5 - Remove JSClass* from ObjectGroup. r=jonco
+#   
+#   BaseShape stores the JSClass* too so this patch changes the code to get the JSClass*
+#   from there instead of from the ObjectGroup.
+#   
+# ==============================================================================
+
+diff -r 2186bd51bebd -r 9bfa6023a553 js/src/gc/Marking-inl.h
+--- a/js/src/gc/Marking-inl.h	Sat Mar 06 01:05:20 2021 +0000
++++ b/js/src/gc/Marking-inl.h	Sat Mar 06 01:05:20 2021 +0000
+@@ -97,7 +97,9 @@
+ }
+ 
+ inline const JSClass* MaybeForwardedObjectClass(const JSObject* obj) {
+-  return MaybeForwarded(obj->group())->clasp();
++  Shape* shape = MaybeForwarded(obj->shape());
++  BaseShape* baseShape = MaybeForwarded(shape->base());
++  return baseShape->clasp();
+ }
+ 
+ template <typename T>

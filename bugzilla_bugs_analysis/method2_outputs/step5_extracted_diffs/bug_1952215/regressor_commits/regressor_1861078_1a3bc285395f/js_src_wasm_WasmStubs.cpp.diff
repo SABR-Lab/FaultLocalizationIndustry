@@ -1,0 +1,31 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmStubs.cpp
+# Commit: 1a3bc285395f
+# Full Hash: 1a3bc285395ffcc5d9281dd45d4f6c2bb918bf43
+# Author: Julien Pages <jpages@mozilla.com>
+# Date: 2025-03-04 04:58:00
+# Regressor Bug: 1861078
+# File Overlap Count: 1
+# Description:
+#   Bug 1861078 - wasm: make metadata offsets relative to CodeBlock->codeBase. r=rhunt
+#   
+#   Metadata used offsets to the beginning of code segment. Change that to use
+#   offsets relative to the beginning of CodeBlock. This allows us to avoid offseting
+#   metadata later on and prepare the work for simplification of stackmaps.
+# ==============================================================================
+
+diff -r 66d70b730ea6 -r 1a3bc285395f js/src/wasm/WasmStubs.cpp
+--- a/js/src/wasm/WasmStubs.cpp	Mon Mar 03 16:15:17 2025 +0000
++++ b/js/src/wasm/WasmStubs.cpp	Mon Mar 03 16:37:47 2025 +0000
+@@ -1516,7 +1516,8 @@
+   // Actual call.
+   const CodeBlock& codeBlock = inst.code().funcCodeBlock(fe.funcIndex());
+   const CodeRange& codeRange = codeBlock.codeRange(fe);
+-  void* callee = codeBlock.segment->base() + codeRange.funcUncheckedCallEntry();
++  void* callee = const_cast<uint8_t*>(codeBlock.base()) +
++                 codeRange.funcUncheckedCallEntry();
+ 
+   masm.assertStackAlignment(WasmStackAlignment);
+   MoveSPForJitABI(masm);

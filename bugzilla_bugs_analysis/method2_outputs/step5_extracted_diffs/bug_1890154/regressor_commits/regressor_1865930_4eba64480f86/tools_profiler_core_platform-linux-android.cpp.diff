@@ -1,0 +1,32 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: tools/profiler/core/platform-linux-android.cpp
+# Commit: 4eba64480f86
+# Full Hash: 4eba64480f8685b8e017bc073b899e09ac169516
+# Author: Adam Brouwers-Harries <abrouwersharries@mozilla.com>
+# Date: 2024-04-05 09:39:00
+# Regressor Bug: 1865930
+# File Overlap Count: 1
+# Description:
+#   Bug 1865930: Add support for stopping the profiler using UNIX signals r=canaltinova,profiler-reviewers
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D203146
+# ==============================================================================
+
+diff -r 2b8e4c563c2f -r 4eba64480f86 tools/profiler/core/platform-linux-android.cpp
+--- a/tools/profiler/core/platform-linux-android.cpp	Thu Apr 04 17:34:28 2024 +0000
++++ b/tools/profiler/core/platform-linux-android.cpp	Thu Apr 04 17:40:14 2024 +0000
+@@ -551,7 +551,11 @@
+ }
+ 
+ SamplerThread::~SamplerThread() {
+-  pthread_join(mThread, nullptr);
++  if (pthread_equal(mThread, pthread_self())) {
++    pthread_detach(mThread);
++  } else {
++    pthread_join(mThread, nullptr);
++  }
+   // Just in the unlikely case some callbacks were added between the end of the
+   // thread and now.
+   InvokePostSamplingCallbacks(std::move(mPostSamplingCallbackList),

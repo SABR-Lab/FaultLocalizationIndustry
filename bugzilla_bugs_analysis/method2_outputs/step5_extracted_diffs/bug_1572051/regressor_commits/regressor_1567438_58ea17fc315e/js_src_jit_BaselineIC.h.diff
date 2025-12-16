@@ -1,0 +1,34 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/BaselineIC.h
+# Commit: 58ea17fc315e
+# Full Hash: 58ea17fc315ef8bc3a325a958953a50e047f4499
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2019-07-30 21:50:30
+# Regressor Bug: 1567438
+# File Overlap Count: 2
+# Description:
+#   Bug 1567438 part 1 - Replace the enter-monitor-chain bailout code with type monitoring in C++. r=tcampbell,iain
+#   
+#   When we resumeAfter a JOF_TYPESET op, we had code to enter the type monitor
+#   chain for the bailing op, passing it the top stack value. It's simpler to do
+#   this monitoring in C++ in FinishBailoutToBaseline and then treat it as a regular
+# ==============================================================================
+
+diff -r cd58aae7d47b -r 58ea17fc315e js/src/jit/BaselineIC.h
+--- a/js/src/jit/BaselineIC.h	Tue Jul 30 15:12:39 2019 +0000
++++ b/js/src/jit/BaselineIC.h	Tue Jul 30 12:08:48 2019 +0000
+@@ -1854,6 +1854,12 @@
+                        const ValueOperand& value, const T& dest,
+                        Register scratch, Label* failure);
+ 
++extern MOZ_MUST_USE bool TypeMonitorResult(JSContext* cx,
++                                           ICMonitoredFallbackStub* stub,
++                                           BaselineFrame* frame,
++                                           HandleScript script, jsbytecode* pc,
++                                           HandleValue val);
++
+ extern bool DoTypeUpdateFallback(JSContext* cx, BaselineFrame* frame,
+                                  ICCacheIR_Updated* stub, HandleValue objval,
+                                  HandleValue value);

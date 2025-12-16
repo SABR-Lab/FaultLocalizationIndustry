@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/BrowsingContext.h
+# Commit: 9896c12c4907
+# Full Hash: 9896c12c490709e214030cd99f598e1ffa0076de
+# Author: Peter Van der Beken <peterv@propagandism.org>
+# Date: 2021-12-17 03:51:53
+# Regressor Bug: 1742865
+# File Overlap Count: 1
+# Description:
+#   Bug 1742865 - Handle meta refresh correctly with session history in the parent. r=smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D132837
+# ==============================================================================
+
+diff -r 607f12999b71 -r 9896c12c4907 docshell/base/BrowsingContext.h
+--- a/docshell/base/BrowsingContext.h	Thu Dec 16 15:30:29 2021 +0000
++++ b/docshell/base/BrowsingContext.h	Thu Dec 16 15:31:56 2021 +0000
+@@ -791,10 +791,13 @@
+   // context or any of its ancestors.
+   bool IsPopupAllowed();
+ 
++  // aCurrentURI is only required to be non-null if the load type contains the
++  // nsIWebNavigation::LOAD_FLAGS_IS_REFRESH flag and aInfo is for a refresh to
++  // the current URI.
+   void SessionHistoryCommit(const LoadingSessionHistoryInfo& aInfo,
+-                            uint32_t aLoadType, bool aHadActiveEntry,
+-                            bool aPersist, bool aCloneEntryChildren,
+-                            bool aChannelExpired);
++                            uint32_t aLoadType, nsIURI* aCurrentURI,
++                            bool aHadActiveEntry, bool aPersist,
++                            bool aCloneEntryChildren, bool aChannelExpired);
+ 
+   // Set a new active entry on this browsing context. This is used for
+   // implementing history.pushState/replaceState and same document navigations.
+@@ -898,6 +901,9 @@
+     return mChildSessionHistory.forget();
+   }
+ 
++  static bool ShouldAddEntryForRefresh(nsIURI* aCurrentURI,
++                                       const SessionHistoryInfo& aInfo);
++
+  private:
+   void Attach(bool aFromIPC, ContentParent* aOriginProcess);
+ 

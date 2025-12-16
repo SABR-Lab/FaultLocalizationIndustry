@@ -1,0 +1,78 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: ipc/glue/BackgroundUtils.h
+# Commit: ddf4012a7652
+# Full Hash: ddf4012a7652e36d144fc43bc99335276deeafbe
+# Author: Christoph Kerschbaumer <ckerschb@christophkerschbaumer.com>
+# Date: 2019-05-22 03:40:58
+# Regressor Bug: 965637
+# File Overlap Count: 1
+# Description:
+#   Bug 965637: Move CSP from Principal into Client, part 1: backend changes. r=mccr8
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D27654
+# ==============================================================================
+
+diff -r 6c2047bc2f3e -r ddf4012a7652 ipc/glue/BackgroundUtils.h
+--- a/ipc/glue/BackgroundUtils.h	Tue May 21 22:51:54 2019 +0000
++++ b/ipc/glue/BackgroundUtils.h	Tue May 21 23:14:27 2019 +0000
+@@ -13,6 +13,7 @@
+ #include "nsCOMPtr.h"
+ #include "nscore.h"
+ 
++class nsIContentSecurityPolicy;
+ class nsILoadInfo;
+ class nsIPrincipal;
+ class nsIRedirectHistoryEntry;
+@@ -56,6 +57,7 @@
+ namespace ipc {
+ 
+ class ContentSecurityPolicy;
++class CSPInfo;
+ class PrincipalInfo;
+ 
+ /**
+@@ -67,14 +69,6 @@
+     const PrincipalInfo& aPrincipalInfo, nsresult* aOptionalResult = nullptr);
+ 
+ /**
+- * Populate an array of ContentSecurityPolicy objects from a CSP object.
+- *
+- * MUST be called on the main thread only.
+- */
+-nsresult PopulateContentSecurityPolicies(
+-    nsIContentSecurityPolicy* aCSP, nsTArray<ContentSecurityPolicy>& aPolicies);
+-
+-/**
+  * Convert an nsIPrincipal to a PrincipalInfo.
+  *
+  * MUST be called on the main thread only.
+@@ -84,6 +78,27 @@
+                                   bool aSkipBaseDomain = false);
+ 
+ /**
++ * Convert a CSPInfo to an nsIContentSecurityPolicy.
++ *
++ * MUST be called on the main thread only.
++ *
++ * If possible, provide a requesting doc, so policy violation events can
++ * be dispatched correctly. If aRequestingDoc is null, then the CSPInfo holds
++ * the necessary fallback information, like a serialized requestPrincipal,
++ * to generate a valid nsIContentSecurityPolicy.
++ */
++already_AddRefed<nsIContentSecurityPolicy> CSPInfoToCSP(
++    const CSPInfo& aCSPInfo, mozilla::dom::Document* aRequestingDoc,
++    nsresult* aOptionalResult = nullptr);
++
++/**
++ * Convert an nsIContentSecurityPolicy to a CSPInfo.
++ *
++ * MUST be called on the main thread only.
++ */
++nsresult CSPToCSPInfo(nsIContentSecurityPolicy* aCSP, CSPInfo* aCSPInfo);
++
++/**
+  * Return true if this PrincipalInfo is a content principal and it has
+  * a privateBrowsing id in its OriginAttributes
+  */

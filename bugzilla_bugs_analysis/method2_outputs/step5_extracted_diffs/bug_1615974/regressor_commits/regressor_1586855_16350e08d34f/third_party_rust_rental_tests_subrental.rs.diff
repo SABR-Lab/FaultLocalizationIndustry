@@ -1,0 +1,110 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/rental/tests/subrental.rs
+# Commit: 16350e08d34f
+# Full Hash: 16350e08d34ff06c7f46745c6b160c7a7bda9140
+# Author: Dana Keeler <dkeeler@mozilla.com>
+# Date: 2019-12-06 04:43:57
+# Regressor Bug: 1586855
+# File Overlap Count: 6
+# Description:
+#   bug 1586855 - incorporate CRLite filters into cert_storage r=jcj,kjacobs
+#   
+#   This patch implements CRLite lookups for TLS server certificate revocation
+#   information in telemetry-only mode. It adds a new preference
+#   "security.pki.crlite_mode" to control the behavior of this feature. Setting
+# ==============================================================================
+
+diff -r 64fd40663930 -r 16350e08d34f third_party/rust/rental/tests/subrental.rs
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/third_party/rust/rental/tests/subrental.rs	Thu Dec 05 22:41:53 2019 +0000
+@@ -0,0 +1,88 @@
++#[macro_use]
++extern crate rental;
++
++
++pub struct Foo {
++	pub i: i32,
++}
++
++pub struct Bar<'a> {
++	pub foo: &'a Foo,
++}
++
++pub struct Qux<'a: 'b, 'b> {
++	pub bar: &'b Bar<'a>,
++}
++
++
++impl Foo {
++	pub fn borrow(&self) -> Bar { Bar { foo: self } }
++	pub fn try_borrow<'a>(&'a self) -> Result<Bar<'a>, ()> { Ok(Bar { foo: self }) }
++	pub fn fail_borrow<'a>(&'a self) -> Result<Bar<'a>, ()> { Err(()) }
++}
++
++impl<'a> Bar<'a> {
++	pub fn borrow<'b>(&'b self) -> Qux<'a, 'b> { Qux { bar: self } }
++	pub fn try_borrow<'b>(&'b self) -> Result<Qux<'a, 'b>, ()> { Ok(Qux { bar: self }) }
++	pub fn fail_borrow<'b>(&'b self) -> Result<Qux<'a, 'b>, ()> { Err(()) }
++}
++
++
++rental! {
++	pub mod rentals {
++		use super::*;
++
++		#[rental]
++		pub struct Sub {
++			foo: Box<Foo>,
++			bar: Bar<'foo>,
++		}
++
++		#[rental]
++		pub struct Rent {
++			#[subrental = 2]
++			sub: Box<Sub>,
++			qux: Qux<'sub_0, 'sub_1>,
++		}
++
++		#[rental]
++		pub struct BorrowSub<'f> {
++			foo: &'f Foo,
++			bar: Bar<'foo>,
++		}
++
++		#[rental]
++		pub struct TailRent {
++			foo: Box<Foo>,
++			#[subrental = 2]
++			sub: Box<BorrowSub<'foo>>,
++			iref: &'sub_1 i32,
++		}
++	}
++}
++
++
++#[test]
++fn new() {
++	let foo = Foo { i: 5 };
++	let sub = rentals::Sub::new(Box::new(foo), |foo| foo.borrow());
++	let _ = rentals::Rent::new(Box::new(sub), |sub| sub.bar.borrow());
++
++	let foo = Foo { i: 5 };
++	let sub = rentals::Sub::new(Box::new(foo), |foo| foo.borrow());
++	let rent = rentals::Rent::try_new(Box::new(sub), |sub| sub.bar.try_borrow());
++	assert!(rent.is_ok());
++
++	let foo = Foo { i: 5 };
++	let sub = rentals::Sub::new(Box::new(foo), |foo| foo.borrow());
++	let rent = rentals::Rent::try_new(Box::new(sub), |sub| sub.bar.fail_borrow());
++	assert!(rent.is_err());
++}
++
++
++#[test]
++fn read() {
++	let foo = Foo { i: 5 };
++	let sub = rentals::Sub::new(Box::new(foo), |foo| foo.borrow());
++	let _ = rentals::Rent::new(Box::new(sub), |sub| sub.bar.borrow());
++}

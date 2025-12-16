@@ -1,0 +1,34 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: modules/libpref/init/all.js
+# Commit: 889d7cd14e4d
+# Full Hash: 889d7cd14e4d76462eabe4a26a551c72fb416e86
+# Author: Dana Keeler <dkeeler@mozilla.com>
+# Date: 2020-06-05 14:35:19
+# Regressor Bug: 1630434
+# File Overlap Count: 1
+# Description:
+#   Bug 1630434 - de-duplicate preloaded intermediates that may have been cached in cert9.db r=kjacobs,bbeurdouche
+#   
+#   In general, PSM caches intermediates from verified certificate chains in the
+#   NSS certdb. Before bug 1619021, this would include preloaded intermediates,
+#   which is unnecessary because cert_storage has a copy of those certificates, and
+# ==============================================================================
+
+diff -r d82b77ed1125 -r 889d7cd14e4d modules/libpref/init/all.js
+--- a/modules/libpref/init/all.js	Fri Jun 05 00:39:30 2020 +0000
++++ b/modules/libpref/init/all.js	Fri Jun 05 00:44:52 2020 +0000
+@@ -194,9 +194,12 @@
+ // Intermediate CA Preloading settings
+ #if defined(MOZ_NEW_CERT_STORAGE) && !defined(MOZ_WIDGET_ANDROID)
+   pref("security.remote_settings.intermediates.enabled", true);
++  pref("security.intermediate_preloading_healer.enabled", true);
+ #else
+   pref("security.remote_settings.intermediates.enabled", false);
++  pref("security.intermediate_preloading_healer.enabled", false);
+ #endif
++pref("security.intermediate_preloading_healer.timer_interval_ms", 300000);
+ pref("security.remote_settings.intermediates.bucket", "security-state");
+ pref("security.remote_settings.intermediates.collection", "intermediates");
+ pref("security.remote_settings.intermediates.checked", 0);

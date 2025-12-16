@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsPIDOMWindow.h
+# Commit: ddf4012a7652
+# Full Hash: ddf4012a7652e36d144fc43bc99335276deeafbe
+# Author: Christoph Kerschbaumer <ckerschb@christophkerschbaumer.com>
+# Date: 2019-05-22 03:40:58
+# Regressor Bug: 965637
+# File Overlap Count: 1
+# Description:
+#   Bug 965637: Move CSP from Principal into Client, part 1: backend changes. r=mccr8
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D27654
+# ==============================================================================
+
+diff -r 6c2047bc2f3e -r ddf4012a7652 dom/base/nsPIDOMWindow.h
+--- a/dom/base/nsPIDOMWindow.h	Tue May 21 22:51:54 2019 +0000
++++ b/dom/base/nsPIDOMWindow.h	Tue May 21 23:14:27 2019 +0000
+@@ -31,6 +31,7 @@
+ class nsIArray;
+ class nsIChannel;
+ class nsIContent;
++class nsIContentSecurityPolicy;
+ class nsICSSDeclaration;
+ class nsIDocShell;
+ class nsDocShellLoadState;
+@@ -326,6 +327,10 @@
+   mozilla::Maybe<mozilla::dom::ClientState> GetClientState() const;
+   mozilla::Maybe<mozilla::dom::ServiceWorkerDescriptor> GetController() const;
+ 
++  void SetCsp(nsIContentSecurityPolicy* aCsp);
++  void SetPreloadCsp(nsIContentSecurityPolicy* aPreloadCsp);
++  nsIContentSecurityPolicy* GetCsp();
++
+   void NoteCalledRegisterForServiceWorkerScope(const nsACString& aScope);
+ 
+   void NoteDOMContentLoaded();
+@@ -821,8 +826,8 @@
+   }
+ 
+   // Set the window up with an about:blank document with the current subject
+-  // principal.
+-  virtual void SetInitialPrincipalToSubject() = 0;
++  // principal and potentially a CSP.
++  virtual void SetInitialPrincipalToSubject(nsIContentSecurityPolicy* aCSP) = 0;
+ 
+   // Returns an object containing the window's state.  This also suspends
+   // all running timeouts in the window.

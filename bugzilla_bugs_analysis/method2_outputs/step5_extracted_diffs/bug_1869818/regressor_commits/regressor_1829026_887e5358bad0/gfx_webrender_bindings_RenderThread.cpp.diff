@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/webrender_bindings/RenderThread.cpp
+# Commit: 887e5358bad0
+# Full Hash: 887e5358bad02aa565b0a491ac97644f6bf32f53
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2023-12-19 21:34:15
+# Regressor Bug: 1829026
+# File Overlap Count: 1
+# Description:
+#   Bug 1829026 - Don't force sync for async-present if GL not thread-safe. r=aosmond a=graft
+#   
+#   If GL is not thread-safe, then the check for whether we use the canvas render thread
+#   is not accurate. The thread-safe check takes precedence, and if we are not thread-safe,
+#   we are actually on the render thread. It should be safe to not force sync here since
+# ==============================================================================
+
+diff -r 3fd71c45d9fc -r 887e5358bad0 gfx/webrender_bindings/RenderThread.cpp
+--- a/gfx/webrender_bindings/RenderThread.cpp	Tue Dec 19 17:25:55 2023 +0200
++++ b/gfx/webrender_bindings/RenderThread.cpp	Tue Dec 19 20:44:27 2023 +0000
+@@ -1356,7 +1356,12 @@
+     mProgramsForCompositorOGL->Clear();
+     mProgramsForCompositorOGL = nullptr;
+   }
+-  mShaders = nullptr;
++  if (mShaders) {
++    if (mSingletonGL) {
++      mSingletonGL->MakeCurrent();
++    }
++    mShaders = nullptr;
++  }
+   mSingletonGL = nullptr;
+ }
+ 

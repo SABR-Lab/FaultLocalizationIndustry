@@ -1,0 +1,135 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/FinalizationObservers.cpp
+# Commit: 8e7816b5ea2a
+# Full Hash: 8e7816b5ea2a6e9abd80ef165141cb5f8fd6a2d8
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2022-03-01 16:17:59
+# Regressor Bug: 1755725
+# File Overlap Count: 1
+# Description:
+#   Bug 1755725 - Part 2: Refactor FinalizationObservers in preparation to add a weak set for weak refs r=sfink
+#   
+#   This renames crossZoneWarppers to crossZoneRecordWrappers and makes
+#   add/RemoveCrossZoneWarpper take the set as an argument.
+#   
+# ==============================================================================
+
+diff -r 59ae32a4a0a3 -r 8e7816b5ea2a js/src/gc/FinalizationObservers.cpp
+--- a/js/src/gc/FinalizationObservers.cpp	Tue Mar 01 08:28:41 2022 +0000
++++ b/js/src/gc/FinalizationObservers.cpp	Tue Mar 01 08:28:41 2022 +0000
+@@ -31,13 +31,13 @@
+     : zone(zone),
+       registries(zone),
+       recordMap(zone),
+-      crossZoneWrappers(zone),
++      crossZoneRecords(zone),
+       weakRefMap(zone) {}
+ 
+ FinalizationObservers::~FinalizationObservers() {
+   MOZ_ASSERT(registries.empty());
+   MOZ_ASSERT(recordMap.empty());
+-  MOZ_ASSERT(crossZoneWrappers.empty());
++  MOZ_ASSERT(crossZoneRecords.empty());
+ }
+ 
+ bool GCRuntime::addFinalizationRegistry(
+@@ -90,12 +90,12 @@
+ 
+   Zone* registryZone = unwrappedRecord->zone();
+   bool crossZone = registryZone != zone;
+-  if (crossZone && !addCrossZoneWrapper(record)) {
++  if (crossZone && !addCrossZoneWrapper(crossZoneRecords, record)) {
+     return false;
+   }
+   auto wrapperGuard = mozilla::MakeScopeExit([&] {
+     if (crossZone) {
+-      removeCrossZoneWrapper(record);
++      removeCrossZoneWrapper(crossZoneRecords, record);
+     }
+   });
+ 
+@@ -123,22 +123,24 @@
+   return true;
+ }
+ 
+-bool FinalizationObservers::addCrossZoneWrapper(JSObject* wrapper) {
++bool FinalizationObservers::addCrossZoneWrapper(WrapperWeakSet& weakSet,
++                                                JSObject* wrapper) {
+   MOZ_ASSERT(IsCrossCompartmentWrapper(wrapper));
+   MOZ_ASSERT(UncheckedUnwrapWithoutExpose(wrapper)->zone() != zone);
+ 
+-  auto ptr = crossZoneWrappers.lookupForAdd(wrapper);
++  auto ptr = weakSet.lookupForAdd(wrapper);
+   MOZ_ASSERT(!ptr);
+-  return crossZoneWrappers.add(ptr, wrapper, UndefinedValue());
++  return weakSet.add(ptr, wrapper, UndefinedValue());
+ }
+ 
+-void FinalizationObservers::removeCrossZoneWrapper(JSObject* wrapper) {
++void FinalizationObservers::removeCrossZoneWrapper(WrapperWeakSet& weakSet,
++                                                   JSObject* wrapper) {
+   MOZ_ASSERT(IsCrossCompartmentWrapper(wrapper));
+   MOZ_ASSERT(UncheckedUnwrapWithoutExpose(wrapper)->zone() != zone);
+ 
+-  auto ptr = crossZoneWrappers.lookupForAdd(wrapper);
++  auto ptr = weakSet.lookupForAdd(wrapper);
+   MOZ_ASSERT(ptr);
+-  crossZoneWrappers.remove(ptr);
++  weakSet.remove(ptr);
+ }
+ 
+ static FinalizationRecordObject* UnwrapFinalizationRecord(JSObject* obj) {
+@@ -158,7 +160,7 @@
+ #endif
+ 
+   recordMap.clear();
+-  crossZoneWrappers.clear();
++  crossZoneRecords.clear();
+ }
+ 
+ void GCRuntime::traceWeakFinalizationObserverEdges(JSTracer* trc, Zone* zone) {
+@@ -170,9 +172,9 @@
+ }
+ 
+ void FinalizationObservers::traceRoots(JSTracer* trc) {
+-  // The crossZoneWrappers weak map is traced as a root; this does not keep any
++  // The crossZoneRecords weak map is traced as a root; this does not keep any
+   // of its entries alive by itself.
+-  crossZoneWrappers.trace(trc);
++  crossZoneRecords.trace(trc);
+ }
+ 
+ void FinalizationObservers::traceWeakEdges(JSTracer* trc) {
+@@ -253,7 +255,7 @@
+ 
+   Zone* registryZone = record->zone();
+   if (registryZone != zone) {
+-    removeCrossZoneWrapper(wrapper);
++    removeCrossZoneWrapper(crossZoneRecords, wrapper);
+   }
+ 
+   GlobalObject* registryGlobal = &record->global();
+@@ -388,18 +390,18 @@
+ 
+ #ifdef DEBUG
+ void FinalizationObservers::checkTables() const {
+-  // Check all cross-zone wrappers are present in crossZoneWrappers.
++  // Check all cross-zone wrappers are present in crossZoneRecords.
+   size_t count = 0;
+   for (auto r = recordMap.all(); !r.empty(); r.popFront()) {
+     for (JSObject* object : r.front().value()) {
+       FinalizationRecordObject* record = UnwrapFinalizationRecord(object);
+       if (record && record->zone() != zone) {
+-        MOZ_ASSERT(crossZoneWrappers.has(object));
++        MOZ_ASSERT(crossZoneRecords.has(object));
+         count++;
+       }
+     }
+   }
+-  MOZ_ASSERT(crossZoneWrappers.count() == count);
++  MOZ_ASSERT(crossZoneRecords.count() == count);
+ }
+ #endif
+ 

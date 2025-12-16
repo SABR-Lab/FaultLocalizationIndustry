@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/IonOptimizationLevels.h
+# Commit: 28c38d556fb8
+# Full Hash: 28c38d556fb86f1a936d9f6a8627705230df895a
+# Author: Iain Ireland <iireland@mozilla.com>
+# Date: 2021-12-09 09:32:28
+# Regressor Bug: 1713579
+# File Overlap Count: 1
+# Description:
+#   Bug 1713579: Extract shape-guard folding into separate optimization r=jandem
+#   
+#   This patch takes the code from `MGuardShape::foldsTo` and splits it out into its own optimization. Besides jitspew, the main change is adding support for MNewPlainObject (which didn't exist when this code was first written.)
+#   
+#   We use `dependency()` to find the most recent store. It is possible for a node's dependency to be in a dead block. In `ValueNumberer::visitDefinition`, we check for this case; I used the same approach here.
+# ==============================================================================
+
+diff -r a09f76aa6703 -r 28c38d556fb8 js/src/jit/IonOptimizationLevels.h
+--- a/js/src/jit/IonOptimizationLevels.h	Wed Dec 08 21:19:47 2021 +0000
++++ b/js/src/jit/IonOptimizationLevels.h	Wed Dec 08 21:19:49 2021 +0000
+@@ -50,6 +50,9 @@
+   // Toggles whether redundant checks get removed.
+   bool eliminateRedundantChecks_;
+ 
++  // Toggles whether redundant shape guards get removed.
++  bool eliminateRedundantShapeGuards_;
++
+   // Toggles whether interpreted scripts get inlined.
+   bool inlineInterpreted_;
+ 
+@@ -92,6 +95,7 @@
+         ama_(false),
+         edgeCaseAnalysis_(false),
+         eliminateRedundantChecks_(false),
++        eliminateRedundantShapeGuards_(false),
+         inlineInterpreted_(false),
+         inlineNative_(false),
+         gvn_(false),
+@@ -151,6 +155,11 @@
+     return eliminateRedundantChecks_;
+   }
+ 
++  bool eliminateRedundantShapeGuardsEnabled() const {
++    return eliminateRedundantShapeGuards_ &&
++           !JitOptions.disableRedundantShapeGuards;
++  }
++
+   IonRegisterAllocator registerAllocator() const {
+     return JitOptions.forcedRegisterAllocator.valueOr(registerAllocator_);
+   }

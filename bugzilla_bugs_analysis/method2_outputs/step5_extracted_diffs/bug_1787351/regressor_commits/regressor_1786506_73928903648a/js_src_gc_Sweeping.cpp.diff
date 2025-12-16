@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/Sweeping.cpp
+# Commit: 73928903648a
+# Full Hash: 73928903648aa79ca0b4fa0bb27ae844c34577e5
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2022-08-24 21:34:05
+# Regressor Bug: 1786506
+# File Overlap Count: 1
+# Description:
+#   Bug 1786506 - Part 2: Give shared permanent things their own zone r=sfink
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D155378
+# ==============================================================================
+
+diff -r 747154213937 -r 73928903648a js/src/gc/Sweeping.cpp
+--- a/js/src/gc/Sweeping.cpp	Wed Aug 24 09:43:06 2022 +0000
++++ b/js/src/gc/Sweeping.cpp	Wed Aug 24 09:43:06 2022 +0000
+@@ -632,6 +632,8 @@
+ }
+ 
+ bool Zone::findSweepGroupEdges(Zone* atomsZone) {
++  MOZ_ASSERT_IF(this != atomsZone, !isAtomsZone());
++
+ #ifdef DEBUG
+   if (FinalizationObservers* observers = finalizationObservers()) {
+     observers->checkTables();
+@@ -1612,21 +1614,17 @@
+   }
+ 
+   /*
+-   * Start background thread to sweep zones if required, sweeping the atoms
+-   * zone last if present.
++   * Start background thread to sweep zones if required, sweeping any atoms
++   * zones last if present.
+    */
+-  bool sweepAtomsZone = false;
+   ZoneList zones;
+   for (SweepGroupZonesIter zone(this); !zone.done(); zone.next()) {
+     if (zone->isAtomsZone()) {
+-      sweepAtomsZone = true;
++      zones.append(zone);
+     } else {
+-      zones.append(zone);
++      zones.prepend(zone);
+     }
+   }
+-  if (sweepAtomsZone) {
+-    zones.append(atomsZone());
+-  }
+ 
+   queueZonesAndStartBackgroundSweep(std::move(zones));
+ 

@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/Document.h
+# Commit: 460df951943a
+# Full Hash: 460df951943ac41ec2b94d758b3a4602cbede154
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2019-06-10 21:47:35
+# Regressor Bug: 1529884
+# File Overlap Count: 1
+# Description:
+#   Bug 1529884 - part 3: Make Document::ConvertToInternalCommand() check the input value when the caller requires adjusted value r=smaug
+#   
+#   `aAdjustedValue` of `Document::ConvertToInternalCommand()` is not `nullptr`
+#   when it's called by `ExecCommand()` or `QueryCommandState()`.  However,
+#   `QueryCommandState()` does not need the value actually.  Therefore, we can move
+# ==============================================================================
+
+diff -r f44697e42459 -r 460df951943a dom/base/Document.h
+--- a/dom/base/Document.h	Mon Jun 10 10:24:31 2019 +0000
++++ b/dom/base/Document.h	Mon Jun 10 10:24:59 2019 +0000
+@@ -4173,6 +4173,14 @@
+ 
+   /**
+    * ConvertToInternalCommand() returns a copy of InternalCommandData instance.
++   * Note that if aAdjustedValue is non-nullptr, this method checks whether
++   * aValue is proper value or not unless InternalCommandData::mExecCommandParam
++   * is ExecCommandParam::Ignore.  For example, if aHTMLCommandName is
++   * "defaultParagraphSeparator", the value has to be one of "div", "p" or
++   * "br".  If aValue is invalid value for InternalCommandData::mCommand, this
++   * returns a copy of instance created with default constructor.  I.e., its
++   * mCommand is set to Command::DoNothing.  So, this treats aHTMLCommandName
++   * is unsupported in such case.
+    *
+    * @param aHTMLCommandName    Command name in HTML, e.g., used by
+    *                            execCommand().
+@@ -4184,10 +4192,11 @@
+    * @return                    Returns a copy of instance created with the
+    *                            default constructor if there is no
+    *                            corresponding internal command for
+-   *                            aHTMLCommandName.  I.e., in this case, mCommand
+-   *                            will be set to Command::DoNothing.
+-   *                            Otherwise, returns a copy of instance registered
+-   *                            in sInternalCommandDataHashtable.
++   *                            aHTMLCommandName or aValue is invalid for
++   *                            found internal command when aAdjustedValue
++   *                            is not nullptr.  Otherwise, returns a copy of
++   *                            instance registered in
++   *                            sInternalCommandDataHashtable.
+    */
+   static InternalCommandData ConvertToInternalCommand(
+       const nsAString& aHTMLCommandName,

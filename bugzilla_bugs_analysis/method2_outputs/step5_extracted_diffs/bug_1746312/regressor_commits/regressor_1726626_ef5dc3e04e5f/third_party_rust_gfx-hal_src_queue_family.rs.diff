@@ -1,0 +1,78 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/gfx-hal/src/queue/family.rs
+# Commit: ef5dc3e04e5f
+# Full Hash: ef5dc3e04e5f271eea0636ab3a495e95cc912f1d
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-09-04 09:40:24
+# Regressor Bug: 1726626
+# File Overlap Count: 3
+# Description:
+#   Bug 1726626 - Move gfx/wgpu into a 3rd party dependency r=jgilbert,bholley
+#   
+#   This update makes wgpu a vendored dependency instead of having it in gfx/wgpu.
+#   
+#   ## Notes
+# ==============================================================================
+
+diff --git a/third_party/rust/gfx-hal/src/queue/family.rs b/third_party/rust/gfx-hal/src/queue/family.rs
+deleted file mode 100644
+--- a/third_party/rust/gfx-hal/src/queue/family.rs
++++ /dev/null
+@@ -1,55 +0,0 @@
+-//! Queue family and groups.
+-
+-use crate::{queue::QueueType, Backend};
+-
+-use std::{any::Any, fmt::Debug};
+-
+-/// General information about a queue family, available upon adapter discovery.
+-///
+-/// Note that a backend can expose multiple queue families with the same properties.
+-///
+-/// Can be obtained from an [adapter][crate::adapter::Adapter] through its
+-/// [`queue_families`][crate::adapter::Adapter::queue_families] field.
+-pub trait QueueFamily: Debug + Any + Send + Sync {
+-    /// Returns the type of queues.
+-    fn queue_type(&self) -> QueueType;
+-    /// Returns maximum number of queues created from this family.
+-    fn max_queues(&self) -> usize;
+-    /// Returns the queue family ID.
+-    fn id(&self) -> QueueFamilyId;
+-    /// Returns true if the queue family supports sparse binding
+-    fn supports_sparse_binding(&self) -> bool;
+-}
+-
+-/// Identifier for a queue family of a physical device.
+-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+-pub struct QueueFamilyId(pub usize);
+-
+-/// Bare-metal queue group.
+-///
+-/// Denotes all queues created from one queue family.
+-#[derive(Debug)]
+-pub struct QueueGroup<B: Backend> {
+-    /// Family index for the queues in this group.
+-    pub family: QueueFamilyId,
+-    /// List of queues.
+-    pub queues: Vec<B::Queue>,
+-}
+-
+-impl<B: Backend> QueueGroup<B> {
+-    /// Create a new, empty queue group for a queue family.
+-    pub fn new(family: QueueFamilyId) -> Self {
+-        QueueGroup {
+-            family,
+-            queues: Vec::new(),
+-        }
+-    }
+-
+-    /// Add a command queue to the group.
+-    ///
+-    /// The queue needs to be created from this queue family.
+-    pub fn add_queue(&mut self, queue: B::Queue) {
+-        self.queues.push(queue);
+-    }
+-}

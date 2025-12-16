@@ -1,0 +1,119 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/EditorDOMPoint.h
+# Commit: 4b43fd9bf671
+# Full Hash: 4b43fd9bf67144f7f66e7f7bd8561807cae9de77
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2020-03-02 21:27:32
+# Regressor Bug: 1618089
+# File Overlap Count: 1
+# Description:
+#   Bug 1618089 - part 1: Redsign `EditorDOMPointBase` with template methods r=m_kato
+#   
+#   Some methods of `EditorDOMPointBase` assumes the container node type is
+#   `nsINode`.  However, it's not good for reuse.  Therefore, this patch makes
+#   most methods of them be template methods.
+# ==============================================================================
+
+diff -r b511a045d72e -r 4b43fd9bf671 editor/libeditor/EditorDOMPoint.h
+--- a/editor/libeditor/EditorDOMPoint.h	Mon Mar 02 09:52:58 2020 +0000
++++ b/editor/libeditor/EditorDOMPoint.h	Mon Mar 02 07:33:23 2020 +0000
+@@ -77,7 +77,7 @@
+       : mParent(nullptr), mChild(nullptr), mIsChildInitialized(false) {}
+ 
+   template <typename ContainerType>
+-  EditorDOMPointBase(ContainerType aContainer, int32_t aOffset)
++  EditorDOMPointBase(ContainerType* aContainer, int32_t aOffset)
+       : mParent(aContainer),
+         mChild(nullptr),
+         mOffset(mozilla::Some(aOffset)),
+@@ -90,6 +90,11 @@
+     }
+   }
+ 
++  template <typename ContainerType, template <typename> typename StrongPtr>
++  EditorDOMPointBase(const StrongPtr<ContainerType>& aContainer,
++                     int32_t aOffset)
++      : EditorDOMPointBase(aContainer.get(), aOffset) {}
++
+   /**
+    * Different from RangeBoundary, aPointedNode should be a child node
+    * which you want to refer.
+@@ -319,7 +324,8 @@
+    * If it's set with aOffset, mChild is invalidated.  If it's set with aChild,
+    * mOffset may be invalidated.
+    */
+-  void Set(nsINode* aContainer, int32_t aOffset) {
++  template <typename ContainerType>
++  void Set(ContainerType* aContainer, int32_t aOffset) {
+     mParent = aContainer;
+     mChild = nullptr;
+     mOffset = mozilla::Some(aOffset);
+@@ -327,6 +333,10 @@
+     NS_ASSERTION(!mParent || mOffset.value() <= mParent->Length(),
+                  "The offset is out of bounds");
+   }
++  template <typename ContainerType, template <typename> typename StrongPtr>
++  void Set(const StrongPtr<ContainerType>& aContainer, int32_t aOffset) {
++    Set(aContainer.get(), aOffset);
++  }
+   void Set(const nsINode* aChild) {
+     MOZ_ASSERT(aChild);
+     if (NS_WARN_IF(!aChild->IsContent())) {
+@@ -343,18 +353,32 @@
+    * SetToEndOf() sets this to the end of aContainer.  Then, mChild is always
+    * nullptr but marked as initialized and mOffset is always set.
+    */
+-  void SetToEndOf(const nsINode* aContainer) {
++  template <typename ContainerType>
++  MOZ_NEVER_INLINE_DEBUG void SetToEndOf(const ContainerType* aContainer) {
+     MOZ_ASSERT(aContainer);
+-    mParent = const_cast<nsINode*>(aContainer);
++    mParent = const_cast<ContainerType*>(aContainer);
+     mChild = nullptr;
+     mOffset = mozilla::Some(mParent->Length());
+     mIsChildInitialized = true;
+   }
+-  static SelfType AtEndOf(const nsINode& aContainer) {
++  template <typename ContainerType, template <typename> typename StrongPtr>
++  MOZ_NEVER_INLINE_DEBUG void SetToEndOf(
++      const StrongPtr<ContainerType>& aContainer) {
++    SetToEndOf(aContainer.get());
++  }
++  template <typename ContainerType>
++  MOZ_NEVER_INLINE_DEBUG static SelfType AtEndOf(
++      const ContainerType& aContainer) {
+     SelfType point;
+     point.SetToEndOf(&aContainer);
+     return point;
+   }
++  template <typename ContainerType, template <typename> typename StrongPtr>
++  MOZ_NEVER_INLINE_DEBUG static SelfType AtEndOf(
++      const StrongPtr<ContainerType>& aContainer) {
++    MOZ_ASSERT(aContainer.get());
++    return AtEndOf(*aContainer.get());
++  }
+ 
+   /**
+    * SetAfter() sets mChild to next sibling of aChild.
+@@ -373,11 +397,18 @@
+     }
+     SetToEndOf(parentNode);
+   }
+-  static SelfType After(const nsINode& aContainer) {
++  template <typename ContainerType>
++  static SelfType After(const ContainerType& aContainer) {
+     SelfType point;
+     point.SetAfter(&aContainer);
+     return point;
+   }
++  template <typename ContainerType, template <typename> typename StrongPtr>
++  MOZ_NEVER_INLINE_DEBUG static SelfType After(
++      const StrongPtr<ContainerType>& aContainer) {
++    MOZ_ASSERT(aContainer.get());
++    return After(*aContainer.get());
++  }
+ 
+   /**
+    * Clear() makes the instance not point anywhere.

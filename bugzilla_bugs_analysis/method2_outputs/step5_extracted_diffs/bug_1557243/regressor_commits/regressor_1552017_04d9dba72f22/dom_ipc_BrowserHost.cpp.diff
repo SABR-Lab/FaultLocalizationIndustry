@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/BrowserHost.cpp
+# Commit: 04d9dba72f22
+# Full Hash: 04d9dba72f221b5808f077e3aac5522147008438
+# Author: Jim Porter <jporter@mozilla.com>
+# Date: 2019-06-04 21:42:40
+# Regressor Bug: 1552017
+# File Overlap Count: 1
+# Description:
+#   Bug 1552017 - Expand the kinds of URLs that can cancel content JS when navigating; r=smaug
+#   
+#   This patch makes several changes to the kinds of URLs where we can cancel
+#   content JS when navigating between them:
+#   
+# ==============================================================================
+
+diff -r 25b1ee5ee458 -r 04d9dba72f22 dom/ipc/BrowserHost.cpp
+--- a/dom/ipc/BrowserHost.cpp	Tue Jun 04 16:44:29 2019 +0000
++++ b/dom/ipc/BrowserHost.cpp	Tue Jun 04 16:19:27 2019 +0000
+@@ -357,7 +357,10 @@
+ BrowserHost::MaybeCancelContentJSExecutionFromScript(
+     nsIRemoteTab::NavigationType aNavigationType,
+     JS::Handle<JS::Value> aCancelContentJSOptions, JSContext* aCx) {
+-  if (!mRoot) {
++  // If we're in the process of creating a new window (via window.open), then
++  // the load that called this function isn't a "normal" load and should be
++  // ignored for the purposes of cancelling content JS.
++  if (!mRoot || mRoot->CreatingWindow()) {
+     return NS_OK;
+   }
+   dom::CancelContentJSOptions cancelContentJSOptions;

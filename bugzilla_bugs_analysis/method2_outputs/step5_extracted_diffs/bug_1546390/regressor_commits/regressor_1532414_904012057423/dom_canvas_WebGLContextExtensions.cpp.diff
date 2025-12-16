@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLContextExtensions.cpp
+# Commit: 904012057423
+# Full Hash: 904012057423b23bf9a382da27a40869c6c00301
+# Author: Ehsan Akhgari <ehsan@mozilla.com>
+# Date: 2019-03-06 09:56:17
+# Regressor Bug: 1532414
+# File Overlap Count: 1
+# Description:
+#   Bug 1532414 - Pass a document/principal pointer to nsContentUtils::ShouldResistFingerprinting() callers in the canvas API; r=baku
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D22002
+# ==============================================================================
+
+diff -r 152b9d59cb29 -r 904012057423 dom/canvas/WebGLContextExtensions.cpp
+--- a/dom/canvas/WebGLContextExtensions.cpp	Tue Mar 05 23:13:23 2019 +0000
++++ b/dom/canvas/WebGLContextExtensions.cpp	Tue Mar 05 23:20:08 2019 +0000
+@@ -107,6 +107,15 @@
+ bool WebGLContext::IsExtensionSupported(WebGLExtensionID ext) const {
+   if (mDisableExtensions) return false;
+ 
++  bool shouldResistFingerprinting =
++      mCanvasElement ?
++                     // If we're constructed from a canvas element
++          nsContentUtils::ShouldResistFingerprinting(GetOwnerDoc())
++                     :
++                     // If we're constructed from an offscreen canvas
++          nsContentUtils::ShouldResistFingerprinting(
++              mOffscreenCanvas->GetOwnerGlobal()->PrincipalOrNull());
++
+   switch (ext) {
+     // In alphabetical order
+     // ANGLE_
+@@ -201,10 +210,10 @@
+ 
+     case WebGLExtensionID::WEBGL_debug_renderer_info:
+       return Preferences::GetBool("webgl.enable-debug-renderer-info", false) &&
+-             !nsContentUtils::ShouldResistFingerprinting();
++             !shouldResistFingerprinting;
+ 
+     case WebGLExtensionID::WEBGL_debug_shaders:
+-      return !nsContentUtils::ShouldResistFingerprinting();
++      return !shouldResistFingerprinting;
+ 
+     case WebGLExtensionID::WEBGL_depth_texture:
+       return WebGLExtensionDepthTexture::IsSupported(this);

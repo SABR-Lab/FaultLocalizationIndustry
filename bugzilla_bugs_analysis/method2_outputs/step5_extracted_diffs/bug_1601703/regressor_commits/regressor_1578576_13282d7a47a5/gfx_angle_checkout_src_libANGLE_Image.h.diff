@@ -1,0 +1,72 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/angle/checkout/src/libANGLE/Image.h
+# Commit: 13282d7a47a5
+# Full Hash: 13282d7a47a57a73be8d060efd9645b4d642f03e
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2019-09-08 09:46:52
+# Regressor Bug: 1578576
+# File Overlap Count: 4
+# Description:
+#   Bug 1578576 - Part 2: Update to ANGLE 3865 r=jgilbert
+#   
+#   Depends on D44561
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44579
+# ==============================================================================
+
+diff -r 3064469c073d -r 13282d7a47a5 gfx/angle/checkout/src/libANGLE/Image.h
+--- a/gfx/angle/checkout/src/libANGLE/Image.h	Sat Sep 07 13:36:46 2019 +0000
++++ b/gfx/angle/checkout/src/libANGLE/Image.h	Sat Sep 07 13:38:36 2019 +0000
+@@ -24,6 +24,10 @@
+ class EGLImplFactory;
+ class ImageImpl;
+ class ExternalImageSiblingImpl;
++
++// Used for distinguishing dirty bit messages from gl::Texture/rx::TexureImpl/gl::Image.
++constexpr size_t kTextureImageImplObserverMessageIndex = 0;
++constexpr size_t kTextureImageSiblingMessageIndex      = 1;
+ }  // namespace rx
+ 
+ namespace egl
+@@ -34,7 +38,7 @@
+ // Only currently Renderbuffers and Textures can be bound with images. This makes the relationship
+ // explicit, and also ensures that an image sibling can determine if it's been initialized or not,
+ // which is important for the robust resource init extension with Textures and EGLImages.
+-class ImageSibling : public gl::FramebufferAttachmentObject
++class ImageSibling : public gl::FramebufferAttachmentObject, public angle::ObserverInterface
+ {
+   public:
+     ImageSibling();
+@@ -48,6 +52,12 @@
+                       GLenum binding,
+                       const gl::ImageIndex &imageIndex) const override;
+ 
++    // ObserverInterface implementation
++    void onSubjectStateChange(angle::SubjectIndex index, angle::SubjectMessage message) override
++    {
++        // default to no-op.
++    }
++
+   protected:
+     // Set the image target of this sibling
+     void setTargetImage(const gl::Context *context, egl::Image *imageTarget);
+@@ -55,6 +65,8 @@
+     // Orphan all EGL image sources and targets
+     angle::Result orphanImages(const gl::Context *context);
+ 
++    void notifySiblings(angle::SubjectMessage message);
++
+   private:
+     friend class Image;
+ 
+@@ -166,6 +178,8 @@
+     // been respecified and state tracking should be updated.
+     angle::Result orphanSibling(const gl::Context *context, ImageSibling *sibling);
+ 
++    void notifySiblings(const ImageSibling *notifier, angle::SubjectMessage message);
++
+     ImageState mState;
+     rx::ImageImpl *mImplementation;
+     bool mOrphanedAndNeedsInit;

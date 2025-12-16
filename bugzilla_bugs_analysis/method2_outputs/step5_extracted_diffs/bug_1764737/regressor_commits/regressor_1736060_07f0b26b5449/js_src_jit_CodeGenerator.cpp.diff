@@ -1,0 +1,32 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/CodeGenerator.cpp
+# Commit: 07f0b26b5449
+# Full Hash: 07f0b26b54495095213f80a7808cc7ef90c7454d
+# Author: Jonatan Klemets <jonatan.r.klemets@gmail.com>
+# Date: 2021-12-02 09:42:49
+# Regressor Bug: 1736060
+# File Overlap Count: 1
+# Description:
+#   Bug 1736060 - Part 6: Implement import assertions for dynamic imports. r=mgaudet,arai
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D126046
+# ==============================================================================
+
+diff -r d9fa28df9787 -r 07f0b26b5449 js/src/jit/CodeGenerator.cpp
+--- a/js/src/jit/CodeGenerator.cpp	Wed Dec 01 18:26:10 2021 +0000
++++ b/js/src/jit/CodeGenerator.cpp	Wed Dec 01 18:26:10 2021 +0000
+@@ -3454,10 +3454,11 @@
+ }
+ 
+ void CodeGenerator::visitDynamicImport(LDynamicImport* lir) {
++  pushArg(ToValue(lir, LDynamicImport::OptionsIndex));
+   pushArg(ToValue(lir, LDynamicImport::SpecifierIndex));
+   pushArg(ImmGCPtr(current->mir()->info().script()));
+ 
+-  using Fn = JSObject* (*)(JSContext*, HandleScript, HandleValue);
++  using Fn = JSObject* (*)(JSContext*, HandleScript, HandleValue, HandleValue);
+   callVM<Fn, js::StartDynamicModuleImport>(lir);
+ }
+ 

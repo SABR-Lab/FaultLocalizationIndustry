@@ -1,0 +1,31 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/x64/Lowering-x64.h
+# Commit: fd8adea7aa17
+# Full Hash: fd8adea7aa17b82a6d48c72836823b11ae4c7c66
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-09-11 09:30:56
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 6.2: Establish dependency from tls for x86 callWithABI div/mod i64. r=lth
+#   
+#   x86 has few register so to do div/mod for i64 it call the runtime
+#   and clobber almost all gp registers including WasmTlsReg.
+#   To be able to call c++ runtime via Builtin thunk we need to set up WasmTlsReg.
+# ==============================================================================
+
+diff -r 6d91f5b4cc32 -r fd8adea7aa17 js/src/jit/x64/Lowering-x64.h
+--- a/js/src/jit/x64/Lowering-x64.h	Fri Sep 11 08:32:46 2020 +0300
++++ b/js/src/jit/x64/Lowering-x64.h	Fri Sep 11 05:40:14 2020 +0000
+@@ -45,7 +45,9 @@
+   bool needTempForPostBarrier() { return true; }
+ 
+   void lowerDivI64(MDiv* div);
++  void lowerWasmBuiltinDivI64(MWasmBuiltinDivI64* div);
+   void lowerModI64(MMod* mod);
++  void lowerWasmBuiltinModI64(MWasmBuiltinModI64* mod);
+   void lowerUDivI64(MDiv* div);
+   void lowerUModI64(MMod* mod);
+ };

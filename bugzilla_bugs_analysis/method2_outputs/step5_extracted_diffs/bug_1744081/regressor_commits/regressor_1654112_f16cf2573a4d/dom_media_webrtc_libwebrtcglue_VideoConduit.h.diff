@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/VideoConduit.h
+# Commit: f16cf2573a4d
+# Full Hash: f16cf2573a4dafa7d909ec43a81c5379480ca994
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 5
+# Description:
+#   Bug 1654112 - Move AudioConduit to use upstream for audioLevel and remove unused code. r=ng
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D102276
+# ==============================================================================
+
+diff -r 90a15d97399e -r f16cf2573a4d dom/media/webrtc/libwebrtcglue/VideoConduit.h
+--- a/dom/media/webrtc/libwebrtcglue/VideoConduit.h	Mon Jan 18 11:07:55 2021 +0100
++++ b/dom/media/webrtc/libwebrtcglue/VideoConduit.h	Mon Jan 18 11:16:22 2021 +0100
+@@ -64,7 +64,6 @@
+  */
+ class WebrtcVideoConduit
+     : public VideoSessionConduit,
+-      public webrtc::RtpPacketSinkInterface,
+       public webrtc::Transport,
+       public webrtc::VideoEncoderFactory,
+       public rtc::VideoSinkInterface<webrtc::VideoFrame>,
+@@ -294,12 +293,6 @@
+     mAllowSsrcChange = false;
+   }
+ 
+-  /**
+-   * Callback from libwebrtc with the parsed packet for synchronization
+-   * source tracking. STS thread only.
+-   */
+-  void OnRtpPacket(const webrtc::RtpPacketReceived& packet) override;
+-
+   Maybe<RefPtr<VideoSessionConduit>> AsVideoSessionConduit() override {
+     return Some(RefPtr<VideoSessionConduit>(this));
+   }
+@@ -668,8 +661,6 @@
+   // Accessed only on main thread.
+   mozilla::RtcpEventObserver* mRtcpEventObserver = nullptr;
+ 
+-  // Accessed from main and mStsThread. Uses locks internally.
+-  RefPtr<RtpSourceObserver> mRtpSourceObserver;
+   // Tracking the attributes of received frames over time
+   // Protected by mTransportMonitor
+   dom::RTCVideoFrameHistoryInternal mReceivedFrameHistory;

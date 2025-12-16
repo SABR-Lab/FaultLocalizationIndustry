@@ -1,0 +1,37 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/xpconnect/tests/unit/test_bug1617527.js
+# Commit: 9364941c6d53
+# Full Hash: 9364941c6d538953131262f5d2c78163df803b3d
+# Author: Boris Zbarsky <bzbarsky@mit.edu>
+# Date: 2020-02-27 03:39:37
+# Description:
+#   Bug 1617527.  Remove the same-compartment checks when setting an exception on a JSContext r=sfink
+#   
+#   The exception is not guaranteed to be in the context compartment anyway (e.g. changing the compartment does not wrap the exception), so there isn't much point checking it up front.  And the exception stack is always stored as an unwrapped object, so again there's no point checking it on set, since we just plan to UncheckedUnwrap it.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D64004
+# ==============================================================================
+
+diff -r 5fc409bc3530 -r 9364941c6d53 js/xpconnect/tests/unit/test_bug1617527.js
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/js/xpconnect/tests/unit/test_bug1617527.js	Wed Feb 26 21:17:15 2020 +0000
+@@ -0,0 +1,17 @@
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++function run_test() {
++  let sb1 = new Cu.Sandbox("https://example.org");
++  let throwingFunc = Cu.evalInSandbox("new Function('throw new Error')", sb1);
++  // NOTE: Different origin from the other sandbox.
++  let sb2 = new Cu.Sandbox("https://example.com");
++  Cu.exportFunction(function() {
++    // Call a different-compartment throwing function.
++    throwingFunc();
++  }, sb2, { defineAs: "func" });
++  let threw = Cu.evalInSandbox("var threw; try { func(); threw = false; } catch (e) { threw = true } threw",
++                                sb2);
++  Assert.ok(threw);
++}

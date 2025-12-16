@@ -1,0 +1,75 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/AudioConduit.cpp
+# Commit: e0a2e54e4de8
+# Full Hash: e0a2e54e4de80813829cbcf9e4a5e4ff1285d451
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 9
+# Description:
+#   Bug 1654112 - Move WebRtcCallWrapper to dedicated files. r=ng
+#   
+#   This patch also renames it WebrtcCallWrapper, to better match neighboring
+#   classes starting on "Webrtc".
+#   
+# ==============================================================================
+
+diff -r 1965757ee924 -r e0a2e54e4de8 dom/media/webrtc/libwebrtcglue/AudioConduit.cpp
+--- a/dom/media/webrtc/libwebrtcglue/AudioConduit.cpp	Thu Sep 02 13:22:03 2021 -0500
++++ b/dom/media/webrtc/libwebrtcglue/AudioConduit.cpp	Thu Apr 08 11:31:43 2021 +0200
+@@ -8,6 +8,7 @@
+ #include "mozilla/media/MediaUtils.h"
+ #include "mozilla/Telemetry.h"
+ #include "transport/runnable_utils.h"
++#include "WebrtcCallWrapper.h"
+ 
+ // libwebrtc includes
+ #include "api/audio_codecs/builtin_audio_encoder_factory.h"
+@@ -37,7 +38,7 @@
+  * Factory Method for AudioConduit
+  */
+ RefPtr<AudioSessionConduit> AudioSessionConduit::Create(
+-    RefPtr<WebRtcCallWrapper> aCall,
++    RefPtr<WebrtcCallWrapper> aCall,
+     nsCOMPtr<nsISerialEventTarget> aStsThread) {
+   CSFLogDebug(LOGTAG, "%s ", __FUNCTION__);
+   MOZ_ASSERT(NS_IsMainThread());
+@@ -52,6 +53,25 @@
+   DeleteRecvStream();
+ }
+ 
++WebrtcAudioConduit::WebrtcAudioConduit(
++    RefPtr<WebrtcCallWrapper> aCall, nsCOMPtr<nsISerialEventTarget> aStsThread)
++    : mTransportMonitor("WebrtcAudioConduit"),
++      mTransmitterTransport(nullptr),
++      mReceiverTransport(nullptr),
++      mCall(aCall),
++      mRecvStreamConfig(),
++      mRecvStream(nullptr),
++      mSendStreamConfig(
++          this)  // 'this' is stored but not  dereferenced in the constructor.
++      ,
++      mSendStream(nullptr),
++      mRecvSSRC(0),
++      mSendStreamRunning(false),
++      mRecvStreamRunning(false),
++      mDtmfEnabled(false),
++      mMutex("WebrtcAudioConduit::mMutex"),
++      mStsThread(aStsThread) {}
++
+ /**
+  * Destruction defines for our super-classes
+  */
+@@ -587,6 +607,10 @@
+   return mLastRtcpReceived;
+ }
+ 
++DOMHighResTimeStamp WebrtcAudioConduit::GetNow() const {
++  return mCall->GetNow();
++}
++
+ MediaConduitErrorCode WebrtcAudioConduit::StopTransmitting() {
+   MOZ_ASSERT(NS_IsMainThread());
+   auto current = TaskQueueWrapper::MainAsCurrent();

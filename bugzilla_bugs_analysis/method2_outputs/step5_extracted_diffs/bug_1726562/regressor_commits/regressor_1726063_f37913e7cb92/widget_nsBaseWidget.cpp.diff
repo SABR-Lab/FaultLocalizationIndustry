@@ -1,0 +1,72 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/nsBaseWidget.cpp
+# Commit: f37913e7cb92
+# Full Hash: f37913e7cb9295617b7e5a7ac5f462f29df583b4
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2021-08-18 15:53:06
+# Regressor Bug: 1726063
+# File Overlap Count: 1
+# Description:
+#   Bug 1726063 - Remove support for non-WR compositor initialization. r=jrmuizel,aosmond
+#   
+#   Depends on D122796
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D122798
+# ==============================================================================
+
+diff -r 7398bc391379 -r f37913e7cb92 widget/nsBaseWidget.cpp
+--- a/widget/nsBaseWidget.cpp	Tue Aug 17 23:19:44 2021 +0000
++++ b/widget/nsBaseWidget.cpp	Tue Aug 17 23:19:44 2021 +0000
+@@ -1344,8 +1344,9 @@
+     } else {
+       enableWR = enableSWWR = false;
+     }
++    MOZ_RELEASE_ASSERT(enableWR);
+     bool enableAPZ = UseAPZ();
+-    CompositorOptions options(enableAPZ, enableWR, enableSWWR);
++    CompositorOptions options(enableAPZ, enableSWWR);
+ 
+ #ifdef XP_WIN
+     if (supportsAcceleration) {
+@@ -1371,19 +1372,14 @@
+     options.SetInitiallyPaused(CompositorInitiallyPaused());
+ #endif
+ 
+-    RefPtr<LayerManager> lm;
+-    if (options.UseWebRender()) {
+-      lm = new WebRenderLayerManager(this);
+-    } else {
+-      lm = new ClientLayerManager(this);
+-    }
++    RefPtr<LayerManager> lm = new WebRenderLayerManager(this);
+ 
+     bool retry = false;
+     mCompositorSession = gpu->CreateTopLevelCompositor(
+         this, lm, GetDefaultScale(), options, UseExternalCompositingSurface(),
+         gfx::IntSize(aWidth, aHeight), &retry);
+ 
+-    if (lm->AsWebRenderLayerManager() && mCompositorSession) {
++    if (mCompositorSession) {
+       TextureFactoryIdentifier textureFactoryIdentifier;
+       nsCString error;
+       lm->AsWebRenderLayerManager()->Initialize(
+@@ -1397,17 +1393,6 @@
+         gfx::GPUProcessManager::Get()->DisableWebRender(
+             wr::WebRenderError::INITIALIZE, error);
+       }
+-    } else if (lm->AsClientLayerManager() && mCompositorSession) {
+-      bool shouldAccelerate = ComputeShouldAccelerate();
+-      TextureFactoryIdentifier textureFactoryIdentifier;
+-      lm->AsClientLayerManager()->Initialize(
+-          mCompositorSession->GetCompositorBridgeChild(), shouldAccelerate,
+-          &textureFactoryIdentifier);
+-      if (textureFactoryIdentifier.mParentBackend ==
+-          LayersBackend::LAYERS_NONE) {
+-        DestroyCompositor();
+-        lm = nullptr;
+-      }
+     }
+ 
+     // We need to retry in a loop because the act of failing to create the

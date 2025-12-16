@@ -1,0 +1,43 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/IDBCursor.cpp
+# Commit: e06dab9259c5
+# Full Hash: e06dab9259c5dc7c47328e045daa745f7b63d95b
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2020-04-07 03:53:09
+# Description:
+#   Bug 1627282 - Mark all IndexDB cursor subclasses as potentially containing pointers into more than one JS zone r=sg
+#   
+#   At this point it's probably worth marking all these subclasses in the same way as I expect they can all contain pointers into multiple zones.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D69809
+# ==============================================================================
+
+diff -r dd2aef0bbd41 -r e06dab9259c5 dom/indexedDB/IDBCursor.cpp
+--- a/dom/indexedDB/IDBCursor.cpp	Mon Apr 06 15:37:49 2020 +0000
++++ b/dom/indexedDB/IDBCursor.cpp	Mon Apr 06 13:02:52 2020 +0000
+@@ -828,19 +828,13 @@
+   NS_IMPL_ADDREF_INHERITED(_subclassName, IDBCursor)                          \
+   NS_IMPL_RELEASE_INHERITED(_subclassName, IDBCursor)
+ 
+-#define NS_IMPL_CYCLE_COLLECTION_IDBCURSOR_SUBCLASS(_subclassName) \
+-  NS_IMPL_CYCLE_COLLECTION_CLASS(_subclassName)                    \
++#define NS_IMPL_CYCLE_COLLECTION_IDBCURSOR_SUBCLASS(_subclassName)  \
++  NS_IMPL_CYCLE_COLLECTION_MULTI_ZONE_JSHOLDER_CLASS(_subclassName) \
+   NS_IMPL_CYCLE_COLLECTION_IDBCURSOR_SUBCLASS_METHODS(_subclassName)
+ 
+-#define NS_IMPL_CYCLE_COLLECTION_IDBCURSOR_MULTI_ZONE_JSHOLDER_SUBCLASS( \
+-    _subclassName)                                                       \
+-  NS_IMPL_CYCLE_COLLECTION_MULTI_ZONE_JSHOLDER_CLASS(_subclassName)      \
+-  NS_IMPL_CYCLE_COLLECTION_IDBCURSOR_SUBCLASS_METHODS(_subclassName)
+-
+-NS_IMPL_CYCLE_COLLECTION_IDBCURSOR_MULTI_ZONE_JSHOLDER_SUBCLASS(
+-    IDBObjectStoreCursor)
++NS_IMPL_CYCLE_COLLECTION_IDBCURSOR_SUBCLASS(IDBObjectStoreCursor)
+ NS_IMPL_CYCLE_COLLECTION_IDBCURSOR_SUBCLASS(IDBObjectStoreKeyCursor)
+-NS_IMPL_CYCLE_COLLECTION_IDBCURSOR_MULTI_ZONE_JSHOLDER_SUBCLASS(IDBIndexCursor)
++NS_IMPL_CYCLE_COLLECTION_IDBCURSOR_SUBCLASS(IDBIndexCursor)
+ NS_IMPL_CYCLE_COLLECTION_IDBCURSOR_SUBCLASS(IDBIndexKeyCursor)
+ 
+ template <IDBCursor::Type CursorType>

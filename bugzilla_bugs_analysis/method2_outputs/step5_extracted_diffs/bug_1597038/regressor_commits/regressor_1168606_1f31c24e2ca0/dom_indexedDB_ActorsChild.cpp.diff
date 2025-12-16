@@ -1,0 +1,88 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/ActorsChild.cpp
+# Commit: 1f31c24e2ca0
+# Full Hash: 1f31c24e2ca0bf2960c98de55396072ce6c46323
+# Author: Birunthan Mohanathas <birunthan@mohanathas.com>
+# Date: 2015-08-23 21:18:49
+# Regressor Bug: 1168606
+# File Overlap Count: 1
+# Description:
+#   Bug 1168606 - Part 3: Allow multiple ObjectStoreCursorResponses in a CursorResponse. r=khuey
+#   
+#   For now, we assume that the array only ever contains a single response.
+# ==============================================================================
+
+diff -r 756c006944ab -r 1f31c24e2ca0 dom/indexedDB/ActorsChild.cpp
+--- a/dom/indexedDB/ActorsChild.cpp	Sat Aug 22 10:34:51 2015 +0900
++++ b/dom/indexedDB/ActorsChild.cpp	Wed Aug 19 14:59:25 2015 -0700
+@@ -2523,7 +2523,7 @@
+ 
+ void
+ BackgroundCursorChild::HandleResponse(
+-                                     const ObjectStoreCursorResponse& aResponse)
++    const nsTArray<ObjectStoreCursorResponse>& aResponses)
+ {
+   AssertIsOnOwningThread();
+   MOZ_ASSERT(mRequest);
+@@ -2532,25 +2532,30 @@
+   MOZ_ASSERT(!mStrongRequest);
+   MOZ_ASSERT(!mStrongCursor);
+ 
++  MOZ_ASSERT(aResponses.Length() == 1);
++
+   // XXX Fix this somehow...
+-  auto& response = const_cast<ObjectStoreCursorResponse&>(aResponse);
+-
+-  StructuredCloneReadInfo cloneReadInfo(Move(response.cloneInfo()));
+-  cloneReadInfo.mDatabase = mTransaction->Database();
+-
+-  ConvertActorsToBlobs(mTransaction->Database(),
+-                       response.cloneInfo(),
+-                       cloneReadInfo.mFiles);
+-
+-  nsRefPtr<IDBCursor> newCursor;
+-
+-  if (mCursor) {
+-    mCursor->Reset(Move(response.key()), Move(cloneReadInfo));
+-  } else {
+-    newCursor = IDBCursor::Create(this,
+-                                  Move(response.key()),
+-                                  Move(cloneReadInfo));
+-    mCursor = newCursor;
++  auto& responses =
++    const_cast<nsTArray<ObjectStoreCursorResponse>&>(aResponses);
++
++  for (ObjectStoreCursorResponse& response : responses) {
++    StructuredCloneReadInfo cloneReadInfo(Move(response.cloneInfo()));
++    cloneReadInfo.mDatabase = mTransaction->Database();
++
++    ConvertActorsToBlobs(mTransaction->Database(),
++                         response.cloneInfo(),
++                         cloneReadInfo.mFiles);
++
++    nsRefPtr<IDBCursor> newCursor;
++
++    if (mCursor) {
++      mCursor->Reset(Move(response.key()), Move(cloneReadInfo));
++    } else {
++      newCursor = IDBCursor::Create(this,
++                                    Move(response.key()),
++                                    Move(cloneReadInfo));
++      mCursor = newCursor;
++    }
+   }
+ 
+   ResultHelper helper(mRequest, mTransaction, mCursor);
+@@ -2706,8 +2711,8 @@
+       HandleResponse(aResponse.get_void_t());
+       break;
+ 
+-    case CursorResponse::TObjectStoreCursorResponse:
+-      HandleResponse(aResponse.get_ObjectStoreCursorResponse());
++    case CursorResponse::TArrayOfObjectStoreCursorResponse:
++      HandleResponse(aResponse.get_ArrayOfObjectStoreCursorResponse());
+       break;
+ 
+     case CursorResponse::TObjectStoreKeyCursorResponse:

@@ -1,0 +1,27 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/Interpreter.cpp
+# Commit: 6ccaefced3df
+# Full Hash: 6ccaefced3df63b297057b31a856527153801a71
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2020-01-13 15:45:24
+# Description:
+#   Bug 1605641 - Mark 'done' stack value for destructuring assignment as having implicit uses. r=tcampbell
+#   
+#   We need to make sure this value isn't optimized out because the exception
+#   handler may need it.
+#   
+# ==============================================================================
+
+diff -r 96753184f3c4 -r 6ccaefced3df js/src/vm/Interpreter.cpp
+--- a/js/src/vm/Interpreter.cpp	Thu Jan 02 12:07:51 2020 +0000
++++ b/js/src/vm/Interpreter.cpp	Mon Jan 13 09:23:17 2020 +0000
+@@ -1187,6 +1187,7 @@
+         MOZ_ASSERT(tn->stackDepth > 1);
+         Value* sp = regs.spForStackDepth(tn->stackDepth);
+         RootedValue doneValue(cx, sp[-1]);
++        MOZ_RELEASE_ASSERT(!doneValue.isMagic());
+         bool done = ToBoolean(doneValue);
+         if (!done) {
+           RootedObject iterObject(cx, &sp[-2].toObject());

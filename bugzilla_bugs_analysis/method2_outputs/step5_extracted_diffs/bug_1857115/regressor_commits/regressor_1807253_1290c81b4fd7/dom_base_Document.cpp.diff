@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/Document.cpp
+# Commit: 1290c81b4fd7
+# Full Hash: 1290c81b4fd788222a335a1bbe07747b28d22ae9
+# Author: Alexander Surkov <surkov.alexander@gmail.com>
+# Date: 2023-10-03 15:57:45
+# Regressor Bug: 1807253
+# File Overlap Count: 1
+# Description:
+#   Bug 1807253 - get rid of ResizeObserverNotificationHelper, r=emilio
+#   
+#   Integrate resize observer processing with RefreshDriver to make it
+#   more extensible.
+#   
+# ==============================================================================
+
+diff -r 5502331146fe -r 1290c81b4fd7 dom/base/Document.cpp
+--- a/dom/base/Document.cpp	Tue Oct 03 09:40:06 2023 +0000
++++ b/dom/base/Document.cpp	Tue Oct 03 09:48:46 2023 +0000
+@@ -17105,6 +17105,16 @@
+   mResizeObserverController->ScheduleNotification();
+ }
+ 
++void Document::NotifyResizeObservers() {
++  if (mResizeObserverController) {
++    mResizeObserverController->Notify();
++  }
++}
++
++bool Document::HasResizeObservers() const {
++  return mResizeObserverController && mResizeObserverController->IsScheduled();
++}
++
+ void Document::ClearStaleServoData() {
+   DocumentStyleRootIterator iter(this);
+   while (Element* root = iter.GetNextStyleRoot()) {

@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/transportbridge/MediaPipeline.cpp
+# Commit: 83122b946cad
+# Full Hash: 83122b946cada91c9df705e66e4cbca68eb49852
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 5
+# Description:
+#   Bug 1654112 - Make MediaSessionConduit::DeliverPacket async. r=bwc
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D107064
+# ==============================================================================
+
+diff -r 0e22eb5eaa5c -r 83122b946cad dom/media/webrtc/transportbridge/MediaPipeline.cpp
+--- a/dom/media/webrtc/transportbridge/MediaPipeline.cpp	Thu Mar 25 16:55:12 2021 -0500
++++ b/dom/media/webrtc/transportbridge/MediaPipeline.cpp	Thu Feb 25 17:40:18 2021 +0100
+@@ -557,8 +557,7 @@
+   mPacketDumper->Dump(mLevel, dom::mozPacketDumpType::Rtp, false, packet.data(),
+                       packet.len());
+ 
+-  (void)mConduit->ReceivedRTPPacket(packet.data(), packet.len(),
+-                                    header);  // Ignore error codes
++  mConduit->ReceivedRTPPacket(packet.data(), packet.len(), header);
+ }
+ 
+ void MediaPipeline::RtcpPacketReceived(const MediaPacket& packet) {
+@@ -604,8 +603,7 @@
+     return;
+   }
+ 
+-  (void)mConduit->ReceivedRTCPPacket(packet.data(),
+-                                     packet.len());  // Ignore error codes
++  mConduit->ReceivedRTCPPacket(packet.data(), packet.len());
+ }
+ 
+ void MediaPipeline::PacketReceived(const std::string& aTransportId,

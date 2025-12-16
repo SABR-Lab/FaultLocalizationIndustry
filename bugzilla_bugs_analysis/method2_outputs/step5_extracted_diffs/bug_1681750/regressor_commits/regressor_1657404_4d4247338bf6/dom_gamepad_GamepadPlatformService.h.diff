@@ -1,0 +1,112 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/gamepad/GamepadPlatformService.h
+# Commit: 4d4247338bf6
+# Full Hash: 4d4247338bf6ebab2ebc69a89b7a4cb610cc5fee
+# Author: Randell Jesup <rjesup@mozilla.com>
+# Date: 2024-12-10 16:36:00
+# Regressor Bug: 1657404
+# File Overlap Count: 1
+# Description:
+#   Bug 1657404: Back out changeset 349854c5ad56 (gamepad) r=cmartin
+#   
+#   This changeset was left in when the rest of bug 1657404 was backed out in
+#   2020, and causes at least some Windows machines to not see gamepads
+#   
+# ==============================================================================
+
+diff -r ade719ece0a8 -r 4d4247338bf6 dom/gamepad/GamepadPlatformService.h
+--- a/dom/gamepad/GamepadPlatformService.h	Tue Dec 10 02:32:07 2024 +0000
++++ b/dom/gamepad/GamepadPlatformService.h	Tue Dec 10 02:56:44 2024 +0000
+@@ -14,7 +14,6 @@
+ #include <map>
+ #include "mozilla/Mutex.h"
+ #include "mozilla/StaticPtr.h"
+-#include "mozilla/Vector.h"
+ #include "mozilla/WeakPtr.h"
+ 
+ namespace mozilla::dom {
+@@ -24,33 +23,6 @@
+ struct GamepadPoseState;
+ class GamepadTestChannelParent;
+ struct GamepadTouchState;
+-class GamepadPlatformService;
+-
+-class GamepadMonitoringState {
+- public:
+-  static GamepadMonitoringState& GetSingleton();
+-
+-  void AddObserver(GamepadTestChannelParent* aParent);
+-  void RemoveObserver(GamepadTestChannelParent* aParent);
+-
+-  bool IsMonitoring() const;
+-
+-  GamepadMonitoringState(const GamepadMonitoringState&) = delete;
+-  GamepadMonitoringState(GamepadMonitoringState&&) = delete;
+-  GamepadMonitoringState& operator=(const GamepadMonitoringState) = delete;
+-  GamepadMonitoringState& operator=(GamepadMonitoringState&&) = delete;
+-
+- private:
+-  GamepadMonitoringState() = default;
+-  ~GamepadMonitoringState() = default;
+-
+-  void Set(bool aIsMonitoring);
+-
+-  bool mIsMonitoring{false};
+-  Vector<WeakPtr<GamepadTestChannelParent>> mObservers;
+-
+-  friend class mozilla::dom::GamepadPlatformService;
+-};
+ 
+ // Platform Service for building and transmitting IPDL messages
+ // through the HAL sandbox. Used by platform specific
+@@ -67,6 +39,30 @@
+ class GamepadPlatformService final {
+   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(GamepadPlatformService)
+  public:
++  class MonitoringState {
++   public:
++    MonitoringState() = default;
++    ~MonitoringState();
++
++    void AddObserver(WeakPtr<GamepadTestChannelParent> aParent);
++    void RemoveObserver(GamepadTestChannelParent* aParent);
++
++    bool IsMonitoring() const;
++
++    MonitoringState(const MonitoringState&) = delete;
++    MonitoringState(MonitoringState&&) = delete;
++    MonitoringState& operator=(const MonitoringState) = delete;
++    MonitoringState& operator=(MonitoringState&&) = delete;
++
++   private:
++    void Set(bool aIsMonitoring);
++
++    bool mIsMonitoring{false};
++    nsTArray<WeakPtr<GamepadTestChannelParent>> mObservers;
++
++    friend class GamepadPlatformService;
++  };
++
+   // Get the singleton service
+   static already_AddRefed<GamepadPlatformService> GetParentService();
+ 
+@@ -122,6 +118,8 @@
+ 
+   void MaybeShutdown();
+ 
++  MonitoringState& GetMonitoringState() { return mMonitoringState; }
++
+   nsTArray<GamepadAdded> GetAllGamePads() {
+     nsTArray<GamepadAdded> gamepads;
+ 
+@@ -152,6 +150,8 @@
+   Mutex mMutex MOZ_UNANNOTATED;
+ 
+   std::map<GamepadHandle, GamepadAdded> mGamepadAdded;
++
++  MonitoringState mMonitoringState;
+ };
+ 
+ }  // namespace mozilla::dom

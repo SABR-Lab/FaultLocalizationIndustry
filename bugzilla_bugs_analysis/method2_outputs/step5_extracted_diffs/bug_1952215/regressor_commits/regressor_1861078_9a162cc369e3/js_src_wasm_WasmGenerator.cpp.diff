@@ -1,0 +1,34 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmGenerator.cpp
+# Commit: 9a162cc369e3
+# Full Hash: 9a162cc369e3b6f51f5767924e63d46539c4f631
+# Author: Julien Pages <jpages@mozilla.com>
+# Date: 2025-02-22 09:14:45
+# Regressor Bug: 1861078
+# File Overlap Count: 1
+# Description:
+#   Bug 1861078 - wasm: make metadata offsets relative to CodeBlock->codeBase. r=rhunt
+#   
+#   Metadata used offsets to the beginning of code segment. Change that to use
+#   offsets relative to the beginning of CodeBlock. This allows us to avoid offseting
+#   metadata later on and prepare the work for simplification of stackmaps.
+# ==============================================================================
+
+diff -r e543a77786c9 -r 9a162cc369e3 js/src/wasm/WasmGenerator.cpp
+--- a/js/src/wasm/WasmGenerator.cpp	Fri Feb 21 17:09:51 2025 +0000
++++ b/js/src/wasm/WasmGenerator.cpp	Fri Feb 21 17:17:58 2025 +0000
+@@ -927,12 +927,6 @@
+     }
+     codeBlock_->codeBase = codeStart;
+     codeBlock_->codeLength = codeLength;
+-
+-    // All metadata in code block is relative to the start of the code segment
+-    // we were placed in, so we must adjust offsets for where we were
+-    // allocated.
+-    uint32_t codeBlockOffset = codeStart - codeBlock_->segment->base();
+-    codeBlock_->offsetMetadataBy(codeBlockOffset);
+   } else {
+     // Create a new CodeSegment for the code and use that.
+     codeBlock_->segment = CodeSegment::createFromMasm(

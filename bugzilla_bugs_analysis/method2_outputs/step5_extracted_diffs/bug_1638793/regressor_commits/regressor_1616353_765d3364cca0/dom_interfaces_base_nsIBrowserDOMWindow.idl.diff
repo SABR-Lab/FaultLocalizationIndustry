@@ -1,0 +1,104 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/interfaces/base/nsIBrowserDOMWindow.idl
+# Commit: 765d3364cca0
+# Full Hash: 765d3364cca0a67c614cb4fb5dff413a8c29d834
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-04-07 03:53:09
+# Regressor Bug: 1616353
+# File Overlap Count: 1
+# Description:
+#   Bug 1616353 - Part 7.2: Create and use nsOpenWindowInfo types in nsWindowWatcher logic, r=kmag
+#   
+#   This patch builds on top of part 7.1 by creating this object within
+#   nsWindowWatcher and ContentParent to carry the relevant information through
+#   provider interfaces when creating new content windows. The nsOpenWindowInfo
+# ==============================================================================
+
+diff -r 8a13355b4ac4 -r 765d3364cca0 dom/interfaces/base/nsIBrowserDOMWindow.idl
+--- a/dom/interfaces/base/nsIBrowserDOMWindow.idl	Mon Apr 06 14:29:59 2020 +0000
++++ b/dom/interfaces/base/nsIBrowserDOMWindow.idl	Mon Apr 06 14:30:02 2020 +0000
+@@ -11,12 +11,15 @@
+ interface nsIPrincipal;
+ interface nsIContentSecurityPolicy;
+ interface nsIReferrerInfo;
++interface nsIOpenWindowInfo;
+ webidl BrowsingContext;
+ webidl Element;
+ 
+ [scriptable, uuid(e774db14-79ac-4156-a7a3-aa3fd0a22c10)]
+ interface nsIOpenURIInFrameParams : nsISupports
+ {
++  readonly attribute nsIOpenWindowInfo openWindowInfo;
++
+   attribute nsIReferrerInfo referrerInfo;
+   readonly attribute boolean isPrivate;
+   attribute nsIPrincipal triggeringPrincipal;
+@@ -107,7 +110,7 @@
+ 
+    * @param aURI the URI to be opened in the window (can be null).
+    * @param aWhere see possible values described above.
+-   * @param aOpener window requesting the creation (can be null).
++   * @param aOpenWindowInfo info about the creation (can be null).
+    * @param aFlags flags which control the behavior of the load. The
+    *               OPEN_EXTERNAL/OPEN_NEW flag is only used when
+    *               aWhere == OPEN_DEFAULTWINDOW.
+@@ -117,7 +120,7 @@
+    * @return the window into which the URI would have been opened.
+   */
+   BrowsingContext
+-  createContentWindow(in nsIURI aURI, in mozIDOMWindowProxy aOpener,
++  createContentWindow(in nsIURI aURI, in nsIOpenWindowInfo aOpenWindowInfo,
+                       in short aWhere, in long aFlags,
+                       in nsIPrincipal aTriggeringPrincipal,
+                       [optional] in nsIContentSecurityPolicy aCsp);
+@@ -127,14 +130,12 @@
+    * returned as Element, QI'd back to nsFrameLoaderOwner as needed.
+    *
+    * Additional Parameters:
+-   * @param aNextRemoteTabId The RemoteTab to associate the window with.
+    * @param aName The name to give the window opened in the new tab.
+    * @return The frame element for the newly opened window.
+    */
+   Element
+   createContentWindowInFrame(in nsIURI aURI, in nsIOpenURIInFrameParams params,
+                              in short aWhere, in long aFlags,
+-                             in unsigned long long aNextRemoteTabId,
+                              in AString aName);
+ 
+   /**
+@@ -143,7 +144,7 @@
+    * @param aURI the URI to open. null is not allowed. To create the window
+    *        without loading the URI, use createContentWindow instead.
+    * @param aWhere see possible values described above.
+-   * @param aOpener window requesting the open (can be null).
++   * @param aOpenWindowInfo info about the open (can be null).
+    * @param aFlags flags which control the behavior of the load. The
+    *               OPEN_EXTERNAL/OPEN_NEW flag is only used when
+    *               aWhere == OPEN_DEFAULTWINDOW.
+@@ -152,7 +153,7 @@
+    * @return the window into which the URI was opened.
+   */
+   BrowsingContext
+-  openURI(in nsIURI aURI, in mozIDOMWindowProxy aOpener,
++  openURI(in nsIURI aURI, in nsIOpenWindowInfo aOpenWindowInfo,
+           in short aWhere, in long aFlags, in nsIPrincipal aTriggeringPrincipal,
+           [optional] in nsIContentSecurityPolicy aCsp);
+ 
+@@ -161,7 +162,6 @@
+    * returned as Element, QI'd back to nsFrameLoaderOwner as needed.
+    *
+    * Additional Parameters:
+-   * @param aNextRemoteTabId The RemoteTab to associate the window with.
+    * @param aName The name to give the window opened in the new tab.
+    * @return The frame element for the newly opened window.
+    // XXXbz is this the right API?
+@@ -170,7 +170,6 @@
+   Element
+   openURIInFrame(in nsIURI aURI, in nsIOpenURIInFrameParams params,
+                  in short aWhere, in long aFlags,
+-                 in unsigned long long aNextRemoteTabId,
+                  in AString aName);
+ 
+   /**

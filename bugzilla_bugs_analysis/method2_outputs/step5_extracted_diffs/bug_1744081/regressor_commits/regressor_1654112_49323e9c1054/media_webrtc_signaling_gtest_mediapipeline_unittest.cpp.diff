@@ -1,0 +1,37 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/webrtc/signaling/gtest/mediapipeline_unittest.cpp
+# Commit: 49323e9c1054
+# Full Hash: 49323e9c105493ba926196802015767390304286
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 2
+# Description:
+#   Bug 1654112 - Use a ShutdownBlockingTicket in WebRtcCallWrapper. r=jib,bwc
+#   
+#   Peer connections are cleaned up on shutdown through an xpcom-shutdown observer.
+#   It doesn't block shutdown throughout async operations.
+#   
+# ==============================================================================
+
+diff -r 31963b9b2342 -r 49323e9c1054 media/webrtc/signaling/gtest/mediapipeline_unittest.cpp
+--- a/media/webrtc/signaling/gtest/mediapipeline_unittest.cpp	Tue Feb 16 17:44:00 2021 +0100
++++ b/media/webrtc/signaling/gtest/mediapipeline_unittest.cpp	Tue Feb 16 18:03:06 2021 +0100
+@@ -262,9 +262,12 @@
+             webrtc::AudioDecoderFactory* aAudioDecoderFactory,
+             webrtc::WebRtcKeyValueConfig* aTrials)
+       : audio_config_(109, "opus", 48000, 2, false),
+-        call_(WebRtcCallWrapper::Create(dom::RTCStatsTimestampMaker(),
+-                                        aModuleThread, aAudioStateConfig,
+-                                        aAudioDecoderFactory, aTrials)),
++        call_(WebRtcCallWrapper::Create(
++            dom::RTCStatsTimestampMaker(),
++            MakeUnique<media::ShutdownBlockingTicket>(
++                u"WebRtcCallWrapper shutdown blocker"_ns,
++                NS_LITERAL_STRING_FROM_CSTRING(__FILE__), __LINE__),
++            aModuleThread, aAudioStateConfig, aAudioDecoderFactory, aTrials)),
+         audio_conduit_(
+             AudioSessionConduit::Create(call_, test_utils->sts_target())),
+         audio_pipeline_(),

@@ -1,0 +1,70 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/manager/ssl/nsNSSComponent.cpp
+# Commit: 16350e08d34f
+# Full Hash: 16350e08d34ff06c7f46745c6b160c7a7bda9140
+# Author: Dana Keeler <dkeeler@mozilla.com>
+# Date: 2019-12-06 04:43:57
+# Regressor Bug: 1586855
+# File Overlap Count: 6
+# Description:
+#   bug 1586855 - incorporate CRLite filters into cert_storage r=jcj,kjacobs
+#   
+#   This patch implements CRLite lookups for TLS server certificate revocation
+#   information in telemetry-only mode. It adds a new preference
+#   "security.pki.crlite_mode" to control the behavior of this feature. Setting
+# ==============================================================================
+
+diff -r 64fd40663930 -r 16350e08d34f security/manager/ssl/nsNSSComponent.cpp
+--- a/security/manager/ssl/nsNSSComponent.cpp	Thu Dec 05 22:23:54 2019 +0000
++++ b/security/manager/ssl/nsNSSComponent.cpp	Thu Dec 05 22:41:53 2019 +0000
+@@ -1266,6 +1266,19 @@
+     distrustedCAPolicy = defaultCAPolicyMode;
+   }
+ 
++  CRLiteMode defaultCRLiteMode = CRLiteMode::Disabled;
++  CRLiteMode crliteMode = static_cast<CRLiteMode>(Preferences::GetUint(
++      "security.pki.crlite_mode", static_cast<uint32_t>(defaultCRLiteMode)));
++  switch (crliteMode) {
++    case CRLiteMode::Disabled:
++    case CRLiteMode::TelemetryOnly:
++    case CRLiteMode::Enforce:
++      break;
++    default:
++      crliteMode = defaultCRLiteMode;
++      break;
++  }
++
+   CertVerifier::OcspDownloadConfig odc;
+   CertVerifier::OcspStrictConfig osc;
+   uint32_t certShortLifetimeInDays;
+@@ -1278,7 +1291,7 @@
+   mDefaultCertVerifier = new SharedCertVerifier(
+       odc, osc, softTimeout, hardTimeout, certShortLifetimeInDays, pinningMode,
+       sha1Mode, nameMatchingMode, netscapeStepUpPolicy, ctMode,
+-      distrustedCAPolicy, mEnterpriseCerts);
++      distrustedCAPolicy, crliteMode, mEnterpriseCerts);
+ }
+ 
+ void nsNSSComponent::UpdateCertVerifierWithEnterpriseRoots() {
+@@ -1297,7 +1310,8 @@
+       oldCertVerifier->mCertShortLifetimeInDays, oldCertVerifier->mPinningMode,
+       oldCertVerifier->mSHA1Mode, oldCertVerifier->mNameMatchingMode,
+       oldCertVerifier->mNetscapeStepUpPolicy, oldCertVerifier->mCTMode,
+-      oldCertVerifier->mDistrustedCAPolicy, mEnterpriseCerts);
++      oldCertVerifier->mDistrustedCAPolicy, oldCertVerifier->mCRLiteMode,
++      mEnterpriseCerts);
+ }
+ 
+ // Enable the TLS versions given in the prefs, defaulting to TLS 1.0 (min) and
+@@ -2043,7 +2057,8 @@
+                    "security.OCSP.timeoutMilliseconds.soft") ||
+                prefName.EqualsLiteral(
+                    "security.OCSP.timeoutMilliseconds.hard") ||
+-               prefName.EqualsLiteral("security.pki.distrust_ca_policy")) {
++               prefName.EqualsLiteral("security.pki.distrust_ca_policy") ||
++               prefName.EqualsLiteral("security.pki.crlite_mode")) {
+       MutexAutoLock lock(mMutex);
+       setValidationOptions(false, lock);
+ #ifdef DEBUG

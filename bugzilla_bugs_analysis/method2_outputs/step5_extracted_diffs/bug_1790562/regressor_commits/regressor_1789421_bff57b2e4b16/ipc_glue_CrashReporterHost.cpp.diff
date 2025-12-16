@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: ipc/glue/CrashReporterHost.cpp
+# Commit: bff57b2e4b16
+# Full Hash: bff57b2e4b16fbcc4b5bf881c66a352ed7e2bd92
+# Author: Gabriele Svelto <gsvelto@mozilla.com>
+# Date: 2022-09-12 21:40:55
+# Regressor Bug: 1789421
+# File Overlap Count: 1
+# Description:
+#   Bug 1789421 - Generate crash reports for content process shutdown hangs only when we can confirm that the process did not shut down in time r=jstutte
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D156838
+# ==============================================================================
+
+diff -r f9922dd645d5 -r bff57b2e4b16 ipc/glue/CrashReporterHost.cpp
+--- a/ipc/glue/CrashReporterHost.cpp	Mon Sep 12 08:56:33 2022 +0000
++++ b/ipc/glue/CrashReporterHost.cpp	Mon Sep 12 08:57:16 2022 +0000
+@@ -28,7 +28,10 @@
+   if (!TakeCrashedChildMinidump(aPid, nullptr)) {
+     return false;
+   }
+-  return FinalizeCrashReport();
++
++  FinalizeCrashReport();
++  RecordCrash(mProcessType, nsICrashService::CRASH_TYPE_CRASH, mDumpID);
++  return true;
+ }
+ 
+ RefPtr<nsIFile> CrashReporterHost::TakeCrashedChildMinidump(
+@@ -57,7 +60,7 @@
+   return true;
+ }
+ 
+-bool CrashReporterHost::FinalizeCrashReport() {
++void CrashReporterHost::FinalizeCrashReport() {
+   MOZ_ASSERT(!mFinalized);
+   MOZ_ASSERT(HasMinidump());
+ 
+@@ -70,11 +73,13 @@
+       nsDependentCString(startTime);
+ 
+   CrashReporter::WriteExtraFile(mDumpID, mExtraAnnotations);
+-
+-  RecordCrash(mProcessType, nsICrashService::CRASH_TYPE_CRASH, mDumpID);
++  mFinalized = true;
++}
+ 
+-  mFinalized = true;
+-  return true;
++void CrashReporterHost::DeleteCrashReport() {
++  if (mFinalized && HasMinidump()) {
++    CrashReporter::DeleteMinidumpFilesForID(mDumpID, Some(u"browser"_ns));
++  }
+ }
+ 
+ /* static */

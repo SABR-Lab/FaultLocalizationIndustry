@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/arm/LIR-arm.h
+# Commit: e2105a52bcdd
+# Full Hash: e2105a52bcdd6229d2b8b5ee1a59bd8aee749821
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-10-02 04:10:47
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 6.4: Add tls dependency for WasmTruncateToInt64 and Int64ToFloatingPoint for arm. r=lth
+#   
+#   In this patch we add a tls dependency for the remaining nodes which use
+#   BuiltinThunk to call c++ runtime. By ABI requirements WasmTlsReg should
+#   be set.
+# ==============================================================================
+
+diff -r bba9e8259714 -r e2105a52bcdd js/src/jit/arm/LIR-arm.h
+--- a/js/src/jit/arm/LIR-arm.h	Thu Oct 01 07:52:37 2020 +0000
++++ b/js/src/jit/arm/LIR-arm.h	Thu Oct 01 07:52:46 2020 +0000
+@@ -363,26 +363,47 @@
+   MInstruction* mir() { return mir_->toInstruction(); }
+ };
+ 
+-class LWasmTruncateToInt64 : public LCallInstructionHelper<INT64_PIECES, 1, 0> {
++class LWasmTruncateToInt64 : public LCallInstructionHelper<INT64_PIECES, 2, 0> {
++  static const size_t Input = 0;
++  static const size_t Tls = 1;
++
+  public:
+   LIR_HEADER(WasmTruncateToInt64);
+ 
+-  explicit LWasmTruncateToInt64(const LAllocation& in)
++  LWasmTruncateToInt64(const LAllocation& in, const LAllocation& tls)
+       : LCallInstructionHelper(classOpcode) {
+-    setOperand(0, in);
++    setOperand(Input, in);
++    setOperand(Tls, tls);
+   }
+ 
+-  MWasmTruncateToInt64* mir() const { return mir_->toWasmTruncateToInt64(); }
++  LAllocation* input() { return getOperand(Input); }
++  LAllocation* tls() { return getOperand(Tls); }
++
++  MWasmBuiltinTruncateToInt64* mir() const {
++    return mir_->toWasmBuiltinTruncateToInt64();
++  }
+ };
+ 
+ class LInt64ToFloatingPointCall
+-    : public LCallInstructionHelper<1, INT64_PIECES, 0> {
++    : public LCallInstructionHelper<1, INT64_PIECES + 1, 0> {
+  public:
+   LIR_HEADER(Int64ToFloatingPointCall);
+ 
+-  LInt64ToFloatingPointCall() : LCallInstructionHelper(classOpcode) {}
++  static const size_t Input = 0;
++  static const size_t Tls = INT64_PIECES;
+ 
+-  MInt64ToFloatingPoint* mir() const { return mir_->toInt64ToFloatingPoint(); }
++  LInt64ToFloatingPointCall(const LInt64Allocation& in, const LAllocation& tls)
++      : LCallInstructionHelper(classOpcode) {
++    setInt64Operand(Input, in);
++    setOperand(Tls, tls);
++  }
++
++  LAllocation* input() { return getOperand(Input); }
++  LAllocation* tls() { return getOperand(Tls); }
++
++  MBuiltinInt64ToFloatingPoint* mir() const {
++    return mir_->toBuiltinInt64ToFloatingPoint();
++  }
+ };
+ 
+ namespace details {

@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/printing/content/print.js
+# Commit: 93e3344dd1f7
+# Full Hash: 93e3344dd1f7454dc46c1553dd05e5e3bc78c349
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2020-08-26 03:24:37
+# Regressor Bug: 1636728
+# File Overlap Count: 1
+# Description:
+#   Bug 1636728 - Centralize printing entry points in nsGlobalWindowOuter, and move cloning out of nsPrintJob. r=jwatt,geckoview-reviewers,smaug,agi
+#   
+#   This centralizes our print and preview setup in nsGlobalWindowOuter so
+#   that we never re-clone a clone, and so that we reuse the window.open()
+#   codepath to create the browsing context to clone into.
+# ==============================================================================
+
+diff -r 2969f3de028f -r 93e3344dd1f7 toolkit/components/printing/content/print.js
+--- a/toolkit/components/printing/content/print.js	Tue Aug 25 02:58:57 2020 +0000
++++ b/toolkit/components/printing/content/print.js	Tue Aug 25 17:45:12 2020 +0000
+@@ -83,11 +83,27 @@
+     // is initiated and the print preview clone must be a snapshot from the
+     // time that the print was started.
+     let sourceBrowsingContext = this.getSourceBrowsingContext();
++    this.previewBrowser = this._createPreviewBrowser(sourceBrowsingContext);
++
++    // Get the temporary browser that will previously have been created for the
++    // platform code to generate the static clone printing doc into if this
++    // print is for a window.print() call.  In that case we steal the browser's
++    // docshell to get the static clone, then discard it.
++    let existingBrowser = window.arguments[0].getProperty("previewBrowser");
++    if (existingBrowser) {
++      sourceBrowsingContext = existingBrowser.browsingContext;
++      this.previewBrowser.swapDocShells(existingBrowser);
++      existingBrowser.remove();
++    } else {
++      this.previewBrowser.loadURI("about:printpreview", {
++        triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
++      });
++    }
++
+     this.originalSourceContentTitle =
+       sourceBrowsingContext.currentWindowContext.documentTitle;
+     this.originalSourceCurrentURI =
+       sourceBrowsingContext.currentWindowContext.documentURI.spec;
+-    this.previewBrowser = this._createPreviewBrowser(sourceBrowsingContext);
+ 
+     // First check the available destinations to ensure we get settings for an
+     // accessible printer.
+@@ -168,10 +184,6 @@
+     previewStack.append(printPreviewBrowser);
+     ourBrowser.parentElement.prepend(previewStack);
+ 
+-    printPreviewBrowser.loadURI("about:printpreview", {
+-      triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+-    });
+-
+     return printPreviewBrowser;
+   },
+ 

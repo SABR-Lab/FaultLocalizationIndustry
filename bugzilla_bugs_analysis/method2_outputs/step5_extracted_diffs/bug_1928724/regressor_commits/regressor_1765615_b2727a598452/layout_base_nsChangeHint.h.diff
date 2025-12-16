@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/base/nsChangeHint.h
+# Commit: b2727a598452
+# Full Hash: b2727a598452fb942e0611df5f931d4df0efaceb
+# Author: Frédéric Wang <fwang@igalia.com>
+# Date: 2024-01-18 04:47:51
+# Regressor Bug: 1765615
+# File Overlap Count: 1
+# Description:
+#   Bug 1765615 - Handle most changes to CSS `contain` and `content-visibility` without needing to reconstruct frames. r=layout-reviewers,emilio
+#   
+#   Right now, we reconstruct frames in response to a change in the CSS
+#   `contain` property or `content-visibility`. This patch tries to optimize
+#   this a bit:
+# ==============================================================================
+
+diff -r 5608664350d8 -r b2727a598452 layout/base/nsChangeHint.h
+--- a/layout/base/nsChangeHint.h	Wed Jan 17 07:22:29 2024 +0000
++++ b/layout/base/nsChangeHint.h	Wed Jan 17 08:22:48 2024 +0000
+@@ -236,6 +236,11 @@
+    */
+   nsChangeHint_VisibilityChange = 1u << 28,
+ 
++  /**
++   * Indicates that NS_BLOCK_DYNAMIC_BFC should be updated.
++   */
++  nsChangeHint_UpdateBFC = 1u << 29,
++
+   // IMPORTANT NOTE: When adding a new hint, you will need to add it to
+   // one of:
+   //
+@@ -251,7 +256,7 @@
+   /**
+    * Dummy hint value for all hints. It exists for compile time check.
+    */
+-  nsChangeHint_AllHints = uint32_t((1ull << 29) - 1),
++  nsChangeHint_AllHints = uint32_t((1ull << 30) - 1),
+ };
+ 
+ // Redefine these operators to return nothing. This will catch any use
+@@ -332,7 +337,8 @@
+    nsChangeHint_UpdateOverflow | nsChangeHint_UpdateParentOverflow |          \
+    nsChangeHint_UpdatePostTransformOverflow |                                 \
+    nsChangeHint_UpdateTableCellSpans | nsChangeHint_UpdateTransformLayer |    \
+-   nsChangeHint_UpdateUsesOpacity | nsChangeHint_AddOrRemoveTransform)
++   nsChangeHint_UpdateUsesOpacity | nsChangeHint_AddOrRemoveTransform |       \
++   nsChangeHint_UpdateBFC)
+ 
+ // The change hints that are sometimes considered to be handled for descendants.
+ #define nsChangeHint_Hints_SometimesHandledForDescendants           \

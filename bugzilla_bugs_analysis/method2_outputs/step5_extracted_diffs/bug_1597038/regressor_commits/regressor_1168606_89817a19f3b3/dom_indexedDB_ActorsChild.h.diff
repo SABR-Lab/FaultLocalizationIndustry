@@ -1,0 +1,66 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/ActorsChild.h
+# Commit: 89817a19f3b3
+# Full Hash: 89817a19f3b38187bca7eecd50cbf39867c4dad8
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2019-11-05 22:07:34
+# Regressor Bug: 1168606
+# File Overlap Count: 1
+# Description:
+#   Bug 1168606 - Send extra records with every ObjectStoreCursorResponse if enabled by pref. r=ttung,asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D43252
+# ==============================================================================
+
+diff -r 2f0447b228c7 -r 89817a19f3b3 dom/indexedDB/ActorsChild.h
+--- a/dom/indexedDB/ActorsChild.h	Tue Nov 05 14:40:33 2019 +0000
++++ b/dom/indexedDB/ActorsChild.h	Tue Nov 05 14:40:37 2019 +0000
+@@ -624,6 +624,19 @@
+ 
+   class DelayedActionRunnable;
+ 
++  struct CachedResponse {
++    CachedResponse() = default;
++
++    CachedResponse(CachedResponse&& aOther) = default;
++    CachedResponse& operator=(CachedResponse&& aOther) = default;
++    CachedResponse(const CachedResponse& aOther) = delete;
++    CachedResponse& operator=(const CachedResponse& aOther) = delete;
++
++    Key mKey;
++    Key mObjectKey;  // TODO: This is not used anywhere right now
++    StructuredCloneReadInfo mCloneInfo;
++  };
++
+   IDBRequest* mRequest;
+   IDBTransaction* mTransaction;
+   IDBObjectStore* mObjectStore;
+@@ -638,6 +651,8 @@
+ 
+   NS_DECL_OWNINGTHREAD
+ 
++  std::deque<CachedResponse> mCachedResponses, mDelayedResponses;
++
+  public:
+   BackgroundCursorChild(IDBRequest* aRequest, IDBObjectStore* aObjectStore,
+                         Direction aDirection);
+@@ -654,6 +669,8 @@
+ 
+   void SendDeleteMeInternal();
+ 
++  void InvalidateCachedResponses();
++
+   IDBRequest* GetRequest() const {
+     AssertIsOnOwningThread();
+ 
+@@ -683,6 +700,8 @@
+   // BackgroundVersionChangeTransactionChild.
+   ~BackgroundCursorChild();
+ 
++  void CompleteContinueRequestFromCache();
++
+   void HandleResponse(nsresult aResponse);
+ 
+   void HandleResponse(const void_t& aResponse);

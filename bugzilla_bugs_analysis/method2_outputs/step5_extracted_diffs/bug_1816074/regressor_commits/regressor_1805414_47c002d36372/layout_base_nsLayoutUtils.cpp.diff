@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/base/nsLayoutUtils.cpp
+# Commit: 47c002d36372
+# Full Hash: 47c002d3637247e71ee901f32421deaecc9d8ea3
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-01-05 03:40:49
+# Regressor Bug: 1805414
+# File Overlap Count: 2
+# Description:
+#   Bug 1805414 - Remove nsMenuFrame and nsMenuParent. r=smaug,Jamie,desktop-theme-reviewers,settings-reviewers,dao
+#   
+#   Move most the event handling stuff to the DOM. I've left nsMenuBarFrame
+#   for now, but I will be removing that in the future.
+#   
+# ==============================================================================
+
+diff -r 0c989b2bcd78 -r 47c002d36372 layout/base/nsLayoutUtils.cpp
+--- a/layout/base/nsLayoutUtils.cpp	Wed Jan 04 18:28:34 2023 +0000
++++ b/layout/base/nsLayoutUtils.cpp	Wed Jan 04 19:01:13 2023 +0000
+@@ -822,18 +822,7 @@
+     }
+   } else {
+     LayoutFrameType childType = aChildFrame->Type();
+-    if (LayoutFrameType::MenuPopup == childType) {
+-      nsIFrame* parent = aChildFrame->GetParent();
+-      MOZ_ASSERT(parent, "nsMenuPopupFrame can't be the root frame");
+-      MOZ_ASSERT(parent->IsMenuFrame(),
+-                 "nsMenuPopupFrame should be out of flow if not under a menu");
+-      nsIFrame* firstPopup =
+-          parent->GetChildList(FrameChildListID::Popup).FirstChild();
+-      MOZ_ASSERT(!firstPopup || !firstPopup->GetNextSibling(),
+-                 "We assume popupList only has one child, but it has more.");
+-      id = firstPopup == aChildFrame ? FrameChildListID::Popup
+-                                     : FrameChildListID::Principal;
+-    } else if (LayoutFrameType::TableColGroup == childType) {
++    if (LayoutFrameType::TableColGroup == childType) {
+       id = FrameChildListID::ColGroup;
+     } else if (aChildFrame->IsTableCaption()) {
+       id = FrameChildListID::Caption;

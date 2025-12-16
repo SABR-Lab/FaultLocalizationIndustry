@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/DMABufLibWrapper.cpp
+# Commit: 21c37ba059a5
+# Full Hash: 21c37ba059a58b555e1089ec5a00ff72c0c9e80a
+# Author: stransky <stransky@redhat.com>
+# Date: 2024-07-04 16:09:52
+# Regressor Bug: 1865747
+# File Overlap Count: 1
+# Description:
+#   Bug 1865747 [Linux] Unset GBM_BACKEND=nvidia on non-NVIDIA hardware r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D211964
+# ==============================================================================
+
+diff -r 5ed76ac492ca -r 21c37ba059a5 widget/gtk/DMABufLibWrapper.cpp
+--- a/widget/gtk/DMABufLibWrapper.cpp	Thu Jul 04 10:04:24 2024 +0000
++++ b/widget/gtk/DMABufLibWrapper.cpp	Thu Jul 04 10:08:31 2024 +0000
+@@ -16,6 +16,7 @@
+ #include "WidgetUtilsGtk.h"
+ #include "gfxConfig.h"
+ #include "nsIGfxInfo.h"
++#include "GfxInfo.h"
+ #include "mozilla/Components.h"
+ #include "mozilla/ClearOnShutdown.h"
+ 
+@@ -182,6 +183,18 @@
+     return;
+   }
+ 
++  // See Bug 1865747 for details.
++  if (auto* gbmBackend = getenv("GBM_BACKEND")) {
++    const nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
++    nsAutoString vendorID;
++    gfxInfo->GetAdapterVendorID(vendorID);
++    if (vendorID != GfxDriverInfo::GetDeviceVendor(DeviceVendor::NVIDIA)) {
++      if (strstr(gbmBackend, "nvidia")) {
++        unsetenv("GBM_BACKEND");
++      }
++    }
++  }
++
+   mDrmRenderNode = nsAutoCString(getenv("MOZ_DRM_DEVICE"));
+   if (mDrmRenderNode.IsEmpty()) {
+     mDrmRenderNode.Assign(gfx::gfxVars::DrmRenderDevice());

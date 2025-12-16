@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fs/parent/FileSystemManagerParent.h
+# Commit: 256aef51d87b
+# Full Hash: 256aef51d87b1ab1733d8d4fb306a03674b6c22b
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2022-08-31 21:54:47
+# Regressor Bug: 1786465
+# File Overlap Count: 3
+# Description:
+#   Bug 1786465 - Move TaskQueue ownership from FileSystemManagerParent to FileSystemDataManager; r=dom-storage-reviewers,jesup
+#   
+#   After this change, we will create only one task queue per origin.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D155554
+# ==============================================================================
+
+diff -r cfa7bbd206c3 -r 256aef51d87b dom/fs/parent/FileSystemManagerParent.h
+--- a/dom/fs/parent/FileSystemManagerParent.h	Wed Aug 31 09:34:55 2022 +0000
++++ b/dom/fs/parent/FileSystemManagerParent.h	Wed Aug 31 09:34:55 2022 +0000
+@@ -9,7 +9,6 @@
+ 
+ #include "ErrorList.h"
+ #include "mozilla/dom/PFileSystemManagerParent.h"
+-#include "mozilla/TaskQueue.h"
+ #include "nsISupports.h"
+ 
+ namespace mozilla {
+@@ -29,8 +28,7 @@
+ 
+ class FileSystemManagerParent : public PFileSystemManagerParent {
+  public:
+-  FileSystemManagerParent(TaskQueue* aTaskQueue,
+-                          RefPtr<fs::data::FileSystemDataManager> aDataManager,
++  FileSystemManagerParent(RefPtr<fs::data::FileSystemDataManager> aDataManager,
+                           const EntryId& aRootEntry);
+ 
+   mozilla::ipc::IPCResult RecvGetRootHandleMsg(
+@@ -75,8 +73,6 @@
+   virtual ~FileSystemManagerParent();
+ 
+  private:
+-  RefPtr<TaskQueue> mTaskQueue;
+-
+   RefPtr<fs::data::FileSystemDataManager> mDataManager;
+ 
+   const EntryId mRootEntry;

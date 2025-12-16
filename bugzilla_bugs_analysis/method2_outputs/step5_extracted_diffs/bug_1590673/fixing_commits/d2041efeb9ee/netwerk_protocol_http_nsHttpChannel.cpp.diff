@@ -1,0 +1,28 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/nsHttpChannel.cpp
+# Commit: d2041efeb9ee
+# Full Hash: d2041efeb9eeab2d924a5ae0f301eaa6bffd37f8
+# Author: Valentin Gosu <valentin.gosu@gmail.com>
+# Date: 2019-10-24 03:54:06
+# Description:
+#   Bug 1590673 - Avoid assertion when assigning Maybe<Policy> r=JuniorHsu
+#   
+#   Maybe<T>::emplace has a MOZ_DIAGNOSTIC_ASSERT that the value is not already assigned.
+#   When revalidating, the method ends up being called twice - so we must instead assign to Some(T) to avoid the assertion, since that is the correct way to do this.
+#   
+# ==============================================================================
+
+diff -r ce5ef7099b4a -r d2041efeb9ee netwerk/protocol/http/nsHttpChannel.cpp
+--- a/netwerk/protocol/http/nsHttpChannel.cpp	Wed Oct 23 23:10:17 2019 +0300
++++ b/netwerk/protocol/http/nsHttpChannel.cpp	Wed Oct 23 17:26:04 2019 +0000
+@@ -7397,7 +7397,7 @@
+   nsILoadInfo::CrossOriginOpenerPolicy resultPolicy =
+       nsILoadInfo::OPENER_POLICY_NULL;
+   Unused << ComputeCrossOriginOpenerPolicy(documentPolicy, &resultPolicy);
+-  mComputedCrossOriginOpenerPolicy.emplace(resultPolicy);
++  mComputedCrossOriginOpenerPolicy = Some(resultPolicy);
+ 
+   // If bc's popup sandboxing flag set is not empty and potentialCOOP is
+   // non-null, then navigate bc to a network error and abort these steps.

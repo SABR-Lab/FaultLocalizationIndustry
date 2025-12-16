@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/cocoa/nsCocoaWindow.mm
+# Commit: cd3231883e99
+# Full Hash: cd3231883e993634ed5484fd6fc3807caacf9053
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2025-04-29 20:49:47
+# Regressor Bug: 1919165
+# File Overlap Count: 1
+# Description:
+#   Bug 1919165 - Notify attached listener for paint like in other platforms.
+#   
+#   This should fix browser_startup_content_mainthreadio.js because it's not
+#   getting the widget-first-paint notification.
+#   
+# ==============================================================================
+
+diff -r ca14d7c98775 -r cd3231883e99 widget/cocoa/nsCocoaWindow.mm
+--- a/widget/cocoa/nsCocoaWindow.mm	Tue Apr 29 17:16:13 2025 +0300
++++ b/widget/cocoa/nsCocoaWindow.mm	Tue Apr 29 17:39:11 2025 +0200
+@@ -753,20 +753,20 @@
+ #pragma mark -
+ 
+ void nsCocoaWindow::WillPaintWindow() {
+-  if (nsIWidgetListener* listener = GetWidgetListener()) {
++  if (nsIWidgetListener* listener = GetPaintListener()) {
+     listener->WillPaintWindow(this);
+   }
+ }
+ 
+ bool nsCocoaWindow::PaintWindow(LayoutDeviceIntRegion aRegion) {
+-  nsIWidgetListener* listener = GetWidgetListener();
++  nsIWidgetListener* listener = GetPaintListener();
+   if (!listener) {
+     return false;
+   }
+ 
+   bool returnValue = listener->PaintWindow(this, aRegion);
+ 
+-  listener = GetWidgetListener();
++  listener = GetPaintListener();
+   if (listener) {
+     listener->DidPaintWindow();
+   }

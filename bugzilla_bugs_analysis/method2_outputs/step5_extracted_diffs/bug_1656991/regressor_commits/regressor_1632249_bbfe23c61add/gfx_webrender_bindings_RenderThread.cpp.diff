@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/webrender_bindings/RenderThread.cpp
+# Commit: bbfe23c61add
+# Full Hash: bbfe23c61add07377daf80696fd6996c0463f5b6
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-06-09 09:21:34
+# Regressor Bug: 1632249
+# File Overlap Count: 1
+# Description:
+#   Bug 1632249 - Support compositing out-of-process WebGL. r=handyman,lsalzman,nical,geckoview-reviewers,agi,imanol
+#   
+#   * Majorly simplity CanvasRenderer
+#   * Replace GLScreenBuffer with trivial GLSwapChain
+#   * Use descriptor structs so that future SharedSurface changes aren't so painful
+# ==============================================================================
+
+diff -r 8fcfac450ecc -r bbfe23c61add gfx/webrender_bindings/RenderThread.cpp
+--- a/gfx/webrender_bindings/RenderThread.cpp	Mon Jun 08 20:13:01 2020 +0000
++++ b/gfx/webrender_bindings/RenderThread.cpp	Mon Jun 08 20:34:15 2020 +0000
+@@ -987,7 +987,7 @@
+   // Create GLContext with dummy EGLSurface, the EGLSurface is not used.
+   // Instread we override it with EGLSurface of SwapChain's back buffer.
+   RefPtr<gl::GLContext> gl =
+-      gl::GLContextProviderEGL::CreateHeadless(flags, &discardFailureId);
++      gl::GLContextProviderEGL::CreateHeadless({flags}, &discardFailureId);
+   if (!gl || !gl->IsANGLE()) {
+     gfxCriticalNote << "Failed ANGLE GL context creation for WebRender: "
+                     << gfx::hexa(gl.get());
+@@ -1029,8 +1029,8 @@
+ static already_AddRefed<gl::GLContext> CreateGLContextCGL() {
+   nsCString failureUnused;
+   return gl::GLContextProvider::CreateHeadless(
+-      gl::CreateContextFlags::ALLOW_OFFLINE_RENDERER |
+-          gl::CreateContextFlags::FORCE_ENABLE_HARDWARE,
++      {gl::CreateContextFlags::ALLOW_OFFLINE_RENDERER |
++       gl::CreateContextFlags::FORCE_ENABLE_HARDWARE},
+       &failureUnused);
+ }
+ #endif

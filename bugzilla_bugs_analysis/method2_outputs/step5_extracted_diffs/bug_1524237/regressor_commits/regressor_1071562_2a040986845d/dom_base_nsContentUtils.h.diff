@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsContentUtils.h
+# Commit: 2a040986845d
+# Full Hash: 2a040986845da97f1eaf87c33136d9168817606a
+# Author: Neil Deakin <neil@mozilla.com>
+# Date: 2015-04-13 10:00:52
+# Regressor Bug: 1071562
+# File Overlap Count: 1
+# Description:
+#   Bug 1071562, e10s, support non-text types in clipboard (html, images, etc), r=smaug
+# ==============================================================================
+
+diff -r 8975ed86f399 -r 2a040986845d dom/base/nsContentUtils.h
+--- a/dom/base/nsContentUtils.h	Fri Apr 10 09:43:38 2015 -0700
++++ b/dom/base/nsContentUtils.h	Fri Apr 10 12:51:06 2015 -0400
+@@ -103,6 +103,7 @@
+ class nsViewportInfo;
+ class nsWrapperCache;
+ class nsAttrValue;
++class nsITransferable;
+ 
+ struct JSPropertyDescriptor;
+ struct JSRuntime;
+@@ -129,6 +130,10 @@
+ class TabParent;
+ } // namespace dom
+ 
++namespace gfx {
++class DataSourceSurface;
++} // namespace gfx
++
+ namespace layers {
+ class LayerManager;
+ } // namespace layers
+@@ -2295,6 +2300,21 @@
+                                               nsTArray<mozilla::dom::IPCDataTransfer>& aIPC,
+                                               mozilla::dom::nsIContentChild* aChild,
+                                               mozilla::dom::nsIContentParent* aParent);
++
++  static void TransferableToIPCTransferable(nsITransferable* aTransferable,
++                                            mozilla::dom::IPCDataTransfer* aIPCDataTransfer,
++                                            mozilla::dom::nsIContentChild* aChild,
++                                            mozilla::dom::nsIContentParent* aParent);
++
++  /*
++   * Get the pixel data from the given source surface and return it as a buffer.
++   * The length and stride will be assigned from the surface. This method will map
++   * the surface; the caller should call Unmap on the surface when finished with
++   * the data.
++   */
++  static const uint8_t* GetSurfaceData(mozilla::gfx::DataSourceSurface* aSurface,
++                                       size_t* aLength, int32_t* aStride);
++
+ private:
+   static bool InitializeEventTable();
+ 

@@ -1,0 +1,98 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/WindowGlobalParent.cpp
+# Commit: 4f690ef38847
+# Full Hash: 4f690ef388470e822103d1ae9a53aebc9e612e19
+# Author: Paul Zuehlcke <pbz@mozilla.com>
+# Date: 2023-09-19 03:53:26
+# Regressor Bug: 1839918
+# File Overlap Count: 2
+# Description:
+#   Bug 1839918 - Avoid returning IPC failures where possible in RecvSetCookies to avoid crashes. r=bvandersloot,necko-reviewers,jesup
+#   
+#   Depends on D186215
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D188329
+# ==============================================================================
+
+diff -r cc8f579c6e8e -r 4f690ef38847 dom/ipc/WindowGlobalParent.cpp
+--- a/dom/ipc/WindowGlobalParent.cpp	Mon Sep 18 11:55:10 2023 +0000
++++ b/dom/ipc/WindowGlobalParent.cpp	Mon Sep 18 11:55:10 2023 +0000
+@@ -1625,49 +1625,48 @@
+   // Get CookieServiceParent via
+   // ContentParent->NeckoParent->CookieServiceParent.
+   ContentParent* contentParent = GetContentParent();
+-  if (!contentParent) {
+-    return IPC_FAIL_NO_REASON(this);
+-  }
++  NS_ENSURE_TRUE(contentParent, IPC_OK());
+ 
+   net::PNeckoParent* neckoParent =
+       LoneManagedOrNullAsserts(contentParent->ManagedPNeckoParent());
+-  if (!neckoParent) {
+-    return IPC_FAIL_NO_REASON(this);
+-  }
++  NS_ENSURE_TRUE(neckoParent, IPC_OK());
+   net::PCookieServiceParent* csParent =
+       LoneManagedOrNullAsserts(neckoParent->ManagedPCookieServiceParent());
+-  if (!csParent) {
+-    return IPC_FAIL_NO_REASON(this);
+-  }
++  NS_ENSURE_TRUE(csParent, IPC_OK());
+   auto* cs = static_cast<net::CookieServiceParent*>(csParent);
+ 
+   dom::BrowsingContext* browsingContext = GetBrowsingContext();
+-  if (!browsingContext) {
+-    return IPC_FAIL_NO_REASON(this);
+-  }
++
++  bool isThirdPartyCookie = false;
++  uint64_t browsingContextId = 0;
+ 
+-  // Check if the cookies being set are third-party to the top level. We do this
+-  // by comparing the top level principals base domain with aBaseDomain.
+-  bool isThirdPartyCookie = false;
+-  if (!browsingContext->IsTop()) {
+-    dom::BrowsingContext* topBC = browsingContext->Top();
+-    MOZ_ASSERT(topBC);
++  if (browsingContext && !browsingContext->IsDiscarded()) {
++    browsingContextId = browsingContext->Id();
++
++    // Check if the cookies being set are third-party to the top level. We do
++    // this by comparing the top level principals base domain with aBaseDomain.
++    if (!browsingContext->IsTop()) {
++      dom::BrowsingContext* topBC = browsingContext->Top();
++      MOZ_ASSERT(topBC);
+ 
+-    RefPtr<WindowGlobalParent> topWGP =
+-        topBC->Canonical()->GetEmbedderWindowGlobal();
+-    NS_ENSURE_TRUE(topWGP, IPC_FAIL_NO_REASON(this));
++      RefPtr<WindowGlobalParent> topWGP =
++          topBC->Canonical()->GetEmbedderWindowGlobal();
+ 
+-    nsCOMPtr<nsIPrincipal> topPrincipal = topWGP->DocumentPrincipal();
+-    MOZ_ASSERT(topPrincipal);
+-    nsAutoCString topBaseDomain;
+-    nsresult rv = topPrincipal->GetBaseDomain(topBaseDomain);
+-    NS_ENSURE_SUCCESS(rv, IPC_FAIL_NO_REASON(this));
++      if (!NS_WARN_IF(!topWGP)) {
++        nsCOMPtr<nsIPrincipal> topPrincipal = topWGP->DocumentPrincipal();
++        MOZ_ASSERT(topPrincipal);
++        nsAutoCString topBaseDomain;
++        nsresult rv = topPrincipal->GetBaseDomain(topBaseDomain);
+ 
+-    isThirdPartyCookie = aBaseDomain.Equals(topBaseDomain);
++        if (!NS_WARN_IF(NS_FAILED(rv))) {
++          isThirdPartyCookie = aBaseDomain.Equals(topBaseDomain);
++        }
++      }
++    }
+   }
+ 
+   return cs->SetCookies(aBaseDomain, aOriginAttributes, aHost, aFromHttp,
+-                        aCookies, browsingContext->Id(), isThirdPartyCookie);
++                        aCookies, browsingContextId, isThirdPartyCookie);
+ }
+ 
+ NS_IMPL_CYCLE_COLLECTION_INHERITED(WindowGlobalParent, WindowContext,

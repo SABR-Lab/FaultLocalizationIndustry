@@ -1,0 +1,96 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/atk/AccessibleWrap.cpp
+# Commit: e807c6507634
+# Full Hash: e807c6507634bdeca647372d8815570d7750b3b2
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2022-04-02 09:44:13
+# Regressor Bug: 1735970
+# File Overlap Count: 1
+# Description:
+#   Bug 1735970 part 15: Support TableAccessibleBase and TableCellAccessibleBase for ATK. r=morgan
+#   
+#   We can use the base classes for both local and cached remote Accessibles.
+#   However, non-cached RemoteAccessibles need to be handled separately still because we can't implement the table interfaces for those.
+#   
+# ==============================================================================
+
+diff -r 03e98595f217 -r e807c6507634 accessible/atk/AccessibleWrap.cpp
+--- a/accessible/atk/AccessibleWrap.cpp	Fri Apr 01 09:50:01 2022 +0000
++++ b/accessible/atk/AccessibleWrap.cpp	Fri Apr 01 09:50:01 2022 +0000
+@@ -16,8 +16,8 @@
+ #include "RemoteAccessible.h"
+ #include "DocAccessibleParent.h"
+ #include "RootAccessible.h"
+-#include "TableAccessible.h"
+-#include "TableCellAccessible.h"
++#include "mozilla/a11y/TableAccessibleBase.h"
++#include "mozilla/a11y/TableCellAccessibleBase.h"
+ #include "nsMai.h"
+ #include "nsMaiHyperlink.h"
+ #include "nsString.h"
+@@ -1525,13 +1525,13 @@
+ }
+ 
+ // static
+-LocalAccessible* AccessibleWrap::GetColumnHeader(TableAccessible* aAccessible,
+-                                                 int32_t aColIdx) {
++Accessible* AccessibleWrap::GetColumnHeader(TableAccessibleBase* aAccessible,
++                                            int32_t aColIdx) {
+   if (!aAccessible) {
+     return nullptr;
+   }
+ 
+-  LocalAccessible* cell = aAccessible->CellAt(0, aColIdx);
++  Accessible* cell = aAccessible->CellAt(0, aColIdx);
+   if (!cell) {
+     return nullptr;
+   }
+@@ -1543,7 +1543,7 @@
+   }
+ 
+   // otherwise get column header for the data cell at the first row.
+-  TableCellAccessible* tableCell = cell->AsTableCell();
++  TableCellAccessibleBase* tableCell = cell->AsTableCellBase();
+   if (!tableCell) {
+     return nullptr;
+   }
+@@ -1554,17 +1554,17 @@
+     return nullptr;
+   }
+ 
+-  return headerCells[0]->AsLocal();
++  return headerCells[0];
+ }
+ 
+ // static
+-LocalAccessible* AccessibleWrap::GetRowHeader(TableAccessible* aAccessible,
+-                                              int32_t aRowIdx) {
++Accessible* AccessibleWrap::GetRowHeader(TableAccessibleBase* aAccessible,
++                                         int32_t aRowIdx) {
+   if (!aAccessible) {
+     return nullptr;
+   }
+ 
+-  LocalAccessible* cell = aAccessible->CellAt(aRowIdx, 0);
++  Accessible* cell = aAccessible->CellAt(aRowIdx, 0);
+   if (!cell) {
+     return nullptr;
+   }
+@@ -1576,7 +1576,7 @@
+   }
+ 
+   // otherwise get row header for the data cell at the first column.
+-  TableCellAccessible* tableCell = cell->AsTableCell();
++  TableCellAccessibleBase* tableCell = cell->AsTableCellBase();
+   if (!tableCell) {
+     return nullptr;
+   }
+@@ -1587,5 +1587,5 @@
+     return nullptr;
+   }
+ 
+-  return headerCells[0]->AsLocal();
++  return headerCells[0];
+ }

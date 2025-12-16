@@ -1,0 +1,96 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/WindowGlobalParent.cpp
+# Commit: fbf55a44d7fb
+# Full Hash: fbf55a44d7fb72908eeb5d041b70ce2c503a2532
+# Author: Anny Gakhokidze <agakhokidze@mozilla.com>
+# Date: 2020-04-15 04:09:17
+# Regressor Bug: 1594529
+# File Overlap Count: 1
+# Description:
+#   Bug 1594529 - Create LoadInfo for subdocuments directly in parent process with DocumentChannel. r=mattwoodrow,nika
+#   
+#   Currently, with Fission enabled we are not able to create a proper LoadInfo
+#   object when doing a subdocument load because we do not have access to a loading
+#   context if the load is happening inside of an OOP frame. To solve this problem,
+# ==============================================================================
+
+diff -r 4ba9a230586a -r fbf55a44d7fb dom/ipc/WindowGlobalParent.cpp
+--- a/dom/ipc/WindowGlobalParent.cpp	Mon Apr 13 22:41:37 2020 +0000
++++ b/dom/ipc/WindowGlobalParent.cpp	Mon Apr 13 23:00:43 2020 +0000
+@@ -59,7 +59,12 @@
+       mDocumentURI(aInit.documentURI()),
+       mInProcess(aInProcess),
+       mIsInitialDocument(false),
+-      mHasBeforeUnload(false) {
++      mHasBeforeUnload(false),
++      mSandboxFlags(0),
++      mDocumentHasLoaded(false),
++      mDocumentHasUserInteracted(false),
++      mBlockAllMixedContent(false),
++      mUpgradeInsecureRequests(false) {
+   MOZ_DIAGNOSTIC_ASSERT(XRE_IsParentProcess(), "Parent process only");
+ 
+   MOZ_RELEASE_ASSERT(
+@@ -249,12 +254,46 @@
+   return IPC_OK();
+ }
+ 
++IPCResult WindowGlobalParent::RecvUpdateDocumentPrincipal(
++    nsIPrincipal* aNewDocumentPrincipal) {
++  if (!mDocumentPrincipal->Equals(aNewDocumentPrincipal)) {
++    return IPC_FAIL(this,
++                    "Trying to reuse WindowGlobalParent but the principal of "
++                    "the new document does not match the old one");
++  }
++  mDocumentPrincipal = aNewDocumentPrincipal;
++  return IPC_OK();
++}
+ mozilla::ipc::IPCResult WindowGlobalParent::RecvUpdateDocumentTitle(
+     const nsString& aTitle) {
+   mDocumentTitle = aTitle;
+   return IPC_OK();
+ }
+ 
++IPCResult WindowGlobalParent::RecvUpdateDocumentHasLoaded(
++    bool aDocumentHasLoaded) {
++  mDocumentHasLoaded = aDocumentHasLoaded;
++  return IPC_OK();
++}
++
++IPCResult WindowGlobalParent::RecvUpdateDocumentHasUserInteracted(
++    bool aDocumentHasUserInteracted) {
++  mDocumentHasUserInteracted = aDocumentHasUserInteracted;
++  return IPC_OK();
++}
++
++IPCResult WindowGlobalParent::RecvUpdateSandboxFlags(uint32_t aSandboxFlags) {
++  mSandboxFlags = aSandboxFlags;
++  return IPC_OK();
++}
++
++IPCResult WindowGlobalParent::RecvUpdateDocumentCspSettings(
++    bool aBlockAllMixedContent, bool aUpgradeInsecureRequests) {
++  mBlockAllMixedContent = aBlockAllMixedContent;
++  mUpgradeInsecureRequests = aUpgradeInsecureRequests;
++  return IPC_OK();
++}
++
+ IPCResult WindowGlobalParent::RecvSetHasBeforeUnload(bool aHasBeforeUnload) {
+   mHasBeforeUnload = aHasBeforeUnload;
+   return IPC_OK();
+@@ -463,6 +502,13 @@
+   return IPC_OK();
+ }
+ 
++mozilla::ipc::IPCResult WindowGlobalParent::RecvUpdateCookieJarSettings(
++    const CookieJarSettingsArgs& aCookieJarSettingsArgs) {
++  net::CookieJarSettings::Deserialize(aCookieJarSettingsArgs,
++                                      getter_AddRefs(mCookieJarSettings));
++  return IPC_OK();
++}
++
+ mozilla::ipc::IPCResult WindowGlobalParent::RecvShare(
+     IPCWebShareData&& aData, WindowGlobalParent::ShareResolver&& aResolver) {
+   // Widget Layer handoff...

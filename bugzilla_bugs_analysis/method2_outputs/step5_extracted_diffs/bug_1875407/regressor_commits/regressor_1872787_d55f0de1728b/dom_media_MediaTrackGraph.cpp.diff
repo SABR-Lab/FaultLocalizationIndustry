@@ -1,0 +1,32 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/MediaTrackGraph.cpp
+# Commit: d55f0de1728b
+# Full Hash: d55f0de1728b631c0b4f03bedfdf0efa542733ff
+# Author: Karl Tomlinson <karlt+@karlt.net>
+# Date: 2024-01-18 09:55:36
+# Regressor Bug: 1872787
+# File Overlap Count: 1
+# Description:
+#   Bug 1872787 change non-fatal MediaTrackGraph shutdown assertion to MOZ_DIAGNOSTIC_ASSERT r=padenot
+#   
+#   If the graph leaks because it does not shut down its driver, then an nsThread
+#   can be leaked and block shutdown at nsThreadManager::ShutdownNonMainThreads().
+#   The shutdown blocker has better debug messages to identify the source of the
+# ==============================================================================
+
+diff -r d5a5014e5e3e -r d55f0de1728b dom/media/MediaTrackGraph.cpp
+--- a/dom/media/MediaTrackGraph.cpp	Thu Jan 18 01:39:24 2024 +0000
++++ b/dom/media/MediaTrackGraph.cpp	Thu Jan 18 02:03:23 2024 +0000
+@@ -1712,8 +1712,8 @@
+ NS_IMETHODIMP
+ MediaTrackGraphImpl::Notify(nsITimer* aTimer) {
+   MOZ_ASSERT(NS_IsMainThread());
+-  NS_ASSERTION(!mShutdownBlocker,
+-               "MediaTrackGraph took too long to shut down!");
++  MOZ_DIAGNOSTIC_ASSERT(!mShutdownBlocker,
++                        "MediaTrackGraph took too long to shut down!");
+   // Sigh, graph took too long to shut down.  Stop blocking system
+   // shutdown and hope all is well.
+   RemoveShutdownBlocker();

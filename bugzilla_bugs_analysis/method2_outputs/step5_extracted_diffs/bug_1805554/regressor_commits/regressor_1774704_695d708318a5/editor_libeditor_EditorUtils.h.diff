@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/EditorUtils.h
+# Commit: 695d708318a5
+# Full Hash: 695d708318a576da278e5c035f77503274e49b7b
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-08-04 09:46:07
+# Regressor Bug: 1774704
+# File Overlap Count: 1
+# Description:
+#   Bug 1774704 - part 5-3: Make `HTMLEditor::HandleCSSIndentAtSelectionInternal` stop touching `Selection` directly and setting `mNewBlockElement` r=m_kato
+#   
+#   It's called only by `HTMLEditor::HandleCSSIndentAtSelection` which is called
+#   only by `HTMLEditor::HandleIndentAtSelection`.  They don't touch `Selection`
+#   after calling it.  Therefore, we can make it adjust collapsing selection point
+# ==============================================================================
+
+diff -r 80ed14c716a2 -r 695d708318a5 editor/libeditor/EditorUtils.h
+--- a/editor/libeditor/EditorUtils.h	Thu Aug 04 03:00:31 2022 +0000
++++ b/editor/libeditor/EditorUtils.h	Thu Aug 04 03:16:28 2022 +0000
+@@ -364,6 +364,25 @@
+   }
+ 
+   /**
++   * Check whether all ranges in content nodes or not.  If the ranges is empty,
++   * this returns false.
++   */
++  [[nodiscard]] bool IsInContent() const {
++    if (mRanges.IsEmpty()) {
++      return false;
++    }
++    for (const OwningNonNull<nsRange>& range : mRanges) {
++      if (MOZ_UNLIKELY(!range->IsPositioned() || !range->GetStartContainer() ||
++                       !range->GetStartContainer()->IsContent() ||
++                       !range->GetEndContainer() ||
++                       !range->GetEndContainer()->IsContent())) {
++        return false;
++      }
++    }
++    return true;
++  }
++
++  /**
+    * EnsureOnlyEditableRanges() removes ranges which cannot modify.
+    * Note that this is designed only for `HTMLEditor` because this must not
+    * be required by `TextEditor`.

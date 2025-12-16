@@ -1,0 +1,137 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/ActorsParent.cpp
+# Commit: 65938107d86c
+# Full Hash: 65938107d86cc5c772e436aed55146c7b6da2cc5
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2019-09-18 21:49:27
+# Regressor Bug: 1168606
+# File Overlap Count: 1
+# Description:
+#   Bug 1168606 - Move the functionality of OpenOp::GetKeyRangeInfo to Cursor::SetOptionalKeyRange r=ttung,asuth
+#   
+#   Also avoid unnecessary copying of the non-locale-based key in case the locale-based is needed, and reduced code duplication and variable scoping. r=ttung
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D41404
+# ==============================================================================
+
+diff -r 8a562d19cb5f -r 65938107d86c dom/indexedDB/ActorsParent.cpp
+--- a/dom/indexedDB/ActorsParent.cpp	Wed Sep 18 00:13:12 2019 +0000
++++ b/dom/indexedDB/ActorsParent.cpp	Wed Sep 18 06:40:28 2019 +0000
+@@ -7642,6 +7642,9 @@
+       const CursorRequestParams& aParams) override;
+ 
+   bool IsLocaleAware() const { return !mLocale.IsEmpty(); }
++
++  void SetOptionalKeyRange(const Maybe<SerializedKeyRange>& aOptionalKeyRange,
++                           bool* aOpen);
+ };
+ 
+ class Cursor::CursorOpBase : public TransactionDatabaseOperationBase {
+@@ -7691,8 +7694,6 @@
+   // Reference counted.
+   ~OpenOp() override = default;
+ 
+-  void GetRangeKeyInfo(bool aLowerBound, Key* aKey, bool* aOpen);
+-
+   // Should be called on the connection thread.
+   void PrepareKeyConditionClauses(const nsACString& aKeyString,
+                                   const nsACString& aDirectionClause,
+@@ -25702,37 +25703,31 @@
+   return NS_OK;
+ }
+ 
+-void Cursor::OpenOp::GetRangeKeyInfo(bool aLowerBound, Key* aKey, bool* aOpen) {
+-  AssertIsOnConnectionThread();
+-  MOZ_ASSERT(aKey);
+-  MOZ_ASSERT(aKey->IsUnset());
++void Cursor::SetOptionalKeyRange(
++    const Maybe<SerializedKeyRange>& aOptionalKeyRange, bool* const aOpen) {
++  MOZ_ASSERT(mRangeKey.IsUnset());
+   MOZ_ASSERT(aOpen);
+ 
+-  if (mOptionalKeyRange.isSome()) {
+-    ErrorResult rv;
+-    const SerializedKeyRange& range = mOptionalKeyRange.ref();
+-    if (range.isOnly()) {
+-      *aKey = range.lower();
+-      *aOpen = false;
+-      if (mCursor->IsLocaleAware()) {
+-        Unused << range.lower().ToLocaleBasedKey(*aKey, mCursor->mLocale, rv);
+-      }
+-    } else {
+-      *aKey = aLowerBound ? range.lower() : range.upper();
+-      *aOpen = aLowerBound ? range.lowerOpen() : range.upperOpen();
+-      if (mCursor->IsLocaleAware()) {
+-        if (aLowerBound) {
+-          Unused << range.lower().ToLocaleBasedKey(*aKey, mCursor->mLocale, rv);
+-        } else {
+-          Unused << range.upper().ToLocaleBasedKey(*aKey, mCursor->mLocale, rv);
+-        }
+-      }
+-    }
+-
+-    // XXX Explain why the error is ignored here (If it's impossible, then we
+-    //     should change this to an assertion.)
+-    if (rv.Failed()) {
+-      rv.SuppressException();
++  if (aOptionalKeyRange.isSome()) {
++    const SerializedKeyRange& range = aOptionalKeyRange.ref();
++
++    const bool lowerBound = !IsIncreasingOrder(mDirection);
++    *aOpen =
++        !range.isOnly() && (lowerBound ? range.lowerOpen() : range.upperOpen());
++
++    const auto& bound =
++        (range.isOnly() || lowerBound) ? range.lower() : range.upper();
++    if (IsLocaleAware()) {
++      ErrorResult rv;
++      Unused << bound.ToLocaleBasedKey(mRangeKey, mLocale, rv);
++
++      // XXX Explain why the error is ignored here (If it's impossible, then we
++      //     should change this to an assertion.)
++      if (rv.Failed()) {
++        rv.SuppressException();
++      }
++    } else {
++      mRangeKey = bound;
+     }
+   } else {
+     *aOpen = false;
+@@ -25752,16 +25747,14 @@
+                         !isIncreasingOrder, true, continueToKeyRangeClause);
+ 
+   {
+-    Key bound;
+     bool open;
+-    GetRangeKeyInfo(!isIncreasingOrder, &bound, &open);
+-
+-    if (mOptionalKeyRange.isSome() && !bound.IsUnset()) {
++    mCursor->SetOptionalKeyRange(mOptionalKeyRange, &open);
++
++    if (mOptionalKeyRange.isSome() && !mCursor->mRangeKey.IsUnset()) {
+       AppendConditionClause(aKeyString, kStmtParamNameRangeKey,
+                             isIncreasingOrder, !open, keyRangeClause);
+       AppendConditionClause(aKeyString, kStmtParamNameRangeKey,
+                             isIncreasingOrder, !open, continueToKeyRangeClause);
+-      mCursor->mRangeKey = std::move(bound);
+     }
+   }
+ 
+@@ -25778,13 +25771,11 @@
+   const bool isIncreasingOrder = IsIncreasingOrder(mCursor->mDirection);
+ 
+   {
+-    Key bound;
+     bool open;
+-    GetRangeKeyInfo(!isIncreasingOrder, &bound, &open);
+-    if (mOptionalKeyRange.isSome() && !bound.IsUnset()) {
++    mCursor->SetOptionalKeyRange(mOptionalKeyRange, &open);
++    if (mOptionalKeyRange.isSome() && !mCursor->mRangeKey.IsUnset()) {
+       AppendConditionClause(aSortColumn, kStmtParamNameRangeKey,
+                             isIncreasingOrder, !open, aQueryStart);
+-      mCursor->mRangeKey = std::move(bound);
+     }
+   }
+ 

@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/texture_cache.rs
+# Commit: 5cee93aa5199
+# Full Hash: 5cee93aa5199068b93a13eedd940bf1a3af57011
+# Author: Jamie Nicol <jnicol@mozilla.com>
+# Date: 2020-07-11 09:22:23
+# Regressor Bug: 1645665
+# File Overlap Count: 1
+# Description:
+#   Bug 1645665 - Calculate tight bounds for each sub-run of glyphs when batching. r=lsalzman
+#   
+#   When adding a text run to a batch, we split the text run in to contiguous
+#   runs of glyphs which can be batched together. For example, when a glyph is
+#   encountered mid-run with a different glyph format or that is cached in a
+# ==============================================================================
+
+diff -r c89ca61cdd43 -r 5cee93aa5199 gfx/wr/webrender/src/texture_cache.rs
+--- a/gfx/wr/webrender/src/texture_cache.rs	Wed Jul 08 21:45:55 2020 +0000
++++ b/gfx/wr/webrender/src/texture_cache.rs	Fri Jul 10 18:41:49 2020 +0000
+@@ -875,12 +875,13 @@
+     // This function will assert in debug modes if the caller
+     // tries to get a handle that was not requested this frame.
+     pub fn get(&self, handle: &TextureCacheHandle) -> CacheItem {
+-        let (texture_id, layer_index, uv_rect, swizzle, uv_rect_handle) = self.get_cache_location(handle);
++        let (texture_id, layer_index, uv_rect, swizzle, uv_rect_handle, user_data) = self.get_cache_location(handle);
+         CacheItem {
+             uv_rect_handle,
+             texture_id: TextureSource::TextureCache(texture_id, swizzle),
+             uv_rect,
+             texture_layer: layer_index as i32,
++            user_data,
+         }
+     }
+ 
+@@ -892,17 +893,20 @@
+     pub fn get_cache_location(
+         &self,
+         handle: &TextureCacheHandle,
+-    ) -> (CacheTextureId, LayerIndex, DeviceIntRect, Swizzle, GpuCacheHandle) {
++    ) -> (CacheTextureId, LayerIndex, DeviceIntRect, Swizzle, GpuCacheHandle, [f32; 3]) {
+         let entry = self.lru_cache
+             .get_opt(handle)
+             .expect("BUG: was dropped from cache or not updated!");
+         debug_assert_eq!(entry.last_access, self.now);
+         let (layer_index, origin) = entry.details.describe();
+-        (entry.texture_id,
+-         layer_index as usize,
+-         DeviceIntRect::new(origin, entry.size),
+-         entry.swizzle,
+-         entry.uv_rect_handle)
++        (
++            entry.texture_id,
++            layer_index as usize,
++            DeviceIntRect::new(origin, entry.size),
++            entry.swizzle,
++            entry.uv_rect_handle,
++            entry.user_data,
++        )
+     }
+ 
+     /// Internal helper function to evict a strong texture cache handle

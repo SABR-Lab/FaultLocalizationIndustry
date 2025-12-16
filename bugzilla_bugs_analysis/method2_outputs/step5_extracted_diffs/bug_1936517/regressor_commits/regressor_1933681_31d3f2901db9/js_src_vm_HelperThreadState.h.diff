@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/HelperThreadState.h
+# Commit: 31d3f2901db9
+# Full Hash: 31d3f2901db927a29898c5208a2624b4225382c1
+# Author: Tooru Fujisawa <arai_a@mac.com>
+# Date: 2024-12-05 09:58:04
+# Regressor Bug: 1933681
+# File Overlap Count: 1
+# Description:
+#   Bug 1933681 - Part 1: Allocate InitialStencilAndDelazifications in CompileGlobalScriptToStencilAndMaybeInstantiate. r=nbp
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D230387
+# ==============================================================================
+
+diff -r 2694b90c0deb -r 31d3f2901db9 js/src/vm/HelperThreadState.h
+--- a/js/src/vm/HelperThreadState.h	Thu Dec 05 02:39:42 2024 +0200
++++ b/js/src/vm/HelperThreadState.h	Wed Dec 04 23:44:33 2024 +0000
+@@ -27,13 +27,13 @@
+ #include <utility>   // std::move
+ 
+ #include "ds/Fifo.h"                      // Fifo
+-#include "frontend/CompilationStencil.h"  // frontend::CompilationStencil
++#include "frontend/CompilationStencil.h"  // frontend::InitialStencilAndDelazifications
+ #include "gc/GCRuntime.h"                 // gc::GCRuntime
+ #include "js/AllocPolicy.h"               // SystemAllocPolicy
+ #include "js/CompileOptions.h"            // JS::ReadOnlyCompileOptions
+-#include "js/experimental/JSStencil.h"    // JS::InstantiationStorage
+-#include "js/HelperThreadAPI.h"           // JS::HelperThreadTaskCallback
+-#include "js/MemoryMetrics.h"             // JS::GlobalStats
++#include "js/experimental/JSStencil.h"  // JS::InstantiationStorage
++#include "js/HelperThreadAPI.h"         // JS::HelperThreadTaskCallback
++#include "js/MemoryMetrics.h"           // JS::GlobalStats
+ #include "js/ProfilingStack.h"  // JS::RegisterThreadCallback, JS::UnregisterThreadCallback
+ #include "js/RootingAPI.h"                // JS::Handle
+ #include "js/UniquePtr.h"                 // UniquePtr
+@@ -522,14 +522,14 @@
+   // optimization in place.
+   static UniquePtr<DelazifyTask> Create(
+       JSRuntime* maybeRuntime, const JS::ReadOnlyCompileOptions& options,
+-      const frontend::CompilationStencil& stencil);
++      frontend::InitialStencilAndDelazifications* stencils);
+ 
+   DelazifyTask(JSRuntime* maybeRuntime,
+                const JS::PrefableCompileOptions& initialPrefableOptions);
+   ~DelazifyTask();
+ 
+   [[nodiscard]] bool init(const JS::ReadOnlyCompileOptions& options,
+-                          const frontend::CompilationStencil& stencil);
++                          frontend::InitialStencilAndDelazifications* stencils);
+ 
+   bool runtimeMatchesOrNoRuntime(JSRuntime* rt) {
+     return !maybeRuntime || maybeRuntime == rt;

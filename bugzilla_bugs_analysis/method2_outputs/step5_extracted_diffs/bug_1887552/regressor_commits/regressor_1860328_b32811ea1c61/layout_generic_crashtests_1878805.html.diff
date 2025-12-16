@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/crashtests/1878805.html
+# Commit: b32811ea1c61
+# Full Hash: b32811ea1c61e1891454d826f7ba003416c9eb57
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2024-03-11 21:13:39
+# Regressor Bug: 1860328
+# File Overlap Count: 2
+# Description:
+#   Bug 1860328 - Fix a crash which a caret frame misses a MarkNeedsDisplayItemRebuild() call r=emilio
+#   
+#   Generally, we mark a caret frame for display first, and then
+#   nsCaret tracks this frame in nsCaret::SchedulePaint to call
+#   MarkNeedsDisplayItemRebuild() accordingly. However, it's possible
+# ==============================================================================
+
+diff -r caab023e5d2d -r b32811ea1c61 layout/generic/crashtests/1878805.html
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/layout/generic/crashtests/1878805.html	Mon Mar 11 13:41:28 2024 +0000
+@@ -0,0 +1,30 @@
++<html class="reftest-wait">
++<style>
++* { translate: 0px }
++</style>
++<script>
++addEventListener("MozReftestInvalidate", () => {
++  o.setAttribute("volume", "-68")
++  document.designMode = "on"
++  document.execCommand("selectAll", false)
++  document.execCommand("insertText", false, "AAA")
++  document.documentElement.classList.remove("reftest-wait");
++})
++function go() {
++  window.find("A")
++  let a = new MutationObserver(() => {
++    document.designMode = "off"
++    window.requestAnimationFrame(() => {
++      window.parent.document.designMode = "on"
++      document.execCommand("indent", false)
++      document.designMode = "off"
++    })
++    document.onselectionchange = go
++  })
++  a.observe(o, {attributeOldValue: false})
++}
++</script>
++<body>
++<input autofocus="" onfocusin="go()">
++<bgsound id="o">
++</html>

@@ -1,0 +1,66 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmBaselineCompile.cpp
+# Commit: 7805ddfe2bfa
+# Full Hash: 7805ddfe2bfa83383dc422ed1e8ac70bda627a89
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2020-08-19 10:01:16
+# Regressor Bug: 1561521
+# File Overlap Count: 2
+# Description:
+#   Bug 1561521 - Rename TypeCode/ValType/RefType::Any to Extern. r=lth
+#   
+#   This commit renames the TypeCode/ValType/RefType occurrences of 'any' to 'extern'
+#   to match what they actually represent. All public API facing occurrences have
+#   already been switched to 'externref' so this should only be aligning the
+# ==============================================================================
+
+diff -r 4fa52a0617de -r 7805ddfe2bfa js/src/wasm/WasmBaselineCompile.cpp
+--- a/js/src/wasm/WasmBaselineCompile.cpp	Tue Aug 18 16:58:21 2020 +0000
++++ b/js/src/wasm/WasmBaselineCompile.cpp	Tue Aug 18 16:58:32 2020 +0000
+@@ -11305,7 +11305,7 @@
+         t = ValType::I64;
+         break;
+       case MIRType::RefOrNull:
+-        t = RefType::any();
++        t = RefType::extern_();
+         break;
+       case MIRType::Pointer:
+         // Instance function args can now be uninterpreted pointers (eg, for
+@@ -12612,13 +12612,13 @@
+ 
+   // struct.narrow validation ensures that these hold.
+ 
+-  MOZ_ASSERT(inputType.isAnyRef() || env_.isStructType(inputType));
+-  MOZ_ASSERT(outputType.isAnyRef() || env_.isStructType(outputType));
+-  MOZ_ASSERT_IF(outputType.isAnyRef(), inputType.isAnyRef());
++  MOZ_ASSERT(inputType.isExternRef() || env_.isStructType(inputType));
++  MOZ_ASSERT(outputType.isExternRef() || env_.isStructType(outputType));
++  MOZ_ASSERT_IF(outputType.isExternRef(), inputType.isExternRef());
+ 
+   // AnyRef -> AnyRef is a no-op, just leave the value on the stack.
+ 
+-  if (inputType.isAnyRef() && outputType.isAnyRef()) {
++  if (inputType.isExternRef() && outputType.isExternRef()) {
+     return true;
+   }
+ 
+@@ -12626,7 +12626,7 @@
+ 
+   // AnyRef -> (optref T) must first unbox; leaves rp or null
+ 
+-  bool mustUnboxAnyref = inputType.isAnyRef();
++  bool mustUnboxAnyref = inputType.isExternRef();
+ 
+   // Dynamic downcast (optref T) -> (optref U), leaves rp or null
+   const StructType& outputStruct =
+@@ -14309,7 +14309,7 @@
+         if (!env_.gcTypesEnabled()) {
+           return iter_.unrecognizedOpcode(&op);
+         }
+-        CHECK_NEXT(dispatchComparison(emitCompareRef, RefType::any(),
++        CHECK_NEXT(dispatchComparison(emitCompareRef, RefType::extern_(),
+                                       Assembler::Equal));
+ #endif
+ #ifdef ENABLE_WASM_REFTYPES

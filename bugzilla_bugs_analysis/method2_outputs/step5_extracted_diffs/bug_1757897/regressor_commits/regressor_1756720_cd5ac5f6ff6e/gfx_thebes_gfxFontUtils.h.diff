@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxFontUtils.h
+# Commit: cd5ac5f6ff6e
+# Full Hash: cd5ac5f6ff6e626bd69e4d42ff9d1d7078abae03
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2022-03-01 09:40:29
+# Regressor Bug: 1756720
+# File Overlap Count: 1
+# Description:
+#   Bug 1756720 - When using legacy MS Symbol fonts, map character codes from the U+00xx range to the PUA range U+F0xx found in the cmap subtables. r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D139724
+# ==============================================================================
+
+diff -r b547c1a2ef61 -r cd5ac5f6ff6e gfx/thebes/gfxFontUtils.h
+--- a/gfx/thebes/gfxFontUtils.h	Mon Feb 28 20:34:33 2022 +0000
++++ b/gfx/thebes/gfxFontUtils.h	Mon Feb 28 20:38:38 2022 +0000
+@@ -980,7 +980,8 @@
+                                             gfxSparseBitSet& aCharacterMap);
+ 
+   static nsresult ReadCMAPTableFormat4(const uint8_t* aBuf, uint32_t aLength,
+-                                       gfxSparseBitSet& aCharacterMap);
++                                       gfxSparseBitSet& aCharacterMap,
++                                       bool aIsSymbolFont);
+ 
+   static nsresult ReadCMAPTableFormat14(const uint8_t* aBuf, uint32_t aLength,
+                                         mozilla::UniquePtr<uint8_t[]>& aTable);
+@@ -988,7 +989,8 @@
+   static uint32_t FindPreferredSubtable(const uint8_t* aBuf,
+                                         uint32_t aBufLength,
+                                         uint32_t* aTableOffset,
+-                                        uint32_t* aUVSTableOffset);
++                                        uint32_t* aUVSTableOffset,
++                                        bool* aIsSymbolFont);
+ 
+   static nsresult ReadCMAP(const uint8_t* aBuf, uint32_t aBufLength,
+                            gfxSparseBitSet& aCharacterMap,
+@@ -1015,6 +1017,12 @@
+   static uint32_t MapCharToGlyph(const uint8_t* aCmapBuf, uint32_t aBufLength,
+                                  uint32_t aUnicode, uint32_t aVarSelector = 0);
+ 
++  // For legacy MS Symbol fonts, we try mapping 8-bit character codes to the
++  // Private Use range at U+F0xx used by the cmaps in these fonts.
++  static MOZ_ALWAYS_INLINE uint32_t MapLegacySymbolFontCharToPUA(uint32_t aCh) {
++    return aCh >= 0x20 && aCh <= 0xff ? 0xf000 + aCh : 0;
++  }
++
+ #ifdef XP_WIN
+   // determine whether a font (which has already been sanitized, so is known
+   // to be a valid sfnt) is CFF format rather than TrueType

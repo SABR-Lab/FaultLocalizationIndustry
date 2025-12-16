@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/sync15/src/engine/sync_engine.rs
+# Commit: 57b2cda7e0db
+# Full Hash: 57b2cda7e0db8b07fcc1e09113ce26add178c68a
+# Author: Sammy Khamis <skhamis@mozilla.com>
+# Date: 2023-03-01 03:56:13
+# Regressor Bug: 1818349
+# File Overlap Count: 23
+# Overlapping Files: third_party/rust/sync15/src/client/coll_update.rs, third_party/rust/sync15/src/client/mod.rs, third_party/rust/sync15/.cargo-checksum.json, third_party/rust/sync15/src/client/sync.rs, Cargo.toml
+# Description:
+#   Bug 1818349 Part 1: Vendor new version of application-services r=markh
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D171181
+# ==============================================================================
+
+diff -r eaf9f12a1481 -r 57b2cda7e0db third_party/rust/sync15/src/engine/sync_engine.rs
+--- a/third_party/rust/sync15/src/engine/sync_engine.rs	Tue Feb 28 04:22:35 2023 +0000
++++ b/third_party/rust/sync15/src/engine/sync_engine.rs	Tue Feb 28 05:14:29 2023 +0000
+@@ -4,7 +4,7 @@
+ 
+ use super::{CollectionRequest, IncomingChangeset, OutgoingChangeset};
+ use crate::client_types::ClientData;
+-use crate::{telemetry, Guid, ServerTimestamp};
++use crate::{telemetry, CollectionName, Guid, ServerTimestamp};
+ use anyhow::Result;
+ use std::fmt;
+ 
+@@ -104,7 +104,7 @@
+ /// Different engines will produce errors of different types.  To accommodate
+ /// this, we force them all to return anyhow::Error.
+ pub trait SyncEngine {
+-    fn collection_name(&self) -> std::borrow::Cow<'static, str>;
++    fn collection_name(&self) -> CollectionName;
+ 
+     /// Prepares the engine for syncing. The tabs engine currently uses this to
+     /// store the current list of clients, which it uses to look up device names
+@@ -167,7 +167,7 @@
+         records_synced: Vec<Guid>,
+     ) -> Result<()>;
+ 
+-    /// The engine is responsible for building the collection request. Engines
++    /// The engine is responsible for building collection requests. Engines
+     /// typically will store a lastModified timestamp and use that to build a
+     /// request saying "give me full records since that date" - however, other
+     /// engines might do something fancier. This could even later be extended to

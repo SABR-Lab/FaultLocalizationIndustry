@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/android/nsWindow.cpp
+# Commit: beeda5ef3712
+# Full Hash: beeda5ef3712b73a19c7a4ce08a52ab4dd08b802
+# Author: David P <daparks@mozilla.com>
+# Date: 2024-07-04 16:09:52
+# Regressor Bug: 1893119
+# File Overlap Count: 1
+# Description:
+#   Bug 1893119: Part 20 - Move EndDragSession from nsIDragService to nsIDragSession r=gstoll,rkraesig,win-reviewers,geckoview-reviewers,m_kato
+#   
+#   This is a straightforward move.  It does take the liberty of breaking out an
+#   EndDragSessionImpl method, which will be needed later.
+#   
+# ==============================================================================
+
+diff -r 6c3ffc8c534c -r beeda5ef3712 widget/android/nsWindow.cpp
+--- a/widget/android/nsWindow.cpp	Thu Jul 04 07:48:10 2024 +0000
++++ b/widget/android/nsWindow.cpp	Thu Jul 04 07:48:11 2024 +0000
+@@ -2691,8 +2691,8 @@
+     return;
+   }
+ 
+-  if (aAction == java::sdk::DragEvent::ACTION_DRAG_ENDED) {
+-    dragService->EndDragSession(false, 0);
++  if (dragSession && aAction == java::sdk::DragEvent::ACTION_DRAG_ENDED) {
++    dragSession->EndDragSession(false, 0);
+     return;
+   }
+ 
+@@ -2721,7 +2721,7 @@
+           nsCOMPtr<nsINode> sourceNode;
+           dragSession->GetSourceNode(getter_AddRefs(sourceNode));
+           if (!sourceNode) {
+-            dragService->EndDragSession(false, 0);
++            dragSession->EndDragSession(false, 0);
+           }
+           return;
+         }
+@@ -2757,12 +2757,12 @@
+         // initiated in a different app. End the drag session,
+         // since we're done with it for now (until the user
+         // drags back into mozilla).
+-        dragService->EndDragSession(false, 0);
++        dragSession->EndDragSession(false, 0);
+       }
+       break;
+     }
+     case eDrop:
+-      dragService->EndDragSession(true, 0);
++      dragSession->EndDragSession(true, 0);
+       break;
+     default:
+       break;

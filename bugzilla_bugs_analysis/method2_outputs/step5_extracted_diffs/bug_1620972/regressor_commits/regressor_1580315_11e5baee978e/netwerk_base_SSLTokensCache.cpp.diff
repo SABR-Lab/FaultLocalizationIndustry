@@ -1,0 +1,68 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/base/SSLTokensCache.cpp
+# Commit: 11e5baee978e
+# Full Hash: 11e5baee978e8f98fa3795e430dd60c7600c9e8c
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2019-10-22 09:46:06
+# Regressor Bug: 1580315
+# File Overlap Count: 1
+# Description:
+#   Bug 1580315 - Convert certList to raw array for nsITransportSecurityInfo r=keeler,Ehsan,kershaw
+#   
+#   This patch converts the certList attribute of nsITransportSecurityInfo
+#   from nsIX509CertList to Array<nsIx509Cert>
+#   
+# ==============================================================================
+
+diff -r 341d72ef4bf5 -r 11e5baee978e netwerk/base/SSLTokensCache.cpp
+--- a/netwerk/base/SSLTokensCache.cpp	Mon Oct 21 19:33:02 2019 +0000
++++ b/netwerk/base/SSLTokensCache.cpp	Mon Oct 21 19:49:01 2019 +0000
+@@ -6,6 +6,7 @@
+ #include "mozilla/Preferences.h"
+ #include "mozilla/Logging.h"
+ #include "nsNSSIOLayer.h"
++#include "TransportSecurityInfo.h"
+ #include "ssl.h"
+ #include "sslexp.h"
+ 
+@@ -142,24 +143,21 @@
+   }
+ 
+   Maybe<nsTArray<nsTArray<uint8_t>>> succeededCertChainBytes;
+-  nsCOMPtr<nsIX509CertList> succeededCertChain;
+-  Unused << aSecInfo->GetSucceededCertChain(getter_AddRefs(succeededCertChain));
+-  if (succeededCertChain) {
++  nsTArray<RefPtr<nsIX509Cert>> succeededCertArray;
++  rv = aSecInfo->GetSucceededCertChain(succeededCertArray);
++  if (NS_FAILED(rv)) {
++    return rv;
++  }
++
++  if (!succeededCertArray.IsEmpty()) {
+     succeededCertChainBytes.emplace();
+-    rv = succeededCertChain->GetCertList()->ForEachCertificateInChain(
+-        [&succeededCertChainBytes](nsCOMPtr<nsIX509Cert> aCert, bool /*unused*/,
+-                                   /*out*/ bool& /*unused*/) {
+-          nsTArray<uint8_t> cert;
+-          nsresult rv = aCert->GetRawDER(cert);
+-          if (NS_FAILED(rv)) {
+-            return rv;
+-          }
+-
+-          succeededCertChainBytes->AppendElement(std::move(cert));
+-          return NS_OK;
+-        });
+-    if (NS_FAILED(rv)) {
+-      return rv;
++    for (const auto& cert : succeededCertArray) {
++      nsTArray<uint8_t> rawCert;
++      nsresult rv = cert->GetRawDER(rawCert);
++      if (NS_FAILED(rv)) {
++        return rv;
++      }
++      succeededCertChainBytes->AppendElement(std::move(rawCert));
+     }
+   }
+ 

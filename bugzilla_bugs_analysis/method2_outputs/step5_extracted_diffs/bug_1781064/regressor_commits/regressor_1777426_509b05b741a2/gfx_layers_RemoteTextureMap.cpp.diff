@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/RemoteTextureMap.cpp
+# Commit: 509b05b741a2
+# Full Hash: 509b05b741a2c5b27f467f9bd8c45bb1f32902da
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2022-07-12 21:56:41
+# Regressor Bug: 1777426
+# File Overlap Count: 1
+# Description:
+#   Bug 1777426 - Ensure MemoryTextureData frees memory when owned by RemoteTextureMap. r=aosmond,gfx-reviewers
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D151422
+# ==============================================================================
+
+diff -r 2fdaa8eca97c -r 509b05b741a2 gfx/layers/RemoteTextureMap.cpp
+--- a/gfx/layers/RemoteTextureMap.cpp	Tue Jul 12 06:56:20 2022 +0000
++++ b/gfx/layers/RemoteTextureMap.cpp	Tue Jul 12 06:56:21 2022 +0000
+@@ -76,9 +76,10 @@
+     return texture;
+   }
+ 
+-  auto* data = BufferTextureData::Create(
+-      aSize, aFormat, gfx::BackendType::SKIA, LayersBackend::LAYERS_WR,
+-      TextureFlags::DEALLOCATE_CLIENT, ALLOC_DEFAULT, nullptr);
++  auto flags = TextureFlags::DEALLOCATE_CLIENT | TextureFlags::REMOTE_TEXTURE;
++  auto* data = BufferTextureData::Create(aSize, aFormat, gfx::BackendType::SKIA,
++                                         LayersBackend::LAYERS_WR, flags,
++                                         ALLOC_DEFAULT, nullptr);
+   return UniquePtr<TextureData>(data);
+ }
+ 

@@ -1,0 +1,38 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webaudio/MediaStreamAudioSourceNode.cpp
+# Commit: 09f4a86bd1e7
+# Full Hash: 09f4a86bd1e7fc250051f77a0cbe3808ccebe640
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2019-08-02 15:59:52
+# Description:
+#   Bug 1570684 - Don't access MediaStreamTrack::mStream after the track has ended. r=padenot
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D40397
+# ==============================================================================
+
+diff -r 3eb2d7a85e7b -r 09f4a86bd1e7 dom/media/webaudio/MediaStreamAudioSourceNode.cpp
+--- a/dom/media/webaudio/MediaStreamAudioSourceNode.cpp	Fri Aug 02 12:45:51 2019 +0000
++++ b/dom/media/webaudio/MediaStreamAudioSourceNode.cpp	Fri Aug 02 12:02:05 2019 +0000
+@@ -96,6 +96,7 @@
+     const RefPtr<MediaStreamTrack>& aTrack, ErrorResult& aRv) {
+   MOZ_ASSERT(!mInputTrack);
+   MOZ_ASSERT(aTrack->AsAudioStreamTrack());
++  MOZ_DIAGNOSTIC_ASSERT(!aTrack->Ended());
+ 
+   if (!mStream) {
+     return;
+@@ -162,8 +163,10 @@
+       }
+     }
+ 
+-    AttachToTrack(track, aRv);
+-    MarkActive();
++    if (!track->Ended()) {
++      AttachToTrack(track, aRv);
++      MarkActive();
++    }
+     return;
+   }
+ 

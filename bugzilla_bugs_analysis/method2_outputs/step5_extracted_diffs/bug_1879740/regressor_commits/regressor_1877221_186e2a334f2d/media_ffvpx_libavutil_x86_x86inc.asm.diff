@@ -1,0 +1,36 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/ffvpx/libavutil/x86/x86inc.asm
+# Commit: 186e2a334f2d
+# Full Hash: 186e2a334f2deb37b29f44b28bc8c83babeeb9a4
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2024-02-09 09:37:17
+# Regressor Bug: 1877221
+# File Overlap Count: 1
+# Description:
+#   Bug 1877221 - Pull in new ffmpeg code, reapply patch. r=media-playback-reviewers,chunmin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D199909
+# ==============================================================================
+
+diff -r c5920de78d16 -r 186e2a334f2d media/ffvpx/libavutil/x86/x86inc.asm
+--- a/media/ffvpx/libavutil/x86/x86inc.asm	Thu Feb 08 10:39:53 2024 +0000
++++ b/media/ffvpx/libavutil/x86/x86inc.asm	Thu Feb 08 10:39:54 2024 +0000
+@@ -232,6 +232,16 @@
+     %define gprsize 4
+ %endif
+ 
++; Repeats an instruction/operation for multiple arguments.
++; Example usage: "REPX {psrlw x, 8}, m0, m1, m2, m3"
++%macro REPX 2-* ; operation, args
++    %xdefine %%f(x) %1
++    %rep %0 - 1
++        %rotate 1
++        %%f(%1)
++    %endrep
++%endmacro
++
+ %macro PUSH 1
+     push %1
+     %ifidn rstk, rsp

@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/x64/CodeGenerator-x64.cpp
+# Commit: 1e582b17eab7
+# Full Hash: 1e582b17eab7abf3958e46bc52ea3eeafa764eeb
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-09-11 09:30:56
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 6.6: Add tls dependency for truncate i32. r=lth
+#   
+#   We generate builtin call for MTruncateToInt32 operation for floating points types,
+#   so we need to add a tls dependency.
+#   I inserted NYI for arm64 because Ion doesn't support arm64.
+# ==============================================================================
+
+diff -r a309060018a8 -r 1e582b17eab7 js/src/jit/x64/CodeGenerator-x64.cpp
+--- a/js/src/jit/x64/CodeGenerator-x64.cpp	Wed Sep 09 06:37:59 2020 +0000
++++ b/js/src/jit/x64/CodeGenerator-x64.cpp	Wed Sep 09 08:59:55 2020 +0000
+@@ -578,6 +578,22 @@
+   emitTruncateDouble(input, output, ins->mir());
+ }
+ 
++void CodeGenerator::visitWasmBuiltinTruncateDToInt32(
++    LWasmBuiltinTruncateDToInt32* lir) {
++  FloatRegister input = ToFloatRegister(lir->getOperand(0));
++  Register output = ToRegister(lir->getDef(0));
++
++  emitTruncateDoubleBuiltin(input, output, lir->mir());
++}
++
++void CodeGenerator::visitWasmBuiltinTruncateFToInt32(
++    LWasmBuiltinTruncateFToInt32* lir) {
++  FloatRegister input = ToFloatRegister(lir->getOperand(0));
++  Register output = ToRegister(lir->getDef(0));
++
++  emitTruncateFloat32Builtin(input, output, lir->mir());
++}
++
+ void CodeGenerator::visitTruncateFToInt32(LTruncateFToInt32* ins) {
+   FloatRegister input = ToFloatRegister(ins->input());
+   Register output = ToRegister(ins->output());

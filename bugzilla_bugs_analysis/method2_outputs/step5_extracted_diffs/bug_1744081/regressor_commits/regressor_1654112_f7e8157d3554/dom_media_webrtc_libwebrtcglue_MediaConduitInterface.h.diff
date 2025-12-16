@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/MediaConduitInterface.h
+# Commit: f7e8157d3554
+# Full Hash: f7e8157d3554c46b3f6ad196121a7899221db5a2
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 3
+# Description:
+#   Bug 1654112 - Fix AudioCondut::GetAudioFrame to use the new AudioReceiveStream API. r=ng
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D102281
+# ==============================================================================
+
+diff -r 01b9c509cecf -r f7e8157d3554 dom/media/webrtc/libwebrtcglue/MediaConduitInterface.h
+--- a/dom/media/webrtc/libwebrtcglue/MediaConduitInterface.h	Fri Jan 29 15:38:43 2021 +0100
++++ b/dom/media/webrtc/libwebrtcglue/MediaConduitInterface.h	Fri Jan 29 15:38:48 2021 +0100
+@@ -520,32 +520,22 @@
+       std::unique_ptr<webrtc::AudioFrame> frame) = 0;
+ 
+   /**
+-   * Function to grab a decoded audio-sample from the media engine for rendering
+-   * / playoutof length 10 milliseconds.
++   * Function to grab a decoded audio-sample from the media engine for
++   * rendering / playout of length 10 milliseconds.
+    *
+-   * @param speechData [in]: Pointer to a array to which a 10ms frame of audio
+-   *                         will be copied
+    * @param samplingFreqHz [in]: Frequency of the sampling for playback in
+    *                             Hertz (16000, 32000,..)
+-   * @param capture_delay [in]: Estimated Time between reading of the samples
+-   *                            to rendering/playback
+-   * @param numChannels [out]: Number of channels in the audio frame,
+-   *                           guaranteed to be non-zero.
+-   * @param lengthSamples [out]: Will contain length of the audio frame in
+-   *                             samples at return.
+-   *                             Ex: A value of 160 implies 160 samples each of
+-   *                                 16-bits was copied into speechData
++   * @param frame [in/out]: Pointer to an AudioFrame to which audio data will be
++   *                        copied
+    * NOTE: This function should be invoked every 10 milliseconds for the best
+-   * peformance
++   *       performance
+    * NOTE: ConfigureRecvMediaCodec() SHOULD be called before this function can
+-   * be invoked. This ensures the decoded samples are ready for reading.
+-   *
++   *       be invoked
++   * This ensures the decoded samples are ready for reading and playout is
++   * enabled.
+    */
+-  virtual MediaConduitErrorCode GetAudioFrame(int16_t speechData[],
+-                                              int32_t samplingFreqHz,
+-                                              int32_t capture_delay,
+-                                              size_t& numChannels,
+-                                              size_t& lengthSamples) = 0;
++  virtual MediaConduitErrorCode GetAudioFrame(int32_t samplingFreqHz,
++                                              webrtc::AudioFrame* frame) = 0;
+ 
+   /**
+    * Checks if given sampling frequency is supported

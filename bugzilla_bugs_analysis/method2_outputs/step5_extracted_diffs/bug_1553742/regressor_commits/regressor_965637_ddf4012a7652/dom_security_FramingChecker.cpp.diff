@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/security/FramingChecker.cpp
+# Commit: ddf4012a7652
+# Full Hash: ddf4012a7652e36d144fc43bc99335276deeafbe
+# Author: Christoph Kerschbaumer <ckerschb@christophkerschbaumer.com>
+# Date: 2019-05-22 03:40:58
+# Regressor Bug: 965637
+# File Overlap Count: 1
+# Description:
+#   Bug 965637: Move CSP from Principal into Client, part 1: backend changes. r=mccr8
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D27654
+# ==============================================================================
+
+diff -r 6c2047bc2f3e -r ddf4012a7652 dom/security/FramingChecker.cpp
+--- a/dom/security/FramingChecker.cpp	Tue May 21 22:51:54 2019 +0000
++++ b/dom/security/FramingChecker.cpp	Tue May 21 23:14:27 2019 +0000
+@@ -162,19 +162,12 @@
+ 
+ // Ignore x-frame-options if CSP with frame-ancestors exists
+ static bool ShouldIgnoreFrameOptions(nsIChannel* aChannel,
+-                                     nsIPrincipal* aPrincipal) {
++                                     nsIContentSecurityPolicy* aCSP) {
+   NS_ENSURE_TRUE(aChannel, false);
+-  NS_ENSURE_TRUE(aPrincipal, false);
+-
+-  nsCOMPtr<nsIContentSecurityPolicy> csp;
+-  aPrincipal->GetCsp(getter_AddRefs(csp));
+-  if (!csp) {
+-    // if there is no CSP, then there is nothing to do here
+-    return false;
+-  }
++  NS_ENSURE_TRUE(aCSP, false);
+ 
+   bool enforcesFrameAncestors = false;
+-  csp->GetEnforcesFrameAncestors(&enforcesFrameAncestors);
++  aCSP->GetEnforcesFrameAncestors(&enforcesFrameAncestors);
+   if (!enforcesFrameAncestors) {
+     // if CSP does not contain frame-ancestors, then there
+     // is nothing to do here.
+@@ -205,12 +198,12 @@
+ /* static */
+ bool FramingChecker::CheckFrameOptions(nsIChannel* aChannel,
+                                        nsIDocShell* aDocShell,
+-                                       nsIPrincipal* aPrincipal) {
++                                       nsIContentSecurityPolicy* aCsp) {
+   if (!aChannel || !aDocShell) {
+     return true;
+   }
+ 
+-  if (ShouldIgnoreFrameOptions(aChannel, aPrincipal)) {
++  if (ShouldIgnoreFrameOptions(aChannel, aCsp)) {
+     return true;
+   }
+ 

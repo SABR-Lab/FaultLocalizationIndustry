@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/rental/tests/unused.rs
+# Commit: 16350e08d34f
+# Full Hash: 16350e08d34ff06c7f46745c6b160c7a7bda9140
+# Author: Dana Keeler <dkeeler@mozilla.com>
+# Date: 2019-12-06 04:43:57
+# Regressor Bug: 1586855
+# File Overlap Count: 6
+# Description:
+#   bug 1586855 - incorporate CRLite filters into cert_storage r=jcj,kjacobs
+#   
+#   This patch implements CRLite lookups for TLS server certificate revocation
+#   information in telemetry-only mode. It adds a new preference
+#   "security.pki.crlite_mode" to control the behavior of this feature. Setting
+# ==============================================================================
+
+diff -r 64fd40663930 -r 16350e08d34f third_party/rust/rental/tests/unused.rs
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/third_party/rust/rental/tests/unused.rs	Thu Dec 05 22:41:53 2019 +0000
+@@ -0,0 +1,28 @@
++use std::rc::Rc;
++
++#[macro_use]
++extern crate rental;
++
++pub struct Sample {
++    field: i32,
++}
++
++rental! {
++    mod sample_rental {
++        use super::*;
++
++        #[rental]
++        pub struct SampleRental {
++            sample: Rc<Sample>,
++            sref: &'sample i32,
++        }
++    }
++}
++use self::sample_rental::SampleRental;
++
++#[test]
++fn unused() {
++    let sample = Rc::new(Sample { field: 42 });
++    let rental = SampleRental::new(sample, |sample_rc| &sample_rc.field);
++    rental.rent(|this| println!("{}", this));
++}

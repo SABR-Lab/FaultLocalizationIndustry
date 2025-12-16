@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/xhr/XMLHttpRequestWorker.cpp
+# Commit: 2fd61eb5c69c
+# Full Hash: 2fd61eb5c69ce9ac806048a35c7a7a88bf4b9652
+# Author: Perry Jiang <perry@mozilla.com>
+# Date: 2020-04-21 09:42:20
+# Regressor Bug: 1618546
+# File Overlap Count: 2
+# Description:
+#   Bug 1618546 - give worker debugger globals their own clients r=asuth,webidl,smaug
+#   
+#   - Worker debugger globals gets a client with a null principal
+#   - Ensure globals are created before script loads
+#   - Introduce WorkerGlobalScopeBase to share code
+# ==============================================================================
+
+diff -r 9ccf9f680b64 -r 2fd61eb5c69c dom/xhr/XMLHttpRequestWorker.cpp
+--- a/dom/xhr/XMLHttpRequestWorker.cpp	Tue Apr 21 06:09:28 2020 +0000
++++ b/dom/xhr/XMLHttpRequestWorker.cpp	Tue Apr 21 06:50:53 2020 +0000
+@@ -1709,13 +1709,15 @@
+       return;
+     }
+   } else {
+-    Maybe<ClientInfo> clientInfo(mWorkerPrivate->GetClientInfo());
++    Maybe<ClientInfo> clientInfo(
++        mWorkerPrivate->GlobalScope()->GetClientInfo());
+     if (clientInfo.isNothing()) {
+       aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
+       return;
+     }
+-    mProxy = new Proxy(this, clientInfo.ref(), mWorkerPrivate->GetController(),
+-                       mMozAnon, mMozSystem);
++    mProxy = new Proxy(this, clientInfo.ref(),
++                       mWorkerPrivate->GlobalScope()->GetController(), mMozAnon,
++                       mMozSystem);
+     alsoOverrideMimeType = true;
+   }
+ 

@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/Document.cpp
+# Commit: 01c2bc6d727a
+# Full Hash: 01c2bc6d727a70be74dbf7babb7f6294824a571a
+# Author: Andrea Marchesini <amarchesini@mozilla.com>
+# Date: 2024-09-11 09:21:34
+# Regressor Bug: 1475599
+# File Overlap Count: 1
+# Description:
+#   Bug 1475599 - part 10 - CookieStore API - CHIP implementation shared between Document and CookieStore, r=cookie-reviewers,valentin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D220288
+# ==============================================================================
+
+diff -r 2d925ea3da19 -r 01c2bc6d727a dom/base/Document.cpp
+--- a/dom/base/Document.cpp	Tue Sep 10 16:31:41 2024 +0000
++++ b/dom/base/Document.cpp	Tue Sep 10 16:31:41 2024 +0000
+@@ -6648,8 +6648,9 @@
+         continue;
+       }
+ 
+-      if (thirdParty && !CookieCommons::ShouldIncludeCrossSiteCookieForDocument(
+-                            cookie, this)) {
++      if (thirdParty && !CookieCommons::ShouldIncludeCrossSiteCookie(
++                            cookie, CookieJarSettings()->GetPartitionForeign(),
++                            IsInPrivateBrowsing(), UsingStorageAccess())) {
+         continue;
+       }
+ 
+@@ -6779,8 +6780,9 @@
+                                                  nullptr, &thirdParty);
+   }
+ 
+-  if (thirdParty &&
+-      !CookieCommons::ShouldIncludeCrossSiteCookieForDocument(cookie, this)) {
++  if (thirdParty && !CookieCommons::ShouldIncludeCrossSiteCookie(
++                        cookie, CookieJarSettings()->GetPartitionForeign(),
++                        IsInPrivateBrowsing(), UsingStorageAccess())) {
+     return;
+   }
+ 

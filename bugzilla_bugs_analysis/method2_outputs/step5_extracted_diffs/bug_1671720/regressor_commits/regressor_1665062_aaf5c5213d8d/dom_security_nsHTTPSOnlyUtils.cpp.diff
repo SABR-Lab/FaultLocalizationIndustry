@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/security/nsHTTPSOnlyUtils.cpp
+# Commit: aaf5c5213d8d
+# Full Hash: aaf5c5213d8db7c9344e8517ae934c55f937e07e
+# Author: Christoph Kerschbaumer <ckerschb@christophkerschbaumer.com>
+# Date: 2020-10-08 09:49:50
+# Regressor Bug: 1665062
+# File Overlap Count: 1
+# Description:
+#   Bug 1665062: HTTPS-Only: Upgraded website creating HTTP auth prompt gets interrupted by error-page r=necko-reviewers,dragana,JulianWels
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D91908
+# ==============================================================================
+
+diff -r e4b87a2e0f2c -r aaf5c5213d8d dom/security/nsHTTPSOnlyUtils.cpp
+--- a/dom/security/nsHTTPSOnlyUtils.cpp	Tue Oct 06 12:51:16 2020 +0000
++++ b/dom/security/nsHTTPSOnlyUtils.cpp	Wed Oct 07 11:47:07 2020 +0000
+@@ -12,7 +12,7 @@
+ #include "nsHTTPSOnlyUtils.h"
+ #include "nsIConsoleService.h"
+ #include "nsIHttpChannel.h"
+-#include "nsIHttpChannel.h"
++#include "nsIHttpChannelInternal.h"
+ #include "nsIHttpsOnlyModePermission.h"
+ #include "nsIPermissionManager.h"
+ #include "nsIPrincipal.h"
+@@ -421,14 +421,21 @@
+   }
+ 
+   // Check if the original top-level channel which https-only is trying
+-  // to upgrade is already in progress. If it is, then all good, if not
++  // to upgrade is already in progress or if the channel is an auth channel.
++  // If it is in progress or Auth is in progress, then all good, if not
+   // then let's cancel that channel so we can dispaly the exception page.
+   nsCOMPtr<nsIChannel> httpsOnlyChannel = mDocumentLoadListener->GetChannel();
+   if (httpsOnlyChannel) {
+     nsCOMPtr<nsILoadInfo> loadInfo = httpsOnlyChannel->LoadInfo();
+-    uint32_t httpsOnlyStatus = loadInfo->GetHttpsOnlyStatus();
+-    if (!(httpsOnlyStatus &
+-          nsILoadInfo::HTTPS_ONLY_TOP_LEVEL_LOAD_IN_PROGRESS)) {
++    uint32_t topLevelLoadInProgress =
++        loadInfo->GetHttpsOnlyStatus() &
++        nsILoadInfo::HTTPS_ONLY_TOP_LEVEL_LOAD_IN_PROGRESS;
++
++    nsCOMPtr<nsIHttpChannelInternal> httpChannelInternal =
++        do_QueryInterface(httpsOnlyChannel);
++    bool isAuthChannel = false;
++    Unused << httpChannelInternal->GetIsAuthChannel(&isAuthChannel);
++    if (!topLevelLoadInProgress && !isAuthChannel) {
+       // Only really cancel the original top-level channel if it's
+       // status is still NS_OK, otherwise it might have already
+       // encountered some other error and was cancelled.

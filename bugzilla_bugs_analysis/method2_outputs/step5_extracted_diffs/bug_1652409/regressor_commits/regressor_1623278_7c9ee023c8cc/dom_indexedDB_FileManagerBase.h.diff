@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/FileManagerBase.h
+# Commit: 7c9ee023c8cc
+# Full Hash: 7c9ee023c8cc72aab0269cebeb7a2f02c5281cd1
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2020-04-01 21:26:59
+# Regressor Bug: 1623278
+# File Overlap Count: 1
+# Description:
+#   Bug 1623278 - Use SafeRefPtr for FileInfo. r=dom-workers-and-storage-reviewers,asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D65550
+# ==============================================================================
+
+diff -r 7e9d56eb485e -r 7c9ee023c8cc dom/indexedDB/FileManagerBase.h
+--- a/dom/indexedDB/FileManagerBase.h	Wed Apr 01 09:52:54 2020 +0000
++++ b/dom/indexedDB/FileManagerBase.h	Wed Apr 01 09:53:01 2020 +0000
+@@ -27,13 +27,13 @@
+   using MutexType = StaticMutex;
+   using AutoLock = mozilla::detail::BaseAutoLock<MutexType&>;
+ 
+-  MOZ_MUST_USE RefPtr<FileInfo> GetFileInfo(int64_t aId) const {
++  MOZ_MUST_USE SafeRefPtr<FileInfo> GetFileInfo(int64_t aId) const {
+     if (!AssertValid()) {
+       // In release, the assertions are disabled.
+       return nullptr;
+     }
+ 
+-    // TODO: We cannot simply change this to RefPtr<FileInfo>, because
++    // TODO: We cannot simply change this to SafeRefPtr<FileInfo>, because
+     // FileInfo::AddRef also acquires the FileManager::Mutex.
+     // This looks quirky at least.
+     FileInfo* fileInfo;
+@@ -42,16 +42,16 @@
+       fileInfo = mFileInfos.Get(aId);
+     }
+ 
+-    return fileInfo;
++    return {fileInfo, AcquireStrongRefFromRawPtr{}};
+   }
+ 
+-  MOZ_MUST_USE RefPtr<FileInfo> CreateFileInfo() {
++  MOZ_MUST_USE SafeRefPtr<FileInfo> CreateFileInfo() {
+     if (!AssertValid()) {
+       // In release, the assertions are disabled.
+       return nullptr;
+     }
+ 
+-    // TODO: We cannot simply change this to RefPtr<FileInfo>, because
++    // TODO: We cannot simply change this to SafeRefPtr<FileInfo>, because
+     // FileInfo::AddRef also acquires the FileManager::Mutex.
+     // This looks quirky at least.
+     FileInfo* fileInfo;
+@@ -68,7 +68,7 @@
+       mFileInfos.Put(id, fileInfo);
+     }
+ 
+-    return fileInfo;
++    return {fileInfo, AcquireStrongRefFromRawPtr{}};
+   }
+ 
+   void RemoveFileInfo(const int64_t aId, const AutoLock& aFileMutexLock) {

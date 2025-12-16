@@ -1,0 +1,108 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGL2ContextBuffers.cpp
+# Commit: ccfa767dba64
+# Full Hash: ccfa767dba644dc193e0246eb8e8ff3377e8b8a5
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Client-side bindings mirror for precise CC, and merge similar codepaths. r=handyman
+#   
+#   * Context loss using RAII
+#   * Move Program reflection Client-side
+#   
+# ==============================================================================
+
+diff -r 71c122ac0ca7 -r ccfa767dba64 dom/canvas/WebGL2ContextBuffers.cpp
+--- a/dom/canvas/WebGL2ContextBuffers.cpp	Wed Jan 08 22:19:14 2020 +0000
++++ b/dom/canvas/WebGL2ContextBuffers.cpp	Wed Jan 08 22:19:16 2020 +0000
+@@ -16,9 +16,8 @@
+ // Buffer objects
+ 
+ void WebGL2Context::CopyBufferSubData(GLenum readTarget, GLenum writeTarget,
+-                                      WebGLintptr readOffset,
+-                                      WebGLintptr writeOffset,
+-                                      WebGLsizeiptr size) {
++                                      uint64_t readOffset, uint64_t writeOffset,
++                                      uint64_t size) const {
+   const FuncScope funcScope(*this, "copyBufferSubData");
+   if (IsContextLost()) return;
+ 
+@@ -28,12 +27,6 @@
+   const auto& writeBuffer = ValidateBufferSelection(writeTarget);
+   if (!writeBuffer) return;
+ 
+-  if (!ValidateNonNegative("readOffset", readOffset) ||
+-      !ValidateNonNegative("writeOffset", writeOffset) ||
+-      !ValidateNonNegative("size", size)) {
+-    return;
+-  }
+-
+   if (!CheckedInt<GLintptr>(readOffset).isValid() ||
+       !CheckedInt<GLintptr>(writeOffset).isValid() ||
+       !CheckedInt<GLsizeiptr>(size).isValid())
+@@ -85,22 +78,23 @@
+   writeBuffer->ResetLastUpdateFenceId();
+ }
+ 
+-Maybe<UniquePtr<RawBuffer<>>> WebGL2Context::GetBufferSubData(
+-    GLenum target, WebGLintptr srcByteOffset, size_t byteLen) {
++void WebGL2Context::GetBufferSubData(GLenum target, uint64_t srcByteOffset,
++                                     const Range<uint8_t>& dest) const {
+   const FuncScope funcScope(*this, "getBufferSubData");
+-  if (IsContextLost()) return Nothing();
++  if (IsContextLost()) return;
+ 
+   const auto& buffer = ValidateBufferSelection(target);
+-  if (!buffer) return Nothing();
++  if (!buffer) return;
+ 
+-  if (!buffer->ValidateRange(srcByteOffset, byteLen)) return Nothing();
++  const auto byteLen = dest.length();
++  if (!buffer->ValidateRange(srcByteOffset, byteLen)) return;
+ 
+   ////
+ 
+   if (!CheckedInt<GLintptr>(srcByteOffset).isValid() ||
+       !CheckedInt<GLsizeiptr>(byteLen).isValid()) {
+     ErrorOutOfMemory("offset or size too large for platform.");
+-    return Nothing();
++    return;
+   }
+   const GLsizeiptr glByteLen(byteLen);
+ 
+@@ -126,12 +120,6 @@
+ 
+   ////
+ 
+-  uint8_t* bytes = new uint8_t[byteLen];
+-  if (!bytes) {
+-    ErrorOutOfMemory("Could not allocate temp array");
+-    return Nothing();
+-  }
+-
+   const ScopedLazyBind readBind(gl, target, buffer);
+ 
+   if (byteLen) {
+@@ -145,7 +133,7 @@
+ 
+     const auto mappedBytes = gl->fMapBufferRange(
+         mapTarget, srcByteOffset, glByteLen, LOCAL_GL_MAP_READ_BIT);
+-    memcpy(bytes, mappedBytes, byteLen);
++    memcpy(dest.begin().get(), mappedBytes, dest.length());
+     gl->fUnmapBuffer(mapTarget);
+ 
+     if (isTF) {
+@@ -156,9 +144,6 @@
+       gl->fBindTransformFeedback(LOCAL_GL_TRANSFORM_FEEDBACK, tfo);
+     }
+   }
+-
+-  UniquePtr<RawBuffer<>> ret = MakeUnique<RawBuffer<>>(byteLen, bytes, true);
+-  return Some(std::move(ret));
+ }
+ 
+ }  // namespace mozilla

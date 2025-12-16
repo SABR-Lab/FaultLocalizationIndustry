@@ -1,0 +1,66 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/WebrtcGlobal.h
+# Commit: c414d82a5325
+# Full Hash: c414d82a532508523d40ce63111cb30b2a1076be
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2019-02-22 05:26:22
+# Regressor Bug: 1521879
+# File Overlap Count: 1
+# Description:
+#   Bug 1521879 - Part 1: IPC-based MediaTransport implementation r=mjf
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D17273
+# ==============================================================================
+
+diff -r 3a182b05e2c1 -r c414d82a5325 dom/media/webrtc/WebrtcGlobal.h
+--- a/dom/media/webrtc/WebrtcGlobal.h	Thu Feb 21 19:01:32 2019 +0200
++++ b/dom/media/webrtc/WebrtcGlobal.h	Thu Feb 21 16:42:12 2019 +0000
+@@ -14,6 +14,24 @@
+ typedef nsTArray<nsAutoPtr<StatsReport>> RTCReports;
+ typedef mozilla::dom::Sequence<nsString> WebrtcGlobalLog;
+ 
++namespace mozilla {
++namespace dom {
++// webidl dictionaries don't have move semantics, which is something that ipdl
++// needs for async returns. So, we create a "moveable" subclass that just
++// copies. _Really_ lame, but it gets the job done.
++struct MovableRTCStatsReportInternal : public RTCStatsReportInternal {
++  MovableRTCStatsReportInternal() = default;
++  explicit MovableRTCStatsReportInternal(RTCStatsReportInternal&& aReport) {
++    RTCStatsReportInternal::operator=(aReport);
++  }
++  explicit MovableRTCStatsReportInternal(
++      const RTCStatsReportInternal& aReport) {
++    RTCStatsReportInternal::operator=(aReport);
++  }
++};
++}  // namespace dom
++}  // namespace mozilla
++
+ namespace IPC {
+ 
+ template <typename T>
+@@ -51,6 +69,21 @@
+           mozilla::dom::RTCIceCandidateType::EndGuard_> {};
+ 
+ template <>
++struct ParamTraits<mozilla::dom::MovableRTCStatsReportInternal> {
++  typedef mozilla::dom::MovableRTCStatsReportInternal paramType;
++  static void Write(Message* aMsg, const paramType& aParam) {
++    WriteParam(
++        aMsg, static_cast<const mozilla::dom::RTCStatsReportInternal&>(aParam));
++  }
++  static bool Read(const Message* aMsg, PickleIterator* aIter,
++                   paramType* aResult) {
++    return ReadParam(
++        aMsg, aIter,
++        static_cast<mozilla::dom::RTCStatsReportInternal*>(aResult));
++  }
++};
++
++template <>
+ struct ParamTraits<mozilla::dom::RTCStatsReportInternal> {
+   typedef mozilla::dom::RTCStatsReportInternal paramType;
+ 

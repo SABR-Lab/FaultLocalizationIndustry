@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: parser/html/nsHtml5Parser.cpp
+# Commit: 9a8abd87cc79
+# Full Hash: 9a8abd87cc7935f29b94248c1a6f8203faa14403
+# Author: Henri Sivonen <hsivonen@hsivonen.fi>
+# Date: 2021-12-08 21:43:06
+# Regressor Bug: 1701828
+# File Overlap Count: 10
+# Description:
+#   Bug 1701828 - meta charset rewrite. r=smaug
+#   
+#   Implements https://github.com/whatwg/html/issues/6962 . Improves performance
+#   when <meta charset> occurs in head but after the first kilobyte and aligns
+#   behavior better with WebKit and Blink.
+# ==============================================================================
+
+diff --git a/parser/html/nsHtml5Parser.cpp b/parser/html/nsHtml5Parser.cpp
+--- a/parser/html/nsHtml5Parser.cpp
++++ b/parser/html/nsHtml5Parser.cpp
+@@ -93,18 +93,18 @@ nsHtml5Parser::SetCommand(eParserCommand
+                "Parser command was not eViewNormal.");
+ }
+ 
+ void nsHtml5Parser::SetDocumentCharset(NotNull<const Encoding*> aEncoding,
+                                        int32_t aCharsetSource,
+                                        bool aForceAutoDetection) {
+   MOZ_ASSERT(!mExecutor->HasStarted(), "Document charset set too late.");
+   MOZ_ASSERT(GetStreamParser(), "Setting charset on a script-only parser.");
+-  GetStreamParser()->SetDocumentCharset(aEncoding, aCharsetSource,
+-                                        aForceAutoDetection);
++  GetStreamParser()->SetDocumentCharset(
++      aEncoding, (nsCharsetSource)aCharsetSource, aForceAutoDetection);
+   mExecutor->SetDocumentCharsetAndSource(aEncoding, aCharsetSource);
+ }
+ 
+ NS_IMETHODIMP
+ nsHtml5Parser::GetChannel(nsIChannel** aChannel) {
+   if (GetStreamParser()) {
+     return GetStreamParser()->GetChannel(aChannel);
+   } else {
+@@ -584,17 +584,17 @@ nsresult nsHtml5Parser::ParseUntilBlocke
+         // never release the last buffer.
+         NS_ASSERTION(!mLastBuffer->getStart() && !mLastBuffer->getEnd(),
+                      "Sentinel buffer had its indeces changed.");
+         if (GetStreamParser()) {
+           if (mReturnToStreamParserPermitted &&
+               !mExecutor->IsScriptExecuting()) {
+             mTreeBuilder->Flush();
+             mReturnToStreamParserPermitted = false;
+-            GetStreamParser()->ContinueAfterScripts(
++            GetStreamParser()->ContinueAfterScriptsOrEncodingCommitment(
+                 mTokenizer.get(), mTreeBuilder.get(), mLastWasCR);
+           }
+         } else {
+           // Script-created parser
+           mTreeBuilder->Flush();
+           // No need to flush the executor, because the executor is already
+           // in a flush
+           NS_ASSERTION(mExecutor->IsInFlushLoop(),

@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/gamepad/ipc/GamepadTestChannelParent.cpp
+# Commit: 4d4247338bf6
+# Full Hash: 4d4247338bf6ebab2ebc69a89b7a4cb610cc5fee
+# Author: Randell Jesup <rjesup@mozilla.com>
+# Date: 2024-12-10 16:36:00
+# Regressor Bug: 1657404
+# File Overlap Count: 1
+# Description:
+#   Bug 1657404: Back out changeset 349854c5ad56 (gamepad) r=cmartin
+#   
+#   This changeset was left in when the rest of bug 1657404 was backed out in
+#   2020, and causes at least some Windows machines to not see gamepads
+#   
+# ==============================================================================
+
+diff -r ade719ece0a8 -r 4d4247338bf6 dom/gamepad/ipc/GamepadTestChannelParent.cpp
+--- a/dom/gamepad/ipc/GamepadTestChannelParent.cpp	Tue Dec 10 02:32:07 2024 +0000
++++ b/dom/gamepad/ipc/GamepadTestChannelParent.cpp	Tue Dec 10 02:56:44 2024 +0000
+@@ -25,12 +25,20 @@
+ 
+ GamepadTestChannelParent::GamepadTestChannelParent() {
+   ::mozilla::ipc::AssertIsOnBackgroundThread();
+-  GamepadMonitoringState::GetSingleton().AddObserver(this);
++  RefPtr<GamepadPlatformService> service =
++      GamepadPlatformService::GetParentService();
++  MOZ_ASSERT(service);
++
++  service->GetMonitoringState().AddObserver(this);
+ }
+ 
+ GamepadTestChannelParent::~GamepadTestChannelParent() {
+   ::mozilla::ipc::AssertIsOnBackgroundThread();
+-  GamepadMonitoringState::GetSingleton().RemoveObserver(this);
++  RefPtr<GamepadPlatformService> service =
++      GamepadPlatformService::GetParentService();
++  MOZ_ASSERT(service);
++
++  service->GetMonitoringState().RemoveObserver(this);
+ }
+ 
+ void GamepadTestChannelParent::AddGamepadToPlatformService(
+@@ -78,7 +86,7 @@
+   // started. Everything else won't be deferred and will fail if monitoring
+   // isn't running
+   if (body.type() == GamepadChangeEventBody::TGamepadAdded) {
+-    if (GamepadMonitoringState::GetSingleton().IsMonitoring()) {
++    if (service->GetMonitoringState().IsMonitoring()) {
+       AddGamepadToPlatformService(aID, body.get_GamepadAdded());
+     } else {
+       mDeferredGamepadAdded.AppendElement(
+@@ -87,7 +95,7 @@
+     return IPC_OK();
+   }
+ 
+-  if (!GamepadMonitoringState::GetSingleton().IsMonitoring()) {
++  if (!service->GetMonitoringState().IsMonitoring()) {
+     return IPC_FAIL(this, "Simulated message received while not monitoring");
+   }
+ 

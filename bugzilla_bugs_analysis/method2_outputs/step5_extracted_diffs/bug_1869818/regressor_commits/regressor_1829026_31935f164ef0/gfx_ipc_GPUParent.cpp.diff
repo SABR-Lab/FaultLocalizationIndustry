@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/ipc/GPUParent.cpp
+# Commit: 31935f164ef0
+# Full Hash: 31935f164ef0d6c4668f211482c139847dcab7f2
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2023-12-13 00:43:26
+# Regressor Bug: 1829026
+# File Overlap Count: 1
+# Description:
+#   Bug 1829026 - Update CanvasTranslator to work with DrawTargetWebgl. r=aosmond
+#   
+#   This adds the necessary infrastructure for CanvasTranslator to allocate DrawTargetWebgl
+#   instead of just allocating TextureData, and to use RemoteTextureMap to handle sending
+#   the DrawTargetWebgl frames to the compositor.
+# ==============================================================================
+
+diff -r 13c9bf69085f -r 31935f164ef0 gfx/ipc/GPUParent.cpp
+--- a/gfx/ipc/GPUParent.cpp	Tue Dec 12 07:35:02 2023 +0000
++++ b/gfx/ipc/GPUParent.cpp	Tue Dec 12 07:35:03 2023 +0000
+@@ -360,14 +360,15 @@
+   // here that would normally be initialized there.
+   SkGraphics::Init();
+ 
+-  if (gfxVars::RemoteCanvasEnabled()) {
++  bool useRemoteCanvas =
++      gfxVars::RemoteCanvasEnabled() || gfxVars::UseAcceleratedCanvas2D();
++  if (useRemoteCanvas) {
+     gfxGradientCache::Init();
+   }
+ 
+ #if defined(XP_WIN)
+   if (gfxConfig::IsEnabled(Feature::D3D11_COMPOSITING)) {
+-    if (DeviceManagerDx::Get()->CreateCompositorDevices() &&
+-        gfxVars::RemoteCanvasEnabled()) {
++    if (DeviceManagerDx::Get()->CreateCompositorDevices() && useRemoteCanvas) {
+       if (DeviceManagerDx::Get()->CreateCanvasDevice()) {
+         gfxDWriteFont::InitDWriteSupport();
+       } else {

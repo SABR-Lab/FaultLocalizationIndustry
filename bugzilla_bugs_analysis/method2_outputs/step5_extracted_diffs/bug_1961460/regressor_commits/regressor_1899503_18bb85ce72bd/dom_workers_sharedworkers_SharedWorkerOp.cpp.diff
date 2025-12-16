@@ -1,0 +1,66 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/sharedworkers/SharedWorkerOp.cpp
+# Commit: 18bb85ce72bd
+# Full Hash: 18bb85ce72bdffde611533105d200820db9a7435
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2025-03-26 09:13:23
+# Regressor Bug: 1899503
+# File Overlap Count: 1
+# Description:
+#   Bug 1899503 - P4 Update SharedWorker windowID for remote worker debugger. r=asuth
+#   
+#   Depends on D230260
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D231778
+# ==============================================================================
+
+diff -r 07833c96f60c -r 18bb85ce72bd dom/workers/sharedworkers/SharedWorkerOp.cpp
+--- a/dom/workers/sharedworkers/SharedWorkerOp.cpp	Tue Mar 25 14:33:28 2025 +0000
++++ b/dom/workers/sharedworkers/SharedWorkerOp.cpp	Tue Mar 25 14:33:28 2025 +0000
+@@ -45,6 +45,27 @@
+   UniqueMessagePortId mPortIdentifier;
+ };
+ 
++class UpdateWindowIDRunnable final : public WorkerThreadRunnable {
++ public:
++  UpdateWindowIDRunnable(const uint64_t& aWindowID, const bool& aIsAdd)
++      : WorkerThreadRunnable("UpdateWindowIDRunnable"),
++        mWindowID(aWindowID),
++        mIsAdd(aIsAdd) {}
++
++ private:
++  bool PreDispatch(WorkerPrivate* aWorkerPrivate) final { return true; }
++  void PostDispatch(WorkerPrivate* aWorkerPrivate, bool aDispatchResult) final {
++  }
++
++  bool WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override {
++    aWorkerPrivate->UpdateWindowIDToDebugger(mWindowID, mIsAdd);
++    return true;
++  }
++
++  uint64_t mWindowID;
++  bool mIsAdd;
++};
++
+ }  // namespace
+ 
+ SharedWorkerOp::SharedWorkerOp(SharedWorkerOpArgs&& aArgs)
+@@ -153,10 +174,16 @@
+              SharedWorkerOpArgs::TSharedWorkerAddWindowIDOpArgs) {
+     aOwner->mWindowIDs.AppendElement(
+         mOpArgs.get_SharedWorkerAddWindowIDOpArgs().windowID());
++    RefPtr<UpdateWindowIDRunnable> r = new UpdateWindowIDRunnable(
++        mOpArgs.get_SharedWorkerAddWindowIDOpArgs().windowID(), true);
++    Unused << r->Dispatch(workerPrivate);
+   } else if (mOpArgs.type() ==
+              SharedWorkerOpArgs::TSharedWorkerRemoveWindowIDOpArgs) {
+     aOwner->mWindowIDs.RemoveElement(
+         mOpArgs.get_SharedWorkerRemoveWindowIDOpArgs().windowID());
++    RefPtr<UpdateWindowIDRunnable> r = new UpdateWindowIDRunnable(
++        mOpArgs.get_SharedWorkerRemoveWindowIDOpArgs().windowID(), false);
++    Unused << r->Dispatch(workerPrivate);
+   } else {
+     MOZ_CRASH("Unknown SharedWorkerOpArgs type!");
+   }

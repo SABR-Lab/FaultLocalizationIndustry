@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsRange.cpp
+# Commit: 713c66e124c7
+# Full Hash: 713c66e124c74d0d9c1dda6821bd2984d6cb4040
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2024-03-26 04:11:24
+# Regressor Bug: 1867058
+# File Overlap Count: 1
+# Description:
+#   Bug 1867058 - Part 2: Make both StaticRange and nsRange to have a way to cross the trees r=jjaschke,smaug,dom-core
+#   
+#   For StaticRange, simply allows node to cross the trees.
+#   
+#   For nsRange, when nodes are in different trees, in addition
+# ==============================================================================
+
+diff -r 0b237fd5577a -r 713c66e124c7 dom/base/nsRange.cpp
+--- a/dom/base/nsRange.cpp	Mon Mar 25 13:40:56 2024 +0000
++++ b/dom/base/nsRange.cpp	Mon Mar 25 13:40:56 2024 +0000
+@@ -171,7 +171,7 @@
+       mNextEndRef(nullptr) {
+   // printf("Size of nsRange: %zu\n", sizeof(nsRange));
+ 
+-  static_assert(sizeof(nsRange) <= 240,
++  static_assert(sizeof(nsRange) <= 248,
+                 "nsRange size shouldn't be increased as far as possible");
+ }
+ 
+@@ -219,11 +219,13 @@
+ 
+ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(nsRange, AbstractRange)
+   // `Reset()` unlinks `mStart`, `mEnd` and `mRoot`.
++  NS_IMPL_CYCLE_COLLECTION_UNLINK(mCrossShadowBoundaryRange);
+   tmp->Reset();
+ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
+ 
+ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(nsRange, AbstractRange)
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mRoot)
++  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCrossShadowBoundaryRange);
+ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
+ 
+ NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(nsRange, AbstractRange)

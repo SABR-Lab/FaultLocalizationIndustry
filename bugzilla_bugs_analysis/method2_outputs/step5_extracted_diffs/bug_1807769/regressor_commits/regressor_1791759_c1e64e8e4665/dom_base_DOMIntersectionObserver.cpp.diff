@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/DOMIntersectionObserver.cpp
+# Commit: c1e64e8e4665
+# Full Hash: c1e64e8e466506d1d9a36d747df25527bd545b10
+# Author: Martin Robinson <mrobinson@igalia.com>
+# Date: 2022-12-01 16:18:29
+# Regressor Bug: 1791759
+# File Overlap Count: 1
+# Description:
+#   Bug 1791759 - Add support for `content-visibility: auto` r=emilio
+#   
+#   This change adds support for `content-visibilty: auto` as well as
+#   showing and hiding content based on the relevancy of the content as
+#   defined in the specification. Changes to relevancy are handled by
+# ==============================================================================
+
+diff -r 6d4d56f57b7b -r c1e64e8e4665 dom/base/DOMIntersectionObserver.cpp
+--- a/dom/base/DOMIntersectionObserver.cpp	Thu Dec 01 01:23:08 2022 +0200
++++ b/dom/base/DOMIntersectionObserver.cpp	Wed Nov 30 18:00:27 2022 +0000
+@@ -14,6 +14,7 @@
+ #include "nsRefreshDriver.h"
+ #include "mozilla/PresShell.h"
+ #include "mozilla/StaticPrefs_dom.h"
++#include "mozilla/StaticPrefs_layout.h"
+ #include "mozilla/ServoBindings.h"
+ #include "mozilla/dom/BrowserChild.h"
+ #include "mozilla/dom/BrowsingContext.h"
+@@ -150,6 +151,20 @@
+   }
+ }
+ 
++static void ContentVisibilityCallback(
++    const Sequence<OwningNonNull<DOMIntersectionObserverEntry>>& aEntries) {
++  for (const auto& entry : aEntries) {
++    entry->Target()->SetVisibleForContentVisibility(entry->IsIntersecting());
++
++    if (RefPtr<Document> doc = entry->Target()->GetComposedDoc()) {
++      if (RefPtr<PresShell> presShell = doc->GetPresShell()) {
++        presShell->ScheduleContentRelevancyUpdate(
++            ContentRelevancyReason::Visible);
++      }
++    }
++  }
++}
++
+ static LengthPercentage PrefMargin(float aValue, bool aIsPercentage) {
+   return aIsPercentage ? LengthPercentage::FromPercentage(aValue / 100.0f)
+                        : LengthPercentage::FromPixels(aValue);
+@@ -182,6 +197,25 @@
+   return observer.forget();
+ }
+ 
++already_AddRefed<DOMIntersectionObserver>
++DOMIntersectionObserver::CreateContentVisibilityObserver(Document& aDocument) {
++  RefPtr<DOMIntersectionObserver> observer =
++      new DOMIntersectionObserver(aDocument, ContentVisibilityCallback);
++
++  observer->mThresholds.AppendElement(0.0f);
++
++  auto margin = LengthPercentage::FromPercentage(
++      StaticPrefs::layout_css_content_visibility_relevant_content_margin() /
++      100.0f);
++
++  observer->mRootMargin.Get(eSideTop) = margin;
++  observer->mRootMargin.Get(eSideRight) = margin;
++  observer->mRootMargin.Get(eSideBottom) = margin;
++  observer->mRootMargin.Get(eSideLeft) = margin;
++
++  return observer.forget();
++}
++
+ bool DOMIntersectionObserver::SetRootMargin(const nsACString& aString) {
+   return Servo_IntersectionObserverRootMargin_Parse(&aString, &mRootMargin);
+ }

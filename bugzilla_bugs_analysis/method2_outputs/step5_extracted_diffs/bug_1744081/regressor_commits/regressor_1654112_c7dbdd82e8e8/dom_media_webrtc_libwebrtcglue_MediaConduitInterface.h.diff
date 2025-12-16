@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/MediaConduitInterface.h
+# Commit: c7dbdd82e8e8
+# Full Hash: c7dbdd82e8e8f9cf93fe92dca922755320f36b29
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 3
+# Description:
+#   Bug 1654112 - Set main thread as current TaskQueue when calling into libwebrtc so that audio calling works. r=bwc
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D102286
+# ==============================================================================
+
+diff -r 7e00d78d6389 -r c7dbdd82e8e8 dom/media/webrtc/libwebrtcglue/MediaConduitInterface.h
+--- a/dom/media/webrtc/libwebrtcglue/MediaConduitInterface.h	Tue Feb 16 17:46:07 2021 +0100
++++ b/dom/media/webrtc/libwebrtcglue/MediaConduitInterface.h	Mon Feb 01 09:28:23 2021 +0100
+@@ -254,6 +254,7 @@
+   static RefPtr<WebRtcCallWrapper> Create(
+       const dom::RTCStatsTimestampMaker& aTimestampMaker,
+       SharedWebrtcState* aSharedState, webrtc::WebRtcKeyValueConfig* aTrials) {
++    auto current = TaskQueueWrapper::MainAsCurrent();
+     return Create(aTimestampMaker, aSharedState->GetModuleThread(),
+                   aSharedState->mAudioStateConfig,
+                   aSharedState->mAudioDecoderFactory, aTrials);
+@@ -265,6 +266,7 @@
+       const webrtc::AudioState::Config& aAudioStateConfig,
+       webrtc::AudioDecoderFactory* aAudioDecoderFactory,
+       webrtc::WebRtcKeyValueConfig* aTrials) {
++    auto current = TaskQueueWrapper::MainAsCurrent();
+     auto eventLog = MakeUnique<webrtc::RtcEventLogNull>();
+     webrtc::Call::Config config(eventLog.get());
+     config.audio_state = webrtc::AudioState::Create(aAudioStateConfig);

@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/ContentCompositorBridgeParent.cpp
+# Commit: 4357d695b8d5
+# Full Hash: 4357d695b8d5dd901788d922b73e89f16c45b2c9
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-07 16:20:31
+# Regressor Bug: 1464032
+# File Overlap Count: 1
+# Description:
+#   Bug 1464032 Part 12: Add CanvasParent, CanvasChild and RecordedTextureData. r=mattwoodrow, jld
+#   
+#   RecordedTextureData records TextureData calls for play back in the GPU process.
+#   CanvasChild and CanvasParent set up the recorder and translator.
+#   They also help to manage the starting of translation and co-ordinating the
+# ==============================================================================
+
+diff -r e32d6c3ba887 -r 4357d695b8d5 gfx/layers/ipc/ContentCompositorBridgeParent.cpp
+--- a/gfx/layers/ipc/ContentCompositorBridgeParent.cpp	Sun Dec 02 14:17:24 2018 +0000
++++ b/gfx/layers/ipc/ContentCompositorBridgeParent.cpp	Sun Dec 02 14:19:11 2018 +0000
+@@ -22,6 +22,7 @@
+ #include "mozilla/layers/APZCTreeManagerParent.h"  // for APZCTreeManagerParent
+ #include "mozilla/layers/APZUpdater.h"             // for APZUpdater
+ #include "mozilla/layers/AsyncCompositionManager.h"
++#include "mozilla/layers/CanvasParent.h"
+ #include "mozilla/layers/CompositorOptions.h"
+ #include "mozilla/layers/CompositorThread.h"
+ #include "mozilla/layers/LayerManagerComposite.h"
+@@ -614,6 +615,22 @@
+   return TextureHost::DestroyIPDLActor(actor);
+ }
+ 
++mozilla::ipc::IPCResult ContentCompositorBridgeParent::RecvInitPCanvasParent(
++    Endpoint<PCanvasParent>&& aEndpoint) {
++  MOZ_RELEASE_ASSERT(!mCanvasParent,
++                     "Canvas Parent should only be created once per "
++                     "CrossProcessCompositorBridgeParent.");
++
++  mCanvasParent = CanvasParent::Create(std::move(aEndpoint));
++  return IPC_OK();
++}
++
++UniquePtr<SurfaceDescriptor>
++ContentCompositorBridgeParent::LookupSurfaceDescriptorForClientDrawTarget(
++    const uintptr_t aDrawTarget) {
++  return mCanvasParent->LookupSurfaceDescriptorForClientDrawTarget(aDrawTarget);
++}
++
+ bool ContentCompositorBridgeParent::IsSameProcess() const {
+   return OtherPid() == base::GetCurrentProcId();
+ }

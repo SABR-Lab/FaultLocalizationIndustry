@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/webgpu/BindGroup.cpp
+# Commit: dd10bf41fcea
+# Full Hash: dd10bf41fcea6aa2f40d4528f4a7afc22b1f389e
+# Author: Nicolas Silva <nsilva@mozilla.com>
+# Date: 2024-04-05 21:43:02
+# Regressor Bug: 1881518
+# File Overlap Count: 1
+# Description:
+#   Bug 1881518 - Recycle indices again. r=webgpu-reviewers,bradwerth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D202433
+# ==============================================================================
+
+diff -r b2cba928a7bb -r dd10bf41fcea dom/webgpu/BindGroup.cpp
+--- a/dom/webgpu/BindGroup.cpp	Fri Apr 05 07:28:07 2024 +0000
++++ b/dom/webgpu/BindGroup.cpp	Fri Apr 05 07:42:05 2024 +0000
+@@ -22,13 +22,21 @@
+ BindGroup::~BindGroup() { Cleanup(); }
+ 
+ void BindGroup::Cleanup() {
+-  if (mValid && mParent) {
+-    mValid = false;
+-    auto bridge = mParent->GetBridge();
+-    if (bridge && bridge->IsOpen()) {
+-      bridge->SendBindGroupDrop(mId);
+-    }
++  if (!mValid) {
++    return;
+   }
++  mValid = false;
++
++  auto bridge = mParent->GetBridge();
++  if (!bridge) {
++    return;
++  }
++
++  if (bridge->CanSend()) {
++    bridge->SendBindGroupDrop(mId);
++  }
++
++  wgpu_client_free_bind_group_id(bridge->GetClient(), mId);
+ }
+ 
+ }  // namespace mozilla::webgpu

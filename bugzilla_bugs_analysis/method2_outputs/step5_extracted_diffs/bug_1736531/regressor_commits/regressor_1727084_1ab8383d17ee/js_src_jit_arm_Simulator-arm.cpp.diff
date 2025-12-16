@@ -1,0 +1,77 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/arm/Simulator-arm.cpp
+# Commit: 1ab8383d17ee
+# Full Hash: 1ab8383d17ee1e5db164339236d64bcb7168b225
+# Author: Lars T Hansen <lhansen@mozilla.com>
+# Date: 2021-10-18 16:09:29
+# Regressor Bug: 1727084
+# File Overlap Count: 1
+# Description:
+#   Bug 1727084 - Memory64 - Atomic-rmw baseline operations. r=yury
+#   
+#   Atomic ADD, SUB, AND, OR, XOR, XCHG, CMPXCHG, as well as WAIT and
+#   NOTIFY for the baseline compiler.
+#   
+# ==============================================================================
+
+diff -r 6089b4360edc -r 1ab8383d17ee js/src/jit/arm/Simulator-arm.cpp
+--- a/js/src/jit/arm/Simulator-arm.cpp	Mon Oct 18 07:31:55 2021 +0000
++++ b/js/src/jit/arm/Simulator-arm.cpp	Mon Oct 18 07:31:56 2021 +0000
+@@ -2396,8 +2396,13 @@
+ typedef int32_t (*Prototype_Int32_GeneralInt64Int32Int32Int32)(int32_t, int64_t,
+                                                                int32_t, int32_t,
+                                                                int32_t);
++typedef int32_t (*Prototype_Int32_GeneralInt64Int32)(int32_t, int64_t, int32_t);
++typedef int32_t (*Prototype_Int32_GeneralInt64Int32Int64)(int32_t, int64_t,
++                                                          int32_t, int64_t);
+ typedef int32_t (*Prototype_Int32_GeneralInt64Int32Int64General)(
+     int32_t, int64_t, int32_t, int64_t, int32_t);
++typedef int32_t (*Prototype_Int32_GeneralInt64Int64Int64)(int32_t, int64_t,
++                                                          int64_t, int64_t);
+ typedef int32_t (*Prototype_Int32_GeneralInt64Int64Int64General)(
+     int32_t, int64_t, int64_t, int64_t, int32_t);
+ typedef int32_t (*Prototype_General_GeneralInt32)(int32_t, int32_t);
+@@ -2952,6 +2957,24 @@
+           setCallResult(result);
+           break;
+         }
++        case Args_Int32_GeneralInt64Int32: {
++          Prototype_Int32_GeneralInt64Int32 target =
++              reinterpret_cast<Prototype_Int32_GeneralInt64Int32>(external);
++          int64_t result = target(arg0, MakeInt64(arg2, arg3), arg4);
++          scratchVolatileRegisters(/* scratchFloat = true */);
++          setCallResult(result);
++          break;
++        }
++        case Args_Int32_GeneralInt64Int32Int64: {
++          Prototype_Int32_GeneralInt64Int32Int64 target =
++              reinterpret_cast<Prototype_Int32_GeneralInt64Int32Int64>(
++                  external);
++          int64_t result =
++              target(arg0, MakeInt64(arg2, arg3), arg4, MakeInt64(arg6, arg7));
++          scratchVolatileRegisters(/* scratchFloat = true */);
++          setCallResult(result);
++          break;
++        }
+         case Args_Int32_GeneralInt64Int32Int64General: {
+           Prototype_Int32_GeneralInt64Int32Int64General target =
+               reinterpret_cast<Prototype_Int32_GeneralInt64Int32Int64General>(
+@@ -2962,6 +2985,16 @@
+           setCallResult(result);
+           break;
+         }
++        case Args_Int32_GeneralInt64Int64Int64: {
++          Prototype_Int32_GeneralInt64Int64Int64 target =
++              reinterpret_cast<Prototype_Int32_GeneralInt64Int64Int64>(
++                  external);
++          int64_t result = target(arg0, MakeInt64(arg2, arg3),
++                                  MakeInt64(arg4, arg5), MakeInt64(arg6, arg7));
++          scratchVolatileRegisters(/* scratchFloat = true */);
++          setCallResult(result);
++          break;
++        }
+         case Args_Int32_GeneralInt64Int64Int64General: {
+           Prototype_Int32_GeneralInt64Int64Int64General target =
+               reinterpret_cast<Prototype_Int32_GeneralInt64Int64Int64General>(

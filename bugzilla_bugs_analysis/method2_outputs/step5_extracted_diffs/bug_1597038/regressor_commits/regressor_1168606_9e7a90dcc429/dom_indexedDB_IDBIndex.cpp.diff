@@ -1,0 +1,95 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/IDBIndex.cpp
+# Commit: 9e7a90dcc429
+# Full Hash: 9e7a90dcc429194fbe08e63aeed311ce100114cc
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2019-10-02 03:38:52
+# Regressor Bug: 1168606
+# File Overlap Count: 1
+# Description:
+#   Bug 1168606 - Use const where easily possible. r=ttung,asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D43631
+# ==============================================================================
+
+diff -r e493a6b5f125 -r 9e7a90dcc429 dom/indexedDB/IDBIndex.cpp
+--- a/dom/indexedDB/IDBIndex.cpp	Tue Oct 01 08:56:37 2019 +0000
++++ b/dom/indexedDB/IDBIndex.cpp	Tue Oct 01 09:14:04 2019 +0000
+@@ -34,7 +34,7 @@
+   MOZ_ASSERT(aIndex);
+   aIndex->AssertIsOnOwningThread();
+ 
+-  IDBTransaction* transaction = aIndex->ObjectStore()->Transaction();
++  IDBTransaction* const transaction = aIndex->ObjectStore()->Transaction();
+ 
+   RefPtr<IDBRequest> request =
+       IDBRequest::Create(aCx, aIndex, transaction->Database(), transaction);
+@@ -138,7 +138,7 @@
+ void IDBIndex::SetName(const nsAString& aName, ErrorResult& aRv) {
+   AssertIsOnOwningThread();
+ 
+-  IDBTransaction* transaction = mObjectStore->Transaction();
++  IDBTransaction* const transaction = mObjectStore->Transaction();
+ 
+   if (transaction->GetMode() != IDBTransaction::VERSION_CHANGE ||
+       mDeletedMetadata) {
+@@ -372,13 +372,11 @@
+ 
+   const uint32_t limit = aLimit.WasPassed() ? aLimit.Value() : 0;
+ 
+-  RequestParams params;
+-  if (aKeysOnly) {
+-    params =
+-        IndexGetAllKeysParams(objectStoreId, indexId, optionalKeyRange, limit);
+-  } else {
+-    params = IndexGetAllParams(objectStoreId, indexId, optionalKeyRange, limit);
+-  }
++  const auto& params =
++      aKeysOnly ? RequestParams{IndexGetAllKeysParams(objectStoreId, indexId,
++                                                      optionalKeyRange, limit)}
++                : RequestParams{IndexGetAllParams(objectStoreId, indexId,
++                                                  optionalKeyRange, limit)};
+ 
+   RefPtr<IDBRequest> request = GenerateRequest(aCx, this);
+   MOZ_ASSERT(request);
+@@ -432,8 +430,8 @@
+     return nullptr;
+   }
+ 
+-  int64_t objectStoreId = mObjectStore->Id();
+-  int64_t indexId = Id();
++  const int64_t objectStoreId = mObjectStore->Id();
++  const int64_t indexId = Id();
+ 
+   Maybe<SerializedKeyRange> optionalKeyRange;
+ 
+@@ -444,7 +442,8 @@
+     optionalKeyRange.emplace(std::move(serializedKeyRange));
+   }
+ 
+-  IDBCursor::Direction direction = IDBCursor::ConvertDirection(aDirection);
++  const IDBCursor::Direction direction =
++      IDBCursor::ConvertDirection(aDirection);
+ 
+   const CommonIndexOpenCursorParams commonIndexParams = {
+       {objectStoreId, std::move(optionalKeyRange), direction}, indexId};
+@@ -478,7 +477,7 @@
+         IDB_LOG_STRINGIFY(direction));
+   }
+ 
+-  BackgroundCursorChild* actor =
++  BackgroundCursorChild* const actor =
+       new BackgroundCursorChild(request, this, direction);
+ 
+   mObjectStore->Transaction()->OpenCursor(actor, params);
+@@ -496,7 +495,7 @@
+     return nullptr;
+   }
+ 
+-  IDBTransaction* transaction = mObjectStore->Transaction();
++  IDBTransaction* const transaction = mObjectStore->Transaction();
+   if (!transaction->IsOpen()) {
+     aRv.Throw(NS_ERROR_DOM_INDEXEDDB_TRANSACTION_INACTIVE_ERR);
+     return nullptr;

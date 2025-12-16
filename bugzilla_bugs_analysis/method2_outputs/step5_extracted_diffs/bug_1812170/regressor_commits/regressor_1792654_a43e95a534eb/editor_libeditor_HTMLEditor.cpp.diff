@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/HTMLEditor.cpp
+# Commit: a43e95a534eb
+# Full Hash: a43e95a534eb5c13883cc2a61fb64c15fe29e674
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-10-05 03:40:21
+# Regressor Bug: 1792654
+# File Overlap Count: 1
+# Description:
+#   Bug 1792654 - Make `CreateNodeResultBase`, `MoveNodeResult`, `SplitNodeResult` and `SplitRangeOffResult` handle caret point with a common base class r=m_kato
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D158335
+# ==============================================================================
+
+diff -r 18196c5fab62 -r a43e95a534eb editor/libeditor/HTMLEditor.cpp
+--- a/editor/libeditor/HTMLEditor.cpp	Tue Oct 04 21:13:53 2022 +0000
++++ b/editor/libeditor/HTMLEditor.cpp	Tue Oct 04 21:36:57 2022 +0000
+@@ -4740,15 +4740,15 @@
+     return Err(rv);
+   }
+ 
+-  nsCOMPtr<nsIContent> newContent = transaction->GetNewContent();
+-  nsCOMPtr<nsIContent> splitContent = transaction->GetSplitContent();
++  nsIContent* newContent = transaction->GetNewContent();
++  nsIContent* splitContent = transaction->GetSplitContent();
+   if (NS_WARN_IF(!newContent) || NS_WARN_IF(!splitContent)) {
+     return Err(NS_ERROR_FAILURE);
+   }
+   TopLevelEditSubActionDataRef().DidSplitContent(
+       *this, *splitContent, *newContent, transaction->GetSplitNodeDirection());
+ 
+-  return SplitNodeResult(std::move(newContent), std::move(splitContent),
++  return SplitNodeResult(*newContent, *splitContent,
+                          transaction->GetSplitNodeDirection());
+ }
+ 

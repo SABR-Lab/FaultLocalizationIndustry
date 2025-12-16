@@ -1,0 +1,83 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/platforms/ffmpeg/FFmpegVideoDecoder.h
+# Commit: da012bb39f2b
+# Full Hash: da012bb39f2b20656b291d5641ea5a253cbab838
+# Author: Martin Stransky <stransky@redhat.com>
+# Date: 2020-03-02 21:27:32
+# Regressor Bug: 1616185
+# File Overlap Count: 1
+# Description:
+#   Bug 1616185 [Wayland] Implement VA-API decode in FFmpegVideoDecoder, r=jya
+#   
+#   Implement VA-API decoder on top of FFmpegDataDecoder.
+#   Implement VAAPIFrameHolder class to hold decoded h264 image which is used by GL backend,
+#   we need to keep reference to the frame as ffmpeg tends to re-use it for another video frames.
+# ==============================================================================
+
+diff -r f957ccd71655 -r da012bb39f2b dom/media/platforms/ffmpeg/FFmpegVideoDecoder.h
+--- a/dom/media/platforms/ffmpeg/FFmpegVideoDecoder.h	Wed Feb 26 20:32:13 2020 +0000
++++ b/dom/media/platforms/ffmpeg/FFmpegVideoDecoder.h	Mon Mar 02 13:15:12 2020 +0000
+@@ -13,6 +13,21 @@
+ 
+ namespace mozilla {
+ 
++#ifdef MOZ_WAYLAND_USE_VAAPI
++class VAAPIFrameHolder {
++ public:
++  VAAPIFrameHolder(FFmpegLibWrapper* aLib, AVBufferRef* aVAAPIDeviceContext,
++                   AVBufferRef* aAVHWFramesContext, AVBufferRef* aHWFrame);
++  ~VAAPIFrameHolder();
++
++ private:
++  FFmpegLibWrapper* mLib;
++  AVBufferRef* mVAAPIDeviceContext;
++  AVBufferRef* mAVHWFramesContext;
++  AVBufferRef* mHWFrame;
++};
++#endif
++
+ template <int V>
+ class FFmpegVideoDecoder : public FFmpegDataDecoder<V> {};
+ 
+@@ -52,6 +67,7 @@
+ 
+  private:
+   RefPtr<FlushPromise> ProcessFlush() override;
++  void ProcessShutdown() override;
+   MediaResult DoDecode(MediaRawData* aSample, uint8_t* aData, int aSize,
+                        bool* aGotFrame, DecodedData& aResults) override;
+   void OutputDelayedFrames();
+@@ -66,10 +82,21 @@
+         mCodecID == AV_CODEC_ID_VP8;
+ #endif
+   }
++  gfx::YUVColorSpace GetFrameColorSpace();
+ 
+   MediaResult CreateImage(int64_t aOffset, int64_t aPts, int64_t aDuration,
+                           MediaDataDecoder::DecodedData& aResults);
+ 
++#ifdef MOZ_WAYLAND_USE_VAAPI
++  MediaResult InitVAAPIDecoder();
++  bool CreateVAAPIDeviceContext();
++  void InitVAAPICodecContext();
++  AVCodec* FindVAAPICodec();
++
++  MediaResult CreateImageVAAPI(int64_t aOffset, int64_t aPts, int64_t aDuration,
++                               MediaDataDecoder::DecodedData& aResults);
++#endif
++
+   /**
+    * This method allocates a buffer for FFmpeg's decoder, wrapped in an Image.
+    * Currently it only supports Planar YUV420, which appears to be the only
+@@ -79,6 +106,9 @@
+   int AllocateYUV420PVideoBuffer(AVCodecContext* aCodecContext,
+                                  AVFrame* aFrame);
+ 
++#ifdef MOZ_WAYLAND_USE_VAAPI
++  AVBufferRef* mVAAPIDeviceContext;
++#endif
+   RefPtr<KnowsCompositor> mImageAllocator;
+   RefPtr<ImageContainer> mImageContainer;
+   VideoInfo mInfo;

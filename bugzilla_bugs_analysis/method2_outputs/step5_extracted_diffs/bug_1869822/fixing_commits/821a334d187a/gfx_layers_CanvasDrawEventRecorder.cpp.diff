@@ -1,0 +1,30 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/CanvasDrawEventRecorder.cpp
+# Commit: 821a334d187a
+# Full Hash: 821a334d187a52f9a17ca1f26c81b181fbe7c786
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2023-12-14 09:54:24
+# Description:
+#   Bug 1869822: Check that mCurrentBuffer is valid in CanvasDrawEventRecorder::GetContiguousBuffer. r=aosmond
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D196313
+# ==============================================================================
+
+diff -r dd02be27a3f8 -r 821a334d187a gfx/layers/CanvasDrawEventRecorder.cpp
+--- a/gfx/layers/CanvasDrawEventRecorder.cpp	Wed Dec 13 17:36:35 2023 +0000
++++ b/gfx/layers/CanvasDrawEventRecorder.cpp	Wed Dec 13 17:47:58 2023 +0000
+@@ -155,6 +155,12 @@
+ 
+ gfx::ContiguousBuffer& CanvasDrawEventRecorder::GetContiguousBuffer(
+     size_t aSize) {
++  if (!mCurrentBuffer.IsValid()) {
++    // If the current buffer is invalid then we've already failed previously.
++    MOZ_ASSERT(mHeader->writerState == State::Failed);
++    return mCurrentBuffer;
++  }
++
+   // We make sure that our buffer can hold aSize + 1 to ensure we always have
+   // room for the end of buffer event.
+ 

@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/html/HTMLFormControlAccessible.cpp
+# Commit: c6db418af190
+# Full Hash: c6db418af19097f562d94b87bbf25362556b2fbc
+# Author: Morgan Rae Reschenberg <mreschenberg@mozilla.com>
+# Date: 2022-10-21 08:39:18
+# Regressor Bug: 1787284
+# File Overlap Count: 1
+# Description:
+#   Bug 1787284: [Part 2] Cache name and create radio name pivot rule r=eeejay
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D159118
+# ==============================================================================
+
+diff -r fda6706bb580 -r c6db418af190 accessible/html/HTMLFormControlAccessible.cpp
+--- a/accessible/html/HTMLFormControlAccessible.cpp	Thu Oct 20 21:40:05 2022 +0000
++++ b/accessible/html/HTMLFormControlAccessible.cpp	Thu Oct 20 21:40:06 2022 +0000
+@@ -5,6 +5,7 @@
+ 
+ #include "HTMLFormControlAccessible.h"
+ 
++#include "CacheConstants.h"
+ #include "DocAccessible-inl.h"
+ #include "LocalAccessible-inl.h"
+ #include "nsAccUtils.h"
+@@ -90,6 +91,16 @@
+   Unused << ComputeGroupAttributes(aPosInSet, aSetSize);
+ }
+ 
++void HTMLRadioButtonAccessible::DOMAttributeChanged(
++    int32_t aNameSpaceID, nsAtom* aAttribute, int32_t aModType,
++    const nsAttrValue* aOldValue, uint64_t aOldState) {
++  if (aAttribute == nsGkAtoms::name) {
++    // If our name changed, it's possible our MEMBER_OF relation
++    // also changed. Push a cache update for Relations.
++    mDoc->QueueCacheUpdate(this, CacheDomain::Relations);
++  }
++}
++
+ Relation HTMLRadioButtonAccessible::ComputeGroupAttributes(
+     int32_t* aPosInSet, int32_t* aSetSize) const {
+   Relation rel = Relation();

@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/JSJitFrameIter.h
+# Commit: 6eb32b942a04
+# Full Hash: 6eb32b942a0497103ec39cf48708e0948c2d5565
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2024-07-29 20:43:57
+# Regressor Bug: 1909224
+# File Overlap Count: 5
+# Description:
+#   Bug 1909224 part 2 - Unify Wasm and JS exception handling code more. r=rhunt
+#   
+#   If there's no JS or Wasm catch handler on the stack, this patch lets us unwind
+#   all the way to the entry frame in all cases, instead of returning to the JIT entry
+#   stub and then calling the JS JIT exception handler from there.
+# ==============================================================================
+
+diff -r d8768f163b46 -r 6eb32b942a04 js/src/jit/JSJitFrameIter.h
+--- a/js/src/jit/JSJitFrameIter.h	Mon Jul 29 13:14:47 2024 +0000
++++ b/js/src/jit/JSJitFrameIter.h	Mon Jul 29 13:14:47 2024 +0000
+@@ -134,7 +134,7 @@
+   // A constructor specialized for jit->wasm frames, which starts at a
+   // specific FP.
+   JSJitFrameIter(const JitActivation* activation, FrameType frameType,
+-                 uint8_t* fp);
++                 uint8_t* fp, bool unwinding);
+ 
+   void setResumePCInCurrentFrame(uint8_t* newAddr) {
+     resumePCinCurrentFrame_ = newAddr;

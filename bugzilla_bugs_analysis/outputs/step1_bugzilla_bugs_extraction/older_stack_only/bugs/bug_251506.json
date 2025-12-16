@@ -1,0 +1,333 @@
+{
+  "bug_id": "251506",
+  "summary": "Browser crashes when using \"Sort Bookmarks 0.51\" extension with \"Add Bookmark Here 0.5\" extension installed [@ nsXULContentBuilder::RemoveGeneratedContent ]",
+  "status": "RESOLVED",
+  "resolution": "FIXED",
+  "product": "Firefox",
+  "component": "Bookmarks & History",
+  "version": "unspecified",
+  "severity": "critical",
+  "priority": "P3",
+  "creation_time": "2004-07-15T05:12:16Z",
+  "last_change_time": "2011-06-13T17:01:43Z",
+  "is_recent": false,
+  "crash_signature_raw": "[@ nsXULContentBuilder::RemoveGeneratedContent ]",
+  "crash_signatures": [
+    "nsXULContentBuilder::RemoveGeneratedContent"
+  ],
+  "keywords": [
+    "crash",
+    "fixed-aviary1.0",
+    "topcrash"
+  ],
+  "regressed_by": [],
+  "regressions": [],
+  "bugzilla_url": "https://bugzilla.mozilla.org/show_bug.cgi?id=251506",
+  "socorro_links": [],
+  "socorro_crash_ids": [],
+  "has_socorro_link": false,
+  "has_direct_crash_id": false,
+  "stack_traces": [
+    {
+      "comment_id": 2222659,
+      "comment_count": 8,
+      "creator": "vladimir@pobox.com",
+      "creation_time": "2004-08-02T21:17:26Z",
+      "raw_text": "I didn't, but I'm tackling this now.  The crash is being caused by the sort\nbookmarks extension doing something that gets the template builder very\nconfused, but only if the add bookmarks extension is installed -- I'm working on\nfiguring out what add bm here is doing.  For reference, here's my stack trace\n(the js_Invoke in frame #17 or so is in the sort-bookmarks function that does\nthe sorting).\n\n#3  0x08070e92 in ah_crap_handler (signum=11) at nsSigHandlers.cpp:135\n#4  0x08071ba9 in nsProfileLock::FatalSignalHandler (signo=11)\n    at nsProfileLock.cpp:209\n#5  <signal handler called>\n#6  0x01793f76 in nsXULContentBuilder::RemoveGeneratedContent (this=0x8e9a130, \n    aElement=0x8ed0c08)\n    at ../../../../../mozilla/content/xul/templates/src/nsXULContentBuilder.cpp:\n                                                                               \n              1395\n#7  0x01795ce5 in nsXULContentBuilder::RebuildAll (this=0x8e9a130)\n    at ../../../../../mozilla/content/xul/templates/src/nsXULContentBuilder.cpp:\n                                                                               \n              1942\n#8  0x017aa3cf in nsXULTemplateBuilder::Rebuild (this=0x8e9a130)\n    at ../../../../../mozilla/content/xul/templates/src/nsXULTemplateBuilder.cpp\n                                                                               \n              :238\n#9  0x017ab552 in nsXULTemplateBuilder::OnEndUpdateBatch (this=0x8e9a130, \n    aDataSource=0x8e9c210)\n    at ../../../../../mozilla/content/xul/templates/src/nsXULTemplateBuilder.cpp\n                                                                               \n              :645\n#10 0x043f34f4 in CompositeDataSourceImpl::OnEndUpdateBatch (this=0x8e9c210, \n    aDataSource=0x8e89d1c)\n    at ../../../../mozilla/rdf/base/src/nsCompositeDataSource.cpp:1562\n#11 0x0299193e in nsBookmarksService::OnEndUpdateBatch (this=0x8e89d18, \n    aDataSource=0x8ea0ef8)\n    at ../../../../../mozilla/browser/components/bookmarks/src/nsBookmarksServic\n                                                                               \n              e.cpp:5456\n#12 0x043fbdec in InMemoryDataSource::EndUpdateBatch (this=0x8ea0ef8)\n    at ../../../../mozilla/rdf/base/src/nsInMemoryDataSource.cpp:1884\n#13 0x0299c8ee in nsBookmarksService::EndUpdateBatch (this=0x8e89d18)\n    at nsBookmarksService.h:293\n#14 0x00225339 in XPTC_InvokeByIndex ()\n    at ../../../../../../../mozilla/xpcom/reflect/xptcall/src/md/unix/xptcinvoke\n                                                                               \n              _gcc_x86_unix.cpp:69\n#15 0x04efa92b in XPCWrappedNative::CallMethod (ccx=@0xfef97dd0, \n    mode=CALL_METHOD)\n    at ../../../../../mozilla/js/src/xpconnect/src/xpcwrappednative.cpp:2027\n#16 0x04f04aab in XPC_WN_CallMethod (cx=0x8cf1608, obj=0x9070368, argc=0, \n    argv=0x917f95c, vp=0xfef97f80)\n    at ../../../../../mozilla/js/src/xpconnect/src/xpcwrappednativejsops.cpp:128\n                                                                               \n              7\n#17 0x00ca0f19 in js_Invoke (cx=0x8cf1608, argc=0, flags=0)\n    at ../../../mozilla/js/src/jsinterp.c:941\n#18 0x00caf15d in js_Interpret (cx=0x8cf1608, result=0xfef9853c)\n    at ../../../mozilla/js/src/jsinterp.c:2972\n#19 0x00ca0f93 in js_Invoke (cx=0x8cf1608, argc=1, flags=2)\n    at ../../../mozilla/js/src/jsinterp.c:958\n#20 0x00ca1309 in js_InternalInvoke (cx=0x8cf1608, obj=0x910e088, \n    fval=152102072, flags=0, argc=1, argv=0xfef988d8, rval=0xfef98784)\n    at ../../../mozilla/js/src/jsinterp.c:1035\n#21 0x00c7074c in JS_CallFunctionValue (cx=0x8cf1608, obj=0x910e088, \n    fval=152102072, argc=1, argv=0xfef988d8, rval=0xfef98784)\n    at ../../../mozilla/js/src/jsapi.c:3673\n#22 0x016e51ff in nsJSContext::CallEventHandler (this=0x8cf6748, \n    aTarget=0x910e088, aHandler=0x910e4b8, argc=1, argv=0xfef988d8, \n    rval=0xfef98784)\n    at ../../../../mozilla/dom/src/base/nsJSEnvironment.cpp:1296\n#23 0x017401a8 in nsJSEventListener::HandleEvent (this=0x9224f88, \n    aEvent=0x90e7070)\n    at ../../../../mozilla/dom/src/events/nsJSEventListener.cpp:174\n#24 0x0151de05 in nsEventListenerManager::HandleEventSubType (this=0x9225070, \n    aListenerStruct=0x92250d8, aDOMEvent=0x90e7070, aCurrentTarget=0x90e70d0, \n    aSubType=8, aPhaseFlags=7)\n    at ../../../../mozilla/content/events/src/nsEventListenerManager.cpp:1434\n#25 0x0151e189 in nsEventListenerManager::HandleEvent (this=0x9225070, \n    aPresContext=0x8ce2dc8, aEvent=0xfef98e90, aDOMEvent=0xfef98dcc, \n    aCurrentTarget=0x90e70d0, aFlags=7, aEventStatus=0xfef98e7c)\n    at ../../../../mozilla/content/events/src/nsEventListenerManager.cpp:1525\n#26 0x01770e49 in nsXULElement::HandleDOMEvent (this=0x9224eb8, \n    aPresContext=0x8ce2dc8, aEvent=0xfef98e90, aDOMEvent=0xfef98dcc, aFlags=7, \n    aEventStatus=0xfef98e7c)\n    at ../../../../../mozilla/content/xul/content/src/nsXULElement.cpp:2840\n#27 0x012eb076 in PresShell::HandleDOMEventWithTarget (this=0x8c64628, \n    aTargetContent=0x9224eb8, aEvent=0xfef98e90, aStatus=0xfef98e7c)\n    at ../../../../../mozilla/layout/html/base/src/nsPresShell.cpp:6082\n#28 0x013f77d9 in nsMenuFrame::Execute (this=0x8d7b724, aEvent=0xfef993f0)\n    at ../../../../../mozilla/layout/xul/base/src/nsMenuFrame.cpp:1670\n#29 0x013f3061 in nsMenuFrame::HandleEvent (this=0x8d7b724, \n    aPresContext=0x8ce2dc8, aEvent=0xfef993f0, aEventStatus=0xfef99288)\n    at ../../../../../mozilla/layout/xul/base/src/nsMenuFrame.cpp:455\n#30 0x012eaf1a in PresShell::HandleEventInternal (this=0x8c64628, \n    aEvent=0xfef993f0, aView=0x916c278, aFlags=1, aStatus=0xfef99288)\n    at ../../../../../mozilla/layout/html/base/src/nsPresShell.cpp:6049\n#31 0x012ea71f in PresShell::HandleEvent (this=0x8c64628, aView=0x916c278, \n    aEvent=0xfef993f0, aEventStatus=0xfef99288, aForceHandle=0, \n    aHandled=@0xfef99218)\n    at ../../../../../mozilla/layout/html/base/src/nsPresShell.cpp:5898\n#32 0x016d8f0d in nsViewManager::HandleEvent (this=0x8c63f78, aView=0x9179878, \n    aEvent=0xfef993f0, aCaptured=0)\n    at ../../../mozilla/view/src/nsViewManager.cpp:2283\n#33 0x016d84a8 in nsViewManager::DispatchEvent (this=0x8c63f78, \n    aEvent=0xfef993f0, aStatus=0xfef993a0)\n    at ../../../mozilla/view/src/nsViewManager.cpp:2025\n#34 0x016cdae0 in HandleEvent (aEvent=0xfef993f0)\n    at ../../../mozilla/view/src/nsView.cpp:76\n#35 0x04d8f243 in nsCommonWidget::DispatchEvent (this=0x91798f8, \n    aEvent=0xfef993f0, aStatus=@0xfef993ec)\n    at ../../../../mozilla/widget/src/gtk2/nsCommonWidget.cpp:215\n#36 0x04d80a09 in nsWindow::OnButtonReleaseEvent (this=0x91798f8, \n    aWidget=0x91707f8, aEvent=0x8d0ea18)\n    at ../../../../mozilla/widget/src/gtk2/nsWindow.cpp:1449\n#37 0x04d84fbb in button_release_event_cb (widget=0x91707f8, event=0x8d0ea18)\n    at ../../../../mozilla/widget/src/gtk2/nsWindow.cpp:3274\n...\n\n",
+      "matched_patterns": [
+        "#\\d+\\s+0x[0-9a-fA-F]+\\s+in\\s+\\S+",
+        "^\\s*\\d+\\s+\\S+\\s+0x[0-9a-fA-F]+",
+        "ns[A-Z]\\w+::\\w+",
+        "\\bat\\s+\\S+\\.(cpp|c|h|cc|js|jsm|rs|cxx):\\d+",
+        "(?i)(crash|stack)\\s*(trace|dump|report)",
+        "frame\\s+#\\d+"
+      ],
+      "parsed_frames": [
+        {
+          "frame_index": 3,
+          "function": "ah_crap_handler",
+          "file": "nsSigHandlers.cpp",
+          "line": 135,
+          "module": "",
+          "raw": "#3  0x08070e92 in ah_crap_handler (signum=11) at nsSigHandlers.cpp:135"
+        },
+        {
+          "frame_index": 4,
+          "function": "nsProfileLock::FatalSignalHandler",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#4  0x08071ba9 in nsProfileLock::FatalSignalHandler (signo=11)"
+        },
+        {
+          "frame_index": 5,
+          "function": "<signal",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#5  <signal handler called>"
+        },
+        {
+          "frame_index": 6,
+          "function": "nsXULContentBuilder::RemoveGeneratedContent",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#6  0x01793f76 in nsXULContentBuilder::RemoveGeneratedContent (this=0x8e9a130,"
+        },
+        {
+          "frame_index": 7,
+          "function": "nsXULContentBuilder::RebuildAll",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#7  0x01795ce5 in nsXULContentBuilder::RebuildAll (this=0x8e9a130)"
+        },
+        {
+          "frame_index": 8,
+          "function": "nsXULTemplateBuilder::Rebuild",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#8  0x017aa3cf in nsXULTemplateBuilder::Rebuild (this=0x8e9a130)"
+        },
+        {
+          "frame_index": 9,
+          "function": "nsXULTemplateBuilder::OnEndUpdateBatch",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#9  0x017ab552 in nsXULTemplateBuilder::OnEndUpdateBatch (this=0x8e9a130,"
+        },
+        {
+          "frame_index": 10,
+          "function": "CompositeDataSourceImpl::OnEndUpdateBatch",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#10 0x043f34f4 in CompositeDataSourceImpl::OnEndUpdateBatch (this=0x8e9c210,"
+        },
+        {
+          "frame_index": 11,
+          "function": "nsBookmarksService::OnEndUpdateBatch",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#11 0x0299193e in nsBookmarksService::OnEndUpdateBatch (this=0x8e89d18,"
+        },
+        {
+          "frame_index": 12,
+          "function": "InMemoryDataSource::EndUpdateBatch",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#12 0x043fbdec in InMemoryDataSource::EndUpdateBatch (this=0x8ea0ef8)"
+        },
+        {
+          "frame_index": 13,
+          "function": "nsBookmarksService::EndUpdateBatch",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#13 0x0299c8ee in nsBookmarksService::EndUpdateBatch (this=0x8e89d18)"
+        },
+        {
+          "frame_index": 14,
+          "function": "XPTC_InvokeByIndex",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#14 0x00225339 in XPTC_InvokeByIndex ()"
+        },
+        {
+          "frame_index": 15,
+          "function": "XPCWrappedNative::CallMethod",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#15 0x04efa92b in XPCWrappedNative::CallMethod (ccx=@0xfef97dd0,"
+        },
+        {
+          "frame_index": 16,
+          "function": "XPC_WN_CallMethod",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#16 0x04f04aab in XPC_WN_CallMethod (cx=0x8cf1608, obj=0x9070368, argc=0,"
+        },
+        {
+          "frame_index": 17,
+          "function": "js_Invoke",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#17 0x00ca0f19 in js_Invoke (cx=0x8cf1608, argc=0, flags=0)"
+        },
+        {
+          "frame_index": 18,
+          "function": "js_Interpret",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#18 0x00caf15d in js_Interpret (cx=0x8cf1608, result=0xfef9853c)"
+        },
+        {
+          "frame_index": 19,
+          "function": "js_Invoke",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#19 0x00ca0f93 in js_Invoke (cx=0x8cf1608, argc=1, flags=2)"
+        },
+        {
+          "frame_index": 20,
+          "function": "js_InternalInvoke",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#20 0x00ca1309 in js_InternalInvoke (cx=0x8cf1608, obj=0x910e088,"
+        },
+        {
+          "frame_index": 21,
+          "function": "JS_CallFunctionValue",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#21 0x00c7074c in JS_CallFunctionValue (cx=0x8cf1608, obj=0x910e088,"
+        },
+        {
+          "frame_index": 22,
+          "function": "nsJSContext::CallEventHandler",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#22 0x016e51ff in nsJSContext::CallEventHandler (this=0x8cf6748,"
+        },
+        {
+          "frame_index": 23,
+          "function": "nsJSEventListener::HandleEvent",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#23 0x017401a8 in nsJSEventListener::HandleEvent (this=0x9224f88,"
+        },
+        {
+          "frame_index": 24,
+          "function": "nsEventListenerManager::HandleEventSubType",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#24 0x0151de05 in nsEventListenerManager::HandleEventSubType (this=0x9225070,"
+        },
+        {
+          "frame_index": 25,
+          "function": "nsEventListenerManager::HandleEvent",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#25 0x0151e189 in nsEventListenerManager::HandleEvent (this=0x9225070,"
+        },
+        {
+          "frame_index": 26,
+          "function": "nsXULElement::HandleDOMEvent",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#26 0x01770e49 in nsXULElement::HandleDOMEvent (this=0x9224eb8,"
+        },
+        {
+          "frame_index": 27,
+          "function": "PresShell::HandleDOMEventWithTarget",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#27 0x012eb076 in PresShell::HandleDOMEventWithTarget (this=0x8c64628,"
+        },
+        {
+          "frame_index": 28,
+          "function": "nsMenuFrame::Execute",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#28 0x013f77d9 in nsMenuFrame::Execute (this=0x8d7b724, aEvent=0xfef993f0)"
+        },
+        {
+          "frame_index": 29,
+          "function": "nsMenuFrame::HandleEvent",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#29 0x013f3061 in nsMenuFrame::HandleEvent (this=0x8d7b724,"
+        },
+        {
+          "frame_index": 30,
+          "function": "PresShell::HandleEventInternal",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#30 0x012eaf1a in PresShell::HandleEventInternal (this=0x8c64628,"
+        },
+        {
+          "frame_index": 31,
+          "function": "PresShell::HandleEvent",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#31 0x012ea71f in PresShell::HandleEvent (this=0x8c64628, aView=0x916c278,"
+        },
+        {
+          "frame_index": 32,
+          "function": "nsViewManager::HandleEvent",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#32 0x016d8f0d in nsViewManager::HandleEvent (this=0x8c63f78, aView=0x9179878,"
+        },
+        {
+          "frame_index": 33,
+          "function": "nsViewManager::DispatchEvent",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#33 0x016d84a8 in nsViewManager::DispatchEvent (this=0x8c63f78,"
+        },
+        {
+          "frame_index": 34,
+          "function": "HandleEvent",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#34 0x016cdae0 in HandleEvent (aEvent=0xfef993f0)"
+        },
+        {
+          "frame_index": 35,
+          "function": "nsCommonWidget::DispatchEvent",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#35 0x04d8f243 in nsCommonWidget::DispatchEvent (this=0x91798f8,"
+        },
+        {
+          "frame_index": 36,
+          "function": "nsWindow::OnButtonReleaseEvent",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#36 0x04d80a09 in nsWindow::OnButtonReleaseEvent (this=0x91798f8,"
+        },
+        {
+          "frame_index": 37,
+          "function": "button_release_event_cb",
+          "file": "",
+          "line": null,
+          "module": "",
+          "raw": "#37 0x04d84fbb in button_release_event_cb (widget=0x91707f8, event=0x8d0ea18)"
+        }
+      ],
+      "frame_count": 35
+    }
+  ],
+  "has_stack_traces": true,
+  "stack_trace_count": 1,
+  "total_parsed_frames": 35
+}

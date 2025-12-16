@@ -1,0 +1,41 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: layout/base/nsRefreshDriver.cpp
+# Commit: c8d0aad45ebc
+# Full Hash: c8d0aad45ebcb3f94e4d7aea32367c29627ba3cd
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-10-06 09:21:33
+# Description:
+#   Bug 1857115 - Add a couple null-checks. r=surkov
+#   
+#   Resize observers might have disconnected the refresh driver.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D190165
+# ==============================================================================
+
+diff -r def7651a06fb -r c8d0aad45ebc layout/base/nsRefreshDriver.cpp
+--- a/layout/base/nsRefreshDriver.cpp	Thu Oct 05 20:16:02 2023 +0300
++++ b/layout/base/nsRefreshDriver.cpp	Thu Oct 05 17:14:07 2023 +0000
+@@ -2209,6 +2209,10 @@
+ void nsRefreshDriver::UpdateIntersectionObservations(TimeStamp aNowTime) {
+   AUTO_PROFILER_LABEL_RELEVANT_FOR_JS("Compute intersections", LAYOUT);
+ 
++  if (MOZ_UNLIKELY(!mPresContext)) {
++    return;
++  }
++
+   AutoTArray<RefPtr<Document>, 32> documents;
+ 
+   if (mPresContext->Document()->HasIntersectionObservers()) {
+@@ -2255,6 +2259,10 @@
+   // NotifyResizeObservers might re-schedule us for next tick.
+   mNeedToUpdateResizeObservers = false;
+ 
++  if (MOZ_UNLIKELY(!mPresContext)) {
++    return;
++  }
++
+   AutoTArray<RefPtr<Document>, 32> documents;
+   if (mPresContext->Document()->HasResizeObservers()) {
+     documents.AppendElement(mPresContext->Document());

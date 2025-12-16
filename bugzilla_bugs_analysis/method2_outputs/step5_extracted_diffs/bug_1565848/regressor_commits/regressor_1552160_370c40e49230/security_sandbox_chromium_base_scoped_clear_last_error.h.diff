@@ -1,0 +1,80 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/base/scoped_clear_last_error.h
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 3
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/base/scoped_clear_last_error.h
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/security/sandbox/chromium/base/scoped_clear_last_error.h	Wed Jun 12 11:10:48 2019 +0100
+@@ -0,0 +1,58 @@
++// Copyright (c) 2018 The Chromium Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef BASE_SCOPED_CLEAR_LAST_ERROR_H_
++#define BASE_SCOPED_CLEAR_LAST_ERROR_H_
++
++#include <errno.h>
++
++#include "base/base_export.h"
++#include "base/macros.h"
++#include "build/build_config.h"
++
++namespace base {
++namespace internal {
++
++// ScopedClearLastError stores and resets the value of thread local error codes
++// (errno, GetLastError()), and restores them in the destructor. This is useful
++// to avoid side effects on these values in instrumentation functions that
++// interact with the OS.
++
++// Common implementation of ScopedClearLastError for all platforms. Use
++// ScopedClearLastError instead.
++class BASE_EXPORT ScopedClearLastErrorBase {
++ public:
++  ScopedClearLastErrorBase() : last_errno_(errno) { errno = 0; }
++  ~ScopedClearLastErrorBase() { errno = last_errno_; }
++
++ private:
++  const int last_errno_;
++
++  DISALLOW_COPY_AND_ASSIGN(ScopedClearLastErrorBase);
++};
++
++#if defined(OS_WIN)
++
++// Windows specific implementation of ScopedClearLastError.
++class BASE_EXPORT ScopedClearLastError : public ScopedClearLastErrorBase {
++ public:
++  ScopedClearLastError();
++  ~ScopedClearLastError();
++
++ private:
++  unsigned int last_system_error_;
++
++  DISALLOW_COPY_AND_ASSIGN(ScopedClearLastError);
++};
++
++#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
++
++using ScopedClearLastError = ScopedClearLastErrorBase;
++
++#endif  // defined(OS_WIN)
++
++}  // namespace internal
++}  // namespace base
++
++#endif  // BASE_SCOPED_CLEAR_LAST_ERROR_H_

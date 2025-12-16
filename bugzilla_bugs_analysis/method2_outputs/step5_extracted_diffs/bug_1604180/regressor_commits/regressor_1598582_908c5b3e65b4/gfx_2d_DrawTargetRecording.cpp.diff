@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/2d/DrawTargetRecording.cpp
+# Commit: 908c5b3e65b4
+# Full Hash: 908c5b3e65b491cfcd71acedc853f989191a3e22
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-12-09 21:50:19
+# Regressor Bug: 1598582
+# File Overlap Count: 1
+# Description:
+#   Bug 1598582 Part 2: Add event to record OptimizeSourceSurface. r=jrmuizel
+#   
+#   This also optimizes the surface returned by CreateSourceSurfaceFromData to
+#   match what would happen in the non-recorded case. This means that all surfaces
+#   of type RECORDING are optimized, i.e. they represent a surface type that
+# ==============================================================================
+
+diff -r 593bc922d369 -r 908c5b3e65b4 gfx/2d/DrawTargetRecording.cpp
+--- a/gfx/2d/DrawTargetRecording.cpp	Thu Dec 05 15:07:06 2019 +0000
++++ b/gfx/2d/DrawTargetRecording.cpp	Fri Nov 29 21:59:11 2019 +0000
+@@ -503,13 +503,25 @@
+                                                  SurfaceFormat aFormat) const {
+   RefPtr<SourceSurface> surf = DataSourceSurfaceRecording::Init(
+       aData, aSize, aStride, aFormat, mRecorder);
++  mRecorder->RecordEvent(RecordedOptimizeSourceSurface(surf, this, surf));
+   return surf.forget();
+ }
+ 
+ already_AddRefed<SourceSurface> DrawTargetRecording::OptimizeSourceSurface(
+     SourceSurface* aSurface) const {
+-  RefPtr<SourceSurface> surf(aSurface);
+-  return surf.forget();
++  if (aSurface->GetType() == SurfaceType::RECORDING) {
++    return do_AddRef(aSurface);
++  }
++
++  EnsureSurfaceStoredRecording(mRecorder, aSurface, "OptimizeSourceSurface");
++
++  RefPtr<SourceSurface> retSurf = new SourceSurfaceRecording(
++      aSurface->GetSize(), aSurface->GetFormat(), mRecorder);
++
++  mRecorder->RecordEvent(
++      RecordedOptimizeSourceSurface(aSurface, this, retSurf));
++
++  return retSurf.forget();
+ }
+ 
+ already_AddRefed<SourceSurface>

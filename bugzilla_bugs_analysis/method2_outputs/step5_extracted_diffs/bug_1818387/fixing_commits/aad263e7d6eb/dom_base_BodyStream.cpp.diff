@@ -1,0 +1,40 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/base/BodyStream.cpp
+# Commit: aad263e7d6eb
+# Full Hash: aad263e7d6eb4d8a42a82585382e20ed509e1e2c
+# Author: Kagami Sascha Rosylight <krosylight@mozilla.com>
+# Date: 2023-02-28 08:53:39
+# Description:
+#   Bug 1818387 - Check mPullPromise again in BodyStream::OnInputStreamReady r=smaug
+#   
+#   Calling a MOZ_CAN_RUN_SCRIPT function (ReadableStream::EnqueueNative() here) can be very surprising given we have nsAutoMicroTask in the scope. Check if mPullPromise exists before accessing it.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D170867
+# ==============================================================================
+
+diff -r 92e31c773138 -r aad263e7d6eb dom/base/BodyStream.cpp
+--- a/dom/base/BodyStream.cpp	Mon Feb 27 18:01:10 2023 +0000
++++ b/dom/base/BodyStream.cpp	Mon Feb 27 18:33:16 2023 +0000
+@@ -471,12 +471,15 @@
+     return NS_OK;
+   }
+ 
+-  mPullPromise->MaybeResolveWithUndefined();
+-  mPullPromise = nullptr;
+-
+   // The previous call can execute JS (even up to running a nested event
+-  // loop), so |mState| can't be asserted to have any particular value, even
+-  // if the previous call succeeds.
++  // loop, including calling this OnInputStreamReady again before it ends, see
++  // the above nsAutoMicroTask), so |mPullPromise| can't be asserted to have any
++  // particular value, even if the previous call succeeds.
++  MOZ_ASSERT_IF(!mPullPromise, IsClosed());
++  if (mPullPromise) {
++    mPullPromise->MaybeResolveWithUndefined();
++    mPullPromise = nullptr;
++  }
+ 
+   return NS_OK;
+ }

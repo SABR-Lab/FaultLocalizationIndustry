@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/QueueParamTraits.h
+# Commit: 3d201ea88341
+# Full Hash: 3d201ea8834161911890a06bae578b64d18eefa9
+# Author: Kelsey Gilbert <jgilbert@mozilla.com>
+# Date: 2021-12-15 09:11:58
+# Regressor Bug: 1746111
+# File Overlap Count: 1
+# Description:
+#   Bug 1746111 - (Re)serialize WebRTC frame SurfaceDescriptorBuffers for convert-and-upload on WebGLParent. r=gfx-reviewers,nika,lsalzman
+#   
+#   Also generally de-inline (WebGLParent::TexImage not DispatchCommand)
+#   TexImage(SurfaceDescriptor).
+#   
+# ==============================================================================
+
+diff -r a87211c8eedd -r 3d201ea88341 dom/canvas/QueueParamTraits.h
+--- a/dom/canvas/QueueParamTraits.h	Wed Dec 15 01:49:11 2021 +0000
++++ b/dom/canvas/QueueParamTraits.h	Wed Dec 15 01:54:21 2021 +0000
+@@ -295,11 +295,12 @@
+   template <typename U>
+   static bool Write(ProducerView<U>& view, const ParamType& in) {
+     MOZ_RELEASE_ASSERT(!in.image);
++    MOZ_RELEASE_ASSERT(!in.sd);
+     const bool isDataSurf = bool(in.dataSurf);
+     if (!view.WriteParam(in.imageTarget) || !view.WriteParam(in.size) ||
+         !view.WriteParam(in.srcAlphaType) || !view.WriteParam(in.unpacking) ||
+         !view.WriteParam(in.cpuData) || !view.WriteParam(in.pboOffset) ||
+-        !view.WriteParam(in.imageSize) || !view.WriteParam(in.sd) ||
++        !view.WriteParam(in.imageSize) ||
+         !view.WriteParam(in.applyUnpackTransforms) ||
+         !view.WriteParam(isDataSurf)) {
+       return false;
+@@ -334,7 +335,6 @@
+         !view.ReadParam(&out->srcAlphaType) ||
+         !view.ReadParam(&out->unpacking) || !view.ReadParam(&out->cpuData) ||
+         !view.ReadParam(&out->pboOffset) || !view.ReadParam(&out->imageSize) ||
+-        !view.ReadParam(&out->sd) ||
+         !view.ReadParam(&out->applyUnpackTransforms) ||
+         !view.ReadParam(&isDataSurf)) {
+       return false;

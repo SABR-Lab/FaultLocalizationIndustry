@@ -1,0 +1,95 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/gtest/TestWebrtcTaskQueueWrapper.cpp
+# Commit: 33ae2aabdf22
+# Full Hash: 33ae2aabdf225a72dfceb09424e4e43ae9430e69
+# Author: Atila Butkovits <abutkovits@mozilla.com>
+# Date: 2025-06-12 16:31:09
+# Regressor Bug: 1968812
+# File Overlap Count: 1
+# Description:
+#   Revert "Bug 1968812 - Remove the CallWorker thread and use TaskQueue::Observer instead. r=bwc" for causing failures complaining about mutexLock.
+#   
+#   This reverts commit d53f26b530b4ad59aebe314c55a8af2c62a80fc3.
+#   
+#   Revert "Bug 1968812 - Copy WebrtcTaskQueueWrapper.h to WebrtcTaskQueueWrapper.cpp. r=bwc"
+# ==============================================================================
+
+diff -r ca232b0163c7 -r 33ae2aabdf22 dom/media/gtest/TestWebrtcTaskQueueWrapper.cpp
+--- a/dom/media/gtest/TestWebrtcTaskQueueWrapper.cpp	Wed Jun 11 22:34:11 2025 +0300
++++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
+@@ -1,73 +0,0 @@
+-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+-/* vim: set ts=2 et sw=2 tw=80: */
+-/* This Source Code Form is subject to the terms of the Mozilla Public
+- * License, v. 2.0. If a copy of the MPL was not distributed with this
+- * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+-
+-#include "WebrtcTaskQueueWrapper.h"
+-
+-#include "gmock/gmock.h"
+-#include "gtest/gtest.h"
+-#include "mozilla/TaskQueue.h"
+-#include "nsThreadUtils.h"
+-
+-using testing::InSequence;
+-using testing::MockFunction;
+-
+-namespace mozilla {
+-
+-RefPtr<TaskQueue> MakeTestWebrtcTaskQueueWrapper() {
+-  return CreateWebrtcTaskQueueWrapper(do_AddRef(GetCurrentSerialEventTarget()),
+-                                      "TestWebrtcTaskQueueWrapper"_ns, true);
+-}
+-
+-TEST(TestWebrtcTaskQueueWrapper, TestCurrent)
+-{
+-  auto wt = MakeTestWebrtcTaskQueueWrapper();
+-
+-  MockFunction<void(int)> checkpoint;
+-  {
+-    InSequence s;
+-    EXPECT_CALL(checkpoint, Call(1));
+-    EXPECT_CALL(checkpoint, Call(2));
+-  }
+-
+-  EXPECT_TRUE(NS_SUCCEEDED(wt->Dispatch(NS_NewRunnableFunction(__func__, [&] {
+-    checkpoint.Call(2);
+-    EXPECT_TRUE(wt->IsCurrentThreadIn());
+-  }))));
+-  checkpoint.Call(1);
+-  NS_ProcessPendingEvents(nullptr);
+-}
+-
+-TEST(TestWebrtcTaskQueueWrapper, TestDispatchDirectTask)
+-{
+-  auto wt = MakeTestWebrtcTaskQueueWrapper();
+-
+-  MockFunction<void(int)> checkpoint;
+-  {
+-    InSequence s;
+-    EXPECT_CALL(checkpoint, Call(1));
+-    EXPECT_CALL(checkpoint, Call(2));
+-    EXPECT_CALL(checkpoint, Call(3));
+-    EXPECT_CALL(checkpoint, Call(4));
+-  }
+-
+-  EXPECT_TRUE(NS_SUCCEEDED(wt->Dispatch(NS_NewRunnableFunction(__func__, [&] {
+-    checkpoint.Call(2);
+-    AbstractThread::DispatchDirectTask(
+-        NS_NewRunnableFunction("TestDispatchDirectTask Inner", [&] {
+-          checkpoint.Call(3);
+-          EXPECT_TRUE(wt->IsCurrentThreadIn());
+-        }));
+-  }))));
+-
+-  EXPECT_TRUE(NS_SUCCEEDED(wt->Dispatch(NS_NewRunnableFunction(__func__, [&] {
+-    checkpoint.Call(4);
+-    EXPECT_TRUE(wt->IsCurrentThreadIn());
+-  }))));
+-  checkpoint.Call(1);
+-  NS_ProcessPendingEvents(nullptr);
+-}
+-
+-}  // namespace mozilla

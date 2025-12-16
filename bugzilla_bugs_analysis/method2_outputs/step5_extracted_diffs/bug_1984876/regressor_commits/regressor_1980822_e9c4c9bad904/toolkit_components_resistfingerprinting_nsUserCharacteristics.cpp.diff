@@ -1,0 +1,73 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/resistfingerprinting/nsUserCharacteristics.cpp
+# Commit: e9c4c9bad904
+# Full Hash: e9c4c9bad904fbba96c6e69baa347200f49814fc
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2025-08-04 21:33:32
+# Regressor Bug: 1980822
+# File Overlap Count: 1
+# Description:
+#   Bug 1980822 - Modernize GSettings interface. r=stransky
+#   
+#   We don't really need to support scripting except for a single shell
+#   test. Expose a much more reduced API for that instead.
+#   
+# ==============================================================================
+
+diff -r 8323476e4964 -r e9c4c9bad904 toolkit/components/resistfingerprinting/nsUserCharacteristics.cpp
+--- a/toolkit/components/resistfingerprinting/nsUserCharacteristics.cpp	Mon Aug 04 09:36:44 2025 +0000
++++ b/toolkit/components/resistfingerprinting/nsUserCharacteristics.cpp	Mon Aug 04 09:37:04 2025 +0000
+@@ -51,7 +51,6 @@
+ #include "mozilla/MozPromise.h"
+ #include "nsThreadUtils.h"
+ #include "mozilla/dom/Navigator.h"
+-#include "nsIGSettingsService.h"
+ #include "nsIPropertyBag2.h"
+ #include "nsITimer.h"
+ #include "gfxConfig.h"
+@@ -69,6 +68,9 @@
+ #  include <CoreFoundation/CoreFoundation.h>
+ #  include "CFTypeRefPtr.h"
+ #endif
++#ifdef MOZ_WIDGET_GTK
++#  include "mozilla/widget/GSettings.h"
++#endif
+ 
+ using namespace mozilla;
+ 
+@@ -631,24 +633,16 @@
+     }
+   }
+   levels.AppendElement(value);
+-#elif defined(XP_LINUX)
++#elif defined(MOZ_WIDGET_GTK)
+   nsAutoCString level;
+-  nsCOMPtr<nsIGSettingsService> gsettings =
+-      do_GetService("@mozilla.org/gsettings-service;1");
+-  if (gsettings) {
+-    nsCOMPtr<nsIGSettingsCollection> antiAliasing;
+-    gsettings->GetCollectionForSchema("org.gnome.desktop.interface"_ns,
+-                                      getter_AddRefs(antiAliasing));
+-    if (antiAliasing) {
+-      antiAliasing->GetString("font-antialiasing"_ns, level);
+-      if (level == "rgba") {  // Subpixel
+-        levels.AppendElement(2);
+-      } else if (level == "grayscale") {  // Standard
+-        levels.AppendElement(1);
+-      } else if (level == "none") {
+-        levels.AppendElement(0);
+-      }
+-    }
++  mozilla::widget::GSettings::GetString("org.gnome.desktop.interface"_ns,
++                                        "font-antialiasing"_ns, level);
++  if (level == "rgba") {  // Subpixel
++    levels.AppendElement(2);
++  } else if (level == "grayscale") {  // Standard
++    levels.AppendElement(1);
++  } else if (level == "none") {
++    levels.AppendElement(0);
+   }
+ #endif
+ 

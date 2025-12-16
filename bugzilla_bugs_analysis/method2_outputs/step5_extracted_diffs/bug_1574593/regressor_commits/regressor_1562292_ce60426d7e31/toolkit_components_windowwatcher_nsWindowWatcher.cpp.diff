@@ -1,0 +1,83 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/windowwatcher/nsWindowWatcher.cpp
+# Commit: ce60426d7e31
+# Full Hash: ce60426d7e3152c92c9df31e1657bee4dc928d1b
+# Author: Kris Maglione <maglione.k@gmail.com>
+# Date: 2019-08-15 09:46:49
+# Regressor Bug: 1562292
+# File Overlap Count: 1
+# Description:
+#   Bug 1562292: Part 2b - Remove unused nsPIWindowWatcher::FindItemWithName method. r=nika
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D40499
+# ==============================================================================
+
+diff -r 40b61344f0da -r ce60426d7e31 toolkit/components/windowwatcher/nsWindowWatcher.cpp
+--- a/toolkit/components/windowwatcher/nsWindowWatcher.cpp	Thu Aug 01 18:00:32 2019 -0700
++++ b/toolkit/components/windowwatcher/nsWindowWatcher.cpp	Fri Jun 28 12:32:49 2019 -0700
+@@ -1946,33 +1946,6 @@
+   return found;
+ }
+ 
+-/* try to find an nsIDocShellTreeItem with the given name in any
+-   known open window. a failure to find the item will not
+-   necessarily return a failure method value. check aFoundItem.
+-*/
+-NS_IMETHODIMP
+-nsWindowWatcher::FindItemWithName(const nsAString& aName,
+-                                  nsIDocShellTreeItem* aRequestor,
+-                                  nsIDocShellTreeItem* aOriginalRequestor,
+-                                  nsIDocShellTreeItem** aFoundItem) {
+-  *aFoundItem = nullptr;
+-  if (aName.IsEmpty()) {
+-    return NS_OK;
+-  }
+-
+-  if (aName.LowerCaseEqualsLiteral("_blank") ||
+-      aName.LowerCaseEqualsLiteral("_top") ||
+-      aName.LowerCaseEqualsLiteral("_parent") ||
+-      aName.LowerCaseEqualsLiteral("_self")) {
+-    return NS_OK;
+-  }
+-
+-  // If we are looking for an item and we don't have a docshell we are checking
+-  // on, let's just look in the chrome tab group!
+-  return TabGroup::GetChromeTabGroup()->FindItemWithName(
+-      aName, aRequestor, aOriginalRequestor, aFoundItem);
+-}
+-
+ already_AddRefed<nsIDocShellTreeItem> nsWindowWatcher::GetCallerTreeItem(
+     nsIDocShellTreeItem* aParentItem) {
+   nsCOMPtr<nsIWebNavigation> callerWebNav = do_GetInterface(GetEntryGlobal());
+@@ -1987,6 +1960,10 @@
+ nsPIDOMWindowOuter* nsWindowWatcher::SafeGetWindowByName(
+     const nsAString& aName, bool aForceNoOpener,
+     mozIDOMWindowProxy* aCurrentWindow) {
++  if (aName.IsEmpty()) {
++    return nullptr;
++  }
++
+   if (aForceNoOpener) {
+     if (!aName.LowerCaseEqualsLiteral("_self") &&
+         !aName.LowerCaseEqualsLiteral("_top") &&
+@@ -2007,7 +1984,17 @@
+                                 /* aSkipTabGroup = */ false,
+                                 getter_AddRefs(foundItem));
+   } else {
+-    FindItemWithName(aName, nullptr, callerItem, getter_AddRefs(foundItem));
++    if (aName.LowerCaseEqualsLiteral("_blank") ||
++        aName.LowerCaseEqualsLiteral("_top") ||
++        aName.LowerCaseEqualsLiteral("_parent") ||
++        aName.LowerCaseEqualsLiteral("_self")) {
++      return nullptr;
++    }
++
++    // If we are looking for an item and we don't have a docshell we are
++    // checking on, let's just look in the chrome tab group!
++    Unused << TabGroup::GetChromeTabGroup()->FindItemWithName(
++        aName, nullptr, callerItem, getter_AddRefs(foundItem));
+   }
+ 
+   return foundItem ? foundItem->GetWindow() : nullptr;

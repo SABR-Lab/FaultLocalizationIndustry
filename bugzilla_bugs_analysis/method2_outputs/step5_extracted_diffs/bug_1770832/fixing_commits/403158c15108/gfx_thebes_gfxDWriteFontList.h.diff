@@ -1,0 +1,25 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxDWriteFontList.h
+# Commit: 403158c15108
+# Full Hash: 403158c151080af071fb66f1abcd1cf137bf3a19
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2022-05-24 21:44:48
+# Description:
+#   Bug 1770832 - Ensure the destructor of the platform-specific derived fontlist class blocks until the mutex is available. r=lsalzman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D147164
+# ==============================================================================
+
+diff -r 9b7ecdfabfe9 -r 403158c15108 gfx/thebes/gfxDWriteFontList.h
+--- a/gfx/thebes/gfxDWriteFontList.h	Tue May 24 14:42:01 2022 +0000
++++ b/gfx/thebes/gfxDWriteFontList.h	Tue May 24 15:05:05 2022 +0000
+@@ -368,6 +368,7 @@
+ class gfxDWriteFontList final : public gfxPlatformFontList {
+  public:
+   gfxDWriteFontList();
++  virtual ~gfxDWriteFontList() { AutoLock lock(mLock); }
+ 
+   static gfxDWriteFontList* PlatformFontList() {
+     return static_cast<gfxDWriteFontList*>(

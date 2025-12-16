@@ -1,0 +1,116 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/url-classifier/Classifier.cpp
+# Commit: df6b5b4da8b9
+# Full Hash: df6b5b4da8b909d61701356243dd95f20e983bf0
+# Author: dlee <dlee@mozilla.com>
+# Date: 2019-08-21 16:47:43
+# Regressor Bug: 1562822
+# File Overlap Count: 1
+# Description:
+#   Bug 1562822 - P3. Reset all the tables that fail to apply a Safe Browsing update. r=gcp
+#   
+#   Before this patch, when Safe Browsing updating process discovers an error, it
+#   quits and resets the table failing to update.
+#   After this patch, updating process will continue to run when an error
+# ==============================================================================
+
+diff -r d49cd2aa4568 -r df6b5b4da8b9 toolkit/components/url-classifier/Classifier.cpp
+--- a/toolkit/components/url-classifier/Classifier.cpp	Wed Aug 21 12:08:03 2019 +0000
++++ b/toolkit/components/url-classifier/Classifier.cpp	Wed Aug 21 12:08:12 2019 +0000
+@@ -729,7 +729,7 @@
+                    "MUST be on update thread");
+ 
+         nsresult bgRv;
+-        nsCString failedTableName;
++        nsTArray<nsCString> failedTableNames;
+ 
+         TableUpdateArray updates;
+ 
+@@ -737,7 +737,7 @@
+         // we process them on the background thread.
+         if (updates.AppendElements(aUpdates, fallible)) {
+           LOG(("Step 1. ApplyUpdatesBackground on update thread."));
+-          bgRv = self->ApplyUpdatesBackground(updates, failedTableName);
++          bgRv = self->ApplyUpdatesBackground(updates, failedTableNames);
+         } else {
+           LOG(
+               ("Step 1. Not enough memory to run ApplyUpdatesBackground on "
+@@ -747,12 +747,13 @@
+ 
+         nsCOMPtr<nsIRunnable> fgRunnable = NS_NewRunnableFunction(
+             "safebrowsing::Classifier::AsyncApplyUpdates",
+-            [self, aCallback, bgRv, failedTableName, callerThread] {
++            [self, aCallback, bgRv, failedTableNames, callerThread] {
+               MOZ_ASSERT(NS_GetCurrentThread() == callerThread,
+                          "MUST be on caller thread");
+ 
+               LOG(("Step 2. ApplyUpdatesForeground on caller thread"));
+-              nsresult rv = self->ApplyUpdatesForeground(bgRv, failedTableName);
++              nsresult rv =
++                  self->ApplyUpdatesForeground(bgRv, failedTableNames);
+ 
+               LOG(("Step 3. Updates applied! Fire callback."));
+               aCallback(rv);
+@@ -763,8 +764,8 @@
+   return mUpdateThread->Dispatch(bgRunnable, NS_DISPATCH_NORMAL);
+ }
+ 
+-nsresult Classifier::ApplyUpdatesBackground(TableUpdateArray& aUpdates,
+-                                            nsACString& aFailedTableName) {
++nsresult Classifier::ApplyUpdatesBackground(
++    TableUpdateArray& aUpdates, nsTArray<nsCString>& aFailedTableNames) {
+   // |mUpdateInterrupted| is guaranteed to have been unset.
+   // If |mUpdateInterrupted| is set at any point, Reset() must have
+   // been called then we need to interrupt the update process.
+@@ -826,13 +827,27 @@
+       rv = UpdateTableV4(aUpdates, updateTable);
+     }
+ 
+-    if (NS_FAILED(rv)) {
+-      aFailedTableName = updateTable;
+-      RemoveUpdateIntermediaries();
+-      return rv;
++    if (NS_WARN_IF(NS_FAILED(rv))) {
++      LOG(("Failed to update table: %s", updateTable.get()));
++      // We don't quit the updating process immediately when we discover
++      // a failure. Instead, we continue to apply updates to the
++      // remaining tables to find other tables which may also fail to
++      // apply an update. This help us reset all the corrupted tables
++      // within a single update.
++      // Note that changes that result from successful updates don't take
++      // effect after the updating process is finished. This is because
++      // when an error occurs during the updating process, we ignore all
++      // changes that have happened during the udpating process.
++      aFailedTableNames.AppendElement(updateTable);
++      continue;
+     }
+   }
+ 
++  if (!aFailedTableNames.IsEmpty()) {
++    RemoveUpdateIntermediaries();
++    return NS_ERROR_FAILURE;
++  }
++
+   if (LOG_ENABLED()) {
+     PRIntervalTime clockEnd = PR_IntervalNow();
+     LOG(("update took %dms\n",
+@@ -843,7 +858,7 @@
+ }
+ 
+ nsresult Classifier::ApplyUpdatesForeground(
+-    nsresult aBackgroundRv, const nsACString& aFailedTableName) {
++    nsresult aBackgroundRv, const nsTArray<nsCString>& aFailedTableNames) {
+   if (ShouldAbort()) {
+     LOG(("Update is interrupted! Just remove update intermediaries."));
+     RemoveUpdateIntermediaries();
+@@ -857,7 +872,7 @@
+     return SwapInNewTablesAndCleanup();
+   }
+   if (NS_ERROR_OUT_OF_MEMORY != aBackgroundRv) {
+-    ResetTables(Clear_All, nsTArray<nsCString>{nsCString(aFailedTableName)});
++    ResetTables(Clear_All, aFailedTableNames);
+   }
+   return aBackgroundRv;
+ }

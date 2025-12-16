@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/CompositorManagerParent.cpp
+# Commit: dab6b48a2a59
+# Full Hash: dab6b48a2a592a441229e88c88b1aa2570f2171d
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2023-12-12 04:37:49
+# Regressor Bug: 1869346
+# File Overlap Count: 5
+# Description:
+#   Bug 1869346 - Rework how canvas accesses shared surfaces in the compositor process. r=gfx-reviewers,lsalzman
+#   
+#   This patch adds plumbing to allow sharing ExternalImageId via
+#   SurfaceDescriptor. This will be used in a future patch by WebGL and
+#   WebGPU to avoid extra copies. It also refactors how CanvasTranslator
+# ==============================================================================
+
+diff -r af13afc7d44f -r dab6b48a2a59 gfx/layers/ipc/CompositorManagerParent.cpp
+--- a/gfx/layers/ipc/CompositorManagerParent.cpp	Mon Dec 11 20:19:47 2023 +0000
++++ b/gfx/layers/ipc/CompositorManagerParent.cpp	Mon Dec 11 20:44:44 2023 +0000
+@@ -117,6 +117,7 @@
+ CompositorManagerParent::CompositorManagerParent(
+     dom::ContentParentId aContentId, uint32_t aNamespace)
+     : mCompositorThreadHolder(CompositorThreadHolder::GetSingleton()),
++      mSharedSurfacesHolder(MakeRefPtr<SharedSurfacesHolder>(aNamespace)),
+       mContentId(aContentId),
+       mNamespace(aNamespace) {}
+ 
+@@ -146,8 +147,6 @@
+ }
+ 
+ void CompositorManagerParent::ActorDestroy(ActorDestroyReason aReason) {
+-  SharedSurfacesParent::RemoveAll(mNamespace);
+-
+   GetCurrentSerialEventTarget()->Dispatch(
+       NewRunnableMethod("layers::CompositorManagerParent::DeferredDestroy",
+                         this, &CompositorManagerParent::DeferredDestroy));
+@@ -349,7 +348,8 @@
+ 
+ mozilla::ipc::IPCResult CompositorManagerParent::RecvInitCanvasManager(
+     Endpoint<PCanvasManagerParent>&& aEndpoint) {
+-  gfx::CanvasManagerParent::Init(std::move(aEndpoint), mContentId);
++  gfx::CanvasManagerParent::Init(std::move(aEndpoint), mSharedSurfacesHolder,
++                                 mContentId);
+   return IPC_OK();
+ }
+ 

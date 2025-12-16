@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/EnvironmentObject.h
+# Commit: ea1bb2f0fd39
+# Full Hash: ea1bb2f0fd39a412480bd777ba944b276a54006a
+# Author: Logan Smyth <loganfsmyth@gmail.com>
+# Date: 2019-12-09 09:50:39
+# Regressor Bug: 1600204
+# File Overlap Count: 1
+# Description:
+#   Bug 1600204 - Part 5: Support .environment on suspended generator frames. r=jimb
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D55235
+# ==============================================================================
+
+diff -r 39d1ae1352b3 -r ea1bb2f0fd39 js/src/vm/EnvironmentObject.h
+--- a/js/src/vm/EnvironmentObject.h	Fri Dec 06 02:30:30 2019 +0000
++++ b/js/src/vm/EnvironmentObject.h	Sun Dec 08 23:53:27 2019 +0000
+@@ -13,6 +13,7 @@
+ #include "gc/WeakMap.h"
+ #include "js/GCHashTable.h"
+ #include "vm/ArgumentsObject.h"
++#include "vm/GeneratorObject.h"
+ #include "vm/GlobalObject.h"
+ #include "vm/JSContext.h"
+ #include "vm/JSObject.h"
+@@ -885,6 +886,9 @@
+ extern JSObject* GetDebugEnvironmentForFunction(JSContext* cx,
+                                                 HandleFunction fun);
+ 
++extern JSObject* GetDebugEnvironmentForSuspendedGenerator(
++    JSContext* cx, JSScript* script, AbstractGeneratorObject& genObj);
++
+ extern JSObject* GetDebugEnvironmentForFrame(JSContext* cx,
+                                              AbstractFramePtr frame,
+                                              jsbytecode* pc);
+@@ -1186,6 +1190,11 @@
+                                               MutableHandleObject env,
+                                               MutableHandleScope scope);
+ 
++void GetSuspendedGeneratorEnvironmentAndScope(AbstractGeneratorObject& genObj,
++                                              JSScript* script,
++                                              MutableHandleObject env,
++                                              MutableHandleScope scope);
++
+ #ifdef DEBUG
+ bool AnalyzeEntrainedVariables(JSContext* cx, HandleScript script);
+ #endif

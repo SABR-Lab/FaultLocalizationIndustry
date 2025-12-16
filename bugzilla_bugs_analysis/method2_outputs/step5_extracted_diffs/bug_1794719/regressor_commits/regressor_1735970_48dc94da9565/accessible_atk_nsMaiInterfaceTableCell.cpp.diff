@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/atk/nsMaiInterfaceTableCell.cpp
+# Commit: 48dc94da9565
+# Full Hash: 48dc94da9565d7f804092209a27821d729ccde60
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2022-04-02 09:44:13
+# Regressor Bug: 1735970
+# File Overlap Count: 1
+# Description:
+#   Bug 1735970 part 3: Add TableAccessibleBase and TableCellAccessibleBase. r=morgan
+#   
+#   These are needed to support RemoteAccessible tables.
+#   Stuff specific to LocalAccessible is still in TableAccessible and TableCellAccessible, which now inherit from the new Base classes.
+#   
+# ==============================================================================
+
+diff -r 477c59860bba -r 48dc94da9565 accessible/atk/nsMaiInterfaceTableCell.cpp
+--- a/accessible/atk/nsMaiInterfaceTableCell.cpp	Fri Apr 01 09:49:56 2022 +0000
++++ b/accessible/atk/nsMaiInterfaceTableCell.cpp	Fri Apr 01 09:49:57 2022 +0000
+@@ -117,15 +117,15 @@
+ 
+ static GPtrArray* GetColumnHeaderCellsCB(AtkTableCell* aCell) {
+   if (AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aCell))) {
+-    AutoTArray<LocalAccessible*, 10> headers;
++    AutoTArray<Accessible*, 10> headers;
+     accWrap->AsTableCell()->ColHeaderCells(&headers);
+     if (headers.IsEmpty()) {
+       return nullptr;
+     }
+ 
+     GPtrArray* atkHeaders = g_ptr_array_sized_new(headers.Length());
+-    for (LocalAccessible* header : headers) {
+-      AtkObject* atkHeader = AccessibleWrap::GetAtkObject(header);
++    for (Accessible* header : headers) {
++      AtkObject* atkHeader = AccessibleWrap::GetAtkObject(header->AsLocal());
+       g_object_ref(atkHeader);
+       g_ptr_array_add(atkHeaders, atkHeader);
+     }
+@@ -155,15 +155,15 @@
+ 
+ static GPtrArray* GetRowHeaderCellsCB(AtkTableCell* aCell) {
+   if (AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aCell))) {
+-    AutoTArray<LocalAccessible*, 10> headers;
++    AutoTArray<Accessible*, 10> headers;
+     accWrap->AsTableCell()->RowHeaderCells(&headers);
+     if (headers.IsEmpty()) {
+       return nullptr;
+     }
+ 
+     GPtrArray* atkHeaders = g_ptr_array_sized_new(headers.Length());
+-    for (LocalAccessible* header : headers) {
+-      AtkObject* atkHeader = AccessibleWrap::GetAtkObject(header);
++    for (Accessible* header : headers) {
++      AtkObject* atkHeader = AccessibleWrap::GetAtkObject(header->AsLocal());
+       g_object_ref(atkHeader);
+       g_ptr_array_add(atkHeaders, atkHeader);
+     }

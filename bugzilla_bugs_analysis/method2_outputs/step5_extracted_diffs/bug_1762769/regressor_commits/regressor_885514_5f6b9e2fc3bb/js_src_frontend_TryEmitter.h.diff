@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/frontend/TryEmitter.h
+# Commit: 5f6b9e2fc3bb
+# Full Hash: 5f6b9e2fc3bb3c5fd74f9871399269a2665a5270
+# Author: Iain Ireland <iireland@mozilla.com>
+# Date: 2022-03-09 09:44:44
+# Regressor Bug: 885514
+# File Overlap Count: 1
+# Description:
+#   Bug 885514: Refactor try/finally to use goto r=jandem
+#   
+#   JSOp::Gosub is just a JSOp::Goto that lies about its effect on the stack. We can start simplifying try/finally by using a JSOp::Goto instead.
+#   
+#   Currently, to make the stack depth work out when returning from a finally, Gosub pretends to pop two values (the arguments to retsub), and Finally pretends to push them. This means that bytecode analysis can treat Gosub as if it falls through, and the stack depth of the jumptarget following the gosub will be correct. This patch uses a different approach: bytecode analysis marks the return address as reachable when we push it using JSOp::ResumeIndex. This means that the bytecode no longer has to lie about stack depth.
+# ==============================================================================
+
+diff -r b199b21ed5a3 -r 5f6b9e2fc3bb js/src/frontend/TryEmitter.h
+--- a/js/src/frontend/TryEmitter.h	Tue Mar 08 21:00:30 2022 +0000
++++ b/js/src/frontend/TryEmitter.h	Tue Mar 08 21:10:21 2022 +0000
+@@ -75,7 +75,7 @@
+   //
+   //     try_body...
+   //
+-  //     JSOp::Gosub finally
++  //     JSOp::Goto finally
+   //     JSOp::JumpTarget
+   //   jumpToEnd:
+   //     JSOp::Goto end:
+@@ -87,7 +87,7 @@
+   //
+   //     catch_body...
+   //
+-  //     JSOp::Gosub finally
++  //     JSOp::Goto finally
+   //     JSOp::JumpTarget
+   //     JSOp::Goto end
+   //
+@@ -114,10 +114,10 @@
+   Kind kind_;
+   ControlKind controlKind_;
+ 
+-  // Track jumps-over-catches and gosubs-to-finally for later fixup.
++  // Tracks jumps to the finally block for later fixup.
+   //
+   // When a finally block is active, non-local jumps (including
+-  // jumps-over-catches) result in a Gosub being written into the bytecode
++  // jumps-over-catches) result in a goto being written into the bytecode
+   // stream and fixed-up later.
+   //
+   // For non-syntactic try-catch-finally, all that handling is skipped.

@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/2d/DrawTargetRecording.cpp
+# Commit: 3c9634352cd6
+# Full Hash: 3c9634352cd66e1debc3beeedd53130d16474db2
+# Author: Jeff Muizelaar <jrmuizel@gmail.com>
+# Date: 2019-01-28 04:51:03
+# Regressor Bug: 1522021
+# File Overlap Count: 1
+# Description:
+#   Bug 1522021. Propagate input size to CreateSimilarDrawTarget for filters. r=mstange
+#   
+#   This lets us avoid drawing the complete input for ever tile when
+#   drawing filters into a tile.
+#   
+# ==============================================================================
+
+diff -r 747303cab27a -r 3c9634352cd6 gfx/2d/DrawTargetRecording.cpp
+--- a/gfx/2d/DrawTargetRecording.cpp	Sun Jan 27 22:06:38 2019 +0000
++++ b/gfx/2d/DrawTargetRecording.cpp	Sun Jan 27 23:36:04 2019 +0000
+@@ -554,6 +554,25 @@
+   return similarDT;
+ }
+ 
++already_AddRefed<DrawTarget>
++DrawTargetRecording::CreateSimilarDrawTargetForFilter(
++    const IntSize &aMaxSize, SurfaceFormat aFormat, FilterNode *aFilter,
++    FilterNode *aSource, const Rect &aSourceRect, const Point &aDestPoint) {
++  RefPtr<DrawTarget> similarDT;
++  if (mFinalDT->CanCreateSimilarDrawTarget(aMaxSize, aFormat)) {
++    similarDT = new DrawTargetRecording(this, aMaxSize, aFormat);
++    mRecorder->RecordEvent(RecordedCreateDrawTargetForFilter(
++        this, similarDT.get(), aMaxSize, aFormat, aFilter, aSource, aSourceRect,
++        aDestPoint));
++  } else if (XRE_IsContentProcess()) {
++    // See CreateSimilarDrawTarget
++    MOZ_CRASH(
++        "Content-process DrawTargetRecording can't create requested clipped "
++        "drawtarget");
++  }
++  return similarDT.forget();
++}
++
+ already_AddRefed<PathBuilder> DrawTargetRecording::CreatePathBuilder(
+     FillRule aFillRule) const {
+   RefPtr<PathBuilder> builder = mFinalDT->CreatePathBuilder(aFillRule);

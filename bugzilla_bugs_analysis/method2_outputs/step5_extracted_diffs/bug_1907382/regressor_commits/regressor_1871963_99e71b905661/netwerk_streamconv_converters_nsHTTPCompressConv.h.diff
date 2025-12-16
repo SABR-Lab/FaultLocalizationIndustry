@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/streamconv/converters/nsHTTPCompressConv.h
+# Commit: 99e71b905661
+# Full Hash: 99e71b9056618a081f8bc2fb7803ba208db3a5b0
+# Author: Randell Jesup <rjesup@mozilla.com>
+# Date: 2024-04-10 09:45:41
+# Regressor Bug: 1871963
+# File Overlap Count: 1
+# Description:
+#   Bug 1871963: Implement zstd content-encoding support r=necko-reviewers,valentin,devtools-reviewers
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D205109
+# ==============================================================================
+
+diff -r 68f119112940 -r 99e71b905661 netwerk/streamconv/converters/nsHTTPCompressConv.h
+--- a/netwerk/streamconv/converters/nsHTTPCompressConv.h	Tue Apr 09 15:26:45 2024 +0000
++++ b/netwerk/streamconv/converters/nsHTTPCompressConv.h	Tue Apr 09 15:26:46 2024 +0000
+@@ -34,11 +34,14 @@
+ #  define HTTP_BROTLI_TYPE "br"
+ #  define HTTP_IDENTITY_TYPE "identity"
+ #  define HTTP_UNCOMPRESSED_TYPE "uncompressed"
++#  define HTTP_ZSTD_TYPE "zstd"
++#  define HTTP_ZST_TYPE "zst"
+ 
+ namespace mozilla {
+ namespace net {
+ 
+ class BrotliWrapper;
++class ZstdWrapper;
+ 
+ class nsHTTPCompressConv : public nsIStreamConverter,
+                            public nsICompressConvStats {
+@@ -60,7 +63,8 @@
+     HTTP_COMPRESS_DEFLATE,
+     HTTP_COMPRESS_COMPRESS,
+     HTTP_COMPRESS_BROTLI,
+-    HTTP_COMPRESS_IDENTITY
++    HTTP_COMPRESS_IDENTITY,
++    HTTP_COMPRESS_ZSTD,
+   };
+ 
+  private:
+@@ -77,6 +81,7 @@
+   uint32_t mInpBufferLen{0};
+ 
+   UniquePtr<BrotliWrapper> mBrotli;
++  UniquePtr<ZstdWrapper> mZstd;
+ 
+   nsCOMPtr<nsIStringInputStream> mStream;
+ 
+@@ -84,6 +89,10 @@
+                                 const char* dataIn, uint32_t, uint32_t avail,
+                                 uint32_t* countRead);
+ 
++  static nsresult ZstdHandler(nsIInputStream* stream, void* closure,
++                              const char* dataIn, uint32_t, uint32_t avail,
++                              uint32_t* countRead);
++
+   nsresult do_OnDataAvailable(nsIRequest* request, uint64_t aSourceOffset,
+                               const char* buffer, uint32_t aCount);
+ 

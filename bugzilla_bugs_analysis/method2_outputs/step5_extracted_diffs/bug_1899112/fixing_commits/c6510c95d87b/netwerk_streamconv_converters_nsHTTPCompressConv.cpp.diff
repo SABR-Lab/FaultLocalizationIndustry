@@ -1,0 +1,45 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: netwerk/streamconv/converters/nsHTTPCompressConv.cpp
+# Commit: c6510c95d87b
+# Full Hash: c6510c95d87b0d7b9fcd708655293474b54c4e8c
+# Author: Randell Jesup <rjesup@mozilla.com>
+# Date: 2024-06-06 03:53:52
+# Description:
+#   Bug 1899112: Fix issues with disabling OMT decompression r=necko-reviewers,kershaw
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D212579
+# ==============================================================================
+
+diff -r 4aee293e61e5 -r c6510c95d87b netwerk/streamconv/converters/nsHTTPCompressConv.cpp
+--- a/netwerk/streamconv/converters/nsHTTPCompressConv.cpp	Wed Jun 05 13:26:55 2024 +0000
++++ b/netwerk/streamconv/converters/nsHTTPCompressConv.cpp	Wed Jun 05 13:31:46 2024 +0000
+@@ -166,7 +166,7 @@
+   if (!req) {
+     return NS_ERROR_NO_INTERFACE;
+   }
+-  if (!StaticPrefs::network_decompression_off_mainthread()) {
++  if (!StaticPrefs::network_decompression_off_mainthread2()) {
+     return NS_OK;
+   }
+   nsCOMPtr<nsISerialEventTarget> target;
+@@ -667,7 +667,7 @@
+             return NS_ERROR_INVALID_CONTENT_ENCODING;
+           }
+         } /* for */
+-      }   /* gzip */
++      } /* gzip */
+       break;
+ 
+     case HTTP_COMPRESS_BROTLI: {
+@@ -937,7 +937,8 @@
+ 
+ NS_IMETHODIMP
+ nsHTTPCompressConv::CheckListenerChain() {
+-  if (XRE_IsContentProcess()) {
++  if (XRE_IsContentProcess() &&
++      StaticPrefs::network_decompression_off_mainthread2()) {
+     // handle decompression OMT always.  If the chain needs to be MT,
+     // we'll determine that in OnStartRequest and dispatch to MT
+     return NS_OK;

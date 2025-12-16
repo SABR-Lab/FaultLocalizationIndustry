@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/AltServiceChild.cpp
+# Commit: 9a3830b72b1f
+# Full Hash: 9a3830b72b1f2a9640a7ff945b91d17d67828bcd
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2025-02-24 17:07:55
+# Regressor Bug: 1948203
+# File Overlap Count: 5
+# Description:
+#   Bug 1948203 - Skip alt-svc validation if we already connected to the server, r=necko-reviewers,jesup
+#   
+#   This patch optimizes how Firefox handles speculative connections for alt-svc headers. When a server sends an alt-svc header, Firefox normally creates a speculative connection to validate it. With this patch, if the connection’s hash key matches the one generated from the alt-svc header, the validation step is skipped since an equivalent connection is already in place, avoiding unnecessary work.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D238218
+# ==============================================================================
+
+diff -r d5962b430cd3 -r 9a3830b72b1f netwerk/protocol/http/AltServiceChild.cpp
+--- a/netwerk/protocol/http/AltServiceChild.cpp	Mon Feb 24 09:01:12 2025 +0000
++++ b/netwerk/protocol/http/AltServiceChild.cpp	Mon Feb 24 09:20:35 2025 +0000
+@@ -85,7 +85,8 @@
+     const nsCString& aOriginHost, int32_t aOriginPort,
+     const nsCString& aUsername, bool aPrivateBrowsing,
+     nsIInterfaceRequestor* aCallbacks, nsProxyInfo* aProxyInfo, uint32_t aCaps,
+-    const OriginAttributes& aOriginAttributes) {
++    const OriginAttributes& aOriginAttributes,
++    nsHttpConnectionInfo* aConnInfo) {
+   LOG(("AltServiceChild::ProcessHeader"));
+   MOZ_ASSERT(NS_IsMainThread());
+ 
+@@ -102,9 +103,12 @@
+     nsProxyInfo::SerializeProxyInfo(aProxyInfo, proxyInfoArray);
+   }
+ 
++  HttpConnectionInfoCloneArgs infoArgs;
++  nsHttpConnectionInfo::SerializeHttpConnectionInfo(aConnInfo, infoArgs);
++
+   Unused << sAltServiceChild->SendProcessHeader(
+       aBuf, aOriginScheme, aOriginHost, aOriginPort, aUsername,
+-      aPrivateBrowsing, proxyInfoArray, aCaps, aOriginAttributes);
++      aPrivateBrowsing, proxyInfoArray, aCaps, aOriginAttributes, infoArgs);
+ }
+ 
+ }  // namespace net

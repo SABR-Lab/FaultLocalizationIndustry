@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/events/PointerEventHandler.h
+# Commit: f8a2a169b296
+# Full Hash: f8a2a169b2969d29e04733ae27a56459e5359973
+# Author: Alexandru Marc <amarc@mozila.com>
+# Date: 2025-05-16 09:19:19
+# Regressor Bug: 1550462
+# File Overlap Count: 1
+# Description:
+#   Revert "Bug 1550462 - part 3: Enable `pointerrawupdate` event r=smaug" for causing mochitest failures @ test_pointerrawupdate_event_count.html
+#   
+#   This reverts commit eb27445e0352d6b4df540adb40e21f72fc052e80.
+#   
+#   Revert "Bug 1550462 - part 2: Make `PresShell::HandleEvent` dispatch preceding `pointerrawupdate` event r=smaug,dom-core,edgar"
+# ==============================================================================
+
+diff -r 8d25773fc82f -r f8a2a169b296 dom/events/PointerEventHandler.h
+--- a/dom/events/PointerEventHandler.h	Fri May 16 06:20:47 2025 +0000
++++ b/dom/events/PointerEventHandler.h	Fri May 16 09:30:09 2025 +0300
+@@ -270,16 +270,14 @@
+       const WidgetPointerEvent& aSourceEvent);
+ 
+   static bool ShouldGeneratePointerEventFromMouse(WidgetGUIEvent* aEvent) {
+-    return aEvent->mMessage == eMouseRawUpdate ||
+-           aEvent->mMessage == eMouseDown || aEvent->mMessage == eMouseUp ||
++    return aEvent->mMessage == eMouseDown || aEvent->mMessage == eMouseUp ||
+            (aEvent->mMessage == eMouseMove &&
+             aEvent->AsMouseEvent()->IsReal()) ||
+            aEvent->mMessage == eMouseExitFromWidget;
+   }
+ 
+   static bool ShouldGeneratePointerEventFromTouch(WidgetGUIEvent* aEvent) {
+-    return aEvent->mMessage == eTouchRawUpdate ||
+-           aEvent->mMessage == eTouchStart || aEvent->mMessage == eTouchMove ||
++    return aEvent->mMessage == eTouchStart || aEvent->mMessage == eTouchMove ||
+            aEvent->mMessage == eTouchEnd || aEvent->mMessage == eTouchCancel ||
+            aEvent->mMessage == eTouchPointerCancel;
+   }
+@@ -292,18 +290,11 @@
+ 
+   static bool IsDragAndDropEnabled(WidgetMouseEvent& aEvent);
+ 
++ private:
+   // Get proper pointer event message for a mouse or touch event.
+-  [[nodiscard]] static EventMessage ToPointerEventMessage(
++  static EventMessage ToPointerEventMessage(
+       const WidgetGUIEvent* aMouseOrTouchEvent);
+ 
+-  /**
+-   * Return true if the window containing aDocument has had a
+-   * `pointerrawupdate` event listener.
+-   */
+-  [[nodiscard]] static bool NeedToDispatchPointerRawUpdate(
+-      const dom::Document* aDocument);
+-
+- private:
+   // Set pointer capture of the specified pointer by the element.
+   static void SetPointerCaptureById(uint32_t aPointerId,
+                                     dom::Element* aElement);

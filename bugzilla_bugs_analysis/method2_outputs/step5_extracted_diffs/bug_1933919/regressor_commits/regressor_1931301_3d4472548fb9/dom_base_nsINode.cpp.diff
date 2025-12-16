@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsINode.cpp
+# Commit: 3d4472548fb9
+# Full Hash: 3d4472548fb9d48cce00f59066690611ee20ffcb
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2024-11-26 09:36:10
+# Regressor Bug: 1931301
+# File Overlap Count: 1
+# Description:
+#   Bug 1931301 - Notify of removals on a stable state, not mid-remove. r=smaug,masayuki,dshin
+#   
+#   This simplifies some observers, and makes others a bit more subtle, but I think
+#   over-all it is an improvement.
+#   
+# ==============================================================================
+
+diff -r 20a0394d798f -r 3d4472548fb9 dom/base/nsINode.cpp
+--- a/dom/base/nsINode.cpp	Mon Nov 25 17:56:21 2024 +0000
++++ b/dom/base/nsINode.cpp	Mon Nov 25 17:58:40 2024 +0000
+@@ -2327,7 +2327,9 @@
+   nsMutationGuard::DidMutate();
+   mozAutoDocUpdate updateBatch(GetComposedDoc(), aNotify);
+ 
+-  nsIContent* previousSibling = aKid->GetPreviousSibling();
++  if (aNotify) {
++    MutationObservers::NotifyContentWillBeRemoved(this, aKid);
++  }
+ 
+   // Since aKid is use also after DisconnectChild, ensure it stays alive.
+   nsCOMPtr<nsIContent> kungfuDeathGrip = aKid;
+@@ -2335,11 +2337,6 @@
+ 
+   // Invalidate cached array of child nodes
+   InvalidateChildNodes();
+-
+-  if (aNotify) {
+-    MutationObservers::NotifyContentRemoved(this, aKid, previousSibling);
+-  }
+-
+   aKid->UnbindFromTree();
+ }
+ 

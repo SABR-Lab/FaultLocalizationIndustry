@@ -1,0 +1,77 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/ipc/RemoteAccessibleBase.cpp
+# Commit: 86da8f2a28ea
+# Full Hash: 86da8f2a28ea1992671d08dfb56c881a1a82daa5
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2022-08-04 04:34:13
+# Regressor Bug: 1781536
+# File Overlap Count: 1
+# Description:
+#   Bug 1781536 part 3: Move RelationByType to base Accessible. r=morgan
+#   
+#   This required changing the RemoteAccessible implementations to return Relation instead of an array of RemoteAccessible.
+#   Platform implementations have been updated to use the unified method where appropriate.
+#   
+# ==============================================================================
+
+diff -r 95ae96802dbe -r 86da8f2a28ea accessible/ipc/RemoteAccessibleBase.cpp
+--- a/accessible/ipc/RemoteAccessibleBase.cpp	Wed Aug 03 23:58:51 2022 +0000
++++ b/accessible/ipc/RemoteAccessibleBase.cpp	Wed Aug 03 23:58:51 2022 +0000
+@@ -24,6 +24,7 @@
+ #include "nsAccUtils.h"
+ #include "nsTextEquivUtils.h"
+ #include "Pivot.h"
++#include "Relation.h"
+ #include "RelationType.h"
+ #include "xpcAccessibleDocument.h"
+ 
+@@ -627,12 +628,11 @@
+ }
+ 
+ template <class Derived>
+-nsTArray<RemoteAccessible*> RemoteAccessibleBase<Derived>::RelationByType(
++Relation RemoteAccessibleBase<Derived>::RelationByType(
+     RelationType aType) const {
+-  nsTArray<RemoteAccessible*> accs;
+-
++  Relation rel;
+   if (!mCachedFields) {
+-    return accs;
++    return rel;
+   }
+ 
+   for (auto data : kRelationTypeAtoms) {
+@@ -643,11 +643,7 @@
+ 
+     if (auto maybeIds =
+             mCachedFields->GetAttribute<nsTArray<uint64_t>>(data.mAtom)) {
+-      for (uint64_t id : *maybeIds) {
+-        if (RemoteAccessible* acc = mDoc->GetAccessible(id)) {
+-          accs.AppendElement(acc);
+-        }
+-      }
++      rel.AppendIter(new RemoteAccIterator(*maybeIds, Document()));
+     }
+     // Each relation type has only one relevant cached attribute,
+     // so break after we've handled the attr for this type,
+@@ -658,16 +654,11 @@
+   if (auto accRelMapEntry = mDoc->mReverseRelations.Lookup(ID())) {
+     if (auto reverseIdsEntry =
+             accRelMapEntry.Data().Lookup(static_cast<uint64_t>(aType))) {
+-      nsTArray<uint64_t>& reverseIds = reverseIdsEntry.Data();
+-      for (uint64_t id : reverseIds) {
+-        if (RemoteAccessible* acc = mDoc->GetAccessible(id)) {
+-          accs.AppendElement(acc);
+-        }
+-      }
++      rel.AppendIter(new RemoteAccIterator(reverseIdsEntry.Data(), Document()));
+     }
+   }
+ 
+-  return accs;
++  return rel;
+ }
+ 
+ template <class Derived>

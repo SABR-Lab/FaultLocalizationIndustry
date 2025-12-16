@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmTable.h
+# Commit: 8ce9bbcd26e3
+# Full Hash: 8ce9bbcd26e343a8d845a817cea33fd875805541
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2020-08-19 10:01:16
+# Regressor Bug: 1561521
+# File Overlap Count: 2
+# Description:
+#   Bug 1561521 - Generalize table/element code for future reference-types. r=lth
+#   
+#   wasm::Table uses wasm::TableKind to determine the element type of the table,
+#   which makes it difficult to extend tables to support more reference types. This
+#   commit drops TableKind in favor of directly storing the element RefType, along
+# ==============================================================================
+
+diff -r 7805ddfe2bfa -r 8ce9bbcd26e3 js/src/wasm/WasmTable.h
+--- a/js/src/wasm/WasmTable.h	Tue Aug 18 16:58:32 2020 +0000
++++ b/js/src/wasm/WasmTable.h	Tue Aug 18 16:58:48 2020 +0000
+@@ -51,7 +51,8 @@
+   InstanceSet observers_;
+   UniqueFuncRefArray functions_;  // either functions_ has data
+   TableAnyRefVector objects_;     //   or objects_, but not both
+-  const TableKind kind_;
++  const RefType elemType_;
++  const bool isAsmJS_;
+   uint32_t length_;
+   const Maybe<uint32_t> maximum_;
+ 
+@@ -70,21 +71,14 @@
+                               HandleWasmTableObject maybeObject);
+   void trace(JSTracer* trc);
+ 
+-  TableKind kind() const { return kind_; }
+-  TableRepr repr() const {
+-    switch (kind()) {
+-      case TableKind::AnyRef:
+-        return TableRepr::Ref;
+-      case TableKind::FuncRef:
+-      case TableKind::AsmJS:
+-        return TableRepr::Func;
+-    }
+-    MOZ_MAKE_COMPILER_ASSUME_IS_UNREACHABLE("switch is exhaustive");
++  RefType elemType() const { return elemType_; }
++  TableRepr repr() const { return elemType_.tableRepr(); }
++
++  bool isAsmJS() const {
++    MOZ_ASSERT(elemType_.isFunc());
++    return isAsmJS_;
+   }
+-
+-  bool isFunction() const {
+-    return kind_ == TableKind::FuncRef || kind_ == TableKind::AsmJS;
+-  }
++  bool isFunction() const { return elemType().isFunc(); }
+   uint32_t length() const { return length_; }
+   Maybe<uint32_t> maximum() const { return maximum_; }
+ 

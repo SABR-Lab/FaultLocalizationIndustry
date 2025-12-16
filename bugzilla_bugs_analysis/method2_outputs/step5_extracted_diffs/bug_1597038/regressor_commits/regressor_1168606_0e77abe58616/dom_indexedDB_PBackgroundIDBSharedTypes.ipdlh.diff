@@ -1,0 +1,79 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/PBackgroundIDBSharedTypes.ipdlh
+# Commit: 0e77abe58616
+# Full Hash: 0e77abe58616924db5bf2f2a5ca2f7c30f3031e1
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2019-09-11 21:53:06
+# Regressor Bug: 1168606
+# File Overlap Count: 1
+# Description:
+#   Bug 1168606 - Change definition of OpenCursorParams subtypes to allow reducing duplicated code r=ttung,asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D40955
+# ==============================================================================
+
+diff -r 556059030dc6 -r 0e77abe58616 dom/indexedDB/PBackgroundIDBSharedTypes.ipdlh
+--- a/dom/indexedDB/PBackgroundIDBSharedTypes.ipdlh	Wed Sep 11 11:51:28 2019 +0000
++++ b/dom/indexedDB/PBackgroundIDBSharedTypes.ipdlh	Wed Sep 11 11:51:26 2019 +0000
+@@ -124,36 +124,43 @@
+   IndexMetadata[] indexes;
+ };
+ 
+-struct ObjectStoreOpenCursorParams
+-{
+-  int64_t objectStoreId;
+-  SerializedKeyRange? optionalKeyRange;
+-  Direction direction;
+-};
+-
+-struct ObjectStoreOpenKeyCursorParams
++struct CommonOpenCursorParams
+ {
+   int64_t objectStoreId;
+   SerializedKeyRange? optionalKeyRange;
+   Direction direction;
+ };
+ 
++struct ObjectStoreOpenCursorParams
++{
++  CommonOpenCursorParams commonParams;
++};
++
++struct ObjectStoreOpenKeyCursorParams
++{
++  CommonOpenCursorParams commonParams;
++};
++
++struct CommonIndexOpenCursorParams
++{
++  CommonOpenCursorParams commonParams;
++  int64_t indexId;
++};
++
+ struct IndexOpenCursorParams
+ {
+-  int64_t objectStoreId;
+-  int64_t indexId;
+-  SerializedKeyRange? optionalKeyRange;
+-  Direction direction;
++  CommonIndexOpenCursorParams commonIndexParams;
+ };
+ 
+ struct IndexOpenKeyCursorParams
+ {
+-  int64_t objectStoreId;
+-  int64_t indexId;
+-  SerializedKeyRange? optionalKeyRange;
+-  Direction direction;
++  CommonIndexOpenCursorParams commonIndexParams;
+ };
+ 
++// TODO: Actually, using a union here is not very nice, unless IPDL supported
++// struct inheritance. Alternatively, if IPDL supported enums, we could merge
++// the subtypes into one. Using a plain integer for discriminating the
++// subtypes would be too error-prone.
+ union OpenCursorParams
+ {
+   ObjectStoreOpenCursorParams;

@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/notification/NotificationUtils.h
+# Commit: ed71fdc2d78d
+# Full Hash: ed71fdc2d78dec085a3d153220bba4aeda89992b
+# Author: Kagami Sascha Rosylight <saschanaz@outlook.com>
+# Date: 2025-03-05 04:28:59
+# Regressor Bug: 1951379
+# File Overlap Count: 1
+# Description:
+#   Bug 1951379 - Part 3: Add NotificationStorageEntry r=asuth
+#   
+#   This skips handling `vibrate` for now, as we don't ship it and it also complicates test setup.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D240213
+# ==============================================================================
+
+diff -r 61ab7888abc4 -r ed71fdc2d78d dom/notification/NotificationUtils.h
+--- a/dom/notification/NotificationUtils.h	Tue Mar 04 18:00:17 2025 +0000
++++ b/dom/notification/NotificationUtils.h	Tue Mar 04 18:00:18 2025 +0000
+@@ -8,7 +8,9 @@
+ #define DOM_NOTIFICATION_NOTIFICATIONUTILS_H_
+ 
+ #include <cstdint>
++#include "mozilla/dom/DOMTypes.h"
+ #include "nsCOMPtr.h"
++#include "nsINotificationStorage.h"
+ #include "nsStringFwd.h"
+ 
+ enum class nsresult : uint32_t;
+@@ -19,10 +21,6 @@
+ class Document;
+ }  // namespace mozilla::dom
+ 
+-namespace mozilla::dom {
+-class IPCNotificationOptions;
+-}
+-
+ namespace mozilla::dom::notification {
+ 
+ /**
+@@ -67,8 +65,8 @@
+ 
+ nsresult GetOrigin(nsIPrincipal* aPrincipal, nsString& aOrigin);
+ 
+-nsresult PersistNotification(nsIPrincipal* aPrincipal, const nsString& aId,
+-                             const IPCNotificationOptions& aOptions,
++nsresult PersistNotification(nsIPrincipal* aPrincipal,
++                             const IPCNotification& aNotification,
+                              const nsString& aScope);
+ nsresult UnpersistNotification(nsIPrincipal* aPrincipal, const nsString& aId);
+ 
+@@ -87,6 +85,22 @@
+ nsresult AdjustPushQuota(nsIPrincipal* aPrincipal,
+                          NotificationStatusChange aChange);
+ 
++class NotificationStorageEntry : public nsINotificationStorageEntry {
++ public:
++  NS_DECL_ISUPPORTS
++  NS_DECL_NSINOTIFICATIONSTORAGEENTRY
++  explicit NotificationStorageEntry(const IPCNotification& aIPCNotification)
++      : mIPCNotification(aIPCNotification) {}
++
++  static Result<IPCNotification, nsresult> ToIPC(
++      nsINotificationStorageEntry& aEntry);
++
++ private:
++  virtual ~NotificationStorageEntry() = default;
++
++  IPCNotification mIPCNotification;
++};
++
+ }  // namespace mozilla::dom::notification
+ 
+ #endif  // DOM_NOTIFICATION_NOTIFICATIONUTILS_H_

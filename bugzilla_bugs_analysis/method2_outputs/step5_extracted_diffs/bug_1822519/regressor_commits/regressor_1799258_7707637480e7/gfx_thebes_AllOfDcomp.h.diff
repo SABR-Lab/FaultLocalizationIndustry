@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/AllOfDcomp.h
+# Commit: 7707637480e7
+# Full Hash: 7707637480e7a5efa16c33cee89f10f5ce6be48f
+# Author: Kelsey Gilbert <kelsey.gilbert@mozilla.com>
+# Date: 2023-02-07 04:35:34
+# Regressor Bug: 1799258
+# File Overlap Count: 1
+# Description:
+#   Bug 1799258 - Share all-of-dcomp.h preamble, and deal with outdated mingw dcomp.h. r=gfx-reviewers,sotaro
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D168839
+# ==============================================================================
+
+diff -r 0141b29bf5df -r 7707637480e7 gfx/thebes/AllOfDcomp.h
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/gfx/thebes/AllOfDcomp.h	Mon Feb 06 19:58:56 2023 +0000
+@@ -0,0 +1,39 @@
++/* -*- Mode: C++; tab-width: 20; indent-tabs-mode: nil; c-basic-offset: 2 -*-
++ * This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++#ifndef mozilla_gfx_AllOfDcomp_h
++#define mozilla_gfx_AllOfDcomp_h
++
++// Getting everything that we need in dcomp.h defined means messing with some defines.
++
++#if (_WIN32_WINNT < _WIN32_WINNT_WIN10)
++
++#  define XSTR(x) STR(x)
++#  define STR(x) #x
++// clang-format off
++
++#  pragma message "IDCompositionFilterEffect in dcomp.h requires _WIN32_WINNT >= _WIN32_WINNT_WIN10."
++// Pedantically, it actually requires _WIN32_WINNT_WINTHRESHOLD, but that's the
++// same as _WIN32_WINNT_WIN10.
++
++#  pragma message "Forcing NTDDI_VERSION " XSTR(NTDDI_VERSION) " -> " XSTR(NTDDI_WIN10)
++#  undef NTDDI_VERSION
++#  define NTDDI_VERSION NTDDI_WIN10
++
++#  pragma message "Forcing _WIN32_WINNT " XSTR(_WIN32_WINNT) " -> " XSTR(_WIN32_WINNT_WIN10)
++#  undef _WIN32_WINNT
++#  define _WIN32_WINNT _WIN32_WINNT_WIN10
++
++// clang-format on
++#  undef STR
++#  undef XSTR
++
++#endif
++
++// -
++
++#include <dcomp.h>
++
++#endif  // mozilla_gfx_AllOfDcomp_h

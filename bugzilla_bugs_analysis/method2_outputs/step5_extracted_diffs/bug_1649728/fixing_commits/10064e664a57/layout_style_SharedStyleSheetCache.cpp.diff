@@ -1,0 +1,37 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: layout/style/SharedStyleSheetCache.cpp
+# Commit: 10064e664a57
+# Full Hash: 10064e664a57f5a297dd25ae8c6ba07c03398b2a
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2020-07-17 03:27:56
+# Description:
+#   Bug 1649728 - Use WeakPtr in SharedStyleSheetCache::mLoadingDatas. r=firefox-style-system-reviewers,jwatt
+#   
+#   This is safer in case Necko fails to notify us. The only repro we have
+#   is fixed by bug 1651661, but this should hopefully be uncontroversial as
+#   well and prevents crashing in release builds.
+# ==============================================================================
+
+diff -r dce645f310a5 -r 10064e664a57 layout/style/SharedStyleSheetCache.cpp
+--- a/layout/style/SharedStyleSheetCache.cpp	Thu Jul 16 17:31:10 2020 +0000
++++ b/layout/style/SharedStyleSheetCache.cpp	Thu Jul 16 16:31:52 2020 +0000
+@@ -504,12 +504,14 @@
+   // We can't stop in-progress loads because some other loader may care about
+   // them.
+   for (auto iter = mLoadingDatas.Iter(); !iter.Done(); iter.Next()) {
+-    SheetLoadData* data = iter.Data();
+-    do {
++    MOZ_DIAGNOSTIC_ASSERT(iter.Data(),
++                          "We weren't properly notified and the load was "
++                          "incorrectly dropped on the floor");
++    for (SheetLoadData* data = iter.Data(); data; data = data->mNext) {
+       if (data->mLoader == &aLoader) {
+         data->mIsCancelled = true;
+       }
+-    } while ((data = data->mNext));
++    }
+   }
+ }
+ 

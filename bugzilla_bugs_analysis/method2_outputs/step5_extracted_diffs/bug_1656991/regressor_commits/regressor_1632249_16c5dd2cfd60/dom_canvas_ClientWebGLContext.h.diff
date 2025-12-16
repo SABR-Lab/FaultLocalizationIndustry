@@ -1,0 +1,128 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/ClientWebGLContext.h
+# Commit: 16c5dd2cfd60
+# Full Hash: 16c5dd2cfd600a62c80ca17cfb35c0868e016056
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-06-15 21:48:38
+# Regressor Bug: 1632249
+# File Overlap Count: 1
+# Description:
+#   Bug 1632249 - Support compositing out-of-process WebGL. r=handyman,lsalzman,nical,geckoview-reviewers,agi,imanol
+#   
+#   * Majorly simplity CanvasRenderer
+#   * Replace GLScreenBuffer with trivial GLSwapChain
+#   * Use descriptor structs so that future SharedSurface changes aren't so painful
+# ==============================================================================
+
+diff -r ca8139d58d58 -r 16c5dd2cfd60 dom/canvas/ClientWebGLContext.h
+--- a/dom/canvas/ClientWebGLContext.h	Fri Jun 12 21:53:14 2020 +0000
++++ b/dom/canvas/ClientWebGLContext.h	Mon Jun 15 18:25:55 2020 +0000
+@@ -45,10 +45,6 @@
+ class WebGLChild;
+ }
+ 
+-namespace layers {
+-class SharedSurfaceTextureClient;
+-}
+-
+ namespace webgl {
+ class TexUnpackBlob;
+ class TexUnpackBytes;
+@@ -698,7 +694,6 @@
+ class ClientWebGLContext final : public nsICanvasRenderingContextInternal,
+                                  public nsWrapperCache,
+                                  public SupportsWeakPtr<ClientWebGLContext> {
+-  friend class WebGLContextUserData;
+   friend class webgl::ObjectJS;
+   friend class webgl::ProgramKeepAlive;
+   friend class webgl::ShaderKeepAlive;
+@@ -724,6 +719,13 @@
+  public:
+   const bool mIsWebGL2;
+ 
++ private:
++  bool mIsCanvasDirty = false;
++  uvec2 mRequestedSize = {};
++
++  RefPtr<gfx::DataSourceSurface> mFrontBufferSnapshot;
++
++ public:
+   explicit ClientWebGLContext(bool webgl2);
+ 
+  private:
+@@ -768,7 +770,12 @@
+   void ThrowEvent_WebGLContextCreationError(const std::string&) const;
+ 
+  public:
+-  void MarkCanvasDirty() { Invalidate(); }
++  void MarkCanvasDirty();
++
++  void MarkContextClean() override {}
++
++  void OnBeforePaintTransaction() override;
++  ClientWebGLContext* AsWebgl() override { return this; }
+ 
+   mozilla::dom::WebGLChild* GetChild() const {
+     if (!mNotLost) return nullptr;
+@@ -905,7 +912,6 @@
+   bool IsContextCleanForFrameCapture() override {
+     return !mCapturedFrameInvalidated;
+   }
+-  void MarkContextClean() override { mInvalidated = false; }
+   void MarkContextCleanForFrameCapture() override {
+     mCapturedFrameInvalidated = false;
+   }
+@@ -964,13 +970,11 @@
+ 
+   // ------
+ 
+-  void Invalidate();
+-
+  protected:
+   layers::LayersBackend GetCompositorBackendType() const;
+ 
+-  bool mInvalidated = false;
+   bool mCapturedFrameInvalidated = false;
++  UniquePtr<layers::SurfaceDescriptor> mFrontBufferDesc;
+ 
+   // -------------------------------------------------------------------------
+   // WebGLRenderingContext Basic Properties and Methods
+@@ -992,22 +996,19 @@
+   void GetContextAttributes(dom::Nullable<dom::WebGLContextAttributes>& retval);
+ 
+   void Present();
+-
+-  RefPtr<layers::SharedSurfaceTextureClient> GetVRFrame(
+-      const WebGLFramebufferJS*) const;
+-  void ClearVRFrame() const;
++  Maybe<layers::SurfaceDescriptor> GetFrontBuffer(layers::TextureType);
++  RefPtr<gfx::SourceSurface> GetFrontBufferSnapshot() override;
+ 
+  private:
++  RefPtr<gfx::DataSourceSurface> BackBufferSnapshot();
++  void DoReadPixels(const webgl::ReadPixelsDesc&, Range<uint8_t>) const;
+   uvec2 DrawingBufferSize();
+ 
+-  ICRData mSurfaceInfo;
+-
+   void AfterDrawCall() {
+     if (!mNotLost) return;
+     const auto& state = State();
+-    const bool isBackbuffer = !state.mBoundDrawFb;
+-    if (isBackbuffer) {
+-      Invalidate();
++    if (!state.mBoundDrawFb) {
++      MarkCanvasDirty();
+     }
+   }
+ 
+@@ -1699,7 +1700,6 @@
+                   unpackType, anySrc, out_error);
+   }
+ 
+-  // =========================================================================
+   // ------------------------ Uniforms and attributes ------------------------
+  public:
+   void GetVertexAttrib(JSContext* cx, GLuint index, GLenum pname,

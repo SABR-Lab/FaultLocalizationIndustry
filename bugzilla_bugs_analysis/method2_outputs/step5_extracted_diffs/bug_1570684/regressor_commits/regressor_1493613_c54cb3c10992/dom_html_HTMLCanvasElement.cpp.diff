@@ -1,0 +1,67 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/html/HTMLCanvasElement.cpp
+# Commit: c54cb3c10992
+# Full Hash: c54cb3c109922bc15fb6d0ca67e5f2a05980c1a5
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2019-07-31 15:46:43
+# Regressor Bug: 1493613
+# File Overlap Count: 2
+# Description:
+#   Bug 1493613 - Move MediaStream control from DOMMediaStream to MediaStreamTrack. r=padenot
+#   
+#   This is inherently large, because modifying these bits of DOMMediaStream and
+#   MediaStreamTrack affects all consumers and producers of all DOMMediaStreams and
+#   MediaStreamTracks.
+# ==============================================================================
+
+diff -r 0b03dd9d20ac -r c54cb3c10992 dom/html/HTMLCanvasElement.cpp
+--- a/dom/html/HTMLCanvasElement.cpp	Wed Jul 31 09:35:06 2019 +0000
++++ b/dom/html/HTMLCanvasElement.cpp	Wed Jul 31 07:58:17 2019 +0000
+@@ -10,7 +10,7 @@
+ #include "jsapi.h"
+ #include "jsfriendapi.h"
+ #include "Layers.h"
+-#include "MediaSegment.h"
++#include "MediaStreamGraph.h"
+ #include "mozilla/Assertions.h"
+ #include "mozilla/Base64.h"
+ #include "mozilla/CheckedInt.h"
+@@ -19,7 +19,7 @@
+ #include "mozilla/dom/Event.h"
+ #include "mozilla/dom/File.h"
+ #include "mozilla/dom/HTMLCanvasElementBinding.h"
+-#include "mozilla/dom/MediaStreamTrack.h"
++#include "mozilla/dom/VideoStreamTrack.h"
+ #include "mozilla/dom/MouseEvent.h"
+ #include "mozilla/dom/OffscreenCanvas.h"
+ #include "mozilla/EventDispatcher.h"
+@@ -677,14 +677,9 @@
+     return nullptr;
+   }
+ 
+-  RefPtr<CanvasCaptureMediaStream> stream =
+-      CanvasCaptureMediaStream::CreateSourceStream(window, this);
+-  if (!stream) {
+-    aRv.Throw(NS_ERROR_FAILURE);
+-    return nullptr;
+-  }
++  auto stream = MakeRefPtr<CanvasCaptureMediaStream>(window, this);
+ 
+-  TrackID videoTrackId = 1;
++  const TrackID videoTrackId = 1;
+   nsCOMPtr<nsIPrincipal> principal = NodePrincipal();
+   nsresult rv = stream->Init(aFrameRate, videoTrackId, principal);
+   if (NS_FAILED(rv)) {
+@@ -693,8 +688,8 @@
+   }
+ 
+   RefPtr<MediaStreamTrack> track =
+-      stream->CreateDOMTrack(videoTrackId, MediaSegment::VIDEO,
+-                             new CanvasCaptureTrackSource(principal, stream));
++      new VideoStreamTrack(window, stream->GetSourceStream(), videoTrackId,
++                           new CanvasCaptureTrackSource(principal, stream));
+   stream->AddTrackInternal(track);
+ 
+   // Check site-specific permission and display prompt if appropriate.

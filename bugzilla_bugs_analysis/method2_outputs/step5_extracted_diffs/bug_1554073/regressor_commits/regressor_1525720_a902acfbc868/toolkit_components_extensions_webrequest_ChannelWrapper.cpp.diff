@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/extensions/webrequest/ChannelWrapper.cpp
+# Commit: a902acfbc868
+# Full Hash: a902acfbc8680811e4538f8d27e78e4fe6ca55f2
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2019-05-23 15:55:11
+# Regressor Bug: 1525720
+# File Overlap Count: 1
+# Description:
+#   Bug 1525720, part 13 - Stop inheriting nsIRemoteTab interface in BrowserParent. r=nika
+#   
+#   This commit removes nsIRemoteTab as a parent class from BrowserParent,
+#   so that BrowserHost is the only concrete implementation of nsIRemoteTab.
+#   
+# ==============================================================================
+
+diff -r 50475885250c -r a902acfbc868 toolkit/components/extensions/webrequest/ChannelWrapper.cpp
+--- a/toolkit/components/extensions/webrequest/ChannelWrapper.cpp	Wed May 08 11:45:23 2019 -0500
++++ b/toolkit/components/extensions/webrequest/ChannelWrapper.cpp	Wed May 08 14:34:47 2019 -0500
+@@ -22,7 +22,7 @@
+ #include "mozilla/Unused.h"
+ #include "mozilla/dom/Element.h"
+ #include "mozilla/dom/Event.h"
+-#include "mozilla/dom/BrowserParent.h"
++#include "mozilla/dom/BrowserHost.h"
+ #include "nsIContentPolicy.h"
+ #include "nsIHttpChannelInternal.h"
+ #include "nsIHttpHeaderVisitor.h"
+@@ -140,10 +140,10 @@
+ 
+ already_AddRefed<ChannelWrapper> ChannelWrapper::GetRegisteredChannel(
+     const GlobalObject& global, uint64_t aChannelId,
+-    const WebExtensionPolicy& aAddon, nsIRemoteTab* aBrowserParent) {
++    const WebExtensionPolicy& aAddon, nsIRemoteTab* aRemoteTab) {
+   ContentParent* contentParent = nullptr;
+-  if (BrowserParent* parent = static_cast<BrowserParent*>(aBrowserParent)) {
+-    contentParent = parent->Manager();
++  if (BrowserHost* host = BrowserHost::GetFrom(aRemoteTab)) {
++    contentParent = host->GetActor()->Manager();
+   }
+ 
+   auto& webreq = WebRequestService::GetSingleton();
+@@ -682,12 +682,12 @@
+ 
+ already_AddRefed<nsITraceableChannel> ChannelWrapper::GetTraceableChannel(
+     nsAtom* aAddonId, dom::ContentParent* aContentParent) const {
+-  nsCOMPtr<nsIRemoteTab> browserParent;
+-  if (mAddonEntries.Get(aAddonId, getter_AddRefs(browserParent))) {
++  nsCOMPtr<nsIRemoteTab> remoteTab;
++  if (mAddonEntries.Get(aAddonId, getter_AddRefs(remoteTab))) {
+     ContentParent* contentParent = nullptr;
+-    if (browserParent) {
++    if (remoteTab) {
+       contentParent =
+-          static_cast<BrowserParent*>(browserParent.get())->Manager();
++          BrowserHost::GetFrom(remoteTab.get())->GetActor()->Manager();
+     }
+ 
+     if (contentParent == aContentParent) {

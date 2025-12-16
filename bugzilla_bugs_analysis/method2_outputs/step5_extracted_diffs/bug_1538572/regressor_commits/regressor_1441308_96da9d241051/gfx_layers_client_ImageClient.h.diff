@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/client/ImageClient.h
+# Commit: 96da9d241051
+# Full Hash: 96da9d241051d222bdd693bdb519d058a013b59c
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2019-03-23 09:46:24
+# Regressor Bug: 1441308
+# File Overlap Count: 2
+# Description:
+#   Bug 1441308 - Core renderroot splitting changes r=kats,sotaro
+#   
+#   This is a large patch that contains all of the core changes for
+#   renderroot splitting.
+#   
+# ==============================================================================
+
+diff -r 8cefa694f811 -r 96da9d241051 gfx/layers/client/ImageClient.h
+--- a/gfx/layers/client/ImageClient.h	Fri Mar 22 18:28:31 2019 +0000
++++ b/gfx/layers/client/ImageClient.h	Fri Mar 22 18:28:42 2019 +0000
+@@ -53,8 +53,8 @@
+    * returns false if this is the wrong kind of ImageClient for aContainer.
+    * Note that returning true does not necessarily imply success
+    */
+-  virtual bool UpdateImage(ImageContainer* aContainer,
+-                           uint32_t aContentFlags) = 0;
++  virtual bool UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags,
++                           const Maybe<wr::RenderRoot>& aRenderRoot) = 0;
+ 
+   void SetLayer(ClientLayer* aLayer) { mLayer = aLayer; }
+   ClientLayer* GetLayer() const { return mLayer; }
+@@ -65,7 +65,8 @@
+    */
+   virtual void FlushAllImages() {}
+ 
+-  virtual void RemoveTexture(TextureClient* aTexture) override;
++  virtual void RemoveTexture(TextureClient* aTexture,
++                             const Maybe<wr::RenderRoot>& aRenderRoot) override;
+ 
+   virtual ImageClientSingle* AsImageClientSingle() { return nullptr; }
+ 
+@@ -95,8 +96,8 @@
+   ImageClientSingle(CompositableForwarder* aFwd, TextureFlags aFlags,
+                     CompositableType aType);
+ 
+-  virtual bool UpdateImage(ImageContainer* aContainer,
+-                           uint32_t aContentFlags) override;
++  virtual bool UpdateImage(ImageContainer* aContainer, uint32_t aContentFlag,
++                           const Maybe<wr::RenderRoot>& aRenderRoot) override;
+ 
+   virtual void OnDetach() override;
+ 
+@@ -129,8 +130,8 @@
+  public:
+   ImageClientBridge(CompositableForwarder* aFwd, TextureFlags aFlags);
+ 
+-  virtual bool UpdateImage(ImageContainer* aContainer,
+-                           uint32_t aContentFlags) override;
++  virtual bool UpdateImage(ImageContainer* aContainer, uint32_t aContentFlags,
++                           const Maybe<wr::RenderRoot>& aRenderRoot) override;
+   virtual bool Connect(ImageContainer* aImageContainer) override {
+     return false;
+   }

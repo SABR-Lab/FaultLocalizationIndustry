@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/generic/LocalAccessible.cpp
+# Commit: 9309568a622d
+# Full Hash: 9309568a622de3c0e7fe7da366808ca17d681931
+# Author: Morgan Rae Reschenberg <mreschenberg@mozilla.com>
+# Date: 2022-07-27 09:37:31
+# Regressor Bug: 1774043
+# File Overlap Count: 1
+# Description:
+#   Bug 1774043: [Part 1] Add cache domains, caching logic for LABEL_FOR and LABELLED_BY relations r=Jamie
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D152100
+# ==============================================================================
+
+diff -r b4fbf2bd8c4a -r 9309568a622d accessible/generic/LocalAccessible.cpp
+--- a/accessible/generic/LocalAccessible.cpp	Tue Jul 26 21:31:57 2022 +0000
++++ b/accessible/generic/LocalAccessible.cpp	Tue Jul 26 21:35:38 2022 +0000
+@@ -1348,6 +1348,10 @@
+   }
+ 
+   if (aAttribute == nsGkAtoms::aria_labelledby) {
++    // We only queue cache updates for explicit relations. Implicit, reverse
++    // relations are handled in ApplyCache and stored in a map on the remote
++    // document itself.
++    mDoc->QueueCacheUpdate(this, CacheDomain::Relations);
+     mDoc->FireDelayedEvent(nsIAccessibleEvent::EVENT_NAME_CHANGE, this);
+     if (aModType == dom::MutationEvent_Binding::MODIFICATION ||
+         aModType == dom::MutationEvent_Binding::ADDITION) {
+@@ -3558,6 +3562,25 @@
+     }
+   }
+ 
++  if (CacheDomain::Relations) {
++    for (auto const& data : kRelationTypeAtoms) {
++      nsTArray<uint64_t> ids;
++      nsStaticAtom* const relAtom = data.mAtom;
++      // We use an IDRefsIterator here instead of calling RelationByType
++      // directly because we only want to cache explicit relations. Implicit
++      // relations will be computed and stored separately in the parent process.
++      Relation rel(new IDRefsIterator(mDoc, mContent, relAtom));
++      while (LocalAccessible* acc = rel.Next()) {
++        ids.AppendElement(acc->IsDoc() ? 0 : acc->ID());
++      }
++      if (ids.Length()) {
++        fields->SetAttribute(relAtom, std::move(ids));
++      } else if (aUpdateType == CacheUpdateType::Update) {
++        fields->SetAttribute(relAtom, DeleteEntry());
++      }
++    }
++  }
++
+   if (aUpdateType == CacheUpdateType::Initial) {
+     // Add fields which never change and thus only need to be included in the
+     // initial cache push.

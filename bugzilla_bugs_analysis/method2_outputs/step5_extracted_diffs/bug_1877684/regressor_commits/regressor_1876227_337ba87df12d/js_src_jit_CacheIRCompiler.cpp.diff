@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/CacheIRCompiler.cpp
+# Commit: 337ba87df12d
+# Full Hash: 337ba87df12db1c7f3a9da7b35d083c37ed93dfb
+# Author: André Bargull <andre.bargull@gmail.com>
+# Date: 2024-01-27 21:19:38
+# Regressor Bug: 1876227
+# File Overlap Count: 1
+# Description:
+#   Bug 1876227: Support non-number inputs when assigning to TypedArray elements. r=jandem
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D199513
+# ==============================================================================
+
+diff -r 52e30e216e08 -r 337ba87df12d js/src/jit/CacheIRCompiler.cpp
+--- a/js/src/jit/CacheIRCompiler.cpp	Sat Jan 27 09:50:17 2024 +0000
++++ b/js/src/jit/CacheIRCompiler.cpp	Sat Jan 27 09:51:34 2024 +0000
+@@ -3672,6 +3672,19 @@
+   return true;
+ }
+ 
++bool CacheIRCompiler::emitDoubleToUint8Clamped(NumberOperandId inputId,
++                                               Int32OperandId resultId) {
++  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
++  Register res = allocator.defineRegister(masm, resultId);
++
++  AutoScratchFloatRegister floatReg(this);
++
++  allocator.ensureDoubleRegister(masm, inputId, floatReg);
++
++  masm.clampDoubleToUint8(floatReg, res);
++  return true;
++}
++
+ bool CacheIRCompiler::emitLoadArgumentsObjectLengthResult(ObjOperandId objId) {
+   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+   AutoOutputRegister output(*this);

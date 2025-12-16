@@ -1,0 +1,82 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit-test/tests/gc/bug-1505622.js
+# Commit: 7da8f779dc24
+# Full Hash: 7da8f779dc24489bd423f647c1d60530e9deb24e
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2020-12-17 21:49:27
+# Regressor Bug: 1681533
+# File Overlap Count: 2
+# Description:
+#   Bug 1681533 - Only collect the nursery when necessary in major GC r=sfink
+#   
+#   This rearranges a few things so that we can run a minor GC inside a major GC
+#   slice, so we don't have to be conservative about collecting the nursery at the
+#   start of a slice.
+# ==============================================================================
+
+diff -r bc20cf2a3ad8 -r 7da8f779dc24 js/src/jit-test/tests/gc/bug-1505622.js
+--- a/js/src/jit-test/tests/gc/bug-1505622.js	Thu Dec 17 17:39:25 2020 +0000
++++ b/js/src/jit-test/tests/gc/bug-1505622.js	Thu Dec 17 17:57:33 2020 +0000
+@@ -1,30 +1,39 @@
+ // Test that we don't repeatedly trigger last-ditch GCs.
+ 
+-function allocUntilFail() {
+-    gc();
+-    let initGCNumber = gcparam("gcNumber");
+-    let error;
+-    try {
+-        let a = [];
+-        while (true) {
+-            a.push(Symbol()); // Symbols are tenured.
+-        }
+-    } catch(err) {
+-        error = err;
+-    }
+-    let finalGCNumber = gcparam("gcNumber");
+-    gc();
+-    assertEq(error, "out of memory");
+-    return finalGCNumber - initGCNumber;
+-}
+-
+ // Turn of any zeal which will disrupt GC number checks.
+ gczeal(0);
+ 
+-// Set a small heap limit.
++// Get initial heap size and limit.
+ gc();
+-let currentSize = gcparam("gcBytes");
+-gcparam("maxBytes", currentSize + 16 * 1024);
++const initialSize = gcparam("gcBytes");
++const initialMaxSize = gcparam("maxBytes");
++
++function allocUntilFail() {
++  gc();
++  const initGCNumber = gcparam("majorGCNumber");
++
++  // Set a small heap limit.
++  gcparam("maxBytes", initialSize + 16 * 1024);
++
++  let error;
++  try {
++    let a = [];
++    while (true) {
++      a.push(Symbol()); // Symbols are tenured.
++    }
++  } catch(err) {
++    error = err;
++  }
++
++  const finalGCNumber = gcparam("majorGCNumber");
++
++  // Resetore heap limit.
++  gcparam("maxBytes", initialMaxSize);
++
++  gc();
++  assertEq(error, "out of memory");
++  return finalGCNumber - initGCNumber;
++}
+ 
+ // Set the time limit for skipping last ditch GCs to 5 seconds.
+ gcparam("minLastDitchGCPeriod", 5);

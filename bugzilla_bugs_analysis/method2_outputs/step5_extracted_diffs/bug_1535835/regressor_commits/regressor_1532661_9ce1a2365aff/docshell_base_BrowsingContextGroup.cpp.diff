@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/BrowsingContextGroup.cpp
+# Commit: 9ce1a2365aff
+# Full Hash: 9ce1a2365afff092f9107a5f1ae1eca6a34dfce3
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2019-03-15 03:42:43
+# Regressor Bug: 1532661
+# File Overlap Count: 2
+# Description:
+#   Bug 1532661 - Part 4: Support initializing complete BrowsingContextGroups in a single op with an IPCInitializer struct, r=farre
+#   
+#   Depends on D22192
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D22193
+# ==============================================================================
+
+diff -r 58f77fa35eea -r 9ce1a2365aff docshell/base/BrowsingContextGroup.cpp
+--- a/docshell/base/BrowsingContextGroup.cpp	Thu Mar 14 18:51:07 2019 +0000
++++ b/docshell/base/BrowsingContextGroup.cpp	Thu Mar 14 18:51:09 2019 +0000
+@@ -43,21 +43,32 @@
+     return;
+   }
+ 
+-  MOZ_RELEASE_ASSERT(
+-      mContexts.Count() == 1,
+-      "EnsureSubscribed doesn't work on non-fresh BrowsingContextGroups yet!");
+-
+   // Subscribe to the BrowsingContext, and send down initial state!
+   Subscribe(aProcess);
+ 
+-  // XXX(nika): We can't send down existing BrowsingContextGroups reliably yet
+-  // due to ordering issues! (Bug ?)
++  // Iterate over each of our browsing contexts, locating those which are not in
++  // their parent's children list. We can then use those as starting points to
++  // get a pre-order walk of each tree.
++  nsTArray<BrowsingContext::IPCInitializer> inits(mContexts.Count());
+   for (auto iter = mContexts.Iter(); !iter.Done(); iter.Next()) {
+-    RefPtr<BrowsingContext> bc = iter.Get()->GetKey();
+-    Unused << aProcess->SendAttachBrowsingContext(
+-        bc->GetParent(), bc->GetOpener(), BrowsingContextId(bc->Id()),
+-        bc->Name());
++    auto* context = iter.Get()->GetKey();
++
++    // If we have a parent, and are in our parent's `Children` list, skip
++    // ourselves as we'll be found in the pre-order traversal of our parent.
++    if (context->GetParent() &&
++        context->GetParent()->GetChildren().IndexOf(context) !=
++            BrowsingContext::Children::NoIndex) {
++      continue;
++    }
++
++    // Add all elements to the list in pre-order.
++    context->PreOrderWalk([&](BrowsingContext* aContext) {
++      inits.AppendElement(aContext->GetIPCInitializer());
++    });
+   }
++
++  // Send all of our contexts to the target content process.
++  Unused << aProcess->SendRegisterBrowsingContextGroup(inits);
+ }
+ 
+ BrowsingContextGroup::~BrowsingContextGroup() {

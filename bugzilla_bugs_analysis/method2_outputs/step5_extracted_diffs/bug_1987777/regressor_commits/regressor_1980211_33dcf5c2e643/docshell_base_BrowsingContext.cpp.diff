@@ -1,0 +1,69 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/BrowsingContext.cpp
+# Commit: 33dcf5c2e643
+# Full Hash: 33dcf5c2e643b94e90a0a197c99112a080501a12
+# Author: Alexandra Borovova <aborovova@mozilla.com>
+# Date: 2025-08-20 09:57:21
+# Regressor Bug: 1980211
+# File Overlap Count: 2
+# Description:
+#   Bug 1980211 - Attach locale override to Realm instead of setting it in the process. r=dom-core,smaug,tschuster
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D260169
+# ==============================================================================
+
+diff -r 2cb7ca176216 -r 33dcf5c2e643 docshell/base/BrowsingContext.cpp
+--- a/docshell/base/BrowsingContext.cpp	Tue Aug 19 16:57:59 2025 +0000
++++ b/docshell/base/BrowsingContext.cpp	Tue Aug 19 17:01:50 2025 +0000
+@@ -3092,31 +3092,33 @@
+ }
+ 
+ void BrowsingContext::DidSet(FieldIndex<IDX_LanguageOverride>,
+-                             nsString&& aOldValue) {
++                             nsCString&& aOldValue) {
+   MOZ_ASSERT(IsTop());
+ 
++  const nsCString& languageOverride = GetLanguageOverride();
++
+   PreOrderWalk([&](BrowsingContext* aBrowsingContext) {
+     RefPtr<WindowContext> windowContext =
+         aBrowsingContext->GetCurrentWindowContext();
+ 
+     if (nsCOMPtr<nsPIDOMWindowInner> window = windowContext->GetInnerWindow()) {
+-      AutoJSAPI jsapi;
+-      if (jsapi.Init(window)) {
+-        JSContext* context = jsapi.cx();
+-
+-        if (mDefaultLocale == nullptr) {
++      JSObject* global = nsGlobalWindowInner::Cast(window)->GetGlobalJSObject();
++      JS::Realm* realm = JS::GetObjectRealmOrNull(global);
++
++      if (mDefaultLocale == nullptr) {
++        AutoJSAPI jsapi;
++        if (jsapi.Init(window)) {
++          JSContext* context = jsapi.cx();
+           mDefaultLocale = JS_GetDefaultLocale(context);
+         }
+-
+-        JSRuntime* runtime = JS_GetRuntime(context);
+-        if (GetLanguageOverride().IsEmpty()) {
+-          JS_SetDefaultLocale(runtime, mDefaultLocale.get());
+-
+-          mDefaultLocale = nullptr;
+-        } else {
+-          JS_SetDefaultLocale(
+-              runtime, NS_ConvertUTF16toUTF8(GetLanguageOverride()).get());
+-        }
++      }
++
++      if (languageOverride.IsEmpty()) {
++        JS::SetRealmLocaleOverride(realm, mDefaultLocale.get());
++        mDefaultLocale = nullptr;
++      } else {
++        JS::SetRealmLocaleOverride(realm,
++                                   PromiseFlatCString(languageOverride).get());
+       }
+     }
+   });

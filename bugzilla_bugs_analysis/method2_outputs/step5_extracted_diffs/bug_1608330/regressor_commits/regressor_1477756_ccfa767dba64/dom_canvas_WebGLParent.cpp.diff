@@ -1,0 +1,102 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLParent.cpp
+# Commit: ccfa767dba64
+# Full Hash: ccfa767dba644dc193e0246eb8e8ff3377e8b8a5
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Client-side bindings mirror for precise CC, and merge similar codepaths. r=handyman
+#   
+#   * Context loss using RAII
+#   * Move Program reflection Client-side
+#   
+# ==============================================================================
+
+diff -r 71c122ac0ca7 -r ccfa767dba64 dom/canvas/WebGLParent.cpp
+--- a/dom/canvas/WebGLParent.cpp	Wed Jan 08 22:19:14 2020 +0000
++++ b/dom/canvas/WebGLParent.cpp	Wed Jan 08 22:19:16 2020 +0000
+@@ -5,6 +5,7 @@
+ 
+ #include "WebGLParent.h"
+ 
++#include "mozilla/dom/WebGLCrossProcessCommandQueue.h"
+ #include "mozilla/layers/LayerTransactionParent.h"
+ #include "mozilla/layers/TextureClientSharedSurface.h"
+ #include "HostWebGLContext.h"
+@@ -13,29 +14,34 @@
+ 
+ namespace dom {
+ 
+-/* static */ WebGLParent* WebGLParent::Create(
+-    WebGLVersion aVersion,
+-    UniquePtr<mozilla::HostWebGLCommandSink>&& aCommandSink,
+-    UniquePtr<mozilla::HostWebGLErrorSource>&& aErrorSource) {
+-  UniquePtr<HostWebGLContext> host = HostWebGLContext::Create(
+-      aVersion, std::move(aCommandSink), std::move(aErrorSource));
++/* static */
++RefPtr<WebGLParent> WebGLParent::Create(const webgl::InitContextDesc& desc,
++                                        webgl::InitContextResult* const out) {
++  RefPtr<WebGLParent> parent = new WebGLParent;
++  auto remotingData = Some(HostWebGLContext::RemotingData{
++      *parent, {},  // std::move(commandSink),
++  });
+ 
+-  if (!host) {
++  parent->mHost = HostWebGLContext::Create(
++      {
++          {},
++          std::move(remotingData),
++      },
++      desc, out);
++
++  if (!parent->mHost) {
+     WEBGL_BRIDGE_LOGE("Failed to create HostWebGLContext");
+     return nullptr;
+   }
+-
+-  WebGLParent* parent(new WebGLParent(std::move(host)));
+   if (!parent->BeginCommandQueueDrain()) {
+     WEBGL_BRIDGE_LOGE("Failed to start WebGL command queue drain");
+     return nullptr;
+   }
+-
+   return parent;
+ }
+ 
+-WebGLParent::WebGLParent(UniquePtr<HostWebGLContext>&& aHost)
+-    : mHost(std::move(aHost)) {}
++WebGLParent::WebGLParent() = default;
++WebGLParent::~WebGLParent() = default;
+ 
+ bool WebGLParent::BeginCommandQueueDrain() {
+   if (mRunCommandsRunnable) {
+@@ -76,6 +82,8 @@
+     return true;
+   }
+ 
++  MOZ_CRASH("todo");
++  /*
+   // Drain the queue for up to kMaxWebGLCommandTimeSliceMs, then
+   // repeat no sooner than kDrainDelayMs later.
+   // TODO: Tune these.
+@@ -90,7 +98,7 @@
+   if (!success) {
+     // Tell client that this WebGLParent needs to be shut down
+     WEBGL_BRIDGE_LOGE("WebGLParent failed while running commands");
+-    Unused << SendQueueFailed();
++    (void)SendOnContextLoss(webgl::ContextLossReason::None);
+     mRunCommandsRunnable = nullptr;
+     return false;
+   }
+@@ -100,6 +108,7 @@
+   MOZ_ASSERT(MessageLoop::current());
+   MessageLoop::current()->PostDelayedTask(do_AddRef(mRunCommandsRunnable),
+                                           kDrainDelayMs);
++  */
+   return true;
+ }
+ 

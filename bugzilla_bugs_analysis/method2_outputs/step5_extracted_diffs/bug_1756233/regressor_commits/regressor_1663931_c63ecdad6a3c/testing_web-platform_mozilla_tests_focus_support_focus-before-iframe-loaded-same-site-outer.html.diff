@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: testing/web-platform/mozilla/tests/focus/support/focus-before-iframe-loaded-same-site-outer.html
+# Commit: c63ecdad6a3c
+# Full Hash: c63ecdad6a3c60ba625517d34bb29c8aae9f5e95
+# Author: Henri Sivonen <hsivonen@hsivonen.fi>
+# Date: 2021-02-22 17:34:52
+# Regressor Bug: 1663931
+# File Overlap Count: 1
+# Description:
+#   Bug 1663931 - Avoid moving focus when changing iframe remoteness. r=nika,mccr8
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D99215
+# ==============================================================================
+
+diff -r 828c62bfc0a2 -r c63ecdad6a3c testing/web-platform/mozilla/tests/focus/support/focus-before-iframe-loaded-same-site-outer.html
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/testing/web-platform/mozilla/tests/focus/support/focus-before-iframe-loaded-same-site-outer.html	Mon Feb 22 10:51:51 2021 +0000
+@@ -0,0 +1,42 @@
++<!DOCTYPE html>
++<html>
++<head>
++<title>focus() before iframe loaded same site</title>
++</head>
++<body>
++<script>
++var pendingTimeout = false;
++window.onmessage = function(e) {
++    if (e.data == "onload") {
++        if (pendingTimeout) {
++            return;
++        }
++        pendingTimeout = opener.step_timeout(function() {
++            opener.postMessage("FAIL missing onfocus", "*");
++        }, 2000);
++        return;
++    }
++    if (pendingTimeout) {
++        clearTimeout(pendingTimeout);
++    }
++    pendingTimeout = true;
++    if (e.data == "onfocus") {
++        // Test not upstreamed, because this even is a Firefoxism
++        // https://github.com/whatwg/html/issues/6209
++        opener.postMessage("PASS", "*");
++        return;
++    }
++    opener.postMessage("FAIL " + e.data, "*");
++}
++
++var iframe = document.createElement("iframe");
++iframe.src = "focus-before-iframe-loaded-same-site-inner.html";
++document.body.appendChild(iframe);
++iframe.focus();
++if (document.activeElement != iframe) {
++    pendingTimeout = true;
++    opener.postMessage("FAIL activeElement", "*");
++}
++</script>
++</body>
++</html>

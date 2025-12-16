@@ -1,0 +1,74 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/base/memory/aligned_memory.h
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 2
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/base/memory/aligned_memory.h
+--- a/security/sandbox/chromium/base/memory/aligned_memory.h	Wed Jun 12 21:55:59 2019 +1200
++++ b/security/sandbox/chromium/base/memory/aligned_memory.h	Wed Jun 12 11:10:48 2019 +0100
+@@ -2,8 +2,24 @@
+ // Use of this source code is governed by a BSD-style license that can be
+ // found in the LICENSE file.
+ 
++#ifndef BASE_MEMORY_ALIGNED_MEMORY_H_
++#define BASE_MEMORY_ALIGNED_MEMORY_H_
++
++#include <stddef.h>
++#include <stdint.h>
++
+ #include <type_traits>
+ 
++#include "base/base_export.h"
++#include "base/compiler_specific.h"
++#include "build/build_config.h"
++
++#if defined(COMPILER_MSVC)
++#include <malloc.h>
++#else
++#include <stdlib.h>
++#endif
++
+ // A runtime sized aligned allocation can be created:
+ //
+ //   float* my_array = static_cast<float*>(AlignedAlloc(size, alignment));
+@@ -16,24 +32,11 @@
+ //   std::unique_ptr<float, AlignedFreeDeleter> my_array(
+ //       static_cast<float*>(AlignedAlloc(size, alignment)));
+ 
+-#ifndef BASE_MEMORY_ALIGNED_MEMORY_H_
+-#define BASE_MEMORY_ALIGNED_MEMORY_H_
+-
+-#include <stddef.h>
+-#include <stdint.h>
+-
+-#include "base/base_export.h"
+-#include "base/compiler_specific.h"
+-
+-#if defined(COMPILER_MSVC)
+-#include <malloc.h>
+-#else
+-#include <stdlib.h>
+-#endif
+-
+ namespace base {
+ 
+-// This can be replaced with std::aligned_malloc when we have C++17.
++// This can be replaced with std::aligned_alloc when we have C++17.
++// Caveat: std::aligned_alloc requires the size parameter be an integral
++// multiple of alignment.
+ BASE_EXPORT void* AlignedAlloc(size_t size, size_t alignment);
+ 
+ inline void AlignedFree(void* ptr) {

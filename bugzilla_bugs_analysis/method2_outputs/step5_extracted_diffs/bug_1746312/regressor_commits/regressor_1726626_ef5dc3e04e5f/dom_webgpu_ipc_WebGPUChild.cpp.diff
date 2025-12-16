@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/webgpu/ipc/WebGPUChild.cpp
+# Commit: ef5dc3e04e5f
+# Full Hash: ef5dc3e04e5f271eea0636ab3a495e95cc912f1d
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-09-04 09:40:24
+# Regressor Bug: 1726626
+# File Overlap Count: 3
+# Description:
+#   Bug 1726626 - Move gfx/wgpu into a 3rd party dependency r=jgilbert,bholley
+#   
+#   This update makes wgpu a vendored dependency instead of having it in gfx/wgpu.
+#   
+#   ## Notes
+# ==============================================================================
+
+diff --git a/dom/webgpu/ipc/WebGPUChild.cpp b/dom/webgpu/ipc/WebGPUChild.cpp
+--- a/dom/webgpu/ipc/WebGPUChild.cpp
++++ b/dom/webgpu/ipc/WebGPUChild.cpp
+@@ -730,17 +730,17 @@ RawId WebGPUChild::DeviceCreateRenderPip
+     LossyCopyUTF16toASCII(stage.mEntryPoint, vsEntry);
+     vertexState.stage.entry_point = vsEntry.get();
+ 
+     for (const auto& vertex_desc : stage.mBuffers) {
+       ffi::WGPUVertexBufferLayout vb_desc = {};
+       if (!vertex_desc.IsNull()) {
+         const auto& vd = vertex_desc.Value();
+         vb_desc.array_stride = vd.mArrayStride;
+-        vb_desc.step_mode = ffi::WGPUInputStepMode(vd.mStepMode);
++        vb_desc.step_mode = ffi::WGPUVertexStepMode(vd.mStepMode);
+         // Note: we are setting the length but not the pointer
+         vb_desc.attributes_length = vd.mAttributes.Length();
+         for (const auto& vat : vd.mAttributes) {
+           ffi::WGPUVertexAttribute ad = {};
+           ad.offset = vat.mOffset;
+           ad.format = ffi::WGPUVertexFormat(vat.mFormat);
+           ad.shader_location = vat.mShaderLocation;
+           vertexAttributes.AppendElement(ad);

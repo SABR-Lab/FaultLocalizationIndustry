@@ -1,0 +1,106 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/DeleteRangeTransaction.cpp
+# Commit: bdbed5920aeb
+# Full Hash: bdbed5920aeb2adc75f03ac0f6c427b3ac456395
+# Author: Jan-Niklas Jaeschke <jjaschke@mozilla.com>
+# Date: 2022-10-26 03:47:46
+# Regressor Bug: 1783641
+# File Overlap Count: 1
+# Description:
+#   Bug 1783641: Deleting a selected word deletes surrounding whitespace on MacOS. r=masayuki
+#   
+#   Native behaviour on MacOS dictates one whitespace being removed after double-clicking a word and pressing delete.
+#   This behaviour is achieved by saving the information that the selection is created by doubleclick to the `nsFrameSelection`
+#   and using it in the `DeleteRangeTransaction`, where the range is extended by one whitespace character before or after the range.
+# ==============================================================================
+
+diff -r a32dbcfbd95f -r bdbed5920aeb editor/libeditor/DeleteRangeTransaction.cpp
+--- a/editor/libeditor/DeleteRangeTransaction.cpp	Tue Oct 25 07:00:26 2022 +0000
++++ b/editor/libeditor/DeleteRangeTransaction.cpp	Tue Oct 25 07:00:26 2022 +0000
+@@ -17,9 +17,9 @@
+ #include "mozilla/Logging.h"
+ #include "mozilla/mozalloc.h"
+ #include "mozilla/RangeBoundary.h"
++#include "mozilla/StaticPrefs_editor.h"
+ #include "mozilla/ToString.h"
+ #include "mozilla/dom/Selection.h"
+-
+ #include "nsAtom.h"
+ #include "nsCOMPtr.h"
+ #include "nsDebug.h"
+@@ -46,6 +46,64 @@
+ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(DeleteRangeTransaction)
+ NS_INTERFACE_MAP_END_INHERITING(EditAggregateTransaction)
+ 
++nsresult
++DeleteRangeTransaction::MaybeExtendDeletingRangeWithSurroundingWhitespace(
++    nsRange& aRange) const {
++  if (!mEditorBase->mEditActionData->SelectionCreatedByDoubleclick() ||
++      !StaticPrefs::
++          editor_word_select_delete_space_after_doubleclick_selection()) {
++    return NS_OK;
++  }
++  EditorRawDOMPoint startPoint(aRange.StartRef());
++  EditorRawDOMPoint endPoint(aRange.EndRef());
++  const bool maybeRangeStartsAfterWhiteSpace =
++      !(startPoint.IsStartOfContainer() && !startPoint.IsEndOfContainer() &&
++        startPoint.IsInTextNode());
++  const bool maybeRangeEndsAtWhiteSpace =
++      !((endPoint.IsEndOfContainer() && !endPoint.IsStartOfContainer() &&
++         endPoint.IsInTextNode()) ||
++        endPoint.IsBRElementAtEndOfContainer());
++  if (!maybeRangeStartsAfterWhiteSpace && !maybeRangeEndsAtWhiteSpace) {
++    // no whitespace before or after word => nothing to do here.
++    return NS_OK;
++  }
++
++  const bool precedingCharIsWhitespace =
++      maybeRangeStartsAfterWhiteSpace
++          ? startPoint.IsPreviousCharASCIISpaceOrNBSP()
++          : false;
++  const bool trailingCharIsWhitespace =
++      maybeRangeEndsAtWhiteSpace ? endPoint.IsCharASCIISpaceOrNBSP() : false;
++
++  // if possible, try to remove the preceding whitespace
++  // so the caret is at the end of the previous word.
++  if (precedingCharIsWhitespace) {
++    // "one [two]", "one [two] three" or "one [two], three"
++    ErrorResult err;
++    aRange.SetStart(startPoint.PreviousPoint(), err);
++    if (auto rv = err.StealNSResult(); NS_FAILED(rv)) {
++      NS_WARNING(
++          "DeleteRangeTransaction::"
++          "MaybeExtendDeletingRangeWithSurroundingWhitespace"
++          " failed to update the start of the deleting range");
++      return rv;
++    }
++  } else if (trailingCharIsWhitespace) {
++    // "[one] two"
++    ErrorResult err;
++    aRange.SetEnd(endPoint.NextPoint(), err);
++    if (auto rv = err.StealNSResult(); NS_FAILED(rv)) {
++      NS_WARNING(
++          "DeleteRangeTransaction::"
++          "MaybeExtendDeletingRangeWithSurroundingWhitespace"
++          " failed to update the end of the deleting range");
++      return rv;
++    }
++  }
++
++  return NS_OK;
++}
++
+ NS_IMETHODIMP DeleteRangeTransaction::DoTransaction() {
+   MOZ_LOG(GetLogModule(), LogLevel::Info,
+           ("%p DeleteRangeTransaction::%s this={ mName=%s } "
+@@ -64,6 +122,8 @@
+   RefPtr<nsRange> rangeToDelete;
+   rangeToDelete.swap(mRangeToDelete);
+ 
++  MaybeExtendDeletingRangeWithSurroundingWhitespace(*rangeToDelete);
++
+   // build the child transactions
+   const RangeBoundary& startRef = rangeToDelete->StartRef();
+   const RangeBoundary& endRef = rangeToDelete->EndRef();

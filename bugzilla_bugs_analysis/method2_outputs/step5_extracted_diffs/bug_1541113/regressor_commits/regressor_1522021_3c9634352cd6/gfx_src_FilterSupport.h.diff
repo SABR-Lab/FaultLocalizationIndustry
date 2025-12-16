@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/src/FilterSupport.h
+# Commit: 3c9634352cd6
+# Full Hash: 3c9634352cd66e1debc3beeedd53130d16474db2
+# Author: Jeff Muizelaar <jrmuizel@gmail.com>
+# Date: 2019-01-28 04:51:03
+# Regressor Bug: 1522021
+# File Overlap Count: 1
+# Description:
+#   Bug 1522021. Propagate input size to CreateSimilarDrawTarget for filters. r=mstange
+#   
+#   This lets us avoid drawing the complete input for ever tile when
+#   drawing filters into a tile.
+#   
+# ==============================================================================
+
+diff -r 747303cab27a -r 3c9634352cd6 gfx/src/FilterSupport.h
+--- a/gfx/src/FilterSupport.h	Sun Jan 27 22:06:38 2019 +0000
++++ b/gfx/src/FilterSupport.h	Sun Jan 27 23:36:04 2019 +0000
+@@ -9,12 +9,12 @@
+ 
+ #include "mozilla/Attributes.h"
+ #include "mozilla/RefPtr.h"
+-#include "mozilla/gfx/Rect.h"
++#include "mozilla/gfx/2D.h"
+ #include "mozilla/gfx/Matrix.h"
+-#include "mozilla/gfx/2D.h"
++#include "mozilla/gfx/Rect.h"
+ #include "nsClassHashtable.h"
++#include "nsRegion.h"
+ #include "nsTArray.h"
+-#include "nsRegion.h"
+ 
+ namespace mozilla {
+ namespace gfx {
+@@ -28,6 +28,11 @@
+ 
+ namespace mozilla {
+ namespace gfx {
++namespace FilterWrappers {
++extern already_AddRefed<FilterNode> Clear(DrawTarget* aDT);
++extern already_AddRefed<FilterNode> ForSurface(
++    DrawTarget* aDT, SourceSurface* aSurface, const IntPoint& aSurfacePosition);
++}  // namespace FilterWrappers
+ 
+ // Morphology Operators
+ const unsigned short SVG_OPERATOR_UNKNOWN = 0;
+@@ -499,6 +504,13 @@
+   nsTArray<FilterPrimitiveDescription> mPrimitives;
+ };
+ 
++already_AddRefed<FilterNode> FilterNodeGraphFromDescription(
++    DrawTarget* aDT, const FilterDescription& aFilter,
++    const Rect& aResultNeededRect, FilterNode* aSourceGraphic,
++    const IntRect& aSourceGraphicRect, FilterNode* aFillPaint,
++    FilterNode* aStrokePaint,
++    nsTArray<RefPtr<SourceSurface>>& aAdditionalImages);
++
+ /**
+  * The methods of this class are not on FilterDescription because
+  * FilterDescription is designed as a simple value holder that can be used

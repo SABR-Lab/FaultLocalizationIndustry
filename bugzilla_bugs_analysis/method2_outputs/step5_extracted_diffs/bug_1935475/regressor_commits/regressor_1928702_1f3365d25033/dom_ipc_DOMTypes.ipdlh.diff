@@ -1,0 +1,69 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/DOMTypes.ipdlh
+# Commit: 1f3365d25033
+# Full Hash: 1f3365d25033f9dbc52b13e8fc4c64f3cdd35946
+# Author: Kagami Sascha Rosylight <saschanaz@outlook.com>
+# Date: 2024-11-12 09:32:50
+# Regressor Bug: 1928702
+# File Overlap Count: 1
+# Description:
+#   Bug 1928702 - Part 2: Create PNotification via PBackground r=asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D227687
+# ==============================================================================
+
+diff -r cc25e5c94813 -r 1f3365d25033 dom/ipc/DOMTypes.ipdlh
+--- a/dom/ipc/DOMTypes.ipdlh	Mon Nov 11 20:34:11 2024 +0000
++++ b/dom/ipc/DOMTypes.ipdlh	Mon Nov 11 20:34:11 2024 +0000
+@@ -12,6 +12,7 @@
+ include "mozilla/dom/PropertyBagUtils.h";
+ include "mozilla/dom/ReferrerInfoUtils.h";
+ include "mozilla/dom/TabMessageUtils.h";
++include "mozilla/dom/notification/IPCUtils.h";
+ include "mozilla/ipc/URIUtils.h";
+ include "mozilla/layers/LayersMessageUtils.h";
+ include "mozilla/net/NeckoMessageUtils.h";
+@@ -55,6 +56,8 @@
+ using mozilla::TimeStamp from "mozilla/TimeStamp.h";
+ [RefCounted] using class mozilla::RemoteLazyInputStream from "mozilla/RemoteLazyInputStream.h";
+ [MoveOnly] using class mozilla::ipc::BigBuffer from "mozilla/ipc/BigBuffer.h";
++using mozilla::dom::NotificationDirection from "mozilla/dom/NotificationBinding.h";
++using mozilla::dom::NotificationBehavior from "mozilla/dom/NotificationBinding.h";
+ 
+ namespace mozilla {
+ namespace dom {
+@@ -190,7 +193,7 @@
+   uint32_t LoadType;
+   uint32_t LoadFlags;
+   uint32_t InternalLoadFlags;
+-  
++
+   // The TriggineringSandboxFlags are the SandboxFlags of the entity
+   // responsible for causing the load to occur.
+   uint32_t TriggeringSandboxFlags;
+@@ -329,5 +332,23 @@
+     ImageIntSize size;
+ };
+ 
++// Mostly same as NotificationOptions except:
++// * `title` is included (it's a separate parameter in the Notification constructor)
++// * `data` is serialized to base64 string by StructuredCloneContainer
++// * `vibrate` is normalized to sequence
++struct IPCNotificationOptions {
++  nsString title;
++  NotificationDirection dir;
++  nsString lang;
++  nsString body;
++  nsString tag;
++  nsString icon;
++  bool requireInteraction;
++  bool silent;
++  uint32_t[] vibrate;
++  nsString dataSerialized;
++  NotificationBehavior behavior;
++};
++
+ } // namespace dom
+ } // namespace mozilla

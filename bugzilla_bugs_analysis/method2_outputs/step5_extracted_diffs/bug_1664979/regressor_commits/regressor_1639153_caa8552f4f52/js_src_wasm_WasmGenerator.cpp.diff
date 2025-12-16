@@ -1,0 +1,29 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmGenerator.cpp
+# Commit: caa8552f4f52
+# Full Hash: caa8552f4f5298399e9e9193a623bc3007652df5
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-06-18 09:41:05
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Refactor wasm::Frame to reduce number of gnarly casts. r=lth,wingo
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D79072
+# ==============================================================================
+
+diff -r 43921ad138e3 -r caa8552f4f52 js/src/wasm/WasmGenerator.cpp
+--- a/js/src/wasm/WasmGenerator.cpp	Mon Jun 08 20:56:09 2020 +0000
++++ b/js/src/wasm/WasmGenerator.cpp	Thu Jun 18 05:33:30 2020 +0000
+@@ -560,8 +560,7 @@
+           // reload the TLS register on this path.
+           Offsets offsets;
+           offsets.begin = masm_.currentOffset();
+-          masm_.loadPtr(Address(FramePointer, offsetof(Frame, tls)),
+-                        WasmTlsReg);
++          masm_.loadPtr(Address(FramePointer, Frame::tlsOffset()), WasmTlsReg);
+           CodeOffset jumpOffset = masm_.farJumpWithPatch();
+           offsets.end = masm_.currentOffset();
+           if (masm_.oom()) {

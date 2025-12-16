@@ -1,0 +1,36 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/ScriptLoader.cpp
+# Commit: 9e2a3327cd0f
+# Full Hash: 9e2a3327cd0f899bb33c56c5420d4dd910dfb6df
+# Author: Yoshi Cheng-Hao Huang <allstars.chh@gmail.com>
+# Date: 2025-09-26 06:07 +0000
+# Regressor Bug: 1968890
+# File Overlap Count: 3
+# Overlapping Files: dom/worklet/WorkletFetchHandler.cpp, dom/workers/ScriptLoader.cpp, dom/script/ScriptLoader.cpp
+# Description:
+#   Bug 1968890 - Part 6: ScriptLoaders update. r=jonco,dom-worker-reviewers,edenchuang
+# ==============================================================================
+
+diff -r c6c863899bf9 -r 9e2a3327cd0f dom/workers/ScriptLoader.cpp
+--- a/dom/workers/ScriptLoader.cpp	Fri Sep 26 06:07:44 2025 +0000
++++ b/dom/workers/ScriptLoader.cpp	Fri Sep 26 06:07:44 2025 +0000
+@@ -1730,16 +1730,8 @@
+   moduleRequest->OnFetchComplete(loadContext->mLoadResult);
+ 
+   if (NS_FAILED(loadContext->mLoadResult)) {
+-    if (moduleRequest->IsDynamicImport()) {
+-      if (request->isInList()) {
+-        moduleRequest->CancelDynamicImport(loadContext->mLoadResult);
+-        mScriptLoader->TryShutdown();
+-      }
+-    } else if (!moduleRequest->IsTopLevel()) {
+-      moduleRequest->Cancel();
++    if (moduleRequest->IsDynamicImport() || !moduleRequest->IsTopLevel()) {
+       mScriptLoader->TryShutdown();
+-    } else {
+-      moduleRequest->LoadFailed();
+     }
+   }
+   return true;

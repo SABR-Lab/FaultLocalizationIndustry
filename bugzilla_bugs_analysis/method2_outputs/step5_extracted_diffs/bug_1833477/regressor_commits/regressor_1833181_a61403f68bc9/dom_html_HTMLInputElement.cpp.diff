@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/html/HTMLInputElement.cpp
+# Commit: a61403f68bc9
+# Full Hash: a61403f68bc9d6d2eb7e6cea1c36ce1100fcfe56
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-05-16 04:24:30
+# Regressor Bug: 1833181
+# File Overlap Count: 2
+# Description:
+#   Bug 1833181 - Make SetValueChanged return void. r=smaug
+#   
+#   Just a drive-by clean-up.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D178077
+# ==============================================================================
+
+diff -r 6e305430dd74 -r a61403f68bc9 dom/html/HTMLInputElement.cpp
+--- a/dom/html/HTMLInputElement.cpp	Mon May 15 15:56:45 2023 +0000
++++ b/dom/html/HTMLInputElement.cpp	Mon May 15 16:07:30 2023 +0000
+@@ -1578,7 +1578,6 @@
+ 
+   nsAutoString value;
+   GetNonFileValueInternal(value);
+-
+   return value.IsEmpty();
+ }
+ 
+@@ -2767,9 +2766,9 @@
+   return NS_OK;
+ }
+ 
+-nsresult HTMLInputElement::SetValueChanged(bool aValueChanged) {
++void HTMLInputElement::SetValueChanged(bool aValueChanged) {
+   if (mValueChanged == aValueChanged) {
+-    return NS_OK;
++    return;
+   }
+   mValueChanged = aValueChanged;
+   UpdateTooLongValidityState();
+@@ -2777,7 +2776,6 @@
+   // We need to do this unconditionally because the validity ui bits depend on
+   // this.
+   UpdateState(true);
+-  return NS_OK;
+ }
+ 
+ void HTMLInputElement::SetLastValueChangeWasInteractive(bool aWasInteractive) {
+@@ -6780,8 +6778,7 @@
+ int32_t HTMLInputElement::GetRows() { return DEFAULT_ROWS; }
+ 
+ void HTMLInputElement::GetDefaultValueFromContent(nsAString& aValue) {
+-  TextControlState* state = GetEditorState();
+-  if (state) {
++  if (GetEditorState()) {
+     GetDefaultValue(aValue);
+     // This is called by the frame to show the value.
+     // We have to sanitize it when needed.

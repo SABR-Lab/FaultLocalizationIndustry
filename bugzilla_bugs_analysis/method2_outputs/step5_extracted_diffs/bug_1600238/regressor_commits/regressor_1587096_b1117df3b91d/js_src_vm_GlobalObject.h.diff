@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/GlobalObject.h
+# Commit: b1117df3b91d
+# Full Hash: b1117df3b91d10d68d10b399637cf9ac295057e6
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2019-11-01 16:13:11
+# Regressor Bug: 1587096
+# File Overlap Count: 1
+# Description:
+#   Bug 1587096 - Part 3: Implmement FinalizationGroup r=sfink
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D49946
+# ==============================================================================
+
+diff -r cefc0474e13c -r b1117df3b91d js/src/vm/GlobalObject.h
+--- a/js/src/vm/GlobalObject.h	Fri Nov 01 10:37:40 2019 +0000
++++ b/js/src/vm/GlobalObject.h	Fri Nov 01 10:37:47 2019 +0000
+@@ -85,6 +85,7 @@
+     IMPORT_ENTRY_PROTO,
+     EXPORT_ENTRY_PROTO,
+     REQUESTED_MODULE_PROTO,
++    FINALIZATION_ITERATOR_PROTO,
+     REGEXP_STATICS,
+     RUNTIME_CODEGEN_ENABLED,
+     INTRINSICS,
+@@ -521,6 +522,12 @@
+     return &global->getPrototype(JSProto_FinalizationGroup).toObject();
+   }
+ 
++  static JSObject* getOrCreateFinalizationIteratorPrototype(
++      JSContext* cx, Handle<GlobalObject*> global) {
++    return getOrCreateObject(cx, global, FINALIZATION_ITERATOR_PROTO,
++                             initFinalizationIteratorProto);
++  }
++
+  private:
+   typedef bool (*ObjectInitOp)(JSContext* cx, Handle<GlobalObject*> global);
+ 
+@@ -822,6 +829,10 @@
+   static bool initTypedObjectModule(JSContext* cx,
+                                     Handle<GlobalObject*> global);
+ 
++  // Implemented in builtin/FinalizationGroup.cpp
++  static bool initFinalizationIteratorProto(JSContext* cx,
++                                            Handle<GlobalObject*> global);
++
+   static bool initStandardClasses(JSContext* cx, Handle<GlobalObject*> global);
+   static bool initSelfHostingBuiltins(JSContext* cx,
+                                       Handle<GlobalObject*> global,

@@ -1,0 +1,51 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/browser/nsWebBrowser.cpp
+# Commit: c49115748677
+# Full Hash: c491157486775555a61d748ccbbc054988aacae9
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-03-23 21:38:56
+# Description:
+#   Bug 1614259 - Ensure BrowisngContexts are detached when nsDocShell is destroyed, r=farre
+#   
+#   After bug 1582832, DocShell destruction and BrowsingContext detaching happen
+#   in separate operations, leaving a gap where a DocShell has been destroyed, but
+#   its BrowsingContext is still considered attached. During this gap, the usual
+# ==============================================================================
+
+diff -r e8f6b2875121 -r c49115748677 toolkit/components/browser/nsWebBrowser.cpp
+--- a/toolkit/components/browser/nsWebBrowser.cpp	Mon Mar 23 15:19:14 2020 +0000
++++ b/toolkit/components/browser/nsWebBrowser.cpp	Mon Mar 23 13:28:09 2020 +0000
+@@ -56,6 +56,7 @@
+ nsWebBrowser::nsWebBrowser(int aItemType)
+     : mContentType(aItemType),
+       mShouldEnableHistory(true),
++      mWillChangeProcess(false),
+       mParentNativeWindow(nullptr),
+       mProgressListener(nullptr),
+       mWidgetListenerDelegate(this),
+@@ -1193,6 +1194,9 @@
+     if (mDocShellAsWin) {
+       mDocShellAsWin->Destroy();
+     }
++    if (!mWillChangeProcess && mDocShell) {
++      mDocShell->GetBrowsingContext()->Detach(/* aFromIPC */ true);
++    }
+ 
+     mDocShell = nullptr;
+     mDocShellAsReq = nullptr;
+@@ -1286,6 +1290,13 @@
+   }
+ }
+ 
++void nsWebBrowser::SetWillChangeProcess() {
++  mWillChangeProcess = true;
++  if (mDocShell) {
++    nsDocShell::Cast(mDocShell)->SetWillChangeProcess();
++  }
++}
++
+ void nsWebBrowser::WidgetListenerDelegate::WindowActivated() {
+   RefPtr<nsWebBrowser> holder = mWebBrowser;
+   holder->WindowActivated();

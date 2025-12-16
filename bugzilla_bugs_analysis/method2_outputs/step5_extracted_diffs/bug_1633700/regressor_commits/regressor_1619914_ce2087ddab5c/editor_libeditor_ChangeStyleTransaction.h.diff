@@ -1,0 +1,95 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/ChangeStyleTransaction.h
+# Commit: ce2087ddab5c
+# Full Hash: ce2087ddab5c2efcbce3b52da02b3363a37d6813
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2020-04-04 09:29:13
+# Regressor Bug: 1619914
+# File Overlap Count: 1
+# Description:
+#   Bug 1619914 - part 1: Make each transaction class grab their members with local variable before touching the DOM tree r=m_kato
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D69302
+# ==============================================================================
+
+diff -r 1c8115a9a684 -r ce2087ddab5c editor/libeditor/ChangeStyleTransaction.h
+--- a/editor/libeditor/ChangeStyleTransaction.h	Fri Apr 03 10:21:33 2020 +0000
++++ b/editor/libeditor/ChangeStyleTransaction.h	Fri Apr 03 08:30:37 2020 +0000
+@@ -12,6 +12,7 @@
+ #include "nsString.h"                      // nsString members
+ 
+ class nsAtom;
++class nsStyledElement;
+ 
+ namespace mozilla {
+ 
+@@ -25,29 +26,31 @@
+  */
+ class ChangeStyleTransaction final : public EditTransactionBase {
+  protected:
+-  ChangeStyleTransaction(dom::Element& aElement, nsAtom& aProperty,
++  ChangeStyleTransaction(nsStyledElement& aStyledElement, nsAtom& aProperty,
+                          const nsAString& aValue, bool aRemove);
+ 
+  public:
+   /**
+    * Creates a change style transaction.  This never returns nullptr.
+    *
+-   * @param aNode       The node whose style attribute will be changed.
+-   * @param aProperty   The name of the property to change.
+-   * @param aValue      New value for aProperty.
++   * @param aStyledElement  The node whose style attribute will be changed.
++   * @param aProperty       The name of the property to change.
++   * @param aValue          New value for aProperty.
+    */
+   static already_AddRefed<ChangeStyleTransaction> Create(
+-      dom::Element& aElement, nsAtom& aProperty, const nsAString& aValue);
++      nsStyledElement& aStyledElement, nsAtom& aProperty,
++      const nsAString& aValue);
+ 
+   /**
+    * Creates a change style transaction.  This never returns nullptr.
+    *
+-   * @param aNode       The node whose style attribute will be changed.
+-   * @param aProperty   The name of the property to change.
+-   * @param aValue      The value to remove from aProperty.
++   * @param aStyledElement  The node whose style attribute will be changed.
++   * @param aProperty       The name of the property to change.
++   * @param aValue          The value to remove from aProperty.
+    */
+   static already_AddRefed<ChangeStyleTransaction> CreateToRemove(
+-      dom::Element& aElement, nsAtom& aProperty, const nsAString& aValue);
++      nsStyledElement& aStyledElement, nsAtom& aProperty,
++      const nsAString& aValue);
+ 
+   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(ChangeStyleTransaction,
+                                            EditTransactionBase)
+@@ -106,7 +109,7 @@
+   nsresult SetStyle(bool aAttributeWasSet, nsAString& aValue);
+ 
+   // The element to operate upon.
+-  nsCOMPtr<dom::Element> mElement;
++  RefPtr<nsStyledElement> mStyledElement;
+ 
+   // The CSS property to change.
+   RefPtr<nsAtom> mProperty;
+@@ -114,13 +117,14 @@
+   // The value to set the property to (ignored if mRemoveProperty==true).
+   nsString mValue;
+ 
+-  // true if the operation is to remove mProperty from mElement.
+-  bool mRemoveProperty;
+-
+   // The value to set the property to for undo.
+   nsString mUndoValue;
+   // The value to set the property to for redo.
+   nsString mRedoValue;
++
++  // true if the operation is to remove mProperty from mElement.
++  bool mRemoveProperty;
++
+   // True if the style attribute was present and not empty before DoTransaction.
+   bool mUndoAttributeWasSet;
+   // True if the style attribute is present and not empty after DoTransaction.

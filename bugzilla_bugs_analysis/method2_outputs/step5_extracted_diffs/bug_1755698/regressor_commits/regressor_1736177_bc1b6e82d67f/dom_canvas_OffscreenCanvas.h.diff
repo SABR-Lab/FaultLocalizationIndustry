@@ -1,0 +1,116 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/OffscreenCanvas.h
+# Commit: bc1b6e82d67f
+# Full Hash: bc1b6e82d67fd6018b946c384efa6be9a5a5af16
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2021-12-10 21:58:52
+# Regressor Bug: 1736177
+# File Overlap Count: 2
+# Description:
+#   Bug 1736177 - Part 11. Plumb in OffscreenCanvasDisplayHelper. r=jgilbert
+#   
+#   This patch integrates OffscreenCanvasDisplayHelper with
+#   HTMLCanvasElement, OffscreenCanvas and nsDisplayCanvas to allow
+#   asynchronous display of an OffscreenCanvas.
+# ==============================================================================
+
+diff -r 7b946576bafa -r bc1b6e82d67f dom/canvas/OffscreenCanvas.h
+--- a/dom/canvas/OffscreenCanvas.h	Fri Dec 10 02:57:55 2021 +0000
++++ b/dom/canvas/OffscreenCanvas.h	Fri Dec 10 02:57:55 2021 +0000
+@@ -26,8 +26,6 @@
+ }
+ 
+ namespace layers {
+-class CanvasClient;
+-class CanvasRenderer;
+ class ImageContainer;
+ }  // namespace layers
+ 
+@@ -35,6 +33,7 @@
+ enum class OffscreenRenderingContextId : uint8_t;
+ class Blob;
+ class EncodeCompleteCallback;
++class OffscreenCanvasDisplayHelper;
+ class ImageBitmap;
+ struct ImageEncodeOptions;
+ 
+@@ -46,16 +45,18 @@
+ // Canvas to worker thread directly. Thus, we create this helper class and
+ // store necessary data in it then pass it to worker thread.
+ struct OffscreenCanvasCloneData final {
+-  OffscreenCanvasCloneData(layers::CanvasRenderer* aRenderer, uint32_t aWidth,
+-                           uint32_t aHeight,
++  OffscreenCanvasCloneData(OffscreenCanvasDisplayHelper* aDisplay,
++                           uint32_t aWidth, uint32_t aHeight,
+                            layers::LayersBackend aCompositorBackend,
+-                           bool aNeutered, bool aIsWriteOnly);
++                           layers::TextureType aTextureType, bool aNeutered,
++                           bool aIsWriteOnly);
+   ~OffscreenCanvasCloneData();
+ 
+-  RefPtr<layers::CanvasRenderer> mRenderer;
++  RefPtr<OffscreenCanvasDisplayHelper> mDisplay;
+   uint32_t mWidth;
+   uint32_t mHeight;
+   layers::LayersBackend mCompositorBackendType;
++  layers::TextureType mTextureType;
+   bool mNeutered;
+   bool mIsWriteOnly;
+ };
+@@ -72,7 +73,8 @@
+ 
+   OffscreenCanvas(nsIGlobalObject* aGlobal, uint32_t aWidth, uint32_t aHeight,
+                   layers::LayersBackend aCompositorBackend,
+-                  layers::CanvasRenderer* aRenderer);
++                  layers::TextureType aTextureType,
++                  OffscreenCanvasDisplayHelper* aDisplay);
+ 
+   nsIGlobalObject* GetParentObject() const { return GetOwnerGlobal(); }
+ 
+@@ -112,6 +114,12 @@
+     }
+   }
+ 
++  void UpdateNeuteredSize(uint32_t aWidth, uint32_t aHeight) {
++    MOZ_ASSERT(mNeutered);
++    mWidth = aWidth;
++    mHeight = aHeight;
++  }
++
+   void GetContext(JSContext* aCx, const OffscreenRenderingContextId& aContextId,
+                   JS::Handle<JS::Value> aContextOptions,
+                   Nullable<OwningOffscreenRenderingContext>& aResult,
+@@ -142,6 +150,9 @@
+ 
+   OffscreenCanvasCloneData* ToCloneData();
+ 
++  void UpdateParameters(uint32_t aWidth, uint32_t aHeight, bool aHasAlpha,
++                        bool aIsPremultiplied, bool aIsOriginBottomLeft);
++
+   void CommitFrameToCompositor();
+ 
+   virtual bool GetOpaqueAttr() override { return false; }
+@@ -169,6 +180,8 @@
+ 
+   bool ShouldResistFingerprinting() const;
+ 
++  void QueueCommitToCompositor();
++
+  private:
+   ~OffscreenCanvas();
+ 
+@@ -189,9 +202,10 @@
+   uint32_t mHeight;
+ 
+   layers::LayersBackend mCompositorBackendType;
++  layers::TextureType mTextureType;
+ 
+-  RefPtr<layers::CanvasClient> mCanvasClient;
+-  RefPtr<layers::CanvasRenderer> mCanvasRenderer;
++  RefPtr<layers::ImageContainer> mImageContainer;
++  RefPtr<OffscreenCanvasDisplayHelper> mDisplay;
+ };
+ 
+ }  // namespace dom

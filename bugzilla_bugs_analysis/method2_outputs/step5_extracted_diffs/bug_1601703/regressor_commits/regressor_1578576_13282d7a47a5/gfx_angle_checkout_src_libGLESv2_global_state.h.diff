@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/angle/checkout/src/libGLESv2/global_state.h
+# Commit: 13282d7a47a5
+# Full Hash: 13282d7a47a57a73be8d060efd9645b4d642f03e
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2019-09-08 09:46:52
+# Regressor Bug: 1578576
+# File Overlap Count: 4
+# Description:
+#   Bug 1578576 - Part 2: Update to ANGLE 3865 r=jgilbert
+#   
+#   Depends on D44561
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44579
+# ==============================================================================
+
+diff -r 3064469c073d -r 13282d7a47a5 gfx/angle/checkout/src/libGLESv2/global_state.h
+--- a/gfx/angle/checkout/src/libGLESv2/global_state.h	Sat Sep 07 13:36:46 2019 +0000
++++ b/gfx/angle/checkout/src/libGLESv2/global_state.h	Sat Sep 07 13:38:36 2019 +0000
+@@ -21,11 +21,15 @@
+ class Debug;
+ class Thread;
+ 
++std::mutex &GetGlobalMutex();
+ Thread *GetCurrentThread();
+ Debug *GetDebug();
+ void SetContextCurrent(Thread *thread, gl::Context *context);
+ }  // namespace egl
+ 
++#define ANGLE_SCOPED_GLOBAL_LOCK() \
++    std::lock_guard<std::mutex> globalMutexLock(egl::GetGlobalMutex())
++
+ namespace gl
+ {
+ extern Context *gSingleThreadedContext;
+@@ -54,16 +58,4 @@
+ 
+ }  // namespace gl
+ 
+-#if ANGLE_FORCE_THREAD_SAFETY == ANGLE_ENABLED
+-namespace angle
+-{
+-std::mutex &GetGlobalMutex();
+-}  // namespace angle
+-
+-#    define ANGLE_SCOPED_GLOBAL_LOCK() \
+-        std::lock_guard<std::mutex> globalMutexLock(angle::GetGlobalMutex())
+-#else
+-#    define ANGLE_SCOPED_GLOBAL_LOCK()
+-#endif
+-
+ #endif  // LIBGLESV2_GLOBALSTATE_H_

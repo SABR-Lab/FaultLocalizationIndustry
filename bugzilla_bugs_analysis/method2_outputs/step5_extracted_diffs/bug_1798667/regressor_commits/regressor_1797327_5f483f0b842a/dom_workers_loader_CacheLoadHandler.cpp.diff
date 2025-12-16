@@ -1,0 +1,97 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/loader/CacheLoadHandler.cpp
+# Commit: 5f483f0b842a
+# Full Hash: 5f483f0b842afdfad82ea041256f9d8bce37f421
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-11-02 04:41:32
+# Regressor Bug: 1797327
+# File Overlap Count: 3
+# Description:
+#   Bug 1797327 - Use RefPtrs for all WorkerLoadContexts; r=asuth
+#   
+#   As WorkerLoadContexts now inherit from a non-CC'd loadContextBase, we have two outcomes.
+#   1) we need to break cycles with ScriptLoadRequests manually, so that ScriptLoadRequests can be collected (ScriptLoadRequests must be CC'd).
+#   2) we can now have refptrs to WorkerLoadContexts in the CacheLoadHandler and NetworkLoadHandler classes, and remove any remaining raw pointers to ScriptLoadRequest/WorkerLoadContext. There are cases where the NetworkLoadHandler or CacheLoadHandler might outlive the Worker Loader, so having refpointers here should help us recover in those cases.
+# ==============================================================================
+
+diff -r 7ade701781f5 -r 5f483f0b842a dom/workers/loader/CacheLoadHandler.cpp
+--- a/dom/workers/loader/CacheLoadHandler.cpp	Tue Nov 01 18:03:34 2022 +0000
++++ b/dom/workers/loader/CacheLoadHandler.cpp	Tue Nov 01 18:03:34 2022 +0000
+@@ -40,9 +40,9 @@
+ 
+ NS_IMPL_ISUPPORTS0(CachePromiseHandler)
+ 
+-CachePromiseHandler::CachePromiseHandler(
+-    WorkerScriptLoader* aLoader, JS::loader::ScriptLoadRequest* aRequest)
+-    : mLoader(aLoader), mLoadContext(aRequest->GetWorkerLoadContext()) {
++CachePromiseHandler::CachePromiseHandler(WorkerScriptLoader* aLoader,
++                                         WorkerLoadContext* aLoadContext)
++    : mLoader(aLoader), mLoadContext(aLoadContext) {
+   AssertIsOnMainThread();
+   MOZ_ASSERT(mLoader);
+ }
+@@ -61,7 +61,9 @@
+   if (mLoadContext->mCachePromise) {
+     mLoadContext->mCacheStatus = WorkerLoadContext::Cached;
+     mLoadContext->mCachePromise = nullptr;
+-    mLoader->MaybeExecuteFinishedScripts(mLoadContext->mRequest);
++    if (mLoadContext->mRequest) {
++      mLoader->MaybeExecuteFinishedScripts(mLoadContext->mRequest);
++    }
+   }
+ }
+ 
+@@ -270,7 +272,7 @@
+   }
+   mLoadContext->mCachePromise = nullptr;
+ 
+-  if (mLoader->IsCancelled()) {
++  if (mLoader->IsCancelled() || !mLoadContext->mRequest) {
+     return;
+   }
+ 
+@@ -280,6 +282,7 @@
+ void CacheLoadHandler::Load(Cache* aCache) {
+   AssertIsOnMainThread();
+   MOZ_ASSERT(aCache);
++  MOZ_ASSERT(mLoadContext->mRequest);
+ 
+   nsCOMPtr<nsIURI> uri;
+   nsresult rv = NS_NewURI(getter_AddRefs(uri), mLoadContext->mRequest->mURL,
+@@ -324,7 +327,7 @@
+                                         ErrorResult& aRv) {
+   AssertIsOnMainThread();
+ 
+-  if (mLoader->IsCancelled()) {
++  if (mLoader->IsCancelled() || !mLoadContext->mRequest) {
+     return;
+   }
+ 
+@@ -338,7 +341,7 @@
+   AssertIsOnMainThread();
+   // If we have already called 'Fail', we should not proceed. If we cancelled,
+   // we should similarily not proceed.
+-  if (mFailed || mLoader->IsCancelled()) {
++  if (mFailed || mLoader->IsCancelled() || !mLoadContext->mRequest) {
+     return;
+   }
+ 
+@@ -492,7 +495,7 @@
+ 
+   MOZ_ASSERT(mPrincipalInfo);
+ 
+-  if (mLoader->IsCancelled()) {
++  if (mLoader->IsCancelled() || !mLoadContext->mRequest) {
+     auto cacheCreator = mLoadContext->GetCacheCreator();
+     if (cacheCreator) {
+       cacheCreator->DeleteCache(mLoader->GetCancelResult());
+@@ -515,6 +518,7 @@
+   AssertIsOnMainThread();
+ 
+   MOZ_ASSERT(mLoadContext->mCacheStatus == WorkerLoadContext::Cached);
++  MOZ_ASSERT(mLoadContext->mRequest);
+ 
+   auto responsePrincipalOrErr = PrincipalInfoToPrincipal(*aPrincipalInfo);
+   MOZ_DIAGNOSTIC_ASSERT(responsePrincipalOrErr.isOk());

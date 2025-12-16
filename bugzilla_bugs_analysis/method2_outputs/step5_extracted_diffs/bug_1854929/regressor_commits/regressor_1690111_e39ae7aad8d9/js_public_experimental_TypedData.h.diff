@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/public/experimental/TypedData.h
+# Commit: e39ae7aad8d9
+# Full Hash: e39ae7aad8d93497b7a7e6ccf4ee675b4631c28e
+# Author: Steve Fink <sfink@mozilla.com>
+# Date: 2023-09-21 03:21:32
+# Regressor Bug: 1690111
+# File Overlap Count: 2
+# Description:
+#   Bug 1690111 - Implement JS::EnsureNonInlineArrayBufferOrView. r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D176596
+# ==============================================================================
+
+diff -r 603e8067e68f -r e39ae7aad8d9 js/public/experimental/TypedData.h
+--- a/js/public/experimental/TypedData.h	Wed Sep 20 09:41:59 2023 +0000
++++ b/js/public/experimental/TypedData.h	Wed Sep 20 09:42:00 2023 +0000
+@@ -289,6 +289,18 @@
+  */
+ JS_PUBLIC_API bool PinArrayBufferOrViewLength(JSObject* obj, bool pin);
+ 
++/*
++ * Given an ArrayBuffer or view, make sure its contents are not stored inline
++ * so that the data is safe for use even if a GC moves the owning object.
++ *
++ * Note that this by itself does not make it safe to use the data pointer
++ * if JS can run or the ArrayBuffer can be detached in any way. Consider using
++ * this in conjunction with PinArrayBufferOrViewLength, which will cause any
++ * potentially invalidating operations to fail.
++ */
++JS_PUBLIC_API bool EnsureNonInlineArrayBufferOrView(JSContext* cx,
++                                                    JSObject* obj);
++
+ namespace detail {
+ 
+ // Map from eg Uint8Clamped -> uint8_t, Uint8 -> uint8_t, or Float64 ->

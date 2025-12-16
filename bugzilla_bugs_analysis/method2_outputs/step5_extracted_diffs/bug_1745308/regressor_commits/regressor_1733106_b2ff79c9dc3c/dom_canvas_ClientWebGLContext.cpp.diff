@@ -1,0 +1,36 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/ClientWebGLContext.cpp
+# Commit: b2ff79c9dc3c
+# Full Hash: b2ff79c9dc3c28b89f7b87c8a37efb4e103b9dad
+# Author: Jared Hirsch <jhirsch@mozilla.com>
+# Date: 2021-12-10 05:31:59
+# Regressor Bug: 1733106
+# File Overlap Count: 1
+# Description:
+#   Bug 1733106 - Return the correct result code when clientWaitSync times out. r=jgilbert
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D131456
+# ==============================================================================
+
+diff -r eea99ed6a494 -r b2ff79c9dc3c dom/canvas/ClientWebGLContext.cpp
+--- a/dom/canvas/ClientWebGLContext.cpp	Thu Dec 09 15:26:20 2021 +0000
++++ b/dom/canvas/ClientWebGLContext.cpp	Thu Dec 09 15:26:49 2021 +0000
+@@ -5005,12 +5005,10 @@
+   const bool canBeAvailable =
+       (sync.mCanBeAvailable || StaticPrefs::webgl_allow_immediate_queries());
+   if (!canBeAvailable) {
+-    if (timeout) {
+-      EnqueueWarning(
+-          "Sync object not yet queryable. Please wait for the event"
+-          " loop.");
+-    }
+-    return LOCAL_GL_WAIT_FAILED;
++    EnqueueWarning(
++        "ClientWaitSync must return TIMEOUT_EXPIRED until control has"
++        " returned to the user agent's main loop.");
++    return LOCAL_GL_TIMEOUT_EXPIRED;
+   }
+ 
+   return ret;

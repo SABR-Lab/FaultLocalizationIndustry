@@ -1,0 +1,77 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentParent.cpp
+# Commit: ef746bdcbaf6
+# Full Hash: ef746bdcbaf607ce5b7b09da571a167f5ba098eb
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-06-18 04:43:29
+# Regressor Bug: 1646088
+# File Overlap Count: 1
+# Description:
+#   Bug 1646088 - Part 2: Create ScriptableCPInfo in the constructor, r=kmag
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D79889
+# ==============================================================================
+
+diff -r 77d15266af3c -r ef746bdcbaf6 dom/ipc/ContentParent.cpp
+--- a/dom/ipc/ContentParent.cpp	Wed Jun 17 15:43:35 2020 +0000
++++ b/dom/ipc/ContentParent.cpp	Wed Jun 17 15:43:37 2020 +0000
+@@ -1524,8 +1524,6 @@
+   RefPtr<GeckoMediaPluginServiceParent> gmps(
+       GeckoMediaPluginServiceParent::GetSingleton());
+   gmps->UpdateContentProcessGMPCapabilities();
+-
+-  mScriptableHelper = new ScriptableCPInfo(this);
+ }
+ 
+ void ContentParent::MaybeAsyncSendShutDownMessage() {
+@@ -1557,11 +1555,6 @@
+ }
+ 
+ void ContentParent::ShutDownProcess(ShutDownMethod aMethod) {
+-  if (mScriptableHelper) {
+-    static_cast<ScriptableCPInfo*>(mScriptableHelper.get())->ProcessDied();
+-    mScriptableHelper = nullptr;
+-  }
+-
+   // Shutting down by sending a shutdown message works differently than the
+   // other methods. We first call Shutdown() in the child. After the child is
+   // ready, it calls FinishShutdown() on us. Then we close the channel.
+@@ -1733,6 +1726,11 @@
+   }
+ #endif
+ 
++  if (mScriptableHelper) {
++    static_cast<ScriptableCPInfo*>(mScriptableHelper.get())->ProcessDied();
++    mScriptableHelper = nullptr;
++  }
++
+   mLifecycleState = LifecycleState::DEAD;
+ }
+ 
+@@ -2500,6 +2498,10 @@
+           ("CreateSubprocess: ContentParent %p mSubprocess %p handle %ld", this,
+            mSubprocess,
+            mSubprocess ? (long)mSubprocess->GetChildProcessHandle() : -1));
++
++  // This is safe to do in the constructor, as it doesn't take a strong
++  // reference.
++  mScriptableHelper = new ScriptableCPInfo(this);
+ }
+ 
+ ContentParent::~ContentParent() {
+@@ -2528,6 +2530,13 @@
+              mSubprocess ? (long)mSubprocess->GetChildProcessHandle() : -1));
+     mSubprocess->Destroy();
+   }
++
++  // Make sure to clear the connection from `mScriptableHelper` if it hasn't
++  // been cleared yet.
++  if (mScriptableHelper) {
++    static_cast<ScriptableCPInfo*>(mScriptableHelper.get())->ProcessDied();
++    mScriptableHelper = nullptr;
++  }
+ }
+ 
+ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {

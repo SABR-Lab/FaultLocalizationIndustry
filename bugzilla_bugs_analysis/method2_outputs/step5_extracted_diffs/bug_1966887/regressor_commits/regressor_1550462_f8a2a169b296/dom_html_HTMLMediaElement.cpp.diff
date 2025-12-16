@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/html/HTMLMediaElement.cpp
+# Commit: f8a2a169b296
+# Full Hash: f8a2a169b2969d29e04733ae27a56459e5359973
+# Author: Alexandru Marc <amarc@mozila.com>
+# Date: 2025-05-16 09:19:19
+# Regressor Bug: 1550462
+# File Overlap Count: 1
+# Description:
+#   Revert "Bug 1550462 - part 3: Enable `pointerrawupdate` event r=smaug" for causing mochitest failures @ test_pointerrawupdate_event_count.html
+#   
+#   This reverts commit eb27445e0352d6b4df540adb40e21f72fc052e80.
+#   
+#   Revert "Bug 1550462 - part 2: Make `PresShell::HandleEvent` dispatch preceding `pointerrawupdate` event r=smaug,dom-core,edgar"
+# ==============================================================================
+
+diff -r 8d25773fc82f -r f8a2a169b296 dom/html/HTMLMediaElement.cpp
+--- a/dom/html/HTMLMediaElement.cpp	Fri May 16 06:20:47 2025 +0000
++++ b/dom/html/HTMLMediaElement.cpp	Fri May 16 09:30:09 2025 +0300
+@@ -4895,16 +4895,13 @@
+   // element, allowing media control exclusive consumption on these events,
+   // and preventing the content from handling them.
+   switch (aVisitor.mEvent->mMessage) {
+-    case eTouchRawUpdate:
+-      MOZ_FALLTHROUGH_ASSERT(
+-          "eTouchRawUpdate event shouldn't be dispatched into the DOM");
++    case ePointerDown:
++    case ePointerUp:
++    case eTouchEnd:
+     // Always prevent touchmove captured in video element from being handled by
+     // content, since we always do that for touchstart.
+     case eTouchMove:
+-    case eTouchEnd:
+     case eTouchStart:
+-    case ePointerDown:
+-    case ePointerUp:
+     case ePointerClick:
+     case eMouseDoubleClick:
+     case eMouseDown:
+@@ -4912,13 +4909,9 @@
+       aVisitor.mCanHandle = false;
+       return;
+ 
+-    // The *move events however are only consumed when the range input is being
++    // The *move events however are only comsumed when the range input is being
+     // dragged.
+-    case eMouseRawUpdate:
+-      MOZ_FALLTHROUGH_ASSERT(
+-          "eMouseRawUpdate event shouldn't be dispatched into the DOM");
+     case ePointerMove:
+-    case ePointerRawUpdate:
+     case eMouseMove: {
+       nsINode* node =
+           nsINode::FromEventTargetOrNull(aVisitor.mEvent->mOriginalTarget);

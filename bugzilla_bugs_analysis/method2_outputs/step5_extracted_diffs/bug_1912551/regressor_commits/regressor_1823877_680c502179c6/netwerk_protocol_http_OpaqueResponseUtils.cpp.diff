@@ -1,0 +1,158 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/OpaqueResponseUtils.cpp
+# Commit: 680c502179c6
+# Full Hash: 680c502179c6a98e8e6960fbab016d3aea44ff4c
+# Author: Andreas Farre <farre@mozilla.com>
+# Date: 2023-05-10 21:37:01
+# Regressor Bug: 1823877
+# File Overlap Count: 1
+# Description:
+#   Bug 1823877 - Part 1: Filter opaque results from fetch() in the parent for ORB. r=sefeng,smaug,necko-reviewers,edenchuang,valentin
+#   
+#   We make sure to not send any data to the content process in case of
+#   fetching an opaque resource. This is way to remain more web
+#   compatible, but is also in conflict with the ORB specification.
+# ==============================================================================
+
+diff -r 8295c1c7bfa0 -r 680c502179c6 netwerk/protocol/http/OpaqueResponseUtils.cpp
+--- a/netwerk/protocol/http/OpaqueResponseUtils.cpp	Wed May 10 14:27:47 2023 +0000
++++ b/netwerk/protocol/http/OpaqueResponseUtils.cpp	Wed May 10 14:35:52 2023 +0000
+@@ -14,10 +14,13 @@
+ #include "nsHttpResponseHead.h"
+ #include "nsISupports.h"
+ #include "nsMimeTypes.h"
++#include "nsStreamUtils.h"
+ #include "nsThreadUtils.h"
+ #include "nsStringStream.h"
+ #include "HttpBaseChannel.h"
+ 
++static mozilla::LazyLogModule gORBLog("ORB");
++
+ #define LOGORB(msg, ...)            \
+   MOZ_LOG(gORBLog, LogLevel::Debug, \
+           ("%s: %p " msg, __func__, this, ##__VA_ARGS__))
+@@ -192,6 +195,52 @@
+   return responseFirstBytePos == 0;
+ }
+ 
++LogModule* GetORBLog() { return gORBLog; }
++
++OpaqueResponseFilter::OpaqueResponseFilter(nsIStreamListener* aNext)
++    : mNext(aNext) {
++  LOGORB();
++}
++
++NS_IMETHODIMP
++OpaqueResponseFilter::OnStartRequest(nsIRequest* aRequest) {
++  LOGORB();
++  nsCOMPtr<HttpBaseChannel> httpBaseChannel = do_QueryInterface(aRequest);
++  MOZ_ASSERT(httpBaseChannel);
++
++  nsHttpResponseHead* responseHead = httpBaseChannel->GetResponseHead();
++
++  if (responseHead) {
++    // Filtered opaque responses doesn't need headers, so we just drop them.
++    responseHead->ClearHeaders();
++  }
++
++  mNext->OnStartRequest(aRequest);
++  return NS_OK;
++}
++
++NS_IMETHODIMP
++OpaqueResponseFilter::OnDataAvailable(nsIRequest* aRequest,
++                                      nsIInputStream* aInputStream,
++                                      uint64_t aOffset, uint32_t aCount) {
++  LOGORB();
++  uint32_t result;
++  // No data for filtered opaque responses should reach the content process, so
++  // we just discard them.
++  return aInputStream->ReadSegments(NS_DiscardSegment, nullptr, aCount,
++                                    &result);
++}
++
++NS_IMETHODIMP
++OpaqueResponseFilter::OnStopRequest(nsIRequest* aRequest,
++                                    nsresult aStatusCode) {
++  LOGORB();
++  mNext->OnStopRequest(aRequest, aStatusCode);
++  return NS_OK;
++}
++
++NS_IMPL_ISUPPORTS(OpaqueResponseFilter, nsIStreamListener, nsIRequestObserver)
++
+ OpaqueResponseBlocker::OpaqueResponseBlocker(nsIStreamListener* aNext,
+                                              HttpBaseChannel* aChannel,
+                                              const nsCString& aContentType,
+@@ -345,6 +394,17 @@
+   return ValidateJavaScript(httpBaseChannel, uri, loadInfo);
+ }
+ 
++OpaqueResponse
++OpaqueResponseBlocker::EnsureOpaqueResponseIsAllowedAfterJavaScriptValidation(
++    HttpBaseChannel* aChannel, bool aAllow) {
++  if (aAllow) {
++    return OpaqueResponse::Allow;
++  }
++
++  return aChannel->BlockOrFilterOpaqueResponse(
++      this, u"Javascript validation failed"_ns, "Javascript validation failed");
++}
++
+ static void RecordTelemetry(const TimeStamp& aStartOfValidation,
+                             const TimeStamp& aStartOfJavaScriptValidation,
+                             OpaqueResponseBlocker::ValidatorResult aResult) {
+@@ -428,12 +488,27 @@
+                  uri->GetSpecOrDefault().get(),
+                  aSharedData.isSome() ? "true" : "false"));
+         bool allowed = aResult == ValidatorResult::JavaScript;
+-        if (allowed) {
+-          self->AllowResponse();
+-        } else {
+-          self->BlockResponse(channel, NS_ERROR_FAILURE);
+-          channel->LogORBError(u"Javascript validation failed"_ns);
++        switch (self->EnsureOpaqueResponseIsAllowedAfterJavaScriptValidation(
++            channel, allowed)) {
++          case OpaqueResponse::Allow:
++            // It's possible that the JS validation failed for this request,
++            // however we decided that we need to filter the response instead
++            // of blocking. So we set allowed to true manually when that's the
++            // case.
++            allowed = true;
++            self->AllowResponse();
++            break;
++          case OpaqueResponse::Block:
++            self->BlockResponse(channel, NS_ERROR_FAILURE);
++            break;
++          default:
++            MOZ_ASSERT_UNREACHABLE(
++                "We should only ever have Allow or Block here.");
++            allowed = false;
++            self->BlockResponse(channel, NS_ERROR_FAILURE);
++            break;
+         }
++
+         self->ResolveAndProcessData(channel, allowed, aSharedData);
+         if (aSharedData.isSome()) {
+           self->mJSValidator->DeallocShmem(aSharedData.ref());
+@@ -470,6 +545,18 @@
+                              "OpaqueResponseBlocker::BlockResponse"_ns);
+ }
+ 
++void OpaqueResponseBlocker::FilterResponse() {
++  MOZ_ASSERT(mState == State::Sniffing);
++
++  if (mShouldFilter) {
++    return;
++  }
++
++  mShouldFilter = true;
++
++  mNext = new OpaqueResponseFilter(mNext);
++}
++
+ void OpaqueResponseBlocker::ResolveAndProcessData(
+     HttpBaseChannel* aChannel, bool aAllowed, Maybe<ipc::Shmem>& aSharedData) {
+   nsresult rv = OnStartRequest(aChannel);

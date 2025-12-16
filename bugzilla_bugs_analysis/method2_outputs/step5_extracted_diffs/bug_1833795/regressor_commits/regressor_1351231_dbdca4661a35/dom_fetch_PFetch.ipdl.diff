@@ -1,0 +1,75 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fetch/PFetch.ipdl
+# Commit: dbdca4661a35
+# Full Hash: dbdca4661a35c55d343cb76fd10366cdbd1e4c09
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2023-01-18 09:51:31
+# Regressor Bug: 1351231
+# File Overlap Count: 2
+# Description:
+#   Bug 1351231 - PFetch protocol declaration and implementation. r=dom-worker-reviewers,jesup
+#   
+#   Depends on D138813
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D142436
+# ==============================================================================
+
+diff -r ea27cd66fefd -r dbdca4661a35 dom/fetch/PFetch.ipdl
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/dom/fetch/PFetch.ipdl	Tue Jan 17 15:13:45 2023 +0000
+@@ -0,0 +1,53 @@
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++include protocol PBackground;
++
++include ClientIPCTypes;
++include FetchTypes;
++include IPCServiceWorkerDescriptor;
++include NeckoChannelParams;
++include PBackgroundSharedTypes;
++include PerformanceTimingTypes;
++
++using FetchDriverObserver::EndReason from "mozilla/dom/FetchDriver.h";
++
++namespace mozilla {
++namespace dom {
++
++struct FetchOpArgs{
++  IPCInternalRequest request;
++  PrincipalInfo principalInfo;
++  nsCString workerScript;
++  IPCClientInfo clientInfo;
++  IPCServiceWorkerDescriptor? controller;
++  CookieJarSettingsArgs? cookieJarSettings;
++  bool needOnDataAvailable;
++  bool hasCSPEventListener;
++};
++
++protocol PFetch {
++  manager PBackground;
++
++  parent:
++    async FetchOp(FetchOpArgs aArgs);
++
++    async AbortFetchOp();
++
++  child:
++    async OnResponseAvailableInternal(ParentToChildInternalResponse aResponse);
++
++    async OnResponseEnd(ResponseEndArgs aResponseEndArgs);
++
++    async OnDataAvailable();
++
++    async OnFlushConsoleReport(ConsoleReportCollected[] aReports);
++
++    async OnCSPViolationEvent(nsString aJSON);
++
++    async __delete__(nsresult aResult);
++};
++
++}
++}

@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: xpcom/threads/DelayedRunnable.h
+# Commit: d04f7a7ec375
+# Full Hash: d04f7a7ec375bc4bf08b39875f86608a8920691e
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-04-07 03:19:44
+# Regressor Bug: 1695580
+# File Overlap Count: 1
+# Description:
+#   Bug 1695580 - In xpcom, cancel pending DelayedRunnable timers on shutdown. r=KrisWright
+#   
+#   Because DelayedRunnables are fire-and-forget, there is no way for a targeted
+#   EventTarget to clean them up on shutdown. Thus if a timer fires after
+#   EventTarget shutdown it will fail to dispatch the timer event, and avoid
+# ==============================================================================
+
+diff -r 2103cd9e58b7 -r d04f7a7ec375 xpcom/threads/DelayedRunnable.h
+--- a/xpcom/threads/DelayedRunnable.h	Tue Apr 06 12:16:11 2021 +0000
++++ b/xpcom/threads/DelayedRunnable.h	Tue Apr 06 12:16:11 2021 +0000
+@@ -9,6 +9,7 @@
+ 
+ #include "mozilla/TimeStamp.h"
+ #include "nsCOMPtr.h"
++#include "nsIDelayedRunnableObserver.h"
+ #include "nsIRunnable.h"
+ #include "nsITimer.h"
+ #include "nsThreadUtils.h"
+@@ -26,11 +27,18 @@
+ 
+   nsresult Init();
+ 
++  /**
++   * Cancels the underlying timer. Called when the target is going away, so the
++   * runnable can be released safely on the target thread.
++   */
++  void CancelTimer();
++
+  private:
+   ~DelayedRunnable() = default;
+   nsresult DoRun();
+ 
+   const nsCOMPtr<nsIEventTarget> mTarget;
++  const nsCOMPtr<nsIDelayedRunnableObserver> mObserver;
+   nsCOMPtr<nsIRunnable> mWrappedRunnable;
+   nsCOMPtr<nsITimer> mTimer;
+   const TimeStamp mDelayedFrom;

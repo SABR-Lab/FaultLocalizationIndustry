@@ -1,0 +1,38 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasource/MediaSourceDemuxer.cpp
+# Commit: c28c9108aae1
+# Full Hash: c28c9108aae146f4608dbac9d8c43c272a64cd9d
+# Author: alwu <alwu@mozilla.com>
+# Date: 2023-07-21 04:09:26
+# Description:
+#   Bug 1842496 - only set `mNextSample` when the next sample is available. r=media-playback-reviewers,padenot
+#   
+#   The next sample seems not always be available after seek so it
+#   doesn't make sense to set a nullptr to `mNextSample`. But it's still not
+#   clear to me why we won't be able to get a sample if the seek time is
+# ==============================================================================
+
+diff -r 3f812987146c -r c28c9108aae1 dom/media/mediasource/MediaSourceDemuxer.cpp
+--- a/dom/media/mediasource/MediaSourceDemuxer.cpp	Thu Jul 20 17:25:22 2023 +0000
++++ b/dom/media/mediasource/MediaSourceDemuxer.cpp	Thu Jul 20 17:30:47 2023 +0000
+@@ -396,7 +396,9 @@
+   RefPtr<MediaRawData> sample =
+       mManager->GetSample(mType, TimeUnit::Zero(), result);
+   MOZ_ASSERT(NS_SUCCEEDED(result) && sample);
+-  mNextSample = Some(sample);
++  if (sample) {
++    mNextSample = Some(sample);
++  }
+   mReset = false;
+   {
+     MonitorAutoLock mon(mMonitor);
+@@ -456,6 +458,7 @@
+       return SamplesPromise::CreateAndReject(result, __func__);
+     }
+   }
++  MOZ_DIAGNOSTIC_ASSERT(sample);
+   RefPtr<SamplesHolder> samples = new SamplesHolder;
+   samples->AppendSample(sample);
+   {

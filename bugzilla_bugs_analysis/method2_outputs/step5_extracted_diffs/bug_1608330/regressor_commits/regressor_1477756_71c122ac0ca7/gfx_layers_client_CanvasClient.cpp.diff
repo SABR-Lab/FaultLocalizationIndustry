@@ -1,0 +1,95 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/client/CanvasClient.cpp
+# Commit: 71c122ac0ca7
+# Full Hash: 71c122ac0ca73391866b1ef19f4f82bc2d28568b
+# Author: David Parks <davidp99@gmail.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Initial out-of-process WebGL implementation. r=mccr8,handyman
+#   
+#   Splits WebGLContext into ClientWebGLContext and HostWebGLContext.  The Client enables the JS-control of a WebGL context in a content procecss while the Host executes the WebGL graphics operations (via a WebGLContext that maintains much of the existing code) in the compositor process.  At this point, the cross-process behavior is disabled -- this series of patches is an incremental step toward that final goal.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D54018
+# ==============================================================================
+
+diff -r 5cbf5bb11c58 -r 71c122ac0ca7 gfx/layers/client/CanvasClient.cpp
+--- a/gfx/layers/client/CanvasClient.cpp	Wed Jan 08 21:52:03 2020 +0000
++++ b/gfx/layers/client/CanvasClient.cpp	Wed Jan 08 22:19:14 2020 +0000
+@@ -20,10 +20,12 @@
+ #include "mozilla/layers/CompositableForwarder.h"
+ #include "mozilla/layers/CompositorBridgeChild.h"  // for CompositorBridgeChild
+ #include "mozilla/layers/LayersTypes.h"
++#include "mozilla/layers/OOPCanvasRenderer.h"
+ #include "mozilla/layers/TextureClient.h"  // for TextureClient, etc
+ #include "mozilla/layers/TextureClientOGL.h"
+ #include "mozilla/layers/TextureClientRecycleAllocator.h"
+-#include "nsDebug.h"      // for printf_stderr, NS_ASSERTION
++#include "nsDebug.h"  // for printf_stderr, NS_ASSERTION
++#include "nsICanvasRenderingContextInternal.h"
+ #include "nsXULAppAPI.h"  // for XRE_GetProcessType, etc
+ #include "TextureClientSharedSurface.h"
+ 
+@@ -42,6 +44,8 @@
+       return MakeAndAddRef<CanvasClientSharedSurface>(aForwarder, aFlags);
+     case CanvasClientAsync:
+       return MakeAndAddRef<CanvasClientBridge>(aForwarder, aFlags);
++    case CanvasClientTypeOOP:
++      return MakeAndAddRef<CanvasClientOOP>(aForwarder, aFlags);
+     default:
+       return MakeAndAddRef<CanvasClient2D>(aForwarder, aFlags);
+       break;
+@@ -518,5 +522,50 @@
+   mReadbackClient = nullptr;
+ }
+ 
++//----------------------------------------------------------------------------
++
++CanvasClientOOP::CanvasClientOOP(CompositableForwarder* aLayerForwarder,
++                                 TextureFlags aFlags)
++    : CanvasClient(aLayerForwarder, aFlags) {}
++
++CanvasClientOOP::~CanvasClientOOP() {}
++
++void CanvasClientOOP::SetLayer(ShadowableLayer* aLayer,
++                               OOPCanvasRenderer* aRenderer) {
++  mLayer = aLayer;
++  mCanvasContext = aRenderer->mContext;
++  MOZ_ASSERT(mCanvasContext);
++  Connect();
++  aRenderer->mCanvasClient = this;
++}
++
++void CanvasClientOOP::Update(gfx::IntSize aSize,
++                             ShareableCanvasRenderer* aRenderer,
++                             wr::RenderRoot aRenderRoot) {
++  // DLP: TODO: aRenderRoot?
++  if (!GetForwarder() || !mLayer || !mCanvasContext || !aRenderer) {
++    return;
++  }
++
++  // Make sure the host is using the right Compositable.
++  CompositableHandle handle = GetIPCHandle();
++  if (!handle || mHandle == handle) {
++    return;
++  }
++
++  MOZ_ASSERT(GetForwarder() && GetForwarder()->AsLayerForwarder() &&
++             GetForwarder()->AsLayerForwarder()->GetShadowManager());
++
++  static_cast<ShadowLayerForwarder*>(GetForwarder())->Attach(this, mLayer);
++  LayerTransactionChild* ltc =
++      GetForwarder()->AsLayerForwarder()->GetShadowManager();
++  bool success = mCanvasContext->UpdateCompositableHandle(ltc, handle);
++  if (!success) {
++    return;
++  }
++
++  mHandle = handle;
++}
++
+ }  // namespace layers
+ }  // namespace mozilla

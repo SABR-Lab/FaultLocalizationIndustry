@@ -1,0 +1,74 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/painting/FrameLayerBuilder.cpp
+# Commit: e6aef2179a23
+# Full Hash: e6aef2179a23f50767140afa78027cf3645c9c0a
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2019-05-27 09:54:41
+# Regressor Bug: 1547624
+# File Overlap Count: 1
+# Description:
+#   Bug 1547624 - Update mScaledHitRegionBounds when we add hit-test info to a Layer from within an inactive Layer. r=miko
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D32260
+# ==============================================================================
+
+diff -r f4260d7b6296 -r e6aef2179a23 layout/painting/FrameLayerBuilder.cpp
+--- a/layout/painting/FrameLayerBuilder.cpp	Mon May 27 00:17:13 2019 +0000
++++ b/layout/painting/FrameLayerBuilder.cpp	Mon May 27 04:27:18 2019 +0000
+@@ -630,6 +630,8 @@
+                              const DisplayItemClip& aClip,
+                              TransformClipNode* aTransform);
+ 
++  void HitRegionsUpdated();
++
+   /**
+    * If this represents only a nsDisplayImage, and the image type supports being
+    * optimized to an ImageLayer, returns true.
+@@ -652,6 +654,11 @@
+   }
+ 
+   /**
++   * The owning ContainerState that created this PaintedLayerData.
++   */
++  ContainerState* mState;
++
++  /**
+    * The region of visible content in the layer, relative to the
+    * container layer (which is at the snapped top-left of the display
+    * list reference frame).
+@@ -3617,6 +3624,7 @@
+       containingPaintedLayerData->mDispatchToContentHitRegion.OrWith(
+           containingPaintedLayerData->CombinedTouchActionRegion());
+     }
++    containingPaintedLayerData->HitRegionsUpdated();
+   } else {
+     EventRegions regions(
+         ScaleRegionToOutsidePixels(data->mHitRegion),
+@@ -4047,11 +4055,15 @@
+   mMaybeHitRegion.SimplifyOutward(8);
+   mDispatchToContentHitRegion.SimplifyOutward(8);
+ 
++  HitRegionsUpdated();
++}
++
++void PaintedLayerData::HitRegionsUpdated() {
+   // Calculate scaled versions of the bounds of mHitRegion and mMaybeHitRegion
+   // for quick access in FindPaintedLayerFor().
+-  mScaledHitRegionBounds = aState->ScaleToOutsidePixels(mHitRegion.GetBounds());
++  mScaledHitRegionBounds = mState->ScaleToOutsidePixels(mHitRegion.GetBounds());
+   mScaledMaybeHitRegionBounds =
+-      aState->ScaleToOutsidePixels(mMaybeHitRegion.GetBounds());
++      mState->ScaleToOutsidePixels(mMaybeHitRegion.GetBounds());
+ }
+ 
+ void ContainerState::NewPaintedLayerData(
+@@ -4059,6 +4071,7 @@
+     const ActiveScrolledRoot* aASR, const DisplayItemClipChain* aClipChain,
+     const ActiveScrolledRoot* aScrollMetadataASR, const nsPoint& aTopLeft,
+     const nsIFrame* aReferenceFrame, const bool aBackfaceHidden) {
++  aData->mState = this;
+   aData->mAnimatedGeometryRoot = aAnimatedGeometryRoot;
+   aData->mASR = aASR;
+   aData->mClipChain = aClipChain;

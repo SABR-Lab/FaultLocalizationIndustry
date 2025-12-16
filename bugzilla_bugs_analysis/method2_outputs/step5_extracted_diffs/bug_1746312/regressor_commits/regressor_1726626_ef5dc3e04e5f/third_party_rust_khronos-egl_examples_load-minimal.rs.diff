@@ -1,0 +1,67 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/khronos-egl/examples/load-minimal.rs
+# Commit: ef5dc3e04e5f
+# Full Hash: ef5dc3e04e5f271eea0636ab3a495e95cc912f1d
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-09-04 09:40:24
+# Regressor Bug: 1726626
+# File Overlap Count: 3
+# Description:
+#   Bug 1726626 - Move gfx/wgpu into a 3rd party dependency r=jgilbert,bholley
+#   
+#   This update makes wgpu a vendored dependency instead of having it in gfx/wgpu.
+#   
+#   ## Notes
+# ==============================================================================
+
+diff --git a/third_party/rust/khronos-egl/examples/load-minimal.rs b/third_party/rust/khronos-egl/examples/load-minimal.rs
+new file mode 100644
+--- /dev/null
++++ b/third_party/rust/khronos-egl/examples/load-minimal.rs
+@@ -0,0 +1,43 @@
++extern crate gl;
++extern crate khronos_egl as egl;
++extern crate libloading;
++
++use std::sync::Arc;
++use egl::{
++	EGL1_2,
++	EGL1_4
++};
++
++fn main() {
++	let minimal_egl = unsafe { Arc::new(egl::DynamicInstance::load().expect("unable to load libEGL.so.1")) };
++
++	println!("EGL version is {}", minimal_egl.version());
++
++	// Select the rendering API.
++	if let Some(egl1_2) = minimal_egl.upcast::<EGL1_2>() {
++		println!("selecting API");
++		 egl1_2.bind_api(egl::OPENGL_API).expect("unable to select OpenGL API");
++	}
++
++	// Setup Open GL.
++	gl::load_with(|name| minimal_egl.get_proc_address(name).unwrap() as *const std::ffi::c_void);
++
++	match minimal_egl.upcast::<EGL1_4>() {
++		Some(egl1_4) => {
++			foo_with_1_4(egl1_4)
++		},
++		None => {
++			foo_without_1_4(&minimal_egl)
++		}
++	}
++}
++
++fn foo_with_1_4<V: egl::api::EGL1_4>(_egl: &egl::Instance<V>) {
++	println!("with 1.4");
++	// do something that requires at least EGL 1.4.
++}
++
++fn foo_without_1_4<V>(_egl: &egl::Instance<V>) {
++	println!("without 1.4");
++	// do something without any specific EGL version (other that 1.0).
++}
+\ No newline at end of file

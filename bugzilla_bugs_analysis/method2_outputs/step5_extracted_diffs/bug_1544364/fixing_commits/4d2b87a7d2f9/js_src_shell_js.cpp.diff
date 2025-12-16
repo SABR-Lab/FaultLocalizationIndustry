@@ -1,0 +1,57 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/shell/js.cpp
+# Commit: 4d2b87a7d2f9
+# Full Hash: 4d2b87a7d2f9ff2a135e2793001d5d94fe08696f
+# Author: André Bargull <andre.bargull@gmail.com>
+# Date: 2019-04-24 21:51:39
+# Description:
+#   Bug 1544364: Throw an error when calling the transplant test-function on a sandbox global. r=jandem
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D28475
+# ==============================================================================
+
+diff -r 70bcbf68e7d8 -r 4d2b87a7d2f9 js/src/shell/js.cpp
+--- a/js/src/shell/js.cpp	Wed Apr 24 15:28:36 2019 +0000
++++ b/js/src/shell/js.cpp	Wed Apr 24 10:56:44 2019 +0000
+@@ -8105,7 +8105,7 @@
+ 
+ static const JSClass* GetDomClass();
+ 
+-static JSObject* GetDOMPrototype(JSObject* global);
++static JSObject* GetDOMPrototype(JSContext* cx, JSObject* global);
+ 
+ static const JSClass TransplantableDOMObjectClass = {
+     "TransplantableDOMObject",
+@@ -8229,12 +8229,12 @@
+ 
+   RootedObject proto(cx);
+   if (JS_GetClass(source) == GetDomClass()) {
+-    proto = GetDOMPrototype(newGlobal);
++    proto = GetDOMPrototype(cx, newGlobal);
+   } else {
+     proto = JS::GetRealmObjectPrototype(cx);
+-    if (!proto) {
+-      return false;
+-    }
++  }
++  if (!proto) {
++    return false;
+   }
+ 
+   RootedObject target(cx, JS_CloneObject(cx, source, proto));
+@@ -9820,8 +9820,12 @@
+                   PrivateValue(const_cast<void*>(DOM_PRIVATE_VALUE)));
+ }
+ 
+-static JSObject* GetDOMPrototype(JSObject* global) {
++static JSObject* GetDOMPrototype(JSContext* cx, JSObject* global) {
+   MOZ_ASSERT(JS_IsGlobalObject(global));
++  if (GetObjectJSClass(global) != &global_class) {
++    JS_ReportErrorASCII(cx, "Can't get FakeDOMObject prototype in sandbox");
++    return nullptr;
++  }
+   MOZ_ASSERT(GetReservedSlot(global, DOM_PROTOTYPE_SLOT).isObject());
+   return &GetReservedSlot(global, DOM_PROTOTYPE_SLOT).toObject();
+ }

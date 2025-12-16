@@ -1,0 +1,31 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/FrameIter.cpp
+# Commit: 6eb32b942a04
+# Full Hash: 6eb32b942a0497103ec39cf48708e0948c2d5565
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2024-07-29 20:43:57
+# Regressor Bug: 1909224
+# File Overlap Count: 5
+# Description:
+#   Bug 1909224 part 2 - Unify Wasm and JS exception handling code more. r=rhunt
+#   
+#   If there's no JS or Wasm catch handler on the stack, this patch lets us unwind
+#   all the way to the entry frame in all cases, instead of returning to the JIT entry
+#   stub and then calling the JS JIT exception handler from there.
+# ==============================================================================
+
+diff -r d8768f163b46 -r 6eb32b942a04 js/src/vm/FrameIter.cpp
+--- a/js/src/vm/FrameIter.cpp	Mon Jul 29 13:14:47 2024 +0000
++++ b/js/src/vm/FrameIter.cpp	Mon Jul 29 13:14:47 2024 +0000
+@@ -209,7 +209,8 @@
+     }
+ 
+     iter_.destroy();
+-    iter_.construct<jit::JSJitFrameIter>(act_, prevFrameType, prevFP);
++    iter_.construct<jit::JSJitFrameIter>(act_, prevFrameType, prevFP,
++                                         mustUnwindActivation_);
+     MOZ_ASSERT(!asJSJit().done());
+     return;
+   }

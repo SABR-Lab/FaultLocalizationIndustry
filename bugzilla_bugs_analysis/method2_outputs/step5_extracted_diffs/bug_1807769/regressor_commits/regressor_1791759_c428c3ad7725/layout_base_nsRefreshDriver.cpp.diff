@@ -1,0 +1,90 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/base/nsRefreshDriver.cpp
+# Commit: c428c3ad7725
+# Full Hash: c428c3ad7725593f33b4ea2da9851be31be0c1df
+# Author: Martin Robinson <mrobinson@igalia.com>
+# Date: 2022-11-28 15:41:50
+# Regressor Bug: 1791759
+# File Overlap Count: 1
+# Description:
+#   Bug 1791759 - Add support for `content-visibility: auto` r=emilio
+#   
+#   This change adds support for `content-visibilty: auto` as well as
+#   showing and hiding content based on the relevancy of the content as
+#   defined in the specification. Changes to relevancy are handled by
+# ==============================================================================
+
+diff -r ce553434720c -r c428c3ad7725 layout/base/nsRefreshDriver.cpp
+--- a/layout/base/nsRefreshDriver.cpp	Mon Nov 28 09:45:39 2022 +0000
++++ b/layout/base/nsRefreshDriver.cpp	Mon Nov 28 09:53:06 2022 +0000
+@@ -1340,6 +1340,7 @@
+       mResizeSuppressed(false),
+       mNotifyDOMContentFlushed(false),
+       mNeedToUpdateIntersectionObservations(false),
++      mNeedToUpdateContentRelevancy(false),
+       mInNormalTick(false),
+       mAttemptedExtraTickSinceLastVsync(false),
+       mHasExceededAfterLoadTickPeriod(false),
+@@ -1939,6 +1940,9 @@
+   if (mNeedToUpdateIntersectionObservations) {
+     reasons |= TickReasons::eNeedsToUpdateIntersectionObservations;
+   }
++  if (mNeedToUpdateContentRelevancy) {
++    reasons |= TickReasons::eNeedsToUpdateContentRelevancy;
++  }
+   if (!mVisualViewportResizeEvents.IsEmpty()) {
+     reasons |= TickReasons::eHasVisualViewportResizeEvents;
+   }
+@@ -1969,6 +1973,9 @@
+   if (aReasons & TickReasons::eNeedsToUpdateIntersectionObservations) {
+     aStr.AppendLiteral(" NeedsToUpdateIntersectionObservations");
+   }
++  if (aReasons & TickReasons::eNeedsToUpdateContentRelevancy) {
++    aStr.AppendLiteral(" NeedsToUpdateContentRelevancy");
++  }
+   if (aReasons & TickReasons::eHasVisualViewportResizeEvents) {
+     aStr.AppendLiteral(" HasVisualViewportResizeEvents");
+   }
+@@ -2166,6 +2173,25 @@
+   mNeedToUpdateIntersectionObservations = false;
+ }
+ 
++void nsRefreshDriver::UpdateRelevancyOfContentVisibilityAutoFrames() {
++  if (!mNeedToUpdateContentRelevancy) {
++    return;
++  }
++
++  if (RefPtr<PresShell> topLevelPresShell = mPresContext->GetPresShell()) {
++    topLevelPresShell->UpdateRelevancyOfContentVisibilityAutoFrames();
++  }
++
++  mPresContext->Document()->EnumerateSubDocuments([](Document& aSubDoc) {
++    if (PresShell* presShell = aSubDoc.GetPresShell()) {
++      presShell->UpdateRelevancyOfContentVisibilityAutoFrames();
++    }
++    return CallState::Continue;
++  });
++
++  mNeedToUpdateContentRelevancy = false;
++}
++
+ void nsRefreshDriver::DispatchAnimationEvents() {
+   if (!mPresContext) {
+     return;
+@@ -2650,6 +2676,14 @@
+     pm->UpdatePopupPositions(this);
+   }
+ 
++  // Update the relevancy of the content of any `content-visibility: auto`
++  // elements. The specification says: "Specifically, such changes will
++  // take effect between steps 13 and 14 of Update the Rendering step of
++  // the Processing Model (between “run the animation frame callbacks” and
++  // “run the update intersection observations steps”)."
++  // https://drafts.csswg.org/css-contain/#cv-notes
++  UpdateRelevancyOfContentVisibilityAutoFrames();
++
+   UpdateIntersectionObservations(aNowTime);
+ 
+   /*

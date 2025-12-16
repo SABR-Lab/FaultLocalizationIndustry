@@ -1,0 +1,74 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/naga/src/back/spv/recyclable.rs
+# Commit: ef5dc3e04e5f
+# Full Hash: ef5dc3e04e5f271eea0636ab3a495e95cc912f1d
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-09-04 09:40:24
+# Regressor Bug: 1726626
+# File Overlap Count: 3
+# Description:
+#   Bug 1726626 - Move gfx/wgpu into a 3rd party dependency r=jgilbert,bholley
+#   
+#   This update makes wgpu a vendored dependency instead of having it in gfx/wgpu.
+#   
+#   ## Notes
+# ==============================================================================
+
+diff --git a/third_party/rust/naga/src/back/spv/recyclable.rs b/third_party/rust/naga/src/back/spv/recyclable.rs
+new file mode 100644
+--- /dev/null
++++ b/third_party/rust/naga/src/back/spv/recyclable.rs
+@@ -0,0 +1,51 @@
++//! Reusing collections' previous allocations.
++
++/// A value that can be reset to its initial state, retaining its current allocations.
++///
++/// Naga attempts to lower the cost of SPIR-V generation by allowing clients to
++/// reuse the same `Writer` for multiple Module translations. Reusing a `Writer`
++/// means that the `Vec`s, `HashMap`s, and other heap-allocated structures the
++/// `Writer` uses internally begin the translation with heap-allocated buffers
++/// ready to use.
++///
++/// But this approach introduces the risk of `Writer` state leaking from one
++/// module to the next. When a developer adds fields to `Writer` or its internal
++/// types, they must remember to reset their contents between modules.
++///
++/// One trick to ensure that every field has been accounted for is to use Rust's
++/// struct literal syntax to construct a new, reset value. If a developer adds a
++/// field, but neglects to update the reset code, the compiler will complain
++/// that a field is missing from the literal. This trait's `recycle` method
++/// takes `self` by value, and returns `Self` by value, encouraging the use of
++/// struct literal expressions in its implementation.
++pub trait Recyclable {
++    /// Clear `self`, retaining its current memory allocations.
++    ///
++    /// Shrink the buffer if it's currently much larger than was actually used.
++    /// This prevents a module with exceptionally large allocations from causing
++    /// the `Writer` to retain more memory than it needs indefinitely.
++    fn recycle(self) -> Self;
++}
++
++// Stock values for various collections.
++
++impl<T> Recyclable for Vec<T> {
++    fn recycle(mut self) -> Self {
++        self.clear();
++        self
++    }
++}
++
++impl<K, V, S: Clone> Recyclable for std::collections::HashMap<K, V, S> {
++    fn recycle(mut self) -> Self {
++        self.clear();
++        self
++    }
++}
++
++impl<K, S: Clone> Recyclable for std::collections::HashSet<K, S> {
++    fn recycle(mut self) -> Self {
++        self.clear();
++        self
++    }
++}

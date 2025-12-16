@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/Selection.cpp
+# Commit: bdbed5920aeb
+# Full Hash: bdbed5920aeb2adc75f03ac0f6c427b3ac456395
+# Author: Jan-Niklas Jaeschke <jjaschke@mozilla.com>
+# Date: 2022-10-26 03:47:46
+# Regressor Bug: 1783641
+# File Overlap Count: 2
+# Description:
+#   Bug 1783641: Deleting a selected word deletes surrounding whitespace on MacOS. r=masayuki
+#   
+#   Native behaviour on MacOS dictates one whitespace being removed after double-clicking a word and pressing delete.
+#   This behaviour is achieved by saving the information that the selection is created by doubleclick to the `nsFrameSelection`
+#   and using it in the `DeleteRangeTransaction`, where the range is extended by one whitespace character before or after the range.
+# ==============================================================================
+
+diff -r a32dbcfbd95f -r bdbed5920aeb dom/base/Selection.cpp
+--- a/dom/base/Selection.cpp	Tue Oct 25 07:00:26 2022 +0000
++++ b/dom/base/Selection.cpp	Tue Oct 25 07:00:26 2022 +0000
+@@ -3190,6 +3190,11 @@
+   }
+ 
+   RefPtr<nsFrameSelection> frameSelection = mFrameSelection;
++
++  // This flag will be set to true if a selection by double click is detected.
++  // As soon as the selection is modified, it needs to be set to false.
++  frameSelection->SetIsDoubleClickSelection(false);
++
+   if (frameSelection->IsBatching()) {
+     frameSelection->SetChangesDuringBatchingFlag();
+     return;

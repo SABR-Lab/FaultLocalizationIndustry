@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/svg/SVGObserverUtils.cpp
+# Commit: 0fdbf0a455f2
+# Full Hash: 0fdbf0a455f26afa0a7a0390d6a380e318fce9d4
+# Author: Robert Longson <longsonr@gmail.com>
+# Date: 2023-10-24 03:54:44
+# Regressor Bug: 1765202
+# File Overlap Count: 1
+# Description:
+#   Bug 1765202 part 3 - ignore clip-path and mask properties that don't point to clipPath and mask elements r=emilio
+#   
+#   This refactors the logic for testing whether something has a clip-path or mask and what to do about it in one place rather than using many overlapping functions.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D190767
+# ==============================================================================
+
+diff -r 2a8d11fcc746 -r 0fdbf0a455f2 layout/svg/SVGObserverUtils.cpp
+--- a/layout/svg/SVGObserverUtils.cpp	Mon Oct 23 20:32:20 2023 +0000
++++ b/layout/svg/SVGObserverUtils.cpp	Mon Oct 23 20:32:37 2023 +0000
+@@ -1017,13 +1017,13 @@
+   const nsStyleSVGReset* svgReset = mFrame->StyleSVGReset();
+   MOZ_ASSERT(aIndex < svgReset->mMask.mImageCount);
+ 
+-  auto& image = const_cast<StyleImage&>(svgReset->mMask.mLayers[aIndex].mImage);
++  const auto& image = svgReset->mMask.mLayers[aIndex].mImage;
+   if (image.IsResolved()) {
+     return;
+   }
+   MOZ_ASSERT(image.IsImageRequestType());
+   Document* doc = mFrame->PresContext()->Document();
+-  image.ResolveImage(*doc, nullptr);
++  const_cast<StyleImage&>(image).ResolveImage(*doc, nullptr);
+   if (imgRequestProxy* req = image.GetImageRequest()) {
+     // FIXME(emilio): What disassociates this request?
+     doc->StyleImageLoader()->AssociateRequestToFrame(req, mFrame);
+@@ -1417,7 +1417,7 @@
+           LayoutFrameType::SVGClipPath, &frameTypeOK));
+   // Note that, unlike for filters, a reference to an ID that doesn't exist
+   // is not invalid for clip-path or mask.
+-  if (!frameTypeOK || (frame && !frame->IsValid())) {
++  if (!frameTypeOK) {
+     return eHasRefsSomeInvalid;
+   }
+   if (aClipPathFrame) {

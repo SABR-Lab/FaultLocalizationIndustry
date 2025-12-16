@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/ipc/RemoteImageHolder.cpp
+# Commit: 7a990fa02246
+# Full Hash: 7a990fa022462c702adacfac907a0fc178940b9d
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2020-10-21 09:51:28
+# Regressor Bug: 1595994
+# File Overlap Count: 1
+# Description:
+#   Bug 1595994 - P1D. Properly serialize display size when sending image over IPC. r=mattwoodrow
+#   
+#   The code always assumed that the size of the image with the Y plane dimensions, which, while often the case, isn't correct.
+#   We remove the assertions that the display offset was always (0,0) and properly carry the actual data over IPC.
+#   
+# ==============================================================================
+
+diff -r 4c7f671c7b69 -r 7a990fa02246 dom/media/ipc/RemoteImageHolder.cpp
+--- a/dom/media/ipc/RemoteImageHolder.cpp	Tue Oct 20 23:29:30 2020 +0000
++++ b/dom/media/ipc/RemoteImageHolder.cpp	Tue Oct 20 23:30:04 2020 +0000
+@@ -64,9 +64,10 @@
+   pData.mCbCrStride = descriptor.cbCrStride();
+   // default mYSkip, mCbSkip, mCrSkip because not held in YCbCrDescriptor
+   pData.mYSkip = pData.mCbSkip = pData.mCrSkip = 0;
+-  // default mPicX, mPicY because not held in YCbCrDescriptor
+-  pData.mPicX = pData.mPicY = 0;
+-  pData.mPicSize = mSize;
++  gfx::IntRect display = descriptor.display();
++  pData.mPicX = display.X();
++  pData.mPicY = display.Y();
++  pData.mPicSize = display.Size();
+   pData.mStereoMode = descriptor.stereoMode();
+   pData.mColorDepth = descriptor.colorDepth();
+   pData.mYUVColorSpace = descriptor.yUVColorSpace();

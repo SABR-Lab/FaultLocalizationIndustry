@@ -1,0 +1,80 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/Marking.cpp
+# Commit: 5fa2ef9fb2f6
+# Full Hash: 5fa2ef9fb2f60fb8370a3b210e6f3d585c65b107
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2022-10-29 09:50:10
+# Regressor Bug: 1797755
+# File Overlap Count: 1
+# Description:
+#   Bug 1797755 - Part 5: Use a single initial mark stack size regardless of whether incremental GC is enabled r=sfink
+#   
+#   Currently we initialize the mark stack to a different size depending on whether
+#   or not incremental GC is enable. However, after the first GC we always shrink
+#   it to the initial size when it is disabled.
+# ==============================================================================
+
+diff -r 453aa2faad97 -r 5fa2ef9fb2f6 js/src/gc/Marking.cpp
+--- a/js/src/gc/Marking.cpp	Fri Oct 28 15:17:43 2022 +0000
++++ b/js/src/gc/Marking.cpp	Fri Oct 28 15:17:43 2022 +0000
+@@ -1569,18 +1569,13 @@
+   MOZ_ASSERT(iteratorCount_ == 0);
+ }
+ 
+-bool MarkStack::init(bool incrementalGCEnabled) {
++bool MarkStack::init() {
+   MOZ_ASSERT(isEmpty());
+-  return setStackCapacity(incrementalGCEnabled);
++  return resetStackCapacity();
+ }
+ 
+-bool MarkStack::setStackCapacity(bool incrementalGCEnabled) {
+-  size_t capacity;
+-  if (incrementalGCEnabled) {
+-    capacity = INCREMENTAL_MARK_STACK_BASE_CAPACITY;
+-  } else {
+-    capacity = NON_INCREMENTAL_MARK_STACK_BASE_CAPACITY;
+-  }
++bool MarkStack::resetStackCapacity() {
++  size_t capacity = MARK_STACK_BASE_CAPACITY;
+ 
+ #ifdef JS_GC_ZEAL
+   capacity = std::min(capacity, maxCapacity_.ref());
+@@ -1603,6 +1598,14 @@
+ }
+ #endif
+ 
++void MarkStack::clear() {
++  // Fall back to the smaller initial capacity so we don't hold on to excess
++  // memory between GCs.
++  stack().clearAndFree();
++  topIndex_ = 0;
++  std::ignore = resetStackCapacity();
++}
++
+ inline MarkStack::TaggedPtr* MarkStack::topPtr() { return &stack()[topIndex_]; }
+ 
+ inline bool MarkStack::pushTaggedPtr(Tag tag, Cell* ptr) {
+@@ -1695,6 +1698,8 @@
+ 
+ bool MarkStack::resize(size_t newCapacity) {
+   MOZ_ASSERT(newCapacity != 0);
++  MOZ_ASSERT(newCapacity >= position());
++
+   if (!stack().resize(newCapacity)) {
+     return false;
+   }
+@@ -1746,10 +1751,7 @@
+ {
+ }
+ 
+-bool GCMarker::init() {
+-  bool incrementalGCEnabled = runtime()->gc.isIncrementalGCEnabled();
+-  return stack.init(incrementalGCEnabled);
+-}
++bool GCMarker::init() { return stack.init(); }
+ 
+ bool GCMarker::isDrained() { return isMarkStackEmpty() && !delayedMarkingList; }
+ 

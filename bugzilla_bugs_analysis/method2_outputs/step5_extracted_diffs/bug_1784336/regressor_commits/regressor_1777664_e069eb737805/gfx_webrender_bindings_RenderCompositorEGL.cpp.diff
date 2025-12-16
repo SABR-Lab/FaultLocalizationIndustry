@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/webrender_bindings/RenderCompositorEGL.cpp
+# Commit: e069eb737805
+# Full Hash: e069eb737805ebede2b0eed0458d29cedbc8de0e
+# Author: stransky <stransky@redhat.com>
+# Date: 2022-09-22 15:57:34
+# Regressor Bug: 1777664
+# File Overlap Count: 1
+# Description:
+#   Bug 1645677 [Wayland] Update EGLSurface when wl_surface is deleted r=emilio,jgilbert
+#   
+#   When GtkWidget is hidden, underlying wl_surface is deleted. We need to also update EGLSurface of GtkWidget (GtkCompositorWidget)
+#   as EGLSurface is directly linked to wl_surface:
+#   
+# ==============================================================================
+
+diff -r 2bc535493586 -r e069eb737805 gfx/webrender_bindings/RenderCompositorEGL.cpp
+--- a/gfx/webrender_bindings/RenderCompositorEGL.cpp	Thu Sep 22 09:41:04 2022 +0000
++++ b/gfx/webrender_bindings/RenderCompositorEGL.cpp	Thu Sep 22 09:41:04 2022 +0000
+@@ -127,6 +127,11 @@
+ #endif
+ 
+   RenderedFrameId frameId = GetNextRenderFrameId();
++#ifdef MOZ_WAYLAND
++  if (mWidget->IsHidden()) {
++    return frameId;
++  }
++#endif
+   if (mEGLSurface != EGL_NO_SURFACE && aDirtyRects.Length() > 0) {
+     gfx::IntRegion bufferInvalid;
+     const auto bufferSize = GetBufferSize();

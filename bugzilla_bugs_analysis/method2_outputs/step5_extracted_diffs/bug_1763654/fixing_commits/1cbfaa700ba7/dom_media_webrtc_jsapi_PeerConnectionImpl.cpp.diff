@@ -1,0 +1,72 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/jsapi/PeerConnectionImpl.cpp
+# Commit: 1cbfaa700ba7
+# Full Hash: 1cbfaa700ba7b4aacf91412822dd55fa5973d6e9
+# Author: Byron Campen <docfaraday@gmail.com>
+# Date: 2022-04-12 03:57:01
+# Description:
+#   Bug 1763654: MOZ_CRASH instead of returning nullptr in here. r=mjf
+#   
+#   Returning nullptr still release crashes, but is harder to tell what happened.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D143230
+# ==============================================================================
+
+diff -r cf0cdfc423d3 -r 1cbfaa700ba7 dom/media/webrtc/jsapi/PeerConnectionImpl.cpp
+--- a/dom/media/webrtc/jsapi/PeerConnectionImpl.cpp	Mon Apr 11 16:36:21 2022 +0000
++++ b/dom/media/webrtc/jsapi/PeerConnectionImpl.cpp	Mon Apr 11 16:48:34 2022 +0000
+@@ -1650,35 +1650,32 @@
+ 
+ already_AddRefed<dom::Promise> PeerConnectionImpl::GetStats(
+     MediaStreamTrack* aSelector) {
+-  if (NS_FAILED(CheckApiState(false))) {
+-    return nullptr;
+-  }
+-
+   if (!mWindow) {
+-    return nullptr;
++    MOZ_CRASH("Cannot create a promise without a window!");
+   }
+ 
+   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(mWindow);
+   ErrorResult rv;
+   RefPtr<Promise> promise = Promise::Create(global, rv);
+   if (NS_WARN_IF(rv.Failed())) {
+-    rv.StealNSResult();
+-    return nullptr;
++    MOZ_CRASH("Failed to create a promise!");
+   }
+ 
+-  GetStats(aSelector, false)
+-      ->Then(
+-          GetMainThreadSerialEventTarget(), __func__,
+-          [promise,
+-           window = mWindow](UniquePtr<dom::RTCStatsReportInternal>&& aReport) {
+-            RefPtr<RTCStatsReport> report(new RTCStatsReport(window));
+-            report->Incorporate(*aReport);
+-            promise->MaybeResolve(std::move(report));
+-          },
+-          [promise, window = mWindow](nsresult aError) {
+-            RefPtr<RTCStatsReport> report(new RTCStatsReport(window));
+-            promise->MaybeResolve(std::move(report));
+-          });
++  if (!IsClosed()) {
++    GetStats(aSelector, false)
++        ->Then(
++            GetMainThreadSerialEventTarget(), __func__,
++            [promise, window = mWindow](
++                UniquePtr<dom::RTCStatsReportInternal>&& aReport) {
++              RefPtr<RTCStatsReport> report(new RTCStatsReport(window));
++              report->Incorporate(*aReport);
++              promise->MaybeResolve(std::move(report));
++            },
++            [promise, window = mWindow](nsresult aError) {
++              RefPtr<RTCStatsReport> report(new RTCStatsReport(window));
++              promise->MaybeResolve(std::move(report));
++            });
++  }
+ 
+   return promise.forget();
+ }

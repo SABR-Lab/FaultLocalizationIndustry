@@ -1,0 +1,29 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: layout/painting/nsDisplayList.h
+# Commit: dffa8d716fa7
+# Full Hash: dffa8d716fa7b91190d3f6d9985fc9946ff3ca7a
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2022-03-23 04:09:13
+# Description:
+#   Bug 1760847 - Deallocate linked list nodes when RemoveBottom() is called r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D141789
+# ==============================================================================
+
+diff -r eaef9e0819ae -r dffa8d716fa7 layout/painting/nsDisplayList.h
+--- a/layout/painting/nsDisplayList.h	Tue Mar 22 22:34:29 2022 +0000
++++ b/layout/painting/nsDisplayList.h	Tue Mar 22 22:34:37 2022 +0000
+@@ -3245,7 +3245,10 @@
+     }
+ 
+     nsDisplayItem* bottom = mBottom->mValue;
+-    mBottom = mBottom->mNext;
++
++    auto next = mBottom->mNext;
++    Deallocate(mBottom);
++    mBottom = next;
+ 
+     if (!mBottom) {
+       // No bottom item means no items at all.

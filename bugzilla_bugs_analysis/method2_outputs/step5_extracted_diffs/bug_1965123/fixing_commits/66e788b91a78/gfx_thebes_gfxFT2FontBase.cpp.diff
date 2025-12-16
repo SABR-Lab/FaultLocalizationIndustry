@@ -1,0 +1,39 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxFT2FontBase.cpp
+# Commit: 66e788b91a78
+# Full Hash: 66e788b91a785ecda515f8a25dc56acab6fc2d63
+# Author: Cristina Horotan <chorotan@mozilla.com>
+# Date: 2025-05-08 09:24:40
+# Description:
+#   Revert "Bug 1961387 - Add a reftest with larger glyphs, for CBDT version of Noto Color Emoji. r=gfx-reviewers,lsalzman" for causing crashes (bug 1965123)
+#   
+#   This reverts commit 05d7f427e840f62d7cd9eaffe83df511aad7aa08.
+#   
+#   Revert "Bug 1961387 - Account for scaling of color-bitmap fonts when setting up the font-unit scale factor. r=gfx-reviewers,lsalzman"
+# ==============================================================================
+
+diff -r 82516541b4b1 -r 66e788b91a78 gfx/thebes/gfxFT2FontBase.cpp
+--- a/gfx/thebes/gfxFT2FontBase.cpp	Thu May 08 09:06:49 2025 +0300
++++ b/gfx/thebes/gfxFT2FontBase.cpp	Thu May 08 09:13:55 2025 +0300
+@@ -353,8 +353,6 @@
+     // mFUnitsConvFactor (x scale).
+     const TT_Header* head =
+         static_cast<TT_Header*>(FT_Get_Sfnt_Table(face, ft_sfnt_head));
+-    gfxFloat emUnit = head->Units_Per_EM;
+-    mFUnitsConvFactor = ftMetrics.x_ppem / emUnit;
+     if (head) {
+       // Bug 1267909 - Even if the font is not explicitly scalable,
+       // if the face has color bitmaps, it should be treated as scalable
+@@ -368,8 +366,9 @@
+         mMetrics.maxDescent *= adjustScale;
+         mMetrics.maxAdvance *= adjustScale;
+         lineHeight *= adjustScale;
+-        mFUnitsConvFactor *= adjustScale;
+       }
++      gfxFloat emUnit = head->Units_Per_EM;
++      mFUnitsConvFactor = ftMetrics.x_ppem / emUnit;
+       yScale = emHeight / emUnit;
+     }
+   }

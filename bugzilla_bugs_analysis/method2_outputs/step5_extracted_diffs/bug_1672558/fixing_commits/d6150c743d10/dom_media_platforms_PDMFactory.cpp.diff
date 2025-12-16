@@ -1,0 +1,84 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/media/platforms/PDMFactory.cpp
+# Commit: d6150c743d10
+# Full Hash: d6150c743d10d20c95dfc0b34c6f1bb945c94dba
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2020-10-22 14:54:09
+# Description:
+#   Bug 1672558 - Only initialize usable PDMs for their respective process. r=mattwoodrow
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D94408
+# ==============================================================================
+
+diff -r 29c5257d0a06 -r d6150c743d10 dom/media/platforms/PDMFactory.cpp
+--- a/dom/media/platforms/PDMFactory.cpp	Mon Oct 19 12:30:07 2020 +0000
++++ b/dom/media/platforms/PDMFactory.cpp	Thu Oct 22 09:29:45 2020 +0000
+@@ -58,8 +58,48 @@
+ class PDMFactoryImpl final {
+  public:
+   PDMFactoryImpl() {
++    if (XRE_IsGPUProcess()) {
++      InitGpuPDMs();
++    } else if (XRE_IsRDDProcess()) {
++      InitRddPDMs();
++    } else {
++      InitDefaultPDMs();
++    }
++  }
++
++ private:
++  void InitGpuPDMs() {
+ #ifdef XP_WIN
+-    WMFDecoderModule::Init();
++    if (!IsWin7AndPre2000Compatible()) {
++      WMFDecoderModule::Init();
++    }
++#endif
++  }
++
++  void InitRddPDMs() {
++#ifdef XP_WIN
++    if (!IsWin7AndPre2000Compatible()) {
++      WMFDecoderModule::Init();
++    }
++#endif
++#ifdef MOZ_APPLEMEDIA
++    AppleDecoderModule::Init();
++#endif
++#ifdef MOZ_FFVPX
++    FFVPXRuntimeLinker::Init();
++#endif
++#ifdef MOZ_FFMPEG
++    if (StaticPrefs::media_rdd_ffmpeg_enabled()) {
++      FFmpegRuntimeLinker::Init();
++    }
++#endif
++  }
++
++  void InitDefaultPDMs() {
++#ifdef XP_WIN
++    if (!IsWin7AndPre2000Compatible()) {
++      WMFDecoderModule::Init();
++    }
+ #endif
+ #ifdef MOZ_APPLEMEDIA
+     AppleDecoderModule::Init();
+@@ -68,14 +108,10 @@
+     OmxDecoderModule::Init();
+ #endif
+ #ifdef MOZ_FFVPX
+-    if (!XRE_IsRDDProcess() || StaticPrefs::media_rdd_ffvpx_enabled()) {
+-      FFVPXRuntimeLinker::Init();
+-    }
++    FFVPXRuntimeLinker::Init();
+ #endif
+ #ifdef MOZ_FFMPEG
+-    if (!XRE_IsRDDProcess() || StaticPrefs::media_rdd_ffmpeg_enabled()) {
+-      FFmpegRuntimeLinker::Init();
+-    }
++    FFmpegRuntimeLinker::Init();
+ #endif
+     if (XRE_IsContentProcess()) {
+       RemoteDecoderManagerChild::Init();

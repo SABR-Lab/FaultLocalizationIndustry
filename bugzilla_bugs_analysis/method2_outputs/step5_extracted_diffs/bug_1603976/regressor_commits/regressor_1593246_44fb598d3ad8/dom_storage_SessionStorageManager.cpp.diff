@@ -1,0 +1,70 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/storage/SessionStorageManager.cpp
+# Commit: 44fb598d3ad8
+# Full Hash: 44fb598d3ad83467805f960e973a6757c125ea5a
+# Author: Yaron Tausky <ytausky@mozilla.com>
+# Date: 2019-12-11 03:34:51
+# Regressor Bug: 1593246
+# File Overlap Count: 1
+# Description:
+#   Bug 1593246 - Part 3: Remove unused parameter from SessionStorageManager::GetSessionStorageCacheHelper r=dom-workers-and-storage-reviewers,sg
+#   
+#   Depends on D55659
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D55660
+# ==============================================================================
+
+diff -r c11ce752a12e -r 44fb598d3ad8 dom/storage/SessionStorageManager.cpp
+--- a/dom/storage/SessionStorageManager.cpp	Tue Dec 10 12:12:32 2019 +0000
++++ b/dom/storage/SessionStorageManager.cpp	Mon Dec 09 19:38:34 2019 +0000
+@@ -83,14 +83,12 @@
+ SessionStorageManager::GetSessionStorageCache(
+     nsIPrincipal* aPrincipal, nsIPrincipal* aStoragePrincipal,
+     RefPtr<SessionStorageCache>* aRetVal) {
+-  return GetSessionStorageCacheHelper(aPrincipal, aStoragePrincipal, true,
+-                                      nullptr, aRetVal);
++  return GetSessionStorageCacheHelper(aPrincipal, true, nullptr, aRetVal);
+ }
+ 
+ nsresult SessionStorageManager::GetSessionStorageCacheHelper(
+-    nsIPrincipal* aPrincipal, nsIPrincipal* aStoragePrincipal,
+-    bool aMakeIfNeeded, SessionStorageCache* aCloneFrom,
+-    RefPtr<SessionStorageCache>* aRetVal) {
++    nsIPrincipal* aPrincipal, bool aMakeIfNeeded,
++    SessionStorageCache* aCloneFrom, RefPtr<SessionStorageCache>* aRetVal) {
+   *aRetVal = nullptr;
+ 
+   nsAutoCString originKey;
+@@ -159,8 +157,8 @@
+   *aRetval = nullptr;
+ 
+   RefPtr<SessionStorageCache> cache;
+-  nsresult rv = GetSessionStorageCacheHelper(aPrincipal, aStoragePrincipal,
+-                                             false, nullptr, &cache);
++  nsresult rv =
++      GetSessionStorageCacheHelper(aPrincipal, false, nullptr, &cache);
+   if (NS_FAILED(rv) || !cache) {
+     return rv;
+   }
+@@ -186,7 +184,7 @@
+ 
+   RefPtr<SessionStorageCache> cache;
+   return GetSessionStorageCacheHelper(
+-      aStorage->Principal(), aStorage->StoragePrincipal(), true,
++      aStorage->Principal(), true,
+       static_cast<SessionStorage*>(aStorage)->Cache(), &cache);
+ }
+ 
+@@ -204,8 +202,8 @@
+   *aRetval = false;
+ 
+   RefPtr<SessionStorageCache> cache;
+-  nsresult rv = GetSessionStorageCacheHelper(
+-      aPrincipal, aStorage->StoragePrincipal(), false, nullptr, &cache);
++  nsresult rv =
++      GetSessionStorageCacheHelper(aPrincipal, false, nullptr, &cache);
+   if (NS_FAILED(rv) || !cache) {
+     return rv;
+   }

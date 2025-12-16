@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/windows/ia2/ia2Accessible.cpp
+# Commit: 8d31c0604efe
+# Full Hash: 8d31c0604efef2015995df32766d38dd4dd45ca2
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2022-08-04 04:34:13
+# Regressor Bug: 1781536
+# File Overlap Count: 1
+# Description:
+#   Bug 1781536 part 1: Support base Accessible in Relation. r=morgan
+#   
+#   Previously, Relation::Next returned a LocalAccessible.
+#   Now, it returns an Accessible so that it can support RemoteAccessible as well.
+#   Relation::LocalNext has been added as a convenience to return a LocalAccessible when the caller is certain that only LocalAccessible is relevant.
+# ==============================================================================
+
+diff -r af7f9589f48c -r 8d31c0604efe accessible/windows/ia2/ia2Accessible.cpp
+--- a/accessible/windows/ia2/ia2Accessible.cpp	Thu Aug 04 02:47:34 2022 +0300
++++ b/accessible/windows/ia2/ia2Accessible.cpp	Wed Aug 03 23:58:50 2022 +0000
+@@ -520,9 +520,9 @@
+     return E_NOTIMPL;  // XXX Not supported for RemoteAccessible yet.
+   }
+ 
+-  nsTArray<LocalAccessible*> targets;
++  nsTArray<Accessible*> targets;
+   Relation rel = acc->RelationByType(*relationType);
+-  LocalAccessible* target = nullptr;
++  Accessible* target = nullptr;
+   while (
+       (target = rel.Next()) &&
+       (aMaxTargets == 0 || static_cast<long>(targets.Length()) < aMaxTargets)) {
+@@ -535,8 +535,7 @@
+   if (!*aTargets) return E_OUTOFMEMORY;
+ 
+   for (int32_t i = 0; i < *aNTargets; i++) {
+-    RefPtr<IAccessible2> target;
+-    targets[i]->GetNativeInterface(getter_AddRefs(target));
++    RefPtr<IAccessible2> target = MsaaAccessible::GetFrom(targets[i]);
+     target.forget(&(*aTargets)[i]);
+   }
+ 

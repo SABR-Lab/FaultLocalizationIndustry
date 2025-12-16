@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/WindowContext.cpp
+# Commit: ae01b3db6250
+# Full Hash: ae01b3db6250b366ac975c4257a384c1de13d632
+# Author: Dimi Lee <dlee@mozilla.com>
+# Date: 2020-04-23 21:43:09
+# Regressor Bug: 1616775
+# File Overlap Count: 1
+# Description:
+#   Bug 1616775 - P1. Add IsThirdPartyWindow and IsThirdPartyTrackingResourceWindow fields to WindowContext. r=timhuang,baku,farre
+#   
+#   We have to add "IsThirdPartyWindow" in WindowContext because we need to know if
+#   a BrowsingContext is third-party (The browsing context may be not
+#   in-process).
+# ==============================================================================
+
+diff -r 685b68485248 -r ae01b3db6250 docshell/base/WindowContext.cpp
+--- a/docshell/base/WindowContext.cpp	Thu Apr 23 04:33:57 2020 +0000
++++ b/docshell/base/WindowContext.cpp	Thu Apr 23 14:24:56 2020 +0000
+@@ -61,6 +61,18 @@
+   aChild->SendCommitWindowContextTransaction(this, aTxn, aEpoch);
+ }
+ 
++bool WindowContext::CanSet(FieldIndex<IDX_IsThirdPartyWindow>,
++                           const bool& IsThirdPartyWindow,
++                           ContentParent* aSource) {
++  return mBrowsingContext->CheckOnlyOwningProcessCanSet(aSource);
++}
++
++bool WindowContext::CanSet(FieldIndex<IDX_IsThirdPartyTrackingResourceWindow>,
++                           const bool& aIsThirdPartyTrackingResourceWindow,
++                           ContentParent* aSource) {
++  return mBrowsingContext->CheckOnlyOwningProcessCanSet(aSource);
++}
++
+ already_AddRefed<WindowContext> WindowContext::Create(
+     WindowGlobalChild* aWindow) {
+   MOZ_RELEASE_ASSERT(XRE_IsContentProcess(),

@@ -1,0 +1,181 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/nsHttpConnection.cpp
+# Commit: b45bd4ea0000
+# Full Hash: b45bd4ea0000e64e4b159cac01d09519d73166f7
+# Author: Dana Keeler <dkeeler@mozilla.com>
+# Date: 2022-11-17 09:39:01
+# Regressor Bug: 1791633
+# File Overlap Count: 1
+# Description:
+#   Bug 1791633 - separate nsITLSSocketControl from nsITransportSecurityInfo r=necko-reviewers,kershaw,jschanck
+#   
+#   Depends on D160311
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D160313
+# ==============================================================================
+
+diff -r 705439f1d269 -r b45bd4ea0000 netwerk/protocol/http/nsHttpConnection.cpp
+--- a/netwerk/protocol/http/nsHttpConnection.cpp	Wed Nov 16 16:37:29 2022 +0000
++++ b/netwerk/protocol/http/nsHttpConnection.cpp	Wed Nov 16 16:37:29 2022 +0000
+@@ -117,6 +117,17 @@
+     mForceSendTimer->Cancel();
+     mForceSendTimer = nullptr;
+   }
++
++  auto ReleaseSocketTransport =
++      [socketTransport(std::move(mSocketTransport))]() mutable {
++        socketTransport = nullptr;
++      };
++  if (OnSocketThread()) {
++    ReleaseSocketTransport();
++  } else {
++    gSocketTransportService->Dispatch(NS_NewRunnableFunction(
++        "nsHttpConnection::~nsHttpConnection", ReleaseSocketTransport));
++  }
+ }
+ 
+ nsresult nsHttpConnection::Init(
+@@ -651,10 +662,10 @@
+     }
+   }
+ 
+-  nsCOMPtr<nsITLSSocketControl> ssl;
+-  GetTLSSocketControl(getter_AddRefs(ssl));
+-  if (ssl) {
+-    ssl->SetHandshakeCallbackListener(nullptr);
++  nsCOMPtr<nsITLSSocketControl> tlsSocketControl;
++  GetTLSSocketControl(getter_AddRefs(tlsSocketControl));
++  if (tlsSocketControl) {
++    tlsSocketControl->SetHandshakeCallbackListener(nullptr);
+   }
+ 
+   if (NS_FAILED(reason)) {
+@@ -1194,7 +1205,7 @@
+ void nsHttpConnection::GetTLSSocketControl(
+     nsITLSSocketControl** tlsSocketControl) {
+   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
+-  LOG(("nsHttpConnection::GetSecurityInfo trans=%p socket=%p\n",
++  LOG(("nsHttpConnection::GetTLSSocketControl trans=%p socket=%p\n",
+        mTransaction.get(), mSocketTransport.get()));
+ 
+   *tlsSocketControl = nullptr;
+@@ -1423,24 +1434,28 @@
+ 
+ bool nsHttpConnection::CheckCanWrite0RTTData() {
+   MOZ_ASSERT(mTlsHandshaker->EarlyDataAvailable());
+-  nsCOMPtr<nsITLSSocketControl> ssl;
+-  GetTLSSocketControl(getter_AddRefs(ssl));
+-  if (!ssl) {
++  nsCOMPtr<nsITLSSocketControl> tlsSocketControl;
++  GetTLSSocketControl(getter_AddRefs(tlsSocketControl));
++  if (!tlsSocketControl) {
+     return false;
+   }
+-  nsCOMPtr<nsITransportSecurityInfo> info(do_QueryInterface(ssl));
+-  if (!info) {
++  nsCOMPtr<nsITransportSecurityInfo> securityInfo;
++  if (NS_FAILED(
++          tlsSocketControl->GetSecurityInfo(getter_AddRefs(securityInfo)))) {
++    return false;
++  }
++  if (!securityInfo) {
+     return false;
+   }
+   nsAutoCString negotiatedNPN;
+   // If the following code fails means that the handshake is not done
+   // yet, so continue writing 0RTT data.
+-  nsresult rv = info->GetNegotiatedNPN(negotiatedNPN);
++  nsresult rv = securityInfo->GetNegotiatedNPN(negotiatedNPN);
+   if (NS_FAILED(rv)) {
+     return true;
+   }
+   bool earlyDataAccepted = false;
+-  rv = ssl->GetEarlyDataAccepted(&earlyDataAccepted);
++  rv = tlsSocketControl->GetEarlyDataAccepted(&earlyDataAccepted);
+   // If 0RTT data is accepted we can continue writing data,
+   // if it is reject stop writing more data.
+   return NS_SUCCEEDED(rv) && earlyDataAccepted;
+@@ -2261,27 +2276,33 @@
+     return;
+   }
+ 
+-  nsCOMPtr<nsITLSSocketControl> ssl;
+-  GetTLSSocketControl(getter_AddRefs(ssl));
+-  if (!ssl) {
++  nsCOMPtr<nsITLSSocketControl> tlsSocketControl;
++  GetTLSSocketControl(getter_AddRefs(tlsSocketControl));
++  if (!tlsSocketControl) {
+     mTlsHandshaker->FinishNPNSetup(false, false);
+     return;
+   }
+ 
+-  nsCOMPtr<nsITransportSecurityInfo> info(do_QueryInterface(ssl));
+-  if (!info) {
++  nsCOMPtr<nsITransportSecurityInfo> securityInfo;
++  if (NS_FAILED(
++          tlsSocketControl->GetSecurityInfo(getter_AddRefs(securityInfo)))) {
++    mTlsHandshaker->FinishNPNSetup(false, false);
++    return;
++  }
++  if (!securityInfo) {
+     mTlsHandshaker->FinishNPNSetup(false, false);
+     return;
+   }
+ 
+   nsAutoCString negotiatedNPN;
+-  DebugOnly<nsresult> rvDebug = info->GetNegotiatedNPN(negotiatedNPN);
++  DebugOnly<nsresult> rvDebug = securityInfo->GetNegotiatedNPN(negotiatedNPN);
+   MOZ_ASSERT(NS_SUCCEEDED(rvDebug));
+ 
+   bool earlyDataAccepted = false;
+   if (mTlsHandshaker->EarlyDataUsed()) {
+     // Check if early data has been accepted.
+-    nsresult rvEarlyData = ssl->GetEarlyDataAccepted(&earlyDataAccepted);
++    nsresult rvEarlyData =
++        tlsSocketControl->GetEarlyDataAccepted(&earlyDataAccepted);
+     LOG(
+         ("nsHttpConnection::HandshakeDone [this=%p] - early data "
+          "that was sent during 0RTT %s been accepted [rv=%" PRIx32 "].",
+@@ -2320,7 +2341,7 @@
+   }
+ 
+   int16_t tlsVersion;
+-  ssl->GetSSLVersionUsed(&tlsVersion);
++  tlsSocketControl->GetSSLVersionUsed(&tlsVersion);
+   mConnInfo->SetLessThanTls13(
+       (tlsVersion < nsITLSSocketControl::TLS_VERSION_1_3) &&
+       (tlsVersion != nsITLSSocketControl::SSL_VERSION_UNKNOWN));
+@@ -2338,18 +2359,19 @@
+     const SpdyInformation* info = gHttpHandler->SpdyInfo();
+     if (negotiatedNPN.Equals(info->VersionString)) {
+       if (mTransaction) {
+-        StartSpdy(ssl, info->Version);
++        StartSpdy(tlsSocketControl, info->Version);
+       } else {
+         LOG(
+             ("nsHttpConnection::HandshakeDone [this=%p] set "
+              "mContinueHandshakeDone",
+              this));
+         RefPtr<nsHttpConnection> self = this;
+-        mContinueHandshakeDone = [self = RefPtr{this}, ssl(ssl),
++        mContinueHandshakeDone = [self = RefPtr{this},
++                                  tlsSocketControl(tlsSocketControl),
+                                   info(info->Version)]() {
+           LOG(("nsHttpConnection do mContinueHandshakeDone [this=%p]",
+                self.get()));
+-          self->StartSpdy(ssl, info);
++          self->StartSpdy(tlsSocketControl, info);
+           self->mTlsHandshaker->FinishNPNSetup(true, true);
+         };
+         return;
+@@ -2368,7 +2390,7 @@
+           ("nsHttpConnection::HandshakeDone [this=%p] - finishing "
+            "StartSpdy for 0rtt spdy session %p",
+            this, mSpdySession.get()));
+-      StartSpdy(ssl, mSpdySession->SpdyVersion());
++      StartSpdy(tlsSocketControl, mSpdySession->SpdyVersion());
+     }
+   }
+ 

@@ -1,0 +1,72 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/platforms/agnostic/AgnosticDecoderModule.cpp
+# Commit: f9337268523c
+# Full Hash: f9337268523c6607228fda7fa659fd5a3d939dad
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2020-10-21 09:51:28
+# Regressor Bug: 1595994
+# File Overlap Count: 1
+# Description:
+#   Bug 1595994 - P1E. Don't use libvpx in the RDD process if video contains an alpha plane. r=mattwoodrow
+#   
+#   Until bug 1668840 is fixed, we can't allocate a SharedRGBImage without a PImageBridge
+#   
+#   Depends on D92233
+# ==============================================================================
+
+diff -r 7a990fa02246 -r f9337268523c dom/media/platforms/agnostic/AgnosticDecoderModule.cpp
+--- a/dom/media/platforms/agnostic/AgnosticDecoderModule.cpp	Tue Oct 20 23:30:04 2020 +0000
++++ b/dom/media/platforms/agnostic/AgnosticDecoderModule.cpp	Tue Oct 20 23:30:18 2020 +0000
+@@ -5,6 +5,7 @@
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
+ #include "AgnosticDecoderModule.h"
++
+ #include "OpusDecoder.h"
+ #include "TheoraDecoder.h"
+ #include "VPXDecoder.h"
+@@ -92,20 +93,35 @@
+ 
+ bool AgnosticDecoderModule::SupportsMimeType(
+     const nsACString& aMimeType, DecoderDoctorDiagnostics* aDiagnostics) const {
++  UniquePtr<TrackInfo> trackInfo = CreateTrackInfoWithMIMEType(aMimeType);
++  if (!trackInfo) {
++    return false;
++  }
++  return Supports(SupportDecoderParams(*trackInfo), aDiagnostics);
++}
++
++bool AgnosticDecoderModule::Supports(
++    const SupportDecoderParams& aParams,
++    DecoderDoctorDiagnostics* aDiagnostics) const {
++  const auto& trackInfo = aParams.mConfig;
++  const nsACString& mimeType = trackInfo.mMimeType;
++
+   bool supports =
+ #ifdef MOZ_AV1
+       // We remove support for decoding AV1 here if RDD is enabled so that
+       // decoding on the content process doesn't accidentally happen in case
+       // something goes wrong with launching the RDD process.
+-      (AOMDecoder::IsAV1(aMimeType) && IsAvailable(DecoderType::AV1)) ||
++      (AOMDecoder::IsAV1(mimeType) && IsAvailable(DecoderType::AV1)) ||
+ #endif
+-      (VPXDecoder::IsVPX(aMimeType) && IsAvailable(DecoderType::VPX)) ||
+-      (TheoraDecoder::IsTheora(aMimeType) &&
+-       IsAvailable(DecoderType::Theora)) ||
+-      (VorbisDataDecoder::IsVorbis(aMimeType) &&
++      // We currently can't allocate a SharedRGBImage in the RDD process
++      // (see bug 1668840) required to decode a video with an alpha channel.
++      (VPXDecoder::IsVPX(mimeType) && IsAvailable(DecoderType::VPX) &&
++       (!trackInfo.GetAsVideoInfo()->HasAlpha() || !XRE_IsRDDProcess())) ||
++      (TheoraDecoder::IsTheora(mimeType) && IsAvailable(DecoderType::Theora)) ||
++      (VorbisDataDecoder::IsVorbis(mimeType) &&
+        IsAvailable(DecoderType::Vorbis)) ||
+-      (WaveDataDecoder::IsWave(aMimeType) && IsAvailable(DecoderType::Wave)) ||
+-      (OpusDataDecoder::IsOpus(aMimeType) && IsAvailable(DecoderType::Opus));
++      (WaveDataDecoder::IsWave(mimeType) && IsAvailable(DecoderType::Wave)) ||
++      (OpusDataDecoder::IsOpus(mimeType) && IsAvailable(DecoderType::Opus));
+   MOZ_LOG(sPDMLog, LogLevel::Debug,
+           ("Agnostic decoder %s requested type",
+            supports ? "supports" : "rejects"));

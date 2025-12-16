@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/ClientWebGLExtensions.h
+# Commit: 8e0aea33f622
+# Full Hash: 8e0aea33f622a76c5c8baa7dcf4485ffefd1662f
+# Author: Kelsey Gilbert <kelsey.gilbert@mozilla.com>
+# Date: 2024-07-09 09:45:28
+# Regressor Bug: 1892542
+# File Overlap Count: 1
+# Description:
+#   Bug 1892542 - Webgl e.g. createBuffer() made infallible. r=gfx-reviewers,webidl,saschanaz,lsalzman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D208050
+# ==============================================================================
+
+diff -r b953e0ccb68b -r 8e0aea33f622 dom/canvas/ClientWebGLExtensions.h
+--- a/dom/canvas/ClientWebGLExtensions.h	Mon Jul 08 19:36:12 2024 +0300
++++ b/dom/canvas/ClientWebGLExtensions.h	Mon Jul 08 17:24:12 2024 +0000
+@@ -194,11 +194,14 @@
+   explicit ClientWebGLExtensionVertexArray(ClientWebGLContext&);
+ 
+   already_AddRefed<WebGLVertexArrayJS> CreateVertexArrayOES() {
++    RefPtr<WebGLVertexArrayJS> ret;
+     if (MOZ_UNLIKELY(!mContext)) {
+       AutoJsWarning("createVertexArrayOES: Extension is `invalidated`.");
+-      return nullptr;
++      ret = new WebGLVertexArrayJS(nullptr);
++    } else {
++      ret = mContext->CreateVertexArray();
+     }
+-    return mContext->CreateVertexArray();
++    return ret.forget();
+   }
+   void DeleteVertexArrayOES(WebGLVertexArrayJS* array) {
+     if (MOZ_UNLIKELY(!mContext)) {
+@@ -263,11 +266,14 @@
+   explicit ClientWebGLExtensionDisjointTimerQuery(ClientWebGLContext&);
+ 
+   already_AddRefed<WebGLQueryJS> CreateQueryEXT() const {
++    RefPtr<WebGLQueryJS> ret;
+     if (MOZ_UNLIKELY(!mContext)) {
+       AutoJsWarning("createQueryEXT: Extension is `invalidated`.");
+-      return nullptr;
++      ret = new WebGLQueryJS(nullptr);
++    } else {
++      ret = mContext->CreateQuery();
+     }
+-    return mContext->CreateQuery();
++    return ret.forget();
+   }
+   void DeleteQueryEXT(WebGLQueryJS* query) const {
+     if (MOZ_UNLIKELY(!mContext)) {

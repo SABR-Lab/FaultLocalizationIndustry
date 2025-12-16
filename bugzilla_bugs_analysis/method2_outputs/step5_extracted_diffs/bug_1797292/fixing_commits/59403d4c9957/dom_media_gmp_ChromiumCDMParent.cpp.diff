@@ -1,0 +1,31 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/media/gmp/ChromiumCDMParent.cpp
+# Commit: 59403d4c9957
+# Full Hash: 59403d4c995706a24f459afdf2c1a248060f4fdd
+# Author: Brad Werth <bwerth@mozilla.com>
+# Date: 2022-10-26 03:47:46
+# Description:
+#   Bug 1797292: Protect some pointers from null dereference. r=media-playback-reviewers,alwu
+#   
+#   Neither the VideoData nor the Image pointer are guaranteed to be created in
+#   VideoData::CreateAndCopyData.
+#   
+# ==============================================================================
+
+diff -r 259acf61d3d4 -r 59403d4c9957 dom/media/gmp/ChromiumCDMParent.cpp
+--- a/dom/media/gmp/ChromiumCDMParent.cpp	Tue Oct 25 19:02:45 2022 +0000
++++ b/dom/media/gmp/ChromiumCDMParent.cpp	Tue Oct 25 19:04:34 2022 +0000
+@@ -974,6 +974,11 @@
+       media::TimeUnit::FromMicroseconds(aFrame.mDuration()), b, false,
+       media::TimeUnit::FromMicroseconds(-1), pictureRegion, mKnowsCompositor);
+ 
++  if (!v || !v->mImage) {
++    NS_WARNING("Failed to decode video frame.");
++    return v.forget();
++  }
++
+   // This is a DRM image.
+   v->mImage->SetIsDRM(true);
+ 

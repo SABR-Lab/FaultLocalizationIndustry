@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/tests/browser/mac/browser_attributed_text.js
+# Commit: 214be178df88
+# Full Hash: 214be178df88eafd0afb48bff78a27e2d199a7ae
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2023-03-02 04:57:23
+# Regressor Bug: 1818450
+# File Overlap Count: 1
+# Description:
+#   Bug 1818450 - Support getting attributed text with empty inputs. r=morgan
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D170939
+# ==============================================================================
+
+diff -r 1440eb683cd1 -r 214be178df88 accessible/tests/browser/mac/browser_attributed_text.js
+--- a/accessible/tests/browser/mac/browser_attributed_text.js	Wed Mar 01 18:58:18 2023 +0000
++++ b/accessible/tests/browser/mac/browser_attributed_text.js	Wed Mar 01 19:00:08 2023 +0000
+@@ -95,3 +95,32 @@
+     ok(attributedText[1].AXMarkedMisspelled);
+   }
+ );
++
++// Test getting a span of attributed text that includes an empty input element.
++addAccessibleTask(`hello <input id="input"> world`, async (browser, accDoc) => {
++  let macDoc = accDoc.nativeInterface.QueryInterface(
++    Ci.nsIAccessibleMacInterface
++  );
++
++  let range = macDoc.getParameterizedAttributeValue(
++    "AXTextMarkerRangeForUnorderedTextMarkers",
++    [
++      macDoc.getAttributeValue("AXStartTextMarker"),
++      macDoc.getAttributeValue("AXEndTextMarker"),
++    ]
++  );
++
++  let attributedText = macDoc.getParameterizedAttributeValue(
++    "AXAttributedStringForTextMarkerRange",
++    range
++  );
++
++  let text = macDoc.getParameterizedAttributeValue(
++    "AXStringForTextMarkerRange",
++    range
++  );
++
++  is(attributedText.length, 1, "Empty input does not break up attribute run.");
++  is(attributedText[0].string, `hello  world `, "Attributed string is correct");
++  is(text, `hello  world `, "Unattributed string is correct");
++});

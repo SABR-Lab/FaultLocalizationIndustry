@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/IDBDatabase.cpp
+# Commit: af27682c5e7f
+# Full Hash: af27682c5e7f86ff17d6ed152c8010e763870bdc
+# Author: ssengupta <ssengupta@mozilla.com>
+# Date: 2020-05-13 03:44:05
+# Regressor Bug: 1635399
+# File Overlap Count: 1
+# Description:
+#   Bug 1635399 - Function PrincipalInfoToPrincipal now returns Result<nsCOMPtr<nsIPrincipal>, nsresult> r=ckerschb
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D73868
+# ==============================================================================
+
+diff -r 86b22b1a9f7e -r af27682c5e7f dom/indexedDB/IDBDatabase.cpp
+--- a/dom/indexedDB/IDBDatabase.cpp	Tue May 12 23:55:42 2020 +0300
++++ b/dom/indexedDB/IDBDatabase.cpp	Tue May 12 19:02:05 2020 +0000
+@@ -881,15 +881,14 @@
+       return NS_OK;
+ 
+     case PrincipalInfo::TContentPrincipalInfo: {
+-      nsresult rv;
+-      nsCOMPtr<nsIPrincipal> principal =
+-          PrincipalInfoToPrincipal(*principalInfo, &rv);
+-      if (NS_WARN_IF(NS_FAILED(rv))) {
+-        return rv;
++      auto principalOrErr = PrincipalInfoToPrincipal(*principalInfo);
++      if (NS_WARN_IF(principalOrErr.isErr())) {
++        return principalOrErr.unwrapErr();
+       }
+ 
+-      rv = QuotaManager::GetInfoFromPrincipal(principal, nullptr, nullptr,
+-                                              &aOrigin);
++      nsCOMPtr<nsIPrincipal> principal = principalOrErr.unwrap();
++      nsresult rv = QuotaManager::GetInfoFromPrincipal(principal, nullptr,
++                                                       nullptr, &aOrigin);
+       if (NS_WARN_IF(NS_FAILED(rv))) {
+         return rv;
+       }

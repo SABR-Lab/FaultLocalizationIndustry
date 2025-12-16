@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/Selection.cpp
+# Commit: c428c3ad7725
+# Full Hash: c428c3ad7725593f33b4ea2da9851be31be0c1df
+# Author: Martin Robinson <mrobinson@igalia.com>
+# Date: 2022-11-28 15:41:50
+# Regressor Bug: 1791759
+# File Overlap Count: 1
+# Description:
+#   Bug 1791759 - Add support for `content-visibility: auto` r=emilio
+#   
+#   This change adds support for `content-visibilty: auto` as well as
+#   showing and hiding content based on the relevancy of the content as
+#   defined in the specification. Changes to relevancy are handled by
+# ==============================================================================
+
+diff -r ce553434720c -r c428c3ad7725 dom/base/Selection.cpp
+--- a/dom/base/Selection.cpp	Mon Nov 28 09:45:39 2022 +0000
++++ b/dom/base/Selection.cpp	Mon Nov 28 09:53:06 2022 +0000
+@@ -9,6 +9,8 @@
+  */
+ 
+ #include "mozilla/dom/Selection.h"
++
++#include "LayoutConstants.h"
+ #include "mozilla/intl/BidiEmbeddingLevel.h"
+ 
+ #include "mozilla/AccessibleCaretEventHub.h"
+@@ -82,7 +84,7 @@
+ 
+ static LazyLogModule sSelectionLog("Selection");
+ 
+-//#define DEBUG_TABLE 1
++// #define DEBUG_TABLE 1
+ 
+ #ifdef PRINT_RANGE
+ static void printRange(nsRange* aDomRange);
+@@ -177,10 +179,10 @@
+ 
+ }  // namespace mozilla
+ 
+-//#define DEBUG_SELECTION // uncomment for printf describing every collapse and
+-// extend. #define DEBUG_NAVIGATION
+-
+-//#define DEBUG_TABLE_SELECTION 1
++// #define DEBUG_SELECTION // uncomment for printf describing every collapse and
++//  extend. #define DEBUG_NAVIGATION
++
++// #define DEBUG_TABLE_SELECTION 1
+ 
+ struct CachedOffsetForFrame {
+   CachedOffsetForFrame()
+@@ -3200,6 +3202,7 @@
+   PresShell* presShell = GetPresShell();
+   if (presShell) {
+     doc = presShell->GetDocument();
++    presShell->ScheduleContentRelevancyUpdate(ContentRelevancyReason::Selected);
+   }
+ 
+   // We've notified all selection listeners even when some of them are removed

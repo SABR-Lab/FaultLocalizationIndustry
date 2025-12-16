@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmSerialize.cpp
+# Commit: 4c22ce111c01
+# Full Hash: 4c22ce111c012805515250b63074235b5578caa6
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2024-10-31 04:51:12
+# Regressor Bug: 1913119
+# File Overlap Count: 1
+# Description:
+#   Bug 1913119 - wasm: Re-use pool mechanism for lazy stubs and simplify logic. r=jseward
+#   
+#   Lazy func export stubs used some of the mechanism for allocating from a pool
+#   of code segments, but not all. This caused some code duplication and layering
+#   issues.
+# ==============================================================================
+
+diff -r 7593ec9fa478 -r 4c22ce111c01 js/src/wasm/WasmSerialize.cpp
+--- a/js/src/wasm/WasmSerialize.cpp	Wed Oct 30 21:54:24 2024 +0000
++++ b/js/src/wasm/WasmSerialize.cpp	Wed Oct 30 21:54:24 2024 +0000
+@@ -1364,7 +1364,7 @@
+ 
+ CoderResult CodeSharedCode(Coder<MODE_DECODE>& coder, wasm::SharedCode* item,
+                            const wasm::CodeMetadata& codeMeta) {
+-  WASM_VERIFY_SERIALIZATION_FOR_SIZE(wasm::Code, 816);
++  WASM_VERIFY_SERIALIZATION_FOR_SIZE(wasm::Code, 808);
+ 
+   FuncImportVector funcImports;
+   MOZ_TRY(CodePodVector(coder, &funcImports));
+@@ -1407,7 +1407,7 @@
+ template <CoderMode mode>
+ CoderResult CodeSharedCode(Coder<mode>& coder,
+                            CoderArg<mode, wasm::SharedCode> item) {
+-  WASM_VERIFY_SERIALIZATION_FOR_SIZE(wasm::Code, 816);
++  WASM_VERIFY_SERIALIZATION_FOR_SIZE(wasm::Code, 808);
+   STATIC_ASSERT_ENCODING_OR_SIZING;
+   // Don't encode the CodeMetadata, that is handled by wasm::Module
+   MOZ_TRY(CodePodVector(coder, &(*item)->funcImports()));

@@ -1,0 +1,73 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/WorkerRunnable.cpp
+# Commit: 910dabb8545d
+# Full Hash: 910dabb8545dfdea0c2b9385e347857042606bd7
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2023-06-07 03:30:33
+# Regressor Bug: 1800659
+# File Overlap Count: 1
+# Description:
+#   Bug 1800659 - P1 Adding log for Worker. r=asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D176915
+# ==============================================================================
+
+diff -r 9458874d5cf9 -r 910dabb8545d dom/workers/WorkerRunnable.cpp
+--- a/dom/workers/WorkerRunnable.cpp	Tue Jun 06 06:28:14 2023 +0000
++++ b/dom/workers/WorkerRunnable.cpp	Tue Jun 06 06:36:50 2023 +0000
+@@ -15,6 +15,7 @@
+ #include "mozilla/Assertions.h"
+ #include "mozilla/DebugOnly.h"
+ #include "mozilla/ErrorResult.h"
++#include "mozilla/Logging.h"
+ #include "mozilla/Maybe.h"
+ #include "mozilla/Telemetry.h"
+ #include "mozilla/TelemetryHistogramEnums.h"
+@@ -34,6 +35,13 @@
+ 
+ namespace mozilla::dom {
+ 
++static mozilla::LazyLogModule sWorkerRunnableLog("WorkerRunnable");
++
++#ifdef LOG
++#  undef LOG
++#endif
++#define LOG(args) MOZ_LOG(sWorkerRunnableLog, LogLevel::Verbose, args);
++
+ namespace {
+ 
+ const nsIID kWorkerRunnableIID = {
+@@ -51,6 +59,7 @@
+       mBehavior(aBehavior),
+       mCanceled(0),
+       mCallingCancelWithinRun(false) {
++  LOG(("WorkerRunnable::WorkerRunnable [%p]", this));
+   MOZ_ASSERT(aWorkerPrivate);
+ }
+ #endif
+@@ -101,6 +110,7 @@
+ }
+ 
+ bool WorkerRunnable::DispatchInternal() {
++  LOG(("WorkerRunnable::DispatchInternal [%p]", this));
+   RefPtr<WorkerRunnable> runnable(this);
+ 
+   if (mBehavior == WorkerThreadModifyBusyCount ||
+@@ -221,6 +231,7 @@
+ 
+ NS_IMETHODIMP
+ WorkerRunnable::Run() {
++  LOG(("WorkerRunnable::Run [%p]", this));
+   bool targetIsWorkerThread = mBehavior == WorkerThreadModifyBusyCount ||
+                               mBehavior == WorkerThreadUnchangedBusyCount;
+ 
+@@ -241,6 +252,7 @@
+   if (targetIsWorkerThread &&
+       mWorkerPrivate->AllPendingRunnablesShouldBeCanceled() && !IsCanceled() &&
+       !mCallingCancelWithinRun) {
++    LOG(("WorkerRunnable::Run [%p] Cancel runnable...", this));
+     // Prevent recursion.
+     mCallingCancelWithinRun = true;
+ 

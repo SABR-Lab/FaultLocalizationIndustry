@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/manager/ssl/nsNSSIOLayer.cpp
+# Commit: f69657a7e597
+# Full Hash: f69657a7e597e0cbf62f8dbcbebd8e7e230a9975
+# Author: Dragana Damjanovic <dd.mozilla@gmail.com>
+# Date: 2021-09-22 15:53:06
+# Regressor Bug: 1382886
+# File Overlap Count: 1
+# Description:
+#   Bug 1382886 - Add a callback when the handshake is done. r=necko-reviewers,kershaw,keeler
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D123601
+# ==============================================================================
+
+diff -r e9635ec4198f -r f69657a7e597 security/manager/ssl/nsNSSIOLayer.cpp
+--- a/security/manager/ssl/nsNSSIOLayer.cpp	Wed Sep 22 09:19:29 2021 +0000
++++ b/security/manager/ssl/nsNSSIOLayer.cpp	Wed Sep 22 09:19:30 2021 +0000
+@@ -250,6 +250,10 @@
+           ("[%p] nsNSSSocketInfo::SetHandshakeCompleted\n", (void*)mFd));
+ 
+   mIsFullHandshake = false;  // reset for next handshake on this connection
++
++  if (mTlsHandshakeCallback) {
++    Unused << mTlsHandshakeCallback->HandshakeDone();
++  }
+ }
+ 
+ void nsNSSSocketInfo::SetNegotiatedNPN(const char* value, uint32_t length) {
+@@ -456,6 +460,13 @@
+   return NS_OK;
+ }
+ 
++NS_IMETHODIMP
++nsNSSSocketInfo::SetHandshakeCallbackListener(
++    nsITlsHandshakeCallbackListener* callback) {
++  mTlsHandshakeCallback = callback;
++  return NS_OK;
++}
++
+ void nsSSLIOLayerHelpers::Cleanup() {
+   MutexAutoLock lock(mutex);
+   mTLSIntoleranceInfo.Clear();

@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/xul/XULTreeElement.cpp
+# Commit: 43b2b0b72cf8
+# Full Hash: 43b2b0b72cf87086060ea6ec32d5fe17435f85f2
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2020-03-31 22:58:23
+# Regressor Bug: 1626198
+# File Overlap Count: 1
+# Description:
+#   Bug 1626198 - Fix flushing in XULTreeElement::GetTreeBodyFrame. r=smaug
+#   
+#   The code was knowingly broken (because of bug 585123). But that bug is closed,
+#   and the broken code is causing asserts to fire in bug 1624488 because well, it's
+#   broken ;)
+# ==============================================================================
+
+diff -r 051cb91bd7aa -r 43b2b0b72cf8 dom/xul/XULTreeElement.cpp
+--- a/dom/xul/XULTreeElement.cpp	Tue Mar 31 12:10:00 2020 +0000
++++ b/dom/xul/XULTreeElement.cpp	Tue Mar 31 14:33:30 2020 +0000
+@@ -83,16 +83,15 @@
+   MOZ_ASSERT(aFlushType == FlushType::Frames ||
+              aFlushType == FlushType::Layout || aFlushType == FlushType::None);
+   nsCOMPtr<nsIContent> kungFuDeathGrip = this;  // keep a reference
+-  RefPtr<Document> doc = GetComposedDoc();
+ 
+   // Make sure our frames are up to date, and layout as needed.  We
+   // have to do this before checking for our cached mTreeBody, since
+   // it might go away on style flush, and in any case if aFlushLayout
+   // is true we need to make sure to flush no matter what.
+-  // XXXbz except that flushing style when we were not asked to flush
+-  // layout here breaks things.  See bug 585123.
+-  if (aFlushType == FlushType::Layout && doc) {
+-    doc->FlushPendingNotifications(FlushType::Layout);
++  if (aFlushType != FlushType::None) {
++    if (RefPtr<Document> doc = GetComposedDoc()) {
++      doc->FlushPendingNotifications(aFlushType);
++    }
+   }
+ 
+   if (mTreeBody) {
+@@ -100,10 +99,6 @@
+     return mTreeBody;
+   }
+ 
+-  if (aFlushType == FlushType::Frames && doc) {
+-    doc->FlushPendingNotifications(FlushType::Frames);
+-  }
+-
+   if (nsCOMPtr<nsIContent> tree = FindBodyElement(this)) {
+     mTreeBody = do_QueryFrame(tree->GetPrimaryFrame());
+   }

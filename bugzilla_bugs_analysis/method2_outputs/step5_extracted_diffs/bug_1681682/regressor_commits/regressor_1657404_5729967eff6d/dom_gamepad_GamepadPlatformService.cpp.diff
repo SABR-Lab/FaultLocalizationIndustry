@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/gamepad/GamepadPlatformService.cpp
+# Commit: 5729967eff6d
+# Full Hash: 5729967eff6d48c5aa73641f5e89caaf59df9cb7
+# Author: Chris Martin <cmartin@mozilla.com>
+# Date: 2020-10-09 21:45:45
+# Regressor Bug: 1657404
+# File Overlap Count: 1
+# Description:
+#   Bug 1657404 - Use WeakPtr for observer pattern in GamepadPlatformService r=handyman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D93085
+# ==============================================================================
+
+diff -r 694d23b789b1 -r 5729967eff6d dom/gamepad/GamepadPlatformService.cpp
+--- a/dom/gamepad/GamepadPlatformService.cpp	Fri Oct 09 17:42:38 2020 +0000
++++ b/dom/gamepad/GamepadPlatformService.cpp	Fri Oct 09 16:42:53 2020 +0000
+@@ -34,7 +34,7 @@
+ }
+ 
+ void GamepadPlatformService::MonitoringState::AddObserver(
+-    RefPtr<GamepadTestChannelParent> aParent) {
++    WeakPtr<GamepadTestChannelParent> aParent) {
+   AssertIsOnBackgroundThread();
+   MOZ_ASSERT(aParent);
+   MOZ_ASSERT(!mObservers.Contains(aParent));
+@@ -60,6 +60,9 @@
+   if (mIsMonitoring != aIsMonitoring) {
+     mIsMonitoring = aIsMonitoring;
+     for (auto& observer : mObservers) {
++      // Since each GamepadTestChannelParent removes itself in its dtor, this
++      // should never be nullptr
++      MOZ_RELEASE_ASSERT(observer);
+       observer->OnMonitoringStateChanged(aIsMonitoring);
+     }
+   }

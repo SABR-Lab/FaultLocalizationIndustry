@@ -1,0 +1,67 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/apz/src/APZSampler.cpp
+# Commit: c09a51622e98
+# Full Hash: c09a51622e988e81077c75e3aaa5a49df66284b3
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2019-03-22 16:44:08
+# Regressor Bug: 1441308
+# File Overlap Count: 2
+# Description:
+#   Bug 1441308 - Core renderroot splitting changes r=kats,sotaro
+#   
+#   This is a large patch that contains all of the core changes for
+#   renderroot splitting.
+#   
+# ==============================================================================
+
+diff -r 737807563dd5 -r c09a51622e98 gfx/layers/apz/src/APZSampler.cpp
+--- a/gfx/layers/apz/src/APZSampler.cpp	Thu Mar 21 23:14:26 2019 +0000
++++ b/gfx/layers/apz/src/APZSampler.cpp	Fri Mar 22 03:15:14 2019 +0000
+@@ -66,10 +66,11 @@
+ 
+ /*static*/
+ void APZSampler::SampleForWebRender(const wr::WrWindowId& aWindowId,
+-                                    wr::Transaction* aTransaction) {
++                                    wr::Transaction* aTransaction,
++                                    const wr::DocumentId& aRenderRootId) {
+   if (RefPtr<APZSampler> sampler = GetSampler(aWindowId)) {
+     wr::TransactionWrapper txn(aTransaction);
+-    sampler->SampleForWebRender(txn);
++    sampler->SampleForWebRender(txn, wr::RenderRootFromId(aRenderRootId));
+   }
+ }
+ 
+@@ -79,7 +80,8 @@
+   mSampleTime = aSampleTime;
+ }
+ 
+-void APZSampler::SampleForWebRender(wr::TransactionWrapper& aTxn) {
++void APZSampler::SampleForWebRender(wr::TransactionWrapper& aTxn,
++                                    wr::RenderRoot aRenderRoot) {
+   AssertOnSamplerThread();
+   TimeStamp sampleTime;
+   {  // scope lock
+@@ -91,7 +93,7 @@
+     // anyway, so using Timestamp::Now() should be fine.
+     sampleTime = mSampleTime.IsNull() ? TimeStamp::Now() : mSampleTime;
+   }
+-  mApz->SampleForWebRender(aTxn, sampleTime);
++  mApz->SampleForWebRender(aTxn, sampleTime, aRenderRoot);
+ }
+ 
+ bool APZSampler::SampleAnimations(const LayerMetricsWrapper& aLayer,
+@@ -270,8 +272,10 @@
+ }
+ 
+ void apz_sample_transforms(mozilla::wr::WrWindowId aWindowId,
+-                           mozilla::wr::Transaction* aTransaction) {
+-  mozilla::layers::APZSampler::SampleForWebRender(aWindowId, aTransaction);
++                           mozilla::wr::Transaction* aTransaction,
++                           mozilla::wr::DocumentId aDocumentId) {
++  mozilla::layers::APZSampler::SampleForWebRender(aWindowId, aTransaction,
++                                                  aDocumentId);
+ }
+ 
+ void apz_deregister_sampler(mozilla::wr::WrWindowId aWindowId) {}

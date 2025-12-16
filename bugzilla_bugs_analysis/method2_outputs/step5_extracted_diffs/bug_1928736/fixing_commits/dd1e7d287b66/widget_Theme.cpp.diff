@@ -1,0 +1,29 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: widget/Theme.cpp
+# Commit: dd1e7d287b66
+# Full Hash: dd1e7d287b6651b30511ff6991e87871b7101c6a
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2024-11-06 05:05:31
+# Description:
+#   Bug 1928736 - Avoid trying to create empty DrawTarget for painting range input shadow. r=gfx-reviewers,bradwerth
+#   
+#   After bug 1918838 we can get a way smaller DPIRatio which ends up with a
+#   zero-sized draw target. I don't think we care much about not drawing the
+#   shadow in that case.
+# ==============================================================================
+
+diff -r ce1ce2a8cacd -r dd1e7d287b66 widget/Theme.cpp
+--- a/widget/Theme.cpp	Tue Nov 05 21:02:14 2024 +0000
++++ b/widget/Theme.cpp	Tue Nov 05 21:05:06 2024 +0000
+@@ -671,6 +671,9 @@
+   Point destinationPointOfSourceRect = inflatedRect.TopLeft() + offset;
+ 
+   IntSize dtSize = RoundedToInt(aBoxRect.Size().ToUnknownSize());
++  if (dtSize.IsEmpty()) {
++    return;
++  }
+   RefPtr<DrawTarget> ellipseDT = aDrawTarget.CreateSimilarDrawTargetForFilter(
+       dtSize, SurfaceFormat::A8, blurFilter, blurFilter,
+       sourceRectInFilterSpace, destinationPointOfSourceRect);

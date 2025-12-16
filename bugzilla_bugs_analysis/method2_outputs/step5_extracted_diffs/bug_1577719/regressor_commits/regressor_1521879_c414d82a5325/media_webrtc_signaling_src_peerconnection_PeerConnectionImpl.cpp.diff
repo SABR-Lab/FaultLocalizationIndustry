@@ -1,0 +1,50 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/webrtc/signaling/src/peerconnection/PeerConnectionImpl.cpp
+# Commit: c414d82a5325
+# Full Hash: c414d82a532508523d40ce63111cb30b2a1076be
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2019-02-22 05:26:22
+# Regressor Bug: 1521879
+# File Overlap Count: 1
+# Description:
+#   Bug 1521879 - Part 1: IPC-based MediaTransport implementation r=mjf
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D17273
+# ==============================================================================
+
+diff -r 3a182b05e2c1 -r c414d82a5325 media/webrtc/signaling/src/peerconnection/PeerConnectionImpl.cpp
+--- a/media/webrtc/signaling/src/peerconnection/PeerConnectionImpl.cpp	Thu Feb 21 19:01:32 2019 +0200
++++ b/media/webrtc/signaling/src/peerconnection/PeerConnectionImpl.cpp	Thu Feb 21 16:42:12 2019 +0000
+@@ -308,7 +308,7 @@
+       mSTSThread(nullptr),
+       mForceIceTcp(false),
+       mMedia(nullptr),
+-      mTransportHandler(MediaTransportHandler::Create()),
++      mTransportHandler(nullptr),
+       mUuidGen(MakeUnique<PCUuidGenerator>()),
+       mIceRestartCount(0),
+       mIceRollbackCount(0),
+@@ -403,6 +403,10 @@
+   mSTSThread = do_GetService(NS_SOCKETTRANSPORTSERVICE_CONTRACTID, &res);
+   MOZ_ASSERT(mSTSThread);
+ 
++  // We do callback handling on STS instead of main to avoid media jank.
++  // Someday, we may have a dedicated thread for this.
++  mTransportHandler = MediaTransportHandler::Create(mSTSThread);
++
+   // Initialize NSS if we are in content process. For chrome process, NSS should
+   // already been initialized.
+   if (XRE_IsParentProcess()) {
+@@ -464,8 +468,8 @@
+     iceServers = aConfiguration.mIceServers.Value();
+   }
+ 
+-  res = mTransportHandler->Init("PC:" + GetName(), iceServers,
+-                                aConfiguration.mIceTransportPolicy);
++  res = mTransportHandler->CreateIceCtx("PC:" + GetName(), iceServers,
++                                        aConfiguration.mIceTransportPolicy);
+   if (NS_FAILED(res)) {
+     CSFLogError(LOGTAG, "%s: Failed to init mtransport", __FUNCTION__);
+     return NS_ERROR_FAILURE;

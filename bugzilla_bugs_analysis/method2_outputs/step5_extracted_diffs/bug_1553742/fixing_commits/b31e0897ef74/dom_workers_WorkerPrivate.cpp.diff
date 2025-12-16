@@ -1,0 +1,26 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/WorkerPrivate.cpp
+# Commit: b31e0897ef74
+# Full Hash: b31e0897ef74a390bc63e38c98e6960946e91d65
+# Author: Christoph Kerschbaumer <ckerschb@christophkerschbaumer.com>
+# Date: 2019-05-29 21:50:20
+# Description:
+#   Bug 1553742: Null Check CSP before calling CSPToCSPInfo to avoid half initialized state of cspinfo. r=baku,mccr8
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D32990
+# ==============================================================================
+
+diff -r c6c250b477a0 -r b31e0897ef74 dom/workers/WorkerPrivate.cpp
+--- a/dom/workers/WorkerPrivate.cpp	Wed May 29 16:01:37 2019 +0000
++++ b/dom/workers/WorkerPrivate.cpp	Wed May 29 15:42:13 2019 +0000
+@@ -1324,7 +1324,7 @@
+ 
+ void WorkerPrivate::StoreCSPOnClient() {
+   MOZ_ACCESS_THREAD_BOUND(mWorkerThreadAccessible, data);
+-  if (data->mClientSource) {
++  if (data->mClientSource && mLoadInfo.mCSPInfo) {
+     data->mClientSource->SetCspInfo(*mLoadInfo.mCSPInfo.get());
+   }
+ }

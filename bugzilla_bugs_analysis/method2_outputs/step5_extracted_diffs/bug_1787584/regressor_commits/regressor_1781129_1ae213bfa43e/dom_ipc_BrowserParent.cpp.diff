@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/BrowserParent.cpp
+# Commit: 1ae213bfa43e
+# Full Hash: 1ae213bfa43e3270689641632f1a89e4c4affb8a
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2022-08-23 02:46:57
+# Regressor Bug: 1781129
+# File Overlap Count: 1
+# Description:
+#   Bug 1781129 - Part 3: Remove Shmem overload of GetSurfaceData, r=edgar
+#   
+#   After the previous changes there was only one consumer left of the Shmem
+#   version of GetSurfaceData, which could easily be changed to use BigBuffer,
+#   removing the need for that overload.
+# ==============================================================================
+
+diff -r dcebc98ea1f1 -r 1ae213bfa43e dom/ipc/BrowserParent.cpp
+--- a/dom/ipc/BrowserParent.cpp	Mon Aug 22 15:38:15 2022 +0000
++++ b/dom/ipc/BrowserParent.cpp	Mon Aug 22 15:38:15 2022 +0000
+@@ -3803,7 +3803,7 @@
+ 
+ mozilla::ipc::IPCResult BrowserParent::RecvInvokeDragSession(
+     nsTArray<IPCDataTransfer>&& aTransfers, const uint32_t& aAction,
+-    Maybe<Shmem>&& aVisualDnDData, const uint32_t& aStride,
++    Maybe<BigBuffer>&& aVisualDnDData, const uint32_t& aStride,
+     const gfx::SurfaceFormat& aFormat, const LayoutDeviceIntRect& aDragRect,
+     nsIPrincipal* aPrincipal, nsIContentSecurityPolicy* aCsp,
+     const CookieJarSettingsArgs& aCookieJarSettingsArgs,
+@@ -3827,11 +3827,10 @@
+       this, std::move(aTransfers), aDragRect, aPrincipal, aCsp,
+       cookieJarSettings, aSourceWindowContext.GetMaybeDiscarded());
+ 
+-  if (!aVisualDnDData.isNothing() && aVisualDnDData.ref().IsReadable() &&
+-      aVisualDnDData.ref().Size<char>() >= aDragRect.height * aStride) {
++  if (aVisualDnDData && aVisualDnDData->Size() >= aDragRect.height * aStride) {
+     dragStartData->SetVisualization(gfx::CreateDataSourceSurfaceFromData(
+         gfx::IntSize(aDragRect.width, aDragRect.height), aFormat,
+-        aVisualDnDData.ref().get<uint8_t>(), aStride));
++        aVisualDnDData->Data(), aStride));
+   }
+ 
+   nsCOMPtr<nsIDragService> dragService =
+@@ -3844,10 +3843,6 @@
+       ->EventStateManager()
+       ->BeginTrackingRemoteDragGesture(mFrameElement, dragStartData);
+ 
+-  if (aVisualDnDData.isSome()) {
+-    Unused << DeallocShmem(aVisualDnDData.ref());
+-  }
+-
+   return IPC_OK();
+ }
+ 

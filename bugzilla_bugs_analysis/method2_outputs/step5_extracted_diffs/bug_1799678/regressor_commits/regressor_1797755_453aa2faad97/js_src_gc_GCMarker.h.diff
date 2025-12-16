@@ -1,0 +1,81 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/GCMarker.h
+# Commit: 453aa2faad97
+# Full Hash: 453aa2faad97ce68b33bef75cd232e37d759556e
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2022-10-29 09:50:10
+# Regressor Bug: 1797755
+# File Overlap Count: 1
+# Description:
+#   Bug 1797755 - Part 4: Remove option to set maximum mark stack capacity in release builds r=sfink
+#   
+#   Currently we have a GC parameter that allows setting a maximum mark stack
+#   capacity. This is only ever used by test code, not in the browser. This
+#   requires extra unnecessary work in release builds if we move to a different
+# ==============================================================================
+
+diff -r d33708e4f8ec -r 453aa2faad97 js/src/gc/GCMarker.h
+--- a/js/src/gc/GCMarker.h	Fri Oct 28 15:17:43 2022 +0000
++++ b/js/src/gc/GCMarker.h	Fri Oct 28 15:17:43 2022 +0000
+@@ -130,11 +130,9 @@
+     TaggedPtr ptr_;
+   };
+ 
+-  explicit MarkStack(size_t maxCapacity = DefaultCapacity);
++  explicit MarkStack();
+   ~MarkStack();
+ 
+-  static const size_t DefaultCapacity = SIZE_MAX;
+-
+   // The unit for MarkStack::capacity() is mark stack entries.
+   size_t capacity() { return stack().length(); }
+ 
+@@ -143,8 +141,9 @@
+   [[nodiscard]] bool init(bool incrementalGCEnabled);
+   [[nodiscard]] bool setStackCapacity(bool incrementalGCEnabled);
+ 
+-  size_t maxCapacity() const { return maxCapacity_; }
++#ifdef JS_GC_ZEAL
+   void setMaxCapacity(size_t maxCapacity);
++#endif
+ 
+   template <typename T>
+   [[nodiscard]] bool push(T* ptr);
+@@ -192,17 +191,19 @@
+   const TaggedPtr& peekPtr() const;
+   [[nodiscard]] bool pushTaggedPtr(Tag tag, Cell* ptr);
+ 
++  // Vector containing allocated stack memory. Unused beyond topIndex_.
++  MainThreadOrGCTaskData<StackVector> stack_;
++
+   // Index of the top of the stack.
+   MainThreadOrGCTaskData<size_t> topIndex_;
+ 
++#ifdef JS_GC_ZEAL
+   // The maximum stack capacity to grow to.
+-  MainThreadOrGCTaskData<size_t> maxCapacity_;
+-
+-  // Vector containing allocated stack memory. Unused beyond topIndex_.
+-  MainThreadOrGCTaskData<StackVector> stack_;
++  MainThreadOrGCTaskData<size_t> maxCapacity_{SIZE_MAX};
++#endif
+ 
+ #ifdef DEBUG
+-  mutable size_t iteratorCount_;
++  mutable size_t iteratorCount_ = 0;
+ #endif
+ };
+ 
+@@ -233,8 +234,9 @@
+   explicit GCMarker(JSRuntime* rt);
+   [[nodiscard]] bool init();
+ 
++#ifdef JS_GC_ZEAL
+   void setMaxCapacity(size_t maxCap) { stack.setMaxCapacity(maxCap); }
+-  size_t maxCapacity() const { return stack.maxCapacity(); }
++#endif
+ 
+   bool isActive() const { return state != MarkingState::NotActive; }
+ 

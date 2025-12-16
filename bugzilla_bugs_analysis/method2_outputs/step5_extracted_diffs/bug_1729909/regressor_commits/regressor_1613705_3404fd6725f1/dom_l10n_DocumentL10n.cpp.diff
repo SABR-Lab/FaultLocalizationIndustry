@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/l10n/DocumentL10n.cpp
+# Commit: 3404fd6725f1
+# Full Hash: 3404fd6725f15d1253a7f76e3937185bd353f263
+# Author: Zibi Braniecki <zbraniecki@mozilla.com>
+# Date: 2021-08-02 21:43:56
+# Regressor Bug: 1613705
+# File Overlap Count: 1
+# Description:
+#   Bug 1613705 - [localization] part2: Switch Localization class to use localization-ffi. r=emilio,nika
+#   
+#   Depends on D104788
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D104789
+# ==============================================================================
+
+diff -r c9cfbba15d90 -r 3404fd6725f1 dom/l10n/DocumentL10n.cpp
+--- a/dom/l10n/DocumentL10n.cpp	Mon Aug 02 09:54:07 2021 +0000
++++ b/dom/l10n/DocumentL10n.cpp	Mon Aug 02 09:54:07 2021 +0000
+@@ -35,33 +35,25 @@
+ bool DocumentL10n::mIsFirstBrowserWindow = true;
+ 
+ /* static */
+-RefPtr<DocumentL10n> DocumentL10n::Create(Document* aDocument,
+-                                          const bool aSync) {
++RefPtr<DocumentL10n> DocumentL10n::Create(Document* aDocument, bool aSync) {
+   RefPtr<DocumentL10n> l10n = new DocumentL10n(aDocument, aSync);
+ 
+-  if (!l10n->Init()) {
++  IgnoredErrorResult rv;
++  l10n->mReady = Promise::Create(l10n->mGlobal, rv);
++  if (NS_WARN_IF(rv.Failed())) {
+     return nullptr;
+   }
++
+   return l10n.forget();
+ }
+ 
+-DocumentL10n::DocumentL10n(Document* aDocument, const bool aSync)
++DocumentL10n::DocumentL10n(Document* aDocument, bool aSync)
+     : DOMLocalization(aDocument->GetScopeObject(), aSync, {}),
+       mDocument(aDocument),
+       mState(DocumentL10nState::Constructed) {
+   mContentSink = do_QueryInterface(aDocument->GetCurrentContentSink());
+ }
+ 
+-bool DocumentL10n::Init() {
+-  DOMLocalization::Init();
+-  ErrorResult rv;
+-  mReady = Promise::Create(mGlobal, rv);
+-  if (NS_WARN_IF(rv.Failed())) {
+-    return false;
+-  }
+-  return true;
+-}
+-
+ JSObject* DocumentL10n::WrapObject(JSContext* aCx,
+                                    JS::Handle<JSObject*> aGivenProto) {
+   return DocumentL10n_Binding::Wrap(aCx, this, aGivenProto);

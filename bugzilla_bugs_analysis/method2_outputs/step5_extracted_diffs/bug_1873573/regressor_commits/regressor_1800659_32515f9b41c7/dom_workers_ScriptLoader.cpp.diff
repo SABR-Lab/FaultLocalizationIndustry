@@ -1,0 +1,32 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/ScriptLoader.cpp
+# Commit: 32515f9b41c7
+# Full Hash: 32515f9b41c77d6ccd5831eed28953037c4fb319
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2023-06-07 03:30:33
+# Regressor Bug: 1800659
+# File Overlap Count: 2
+# Description:
+#   Bug 1800659 - P2 remove nsICancelableRunnable inheriting form WorkerRunnable. r=asuth
+#   
+#   This patch is only remove the inheriting, but keeping Cancel() implmentation.
+#   The Cancel() is needed in some special cases, such as Worker enters Canceling when WorkerScope is not created.
+#   
+# ==============================================================================
+
+diff -r 910dabb8545d -r 32515f9b41c7 dom/workers/ScriptLoader.cpp
+--- a/dom/workers/ScriptLoader.cpp	Tue Jun 06 06:36:50 2023 +0000
++++ b/dom/workers/ScriptLoader.cpp	Tue Jun 06 06:36:50 2023 +0000
+@@ -1671,10 +1671,6 @@
+ }
+ 
+ nsresult ScriptExecutorRunnable::Cancel() {
+-  // We need to check first if cancel is called twice
+-  nsresult rv = MainThreadWorkerSyncRunnable::Cancel();
+-  NS_ENSURE_SUCCESS(rv, rv);
+-
+   if (mScriptLoader->AllScriptsExecuted() &&
+       mScriptLoader->AllModuleRequestsLoaded()) {
+     mScriptLoader->ShutdownScriptLoader(false, false);

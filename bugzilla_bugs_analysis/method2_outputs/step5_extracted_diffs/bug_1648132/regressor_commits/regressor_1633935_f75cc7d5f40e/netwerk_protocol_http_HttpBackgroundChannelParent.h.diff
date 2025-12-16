@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/HttpBackgroundChannelParent.h
+# Commit: f75cc7d5f40e
+# Full Hash: f75cc7d5f40e5973936997f7a0f66707860c9be0
+# Author: Junior Hsu <juhsu@mozilla.com>
+# Date: 2020-06-30 10:00:42
+# Regressor Bug: 1633935
+# File Overlap Count: 1
+# Description:
+#   Bug 1633935 - P11 Move classification IPC methods back to PHttpChannel. r=mayhemer,necko-reviewers
+#   
+#   Bug 1015466 move them from PContent to Pbg since it believes those events are fine
+#   to received before OnStopRequest. Bug 1588241 move it back to PContent since those
+#   events are before OnStartRequest.
+# ==============================================================================
+
+diff -r 2289e685031e -r f75cc7d5f40e netwerk/protocol/http/HttpBackgroundChannelParent.h
+--- a/netwerk/protocol/http/HttpBackgroundChannelParent.h	Tue Jun 30 00:34:06 2020 +0000
++++ b/netwerk/protocol/http/HttpBackgroundChannelParent.h	Tue Jun 30 00:34:24 2020 +0000
+@@ -70,6 +70,22 @@
+   // over background channel.
+   bool OnDiversion();
+ 
++  // To send NotifyClassificationFlags message over background channel.
++  bool OnNotifyClassificationFlags(uint32_t aClassificationFlags,
++                                   bool aIsThirdParty);
++
++  // To send NotifyFlashPluginStateChanged message over background channel.
++  bool OnNotifyFlashPluginStateChanged(nsIHttpChannel::FlashPluginState aState);
++
++  // To send SetClassifierMatchedInfo message over background channel.
++  bool OnSetClassifierMatchedInfo(const nsACString& aList,
++                                  const nsACString& aProvider,
++                                  const nsACString& aFullHash);
++
++  // To send SetClassifierMatchedTrackingInfo message over background channel.
++  bool OnSetClassifierMatchedTrackingInfo(const nsACString& aLists,
++                                          const nsACString& aFullHashes);
++
+  protected:
+   void ActorDestroy(ActorDestroyReason aWhy) override;
+ 

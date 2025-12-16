@@ -1,0 +1,97 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/gtest/TestAudioTrackGraph.cpp
+# Commit: a76d9158cdfd
+# Full Hash: a76d9158cdfd0165455813037633e7d8a72fcef1
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2020-11-06 04:14:34
+# Regressor Bug: 1651745
+# File Overlap Count: 1
+# Description:
+#   Bug 1651745 - Use the right thread for AudioInputProcessing::SetPassThrough and constify some ControlMessages. r=padenot
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D95937
+# ==============================================================================
+
+diff -r bd01b1a3f7d7 -r a76d9158cdfd dom/media/gtest/TestAudioTrackGraph.cpp
+--- a/dom/media/gtest/TestAudioTrackGraph.cpp	Thu Nov 05 16:59:51 2020 +0000
++++ b/dom/media/gtest/TestAudioTrackGraph.cpp	Thu Nov 05 16:42:41 2020 +0000
+@@ -104,11 +104,10 @@
+ /*
+  * Common ControlMessages
+  */
+-class StartInputProcessing : public ControlMessage {
+-  RefPtr<AudioInputTrack> mInputTrack;
+-  RefPtr<AudioInputProcessing> mInputProcessing;
++struct StartInputProcessing : public ControlMessage {
++  const RefPtr<AudioInputTrack> mInputTrack;
++  const RefPtr<AudioInputProcessing> mInputProcessing;
+ 
+- public:
+   StartInputProcessing(AudioInputTrack* aTrack,
+                        AudioInputProcessing* aInputProcessing)
+       : ControlMessage(aTrack),
+@@ -117,14 +116,29 @@
+   void Run() override { mInputProcessing->Start(); }
+ };
+ 
+-class StopInputProcessing : public ControlMessage {
+-  RefPtr<AudioInputProcessing> mInputProcessing;
++struct StopInputProcessing : public ControlMessage {
++  const RefPtr<AudioInputProcessing> mInputProcessing;
+ 
+- public:
+   explicit StopInputProcessing(AudioInputProcessing* aInputProcessing)
+       : ControlMessage(nullptr), mInputProcessing(aInputProcessing) {}
+   void Run() override { mInputProcessing->Stop(); }
+ };
++
++struct SetPassThrough : public ControlMessage {
++  const RefPtr<AudioInputProcessing> mInputProcessing;
++  const bool mPassThrough;
++
++  SetPassThrough(MediaTrack* aTrack, AudioInputProcessing* aInputProcessing,
++                 bool aPassThrough)
++      : ControlMessage(aTrack),
++        mInputProcessing(aInputProcessing),
++        mPassThrough(aPassThrough) {}
++  void Run() override {
++    EXPECT_EQ(mInputProcessing->PassThrough(mTrack->GraphImpl()),
++              !mPassThrough);
++    mInputProcessing->SetPassThrough(mTrack->GraphImpl(), mPassThrough);
++  }
++};
+ #endif  // MOZ_WEBRTC
+ 
+ class GoFaster : public ControlMessage {
+@@ -276,7 +290,8 @@
+   Unused << WaitFor(Invoke([&] {
+     inputTrack = AudioInputTrack::Create(graph);
+     listener = new AudioInputProcessing(2, PRINCIPAL_HANDLE_NONE);
+-    listener->SetPassThrough(true);
++    inputTrack->GraphImpl()->AppendMessage(
++        MakeUnique<SetPassThrough>(inputTrack, listener, true));
+     inputTrack->SetInputProcessing(listener);
+     inputTrack->GraphImpl()->AppendMessage(
+         MakeUnique<StartInputProcessing>(inputTrack, listener));
+@@ -342,7 +357,8 @@
+     port = outputTrack->AllocateInputPort(inputTrack);
+     /* Primary graph: Open Audio Input through SourceMediaTrack */
+     listener = new AudioInputProcessing(2, PRINCIPAL_HANDLE_NONE);
+-    listener->SetPassThrough(true);
++    inputTrack->GraphImpl()->AppendMessage(
++        MakeUnique<SetPassThrough>(inputTrack, listener, true));
+     inputTrack->SetInputProcessing(listener);
+     inputTrack->GraphImpl()->AppendMessage(
+         MakeUnique<StartInputProcessing>(inputTrack, listener));
+@@ -429,7 +445,8 @@
+   DispatchFunction([&] {
+     inputTrack = AudioInputTrack::Create(primary);
+     listener = new AudioInputProcessing(2, PRINCIPAL_HANDLE_NONE);
+-    listener->SetPassThrough(true);
++    inputTrack->GraphImpl()->AppendMessage(
++        MakeUnique<SetPassThrough>(inputTrack, listener, true));
+     inputTrack->SetInputProcessing(listener);
+     inputTrack->GraphImpl()->AppendMessage(
+         MakeUnique<StartInputProcessing>(inputTrack, listener));

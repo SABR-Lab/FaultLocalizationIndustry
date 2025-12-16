@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/HttpChannelParent.cpp
+# Commit: 19dcca77a1cf
+# Full Hash: 19dcca77a1cf1c590dfda293418aec84cce701de
+# Author: Junior Hsu <juhsu@mozilla.com>
+# Date: 2020-06-24 09:31:07
+# Regressor Bug: 1633935
+# File Overlap Count: 1
+# Description:
+#   Bug 1633935 - P1 allow OnStartRequest go thru pBg IPC, r=mayhemer
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D73529
+# ==============================================================================
+
+diff -r 91c26c5b1e33 -r 19dcca77a1cf netwerk/protocol/http/HttpChannelParent.cpp
+--- a/netwerk/protocol/http/HttpChannelParent.cpp	Tue Jun 23 18:34:42 2020 +0000
++++ b/netwerk/protocol/http/HttpChannelParent.cpp	Tue Jun 23 16:56:15 2020 +0000
+@@ -1531,14 +1531,29 @@
+   }
+ 
+   rv = NS_OK;
+-  if (mIPCClosed ||
+-      !SendOnStartRequest(
++  bool ipcResult = false;
++  if (!mIPCClosed) {
++    // TODO: For multipart channel, we would deliever everything across
++    // pBackground as well.
++    // TODO: OnStartRequestSent is no longer needed since
++    // OnStartRequest/ODA/OnStopRequest are on the same thread.
++    if (!mIsMultiPart) {
++      ipcResult = mBgParent->OnStartRequest(
+           *responseHead, useResponseHead,
+           cleanedUpRequest ? cleanedUpRequestHeaders : requestHead->Headers(),
+-          args)) {
++          args);
++    } else {
++      ipcResult = SendOnStartRequest(
++          *responseHead, useResponseHead,
++          cleanedUpRequest ? cleanedUpRequestHeaders : requestHead->Headers(),
++          args);
++    }
++  }
++  requestHead->Exit();
++
++  if (mIPCClosed || !ipcResult) {
+     rv = NS_ERROR_UNEXPECTED;
+   }
+-  requestHead->Exit();
+ 
+   // OnStartRequest is sent to content process successfully.
+   // Notify PHttpBackgroundChannelChild that all following IPC mesasges

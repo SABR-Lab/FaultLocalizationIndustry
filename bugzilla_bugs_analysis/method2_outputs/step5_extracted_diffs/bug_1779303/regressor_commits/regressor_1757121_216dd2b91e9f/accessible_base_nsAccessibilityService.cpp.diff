@@ -1,0 +1,77 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/base/nsAccessibilityService.cpp
+# Commit: 216dd2b91e9f
+# Full Hash: 216dd2b91e9f210b61f32719e7ddce9dba187a04
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2022-07-12 09:33:27
+# Regressor Bug: 1757121
+# File Overlap Count: 1
+# Description:
+#   Bug 1757121 part 4: Acquire the Android lock while shutting down the accessibility service. r=eeejay
+#   
+#   RemoteAccessibleBase::Attributes will soon use the service to query markup attributes.
+#   Thus, the service must not shut down while a client call is being handled on the UI thread.
+#   
+# ==============================================================================
+
+diff -r fbe53449c7d1 -r 216dd2b91e9f accessible/base/nsAccessibilityService.cpp
+--- a/accessible/base/nsAccessibilityService.cpp	Tue Jul 12 02:45:57 2022 +0000
++++ b/accessible/base/nsAccessibilityService.cpp	Tue Jul 12 02:45:57 2022 +0000
+@@ -1242,6 +1242,21 @@
+   return newAcc;
+ }
+ 
++#if defined(ANDROID)
++#  include "mozilla/Monitor.h"
++#  include "mozilla/Maybe.h"
++
++static Maybe<Monitor> sAndroidMonitor;
++
++mozilla::Monitor& nsAccessibilityService::GetAndroidMonitor() {
++  if (!sAndroidMonitor.isSome()) {
++    sAndroidMonitor.emplace("nsAccessibility::sAndroidMonitor");
++  }
++
++  return *sAndroidMonitor;
++}
++#endif
++
+ ////////////////////////////////////////////////////////////////////////////////
+ // nsAccessibilityService private
+ 
+@@ -1359,6 +1374,11 @@
+   NS_IF_RELEASE(gXPCApplicationAccessible);
+   gXPCApplicationAccessible = nullptr;
+ 
++#if defined(ANDROID)
++  // Don't allow the service to shut down while an a11y request is being handled
++  // in the UI thread, as the request may depend on state from the service.
++  MonitorAutoLock mal(GetAndroidMonitor());
++#endif
+   NS_RELEASE(gAccessibilityService);
+   gAccessibilityService = nullptr;
+ 
+@@ -1555,21 +1575,6 @@
+   }
+ }
+ 
+-#if defined(ANDROID)
+-#  include "mozilla/Monitor.h"
+-#  include "mozilla/Maybe.h"
+-
+-static Maybe<Monitor> sAndroidMonitor;
+-
+-mozilla::Monitor& nsAccessibilityService::GetAndroidMonitor() {
+-  if (!sAndroidMonitor.isSome()) {
+-    sAndroidMonitor.emplace("nsAccessibility::sAndroidMonitor");
+-  }
+-
+-  return *sAndroidMonitor;
+-}
+-#endif
+-
+ LocalAccessible* nsAccessibilityService::AddNativeRootAccessible(
+     void* aAtkAccessible) {
+ #ifdef MOZ_ACCESSIBILITY_ATK

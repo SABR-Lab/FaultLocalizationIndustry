@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsDOMWindowUtils.cpp
+# Commit: 729abedf9bda
+# Full Hash: 729abedf9bda03da3f75ad660fafc2fa92a67bf5
+# Author: Zach Hoffman <zach@zrhoffman.net>
+# Date: 2023-12-18 17:17:57
+# Regressor Bug: 1846516
+# File Overlap Count: 1
+# Description:
+#   Bug 1846516 - [css-properties-values-api] Use AnimatedPropertyID to communicate between Gecko and Servo. r=emilio,layout-reviewers,firefox-style-system-reviewers
+#   
+#   Co-authored-by: Frederic Wang <fred.wang@free.fr>
+#   Co-authored-by: Emilio Cobos Álvarez <emilio@crisal.io>
+#   
+# ==============================================================================
+
+diff -r 63603267402e -r 729abedf9bda dom/base/nsDOMWindowUtils.cpp
+--- a/dom/base/nsDOMWindowUtils.cpp	Mon Dec 18 09:24:08 2023 +0000
++++ b/dom/base/nsDOMWindowUtils.cpp	Mon Dec 18 09:24:08 2023 +0000
+@@ -133,6 +133,7 @@
+ #include "mozilla/IMEStateManager.h"
+ #include "mozilla/IMEContentObserver.h"
+ #include "mozilla/WheelHandlingHelper.h"
++#include "mozilla/AnimatedPropertyID.h"
+ 
+ #ifdef XP_WIN
+ #  include <direct.h>
+@@ -3206,7 +3207,12 @@
+       nsCSSProps::IsShorthand(propertyID)) {
+     return NS_ERROR_INVALID_ARG;
+   }
+-  // TODO(bug 1846516): Handle custom properties.
++  AnimatedPropertyID* property;
++  if (propertyID == eCSSPropertyExtra_variable) {
++    property = new AnimatedPropertyID(NS_Atomize(aProperty));
++  } else {
++    property = new AnimatedPropertyID(propertyID);
++  }
+ 
+   switch (aFlushType) {
+     case FLUSH_NONE:
+@@ -3238,7 +3244,7 @@
+   }
+ 
+   RefPtr<StyleAnimationValue> value =
+-      Servo_ComputedValues_ExtractAnimationValue(computedStyle, propertyID)
++      Servo_ComputedValues_ExtractAnimationValue(computedStyle, property)
+           .Consume();
+   if (!value) {
+     return NS_ERROR_FAILURE;
+@@ -3247,7 +3253,7 @@
+     return NS_ERROR_FAILURE;
+   }
+   nsAutoCString result;
+-  Servo_AnimationValue_Serialize(value, propertyID,
++  Servo_AnimationValue_Serialize(value, property,
+                                  presShell->StyleSet()->RawData(), &result);
+   CopyUTF8toUTF16(result, aResult);
+   return NS_OK;

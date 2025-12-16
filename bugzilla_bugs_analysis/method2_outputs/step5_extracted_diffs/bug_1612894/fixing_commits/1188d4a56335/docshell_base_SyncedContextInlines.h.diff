@@ -1,0 +1,30 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/SyncedContextInlines.h
+# Commit: 1188d4a56335
+# Full Hash: 1188d4a563355f444b705e85f66110486df9f5b0
+# Author: Olli Pettay <Olli.Pettay@helsinki.fi>
+# Date: 2020-02-06 21:47:20
+# Description:
+#   Bug 1612894, bring back the IsDiscarded check, r=farre
+#   
+#   This brings back https://hg.mozilla.org/mozilla-central/rev/641b9a29f6ee#l1.346 for now.
+#   The patch is based on code auditing, since haven't managed to reproduce the crash.
+#   
+# ==============================================================================
+
+diff -r caed697fb694 -r 1188d4a56335 docshell/base/SyncedContextInlines.h
+--- a/docshell/base/SyncedContextInlines.h	Wed Feb 05 15:24:29 2020 +0000
++++ b/docshell/base/SyncedContextInlines.h	Thu Feb 06 15:17:53 2020 +0000
+@@ -18,6 +18,10 @@
+ 
+ template <typename Context>
+ nsresult Transaction<Context>::Commit(Context* aOwner) {
++  if (NS_WARN_IF(aOwner->IsDiscarded())) {
++    return NS_ERROR_FAILURE;
++  }
++
+   if (!Validate(aOwner, nullptr)) {
+     MOZ_CRASH("Attempt to commit invalid transaction");
+   }

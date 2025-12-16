@@ -1,0 +1,93 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/SplitNodeTransaction.h
+# Commit: 876b1031a6ae
+# Full Hash: 876b1031a6ae41a87ed146976f279b96bde9c7f6
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2020-04-03 21:40:10
+# Regressor Bug: 1619914
+# File Overlap Count: 1
+# Description:
+#   Bug 1619914 - part 1: Make each transaction class grab their members with local variable before touching the DOM tree r=m_kato
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D69302
+# ==============================================================================
+
+diff -r 7f069649d6cf -r 876b1031a6ae editor/libeditor/SplitNodeTransaction.h
+--- a/editor/libeditor/SplitNodeTransaction.h	Fri Apr 03 06:03:25 2020 +0300
++++ b/editor/libeditor/SplitNodeTransaction.h	Fri Apr 03 01:38:22 2020 +0000
+@@ -10,12 +10,10 @@
+ #include "mozilla/EditTransactionBase.h"  // for EditTxn, etc.
+ #include "nsCOMPtr.h"                     // for nsCOMPtr
+ #include "nsCycleCollectionParticipant.h"
++#include "nsIContent.h"
+ #include "nsISupportsImpl.h"  // for NS_DECL_ISUPPORTS_INHERITED
+ #include "nscore.h"           // for NS_IMETHOD
+ 
+-class nsIContent;
+-class nsINode;
+-
+ namespace mozilla {
+ 
+ class EditorBase;
+@@ -28,7 +26,7 @@
+  private:
+   template <typename PT, typename CT>
+   SplitNodeTransaction(EditorBase& aEditorBase,
+-                       const EditorDOMPointBase<PT, CT>& aStartOfRightNode);
++                       const EditorDOMPointBase<PT, CT>& aStartOfRightContent);
+ 
+  public:
+   /**
+@@ -36,16 +34,16 @@
+    * existing node (right node), and split the contents between the same point
+    * in both nodes.
+    *
+-   * @param aEditorBase         The provider of core editing operations.
+-   * @param aStartOfRightNode   The point to split.  Its container will be
+-   *                            the right node, i.e., become the new node's
+-   *                            next sibling.  And the point will be start
+-   *                            of the right node.
++   * @param aEditorBase             The provider of core editing operations.
++   * @param aStartOfRightContent    The point to split.  Its container will be
++   *                                the right node, i.e., become the new node's
++   *                                next sibling.  And the point will be start
++   *                                of the right node.
+    */
+   template <typename PT, typename CT>
+   static already_AddRefed<SplitNodeTransaction> Create(
+       EditorBase& aEditorBase,
+-      const EditorDOMPointBase<PT, CT>& aStartOfRightNode);
++      const EditorDOMPointBase<PT, CT>& aStartOfRightContent);
+ 
+   NS_DECL_ISUPPORTS_INHERITED
+   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(SplitNodeTransaction,
+@@ -55,7 +53,7 @@
+ 
+   NS_IMETHOD RedoTransaction() override;
+ 
+-  nsIContent* GetNewNode();
++  nsIContent* GetNewLeftContent() const { return mNewLeftContent; }
+ 
+  protected:
+   virtual ~SplitNodeTransaction() = default;
+@@ -64,13 +62,13 @@
+ 
+   // The container is existing right node (will be split).
+   // The point referring this is start of the right node after it's split.
+-  EditorDOMPoint mStartOfRightNode;
++  EditorDOMPoint mStartOfRightContent;
+ 
+-  // The node we create when splitting mExistingRightNode.
+-  nsCOMPtr<nsIContent> mNewLeftNode;
++  // The node we create when splitting mExistingRightContent.
++  nsCOMPtr<nsIContent> mNewLeftContent;
+ 
+-  // The parent shared by mExistingRightNode and mNewLeftNode.
+-  nsCOMPtr<nsINode> mParent;
++  // The parent shared by mExistingRightContent and mNewLeftContent.
++  nsCOMPtr<nsINode> mContainerParentNode;
+ };
+ 
+ }  // namespace mozilla

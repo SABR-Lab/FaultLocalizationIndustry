@@ -1,0 +1,185 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/windows/TSFTextStore.h
+# Commit: 19de31537925
+# Full Hash: 19de31537925d1b4aae4a7e06553088d198cb61a
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2018-03-14 09:58:44
+# Regressor Bug: 1259692
+# File Overlap Count: 2
+# Description:
+#   Bug 1259692 - Make TSFTextStore dispatch eKeyDown or eKeyUp event when TIP processes a WM_KEYDOWN or WM_KEYUP message r=m_kato
+#   
+#   TSF doesn't send WM_KEYDOWN nor WM_KEYUP to us while it handles a key message
+#   with ITfKeystrokeMgr::KeyDown() or ITfKeystrokeMgr::KeyUp().  Therefore,
+#   TSFTextStore needs to store handling key event message during calling
+# ==============================================================================
+
+diff -r 6bc7318ca790 -r 19de31537925 widget/windows/TSFTextStore.h
+--- a/widget/windows/TSFTextStore.h	Tue Feb 27 21:55:01 2018 -0800
++++ b/widget/windows/TSFTextStore.h	Wed Feb 28 21:53:23 2018 +0900
+@@ -399,9 +399,31 @@
+   DWORD                        mLockQueued;
+ 
+   uint32_t mHandlingKeyMessage;
+-  void OnStartToHandleKeyMessage() { ++mHandlingKeyMessage; }
+-  void OnEndHandlingKeyMessage()
++  void OnStartToHandleKeyMessage()
+   {
++    // If we're starting to handle another key message during handling a
++    // key message, let's assume that the handling key message is handled by
++    // TIP and it sends another key message for hacking something.
++    // Let's try to dispatch a keyboard event now.
++    // FYI: All callers of this method grab this instance with local variable.
++    //      So, even after calling MaybeDispatchKeyboardEventAsProcessedByIME(),
++    //      we're safe to access any members.
++    if (!mDestroyed && sHandlingKeyMsg && !sIsKeyboardEventDispatched) {
++      MaybeDispatchKeyboardEventAsProcessedByIME();
++    }
++    ++mHandlingKeyMessage;
++  }
++  void OnEndHandlingKeyMessage(bool aIsProcessedByTSF)
++  {
++    // If sHandlingKeyMsg has been handled by TSF or TIP and we're still
++    // alive, but we haven't dispatch keyboard event for it, let's fire it now.
++    // FYI: All callers of this method grab this instance with local variable.
++    //      So, even after calling MaybeDispatchKeyboardEventAsProcessedByIME(),
++    //      we're safe to access any members.
++    if (!mDestroyed && sHandlingKeyMsg &&
++        aIsProcessedByTSF && !sIsKeyboardEventDispatched) {
++      MaybeDispatchKeyboardEventAsProcessedByIME();
++    }
+     MOZ_ASSERT(mHandlingKeyMessage);
+     if (--mHandlingKeyMessage) {
+       return;
+@@ -413,6 +435,21 @@
+     }
+   }
+ 
++  /**
++   * MaybeDispatchKeyboardEventAsProcessedByIME() tries to dispatch eKeyDown
++   * event or eKeyUp event for sHandlingKeyMsg and marking the dispatching
++   * event as "processed by IME".  Note that if the document is locked, this
++   * just adds a pending action into the queue and sets
++   * sIsKeyboardEventDispatched to true.
++   */
++  void MaybeDispatchKeyboardEventAsProcessedByIME();
++
++  /**
++   * DispatchKeyboardEventAsProcessedByIME() dispatches an eKeyDown or
++   * eKeyUp event with NativeKey class and aMsg.
++   */
++  void DispatchKeyboardEventAsProcessedByIME(const MSG& aMsg);
++
+   class Composition final
+   {
+   public:
+@@ -654,26 +691,29 @@
+ 
+   struct PendingAction final
+   {
+-    enum ActionType : uint8_t
++    enum class Type : uint8_t
+     {
+-      COMPOSITION_START,
+-      COMPOSITION_UPDATE,
+-      COMPOSITION_END,
+-      SET_SELECTION
++      eCompositionStart,
++      eCompositionUpdate,
++      eCompositionEnd,
++      eSetSelection,
++      eKeyboardEvent,
+     };
+-    ActionType mType;
+-    // For compositionstart and selectionset
++    Type mType;
++    // For eCompositionStart and eSetSelection
+     LONG mSelectionStart;
+     LONG mSelectionLength;
+-    // For compositionstart, compositionupdate and compositionend
++    // For eCompositionStart, eCompositionUpdate and eCompositionEnd
+     nsString mData;
+-    // For compositionupdate
++    // For eCompositionUpdate
+     RefPtr<TextRangeArray> mRanges;
+-    // For selectionset
++    // For eKeyboardEvent
++    const MSG* mKeyMsg;
++    // For eSetSelection
+     bool mSelectionReversed;
+-    // For compositionupdate
++    // For eCompositionUpdate
+     bool mIncomplete;
+-    // For compositionstart
++    // For eCompositionStart
+     bool mAdjustSelection;
+   };
+   // Items of mPendingActions are appended when TSF tells us to need to dispatch
+@@ -686,12 +726,12 @@
+   {
+     if (!mPendingActions.IsEmpty()) {
+       PendingAction& lastAction = mPendingActions.LastElement();
+-      if (lastAction.mType == PendingAction::COMPOSITION_UPDATE) {
++      if (lastAction.mType == PendingAction::Type::eCompositionUpdate) {
+         return &lastAction;
+       }
+     }
+     PendingAction* newAction = mPendingActions.AppendElement();
+-    newAction->mType = PendingAction::COMPOSITION_UPDATE;
++    newAction->mType = PendingAction::Type::eCompositionUpdate;
+     newAction->mRanges = new TextRangeArray();
+     newAction->mIncomplete = true;
+     return newAction;
+@@ -704,7 +744,7 @@
+    * @param aStart              The inserted offset you expected.
+    * @param aLength             The inserted text length you expected.
+    * @return                    true if the last pending actions are
+-   *                            COMPOSITION_START and COMPOSITION_END and
++   *                            eCompositionStart and eCompositionEnd and
+    *                            aStart and aLength match their information.
+    */
+   bool WasTextInsertedWithoutCompositionAt(LONG aStart, LONG aLength) const
+@@ -713,13 +753,14 @@
+       return false;
+     }
+     const PendingAction& pendingLastAction = mPendingActions.LastElement();
+-    if (pendingLastAction.mType != PendingAction::COMPOSITION_END ||
++    if (pendingLastAction.mType != PendingAction::Type::eCompositionEnd ||
+         pendingLastAction.mData.Length() != ULONG(aLength)) {
+       return false;
+     }
+     const PendingAction& pendingPreLastAction =
+       mPendingActions[mPendingActions.Length() - 2];
+-    return pendingPreLastAction.mType == PendingAction::COMPOSITION_START &&
++    return pendingPreLastAction.mType ==
++             PendingAction::Type::eCompositionStart &&
+            pendingPreLastAction.mSelectionStart == aStart;
+   }
+ 
+@@ -729,7 +770,7 @@
+       return false;
+     }
+     const PendingAction& lastAction = mPendingActions.LastElement();
+-    return lastAction.mType == PendingAction::COMPOSITION_UPDATE &&
++    return lastAction.mType == PendingAction::Type::eCompositionUpdate &&
+            lastAction.mIncomplete;
+   }
+ 
+@@ -1112,8 +1153,15 @@
+   static already_AddRefed<ITfInputProcessorProfiles>
+            GetInputProcessorProfiles();
+ 
++  // Handling key message.
++  static const MSG* sHandlingKeyMsg;
++
+   // TSF client ID for the current application
+   static DWORD sClientId;
++
++  // true if an eKeyDown or eKeyUp event for sHandlingKeyMsg has already
++  // been dispatched.
++  static bool sIsKeyboardEventDispatched;
+ };
+ 
+ } // namespace widget

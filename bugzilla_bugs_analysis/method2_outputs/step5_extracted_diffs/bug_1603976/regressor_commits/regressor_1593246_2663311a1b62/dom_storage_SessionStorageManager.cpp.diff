@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/storage/SessionStorageManager.cpp
+# Commit: 2663311a1b62
+# Full Hash: 2663311a1b628c835b7c557d453797080c92d25d
+# Author: Yaron Tausky <ytausky@mozilla.com>
+# Date: 2019-12-09 21:50:19
+# Regressor Bug: 1593246
+# File Overlap Count: 1
+# Description:
+#   Bug 1593246 - Part 2: Give SessionStorageManager a reference to BrowsingContext r=sg
+#   
+#   This reference is necessary when sending session storage data for
+#   all browsing context to the parent process. Note that it entails
+#   making SessionStorageManager a cycle collection participant, since
+# ==============================================================================
+
+diff -r d9f0d827e28d -r 2663311a1b62 dom/storage/SessionStorageManager.cpp
+--- a/dom/storage/SessionStorageManager.cpp	Mon Dec 09 13:04:51 2019 +0000
++++ b/dom/storage/SessionStorageManager.cpp	Thu Dec 05 17:51:59 2019 +0000
+@@ -17,10 +17,19 @@
+ 
+ using namespace StorageUtils;
+ 
+-NS_IMPL_ISUPPORTS(SessionStorageManager, nsIDOMStorageManager,
+-                  nsIDOMSessionStorageManager)
++NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(SessionStorageManager)
++  NS_INTERFACE_MAP_ENTRY(nsISupports)
++  NS_INTERFACE_MAP_ENTRY(nsIDOMStorageManager)
++  NS_INTERFACE_MAP_ENTRY(nsIDOMSessionStorageManager)
++NS_INTERFACE_MAP_END
+ 
+-SessionStorageManager::SessionStorageManager() {
++NS_IMPL_CYCLE_COLLECTION(SessionStorageManager, mBrowsingContext)
++NS_IMPL_CYCLE_COLLECTING_ADDREF(SessionStorageManager)
++NS_IMPL_CYCLE_COLLECTING_RELEASE(SessionStorageManager)
++
++SessionStorageManager::SessionStorageManager(
++    RefPtr<BrowsingContext> aBrowsingContext)
++    : mBrowsingContext(aBrowsingContext.forget()) {
+   StorageObserver* observer = StorageObserver::Self();
+   NS_ASSERTION(
+       observer,

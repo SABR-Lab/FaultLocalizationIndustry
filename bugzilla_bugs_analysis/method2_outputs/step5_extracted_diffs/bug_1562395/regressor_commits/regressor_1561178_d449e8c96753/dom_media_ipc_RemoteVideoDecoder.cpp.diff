@@ -1,0 +1,73 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/ipc/RemoteVideoDecoder.cpp
+# Commit: d449e8c96753
+# Full Hash: d449e8c96753f50a34d3aaf260a00390f729954c
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2019-06-27 09:34:48
+# Regressor Bug: 1561178
+# File Overlap Count: 1
+# Description:
+#   Bug 1561178 - Use Endpoints for VideoBridge construction, and support the possibility that there are multiple at the same time. r=jya
+#   
+#   In the future we're going to want VideoBridge connections from the RDD process into both the parent process and the GPU process.
+#   This does the preparation work for unifying the way we create VideoBridges (using Endpoints, required for cross-process connections),
+#   and detects which one to use based on where the video will be composited.
+# ==============================================================================
+
+diff -r 557f55a90c8a -r d449e8c96753 dom/media/ipc/RemoteVideoDecoder.cpp
+--- a/dom/media/ipc/RemoteVideoDecoder.cpp	Thu Jun 27 01:28:56 2019 +0000
++++ b/dom/media/ipc/RemoteVideoDecoder.cpp	Thu Jun 27 01:29:15 2019 +0000
+@@ -36,13 +36,31 @@
+   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(KnowsCompositorVideo, override)
+ 
+   layers::TextureForwarder* GetTextureForwarder() override {
+-    return VideoBridgeChild::GetSingleton();
++    return mTextureFactoryIdentifier.mParentProcessType == GeckoProcessType_GPU
++               ? VideoBridgeChild::GetSingletonToGPUProcess()
++               : VideoBridgeChild::GetSingletonToParentProcess();
+   }
+   layers::LayersIPCActor* GetLayersIPCActor() override {
+-    return VideoBridgeChild::GetSingleton();
++    return GetTextureForwarder();
++  }
++
++  static already_AddRefed<KnowsCompositorVideo> TryCreateForIdentifier(
++      const layers::TextureFactoryIdentifier& aIdentifier) {
++    VideoBridgeChild* child =
++        (aIdentifier.mParentProcessType == GeckoProcessType_GPU)
++            ? VideoBridgeChild::GetSingletonToGPUProcess()
++            : VideoBridgeChild::GetSingletonToParentProcess();
++    if (!child) {
++      return nullptr;
++    }
++
++    RefPtr<KnowsCompositorVideo> knowsCompositor = new KnowsCompositorVideo();
++    knowsCompositor->IdentifyTextureHost(aIdentifier);
++    return knowsCompositor.forget();
+   }
+ 
+  private:
++  KnowsCompositorVideo() = default;
+   virtual ~KnowsCompositorVideo() = default;
+ };
+ 
+@@ -260,9 +278,14 @@
+     nsCString* aErrorDescription)
+     : RemoteDecoderParent(aParent, aManagerTaskQueue, aDecodeTaskQueue),
+       mVideoInfo(aVideoInfo) {
+-  if (XRE_IsGPUProcess() && aIdentifier) {
+-    mKnowsCompositor = new KnowsCompositorVideo();
+-    mKnowsCompositor->IdentifyTextureHost(aIdentifier.value());
++  if (aIdentifier) {
++    // Check to see if we have a direct PVideoBridge connection to the destination
++    // process specified in aIdentifier, and create a KnowsCompositor representing
++    // that connection if so.
++    // If this fails, then we fall back to returning the decoded frames directly
++    // via Output().
++    mKnowsCompositor =
++        KnowsCompositorVideo::TryCreateForIdentifier(*aIdentifier);
+   }
+ 
+   CreateDecoderParams params(mVideoInfo);

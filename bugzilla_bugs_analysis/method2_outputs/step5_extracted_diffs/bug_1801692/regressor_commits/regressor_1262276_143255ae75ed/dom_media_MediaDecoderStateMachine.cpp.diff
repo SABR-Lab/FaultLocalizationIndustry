@@ -1,0 +1,80 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/MediaDecoderStateMachine.cpp
+# Commit: 143255ae75ed
+# Full Hash: 143255ae75ed7045741b961834f4805a7295623a
+# Author: alwu <alwu@mozilla.com>
+# Date: 2022-10-18 09:48:31
+# Regressor Bug: 1262276
+# File Overlap Count: 1
+# Description:
+#   Bug 1262276 - part5 : only seek one track at a time otherwise the previous seek target would be overwritten. r=padenot
+#   
+#   The media format reader's seek doesn't support seeking in parallel, so
+#   that is why the format reader would seek video first, then audio.
+#   
+# ==============================================================================
+
+diff -r 4724dd3b433f -r 143255ae75ed dom/media/MediaDecoderStateMachine.cpp
+--- a/dom/media/MediaDecoderStateMachine.cpp	Mon Oct 17 18:28:18 2022 +0000
++++ b/dom/media/MediaDecoderStateMachine.cpp	Mon Oct 17 18:28:18 2022 +0000
+@@ -813,7 +813,7 @@
+ /**
+  * Purpose: decode audio data for playback when media is in seamless
+  * looping, we will adjust media time to make samples time monotonically
+- * increasing.
++ * increasing. All its methods runs on its owner thread (MDSM thread).
+  *
+  * Transition to:
+  *   DORMANT if playback is paused for a while.
+@@ -940,6 +940,15 @@
+     const bool isAudio = aType == TrackInfo::TrackType::kAudioTrack;
+     MOZ_ASSERT_IF(isAudio, mMaster->HasAudio());
+     MOZ_ASSERT_IF(!isAudio, mMaster->HasVideo());
++
++    if (IsReaderSeeking()) {
++      MOZ_ASSERT(!mPendingSeekingType);
++      mPendingSeekingType = Some(aType);
++      SLOG("Delay %s seeking until the reader finishes current seeking",
++           isAudio ? "audio" : "video");
++      return;
++    }
++
+     auto& seekRequest = isAudio ? mAudioSeekRequest : mVideoSeekRequest;
+     Reader()->ResetDecode(aType);
+     Reader()
+@@ -973,6 +982,12 @@
+               } else {
+                 RequestVideoDataFromReader();
+               }
++              if (mPendingSeekingType) {
++                auto seekingType = *mPendingSeekingType;
++                mPendingSeekingType.reset();
++                SLOG("Perform pending %s seeking", TrackTypeToStr(seekingType));
++                RequestDataFromStartPosition(seekingType);
++              }
+             },
+             [this, isAudio](const SeekRejectValue& aReject) mutable -> void {
+               AUTO_PROFILER_LABEL(
+@@ -1222,6 +1237,10 @@
+     return !isWaitingForNewData && DecodingState::ShouldStopPrerolling();
+   }
+ 
++  bool IsReaderSeeking() const {
++    return mAudioSeekRequest.Exists() || mVideoSeekRequest.Exists();
++  }
++
+   bool mIsReachingAudioEOS;
+   bool mIsReachingVideoEOS;
+   media::TimeUnit mAudioLoopingOffset = media::TimeUnit::Zero();
+@@ -1230,6 +1249,9 @@
+   MozPromiseRequestHolder<MediaFormatReader::SeekPromise> mVideoSeekRequest;
+   MozPromiseRequestHolder<AudioDataPromise> mAudioDataRequest;
+   MozPromiseRequestHolder<VideoDataPromise> mVideoDataRequest;
++  // The media format reader only allows seeking a track at a time, if we're
++  // already in seeking, then delay the new seek until the current one finishes.
++  Maybe<TrackInfo::TrackType> mPendingSeekingType;
+ };
+ 
+ /**

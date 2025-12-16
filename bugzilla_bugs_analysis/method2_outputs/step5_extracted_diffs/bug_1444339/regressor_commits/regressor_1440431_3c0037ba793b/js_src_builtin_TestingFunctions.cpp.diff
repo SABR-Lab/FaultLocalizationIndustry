@@ -1,0 +1,90 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/builtin/TestingFunctions.cpp
+# Commit: 3c0037ba793b
+# Full Hash: 3c0037ba793b7d393449036987767a44423bf346
+# Author: Jason Orendorff <jorendorff@mozilla.com>
+# Date: 2018-02-24 10:13:47
+# Regressor Bug: 1440431
+# File Overlap Count: 1
+# Description:
+#   Bug 1440431 - Part 1: Move ValueToScript into the engine. r=nbp.
+# ==============================================================================
+
+diff -r 37f8ff509e9d -r 3c0037ba793b js/src/builtin/TestingFunctions.cpp
+--- a/js/src/builtin/TestingFunctions.cpp	Fri Feb 23 09:01:08 2018 +0700
++++ b/js/src/builtin/TestingFunctions.cpp	Thu Feb 22 12:31:01 2018 -0600
+@@ -37,6 +37,8 @@
+ #include "js/UniquePtr.h"
+ #include "js/Vector.h"
+ #include "js/Wrapper.h"
++#include "vm/AsyncFunction.h"
++#include "vm/AsyncIteration.h"
+ #include "vm/Debugger.h"
+ #include "vm/GlobalObject.h"
+ #include "vm/Interpreter.h"
+@@ -4993,6 +4995,63 @@
+     return true;
+ }
+ 
++JSScript*
++js::TestingFunctionArgumentToScript(JSContext* cx,
++                                    HandleValue v,
++                                    JSFunction** funp /* = nullptr */)
++{
++    if (v.isString()) {
++        // To convert a string to a script, compile it. Parse it as an ES6 Program.
++        RootedLinearString linearStr(cx, StringToLinearString(cx, v.toString()));
++        if (!linearStr)
++            return nullptr;
++        size_t len = GetLinearStringLength(linearStr);
++        AutoStableStringChars linearChars(cx);
++        if (!linearChars.initTwoByte(cx, linearStr))
++            return nullptr;
++        const char16_t* chars = linearChars.twoByteRange().begin().get();
++
++        RootedScript script(cx);
++        CompileOptions options(cx);
++        if (!JS::Compile(cx, options, chars, len, &script))
++            return nullptr;
++        return script;
++    }
++
++    RootedFunction fun(cx, JS_ValueToFunction(cx, v));
++    if (!fun)
++        return nullptr;
++
++    // Unwrap bound functions.
++    while (fun->isBoundFunction()) {
++        JSObject* target = fun->getBoundFunctionTarget();
++        if (target && target->is<JSFunction>())
++            fun = &target->as<JSFunction>();
++        else
++            break;
++    }
++
++    // Get unwrapped async function.
++    if (IsWrappedAsyncFunction(fun))
++        fun = GetUnwrappedAsyncFunction(fun);
++    if (IsWrappedAsyncGenerator(fun))
++        fun = GetUnwrappedAsyncGenerator(fun);
++
++    if (!fun->isInterpreted()) {
++        JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, JSMSG_TESTING_SCRIPTS_ONLY);
++        return nullptr;
++    }
++
++    JSScript* script = JSFunction::getOrCreateScript(cx, fun);
++    if (!script)
++        return nullptr;
++
++    if (funp)
++        *funp = fun;
++
++    return script;
++}
++
+ static const JSFunctionSpecWithHelp TestingFunctions[] = {
+     JS_FN_HELP("gc", ::GC, 0, 0,
+ "gc([obj] | 'zone' [, 'shrinking'])",

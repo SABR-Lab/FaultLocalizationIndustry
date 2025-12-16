@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/mtransport/ipc/WebrtcTCPSocketParent.cpp
+# Commit: 8196045d38b5
+# Full Hash: 8196045d38b50e04313725215c36ba1618c50486
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2019-09-18 21:49:27
+# Regressor Bug: 1569183
+# File Overlap Count: 2
+# Description:
+#   Bug 1569183: Create an ipdl struct called WebrtcProxyConfig, to cut down on the arg count on lots of functions. r=mjf,mayhemer
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D45562
+# ==============================================================================
+
+diff -r 6e1eba5c88ad -r 8196045d38b5 media/mtransport/ipc/WebrtcTCPSocketParent.cpp
+--- a/media/mtransport/ipc/WebrtcTCPSocketParent.cpp	Wed Sep 18 14:27:42 2019 +0000
++++ b/media/mtransport/ipc/WebrtcTCPSocketParent.cpp	Tue Sep 17 18:19:04 2019 +0000
+@@ -20,19 +20,13 @@
+ mozilla::ipc::IPCResult WebrtcTCPSocketParent::RecvAsyncOpen(
+     const nsCString& aHost, const int& aPort, const nsCString& aLocalAddress,
+     const int& aLocalPort, const bool& aUseTls,
+-    const Maybe<LoadInfoArgs>& aLoadInfoArgs, const Maybe<nsCString>& aAlpn,
+-    const Maybe<int>& aProxyPolicy) {
++    const Maybe<WebrtcProxyConfig>& aProxyConfig) {
+   LOG(("WebrtcTCPSocketParent::RecvAsyncOpen %p to %s:%d\n", this, aHost.get(),
+        aPort));
+ 
+   MOZ_ASSERT(mChannel, "webrtc TCP socket should be non-null");
+-  Maybe<NrSocketProxyConfig::ProxyPolicy> proxyPolicy;
+-  if (aProxyPolicy.isSome()) {
+-    proxyPolicy =
+-        Some(static_cast<NrSocketProxyConfig::ProxyPolicy>(*aProxyPolicy));
+-  }
+   mChannel->Open(aHost, aPort, aLocalAddress, aLocalPort, aUseTls,
+-                 aLoadInfoArgs, aAlpn, proxyPolicy);
++                 aProxyConfig);
+ 
+   return IPC_OK();
+ }

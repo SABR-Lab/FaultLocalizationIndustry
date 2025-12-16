@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/RootMarking.cpp
+# Commit: b1117df3b91d
+# Full Hash: b1117df3b91d10d68d10b399637cf9ac295057e6
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2019-11-01 16:13:11
+# Regressor Bug: 1587096
+# File Overlap Count: 1
+# Description:
+#   Bug 1587096 - Part 3: Implmement FinalizationGroup r=sfink
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D49946
+# ==============================================================================
+
+diff -r cefc0474e13c -r b1117df3b91d js/src/gc/RootMarking.cpp
+--- a/js/src/gc/RootMarking.cpp	Fri Nov 01 10:37:40 2019 +0000
++++ b/js/src/gc/RootMarking.cpp	Fri Nov 01 10:37:47 2019 +0000
+@@ -285,6 +285,8 @@
+         trc, Compartment::NonGrayEdges);
+   }
+ 
++  markFinalizationGroupData(trc);
++
+   traceRuntimeCommon(trc, MarkRuntime);
+ }
+ 
+@@ -477,8 +479,8 @@
+ 
+   rt->finishSelfHosting();
+ 
+-  for (RealmsIter r(rt); !r.done(); r.next()) {
+-    r->finishRoots();
++  for (ZonesIter zone(rt, WithAtoms); !zone.done(); zone.next()) {
++    zone->finishRoots();
+   }
+ 
+ #ifdef JS_GC_ZEAL

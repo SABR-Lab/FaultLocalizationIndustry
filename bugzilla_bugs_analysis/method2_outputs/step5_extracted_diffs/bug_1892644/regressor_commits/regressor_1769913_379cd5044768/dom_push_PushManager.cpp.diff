@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/push/PushManager.cpp
+# Commit: 379cd5044768
+# Full Hash: 379cd5044768c61ee7b94cc383fa498433a30999
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2024-04-19 15:22:44
+# Regressor Bug: 1769913
+# File Overlap Count: 3
+# Description:
+#   Bug 1769913 - P1 Make WorkerRunnable to be a base class for runnables on Worker thread and Worker's parent thread. r=dom-worker-reviewers,asuth
+#   
+#   This is the first step in splitting the parent thread runnable out of WorkerRunnable.
+#   
+#   To reuse the runnable dispatching codes in Worker, we still need a base class for runnable on the worker thread and the parent thread.
+# ==============================================================================
+
+diff -r 29cb10d35b5a -r 379cd5044768 dom/push/PushManager.cpp
+--- a/dom/push/PushManager.cpp	Fri Apr 19 09:32:48 2024 +0000
++++ b/dom/push/PushManager.cpp	Fri Apr 19 09:41:57 2024 +0000
+@@ -92,7 +92,7 @@
+   return NS_OK;
+ }
+ 
+-class GetSubscriptionResultRunnable final : public WorkerRunnable {
++class GetSubscriptionResultRunnable final : public WorkerThreadRunnable {
+  public:
+   GetSubscriptionResultRunnable(WorkerPrivate* aWorkerPrivate,
+                                 RefPtr<PromiseWorkerProxy>&& aProxy,
+@@ -102,7 +102,7 @@
+                                 nsTArray<uint8_t>&& aRawP256dhKey,
+                                 nsTArray<uint8_t>&& aAuthSecret,
+                                 nsTArray<uint8_t>&& aAppServerKey)
+-      : WorkerRunnable(aWorkerPrivate, "GetSubscriptionResultRunnable"),
++      : WorkerThreadRunnable(aWorkerPrivate, "GetSubscriptionResultRunnable"),
+         mProxy(std::move(aProxy)),
+         mStatus(aStatus),
+         mEndpoint(aEndpoint),
+@@ -292,11 +292,12 @@
+   nsTArray<uint8_t> mAppServerKey;
+ };
+ 
+-class PermissionResultRunnable final : public WorkerRunnable {
++class PermissionResultRunnable final : public WorkerThreadRunnable {
+  public:
+   PermissionResultRunnable(PromiseWorkerProxy* aProxy, nsresult aStatus,
+                            PermissionState aState)
+-      : WorkerRunnable(aProxy->GetWorkerPrivate(), "PermissionResultRunnable"),
++      : WorkerThreadRunnable(aProxy->GetWorkerPrivate(),
++                             "PermissionResultRunnable"),
+         mProxy(aProxy),
+         mStatus(aStatus),
+         mState(aState) {

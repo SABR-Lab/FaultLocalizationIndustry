@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/ipc/RemoteDecoderManagerParent.cpp
+# Commit: 3f08ccb1f141
+# Full Hash: 3f08ccb1f141069bfd90474d6023413303307ec4
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2020-11-04 09:55:18
+# Regressor Bug: 1595994
+# File Overlap Count: 1
+# Description:
+#   Bug 1674043 - P6. Remove sync PDecoderMananger::Supports API. r=mattwoodrow,bryce,mjf,ipc-reviewers,nika
+#   
+#   In bug 1595994 we attempted to streamline the ability to determine which decoder was available regardless of the process they would be running in. This was subsequently done via the PDMFactory.
+#   
+#   As there are several JS API that can query which codec are supported, it requires a synchronous mechanism.
+# ==============================================================================
+
+diff -r 33563a16a5c3 -r 3f08ccb1f141 dom/media/ipc/RemoteDecoderManagerParent.cpp
+--- a/dom/media/ipc/RemoteDecoderManagerParent.cpp	Mon Nov 02 15:32:59 2020 +0000
++++ b/dom/media/ipc/RemoteDecoderManagerParent.cpp	Wed Nov 04 02:22:33 2020 +0000
+@@ -227,40 +227,6 @@
+ 
+ void RemoteDecoderManagerParent::ActorDealloc() { Release(); }
+ 
+-mozilla::ipc::IPCResult RemoteDecoderManagerParent::RecvSupports(
+-    const RemoteDecoderInfoIPDL& aInfo,
+-    const Maybe<layers::TextureFactoryIdentifier>& aIdentifier, bool* aSuccess,
+-    DecoderDoctorDiagnostics* aDiagnostics) {
+-  auto& factory = EnsurePDMFactory();
+-  MediaResult error(NS_OK);
+-
+-  // It's important to initialize aSuccess because it is passed uninitialized
+-  // which will cause an assert on the receiving side.
+-  *aSuccess = false;
+-  if (aInfo.type() == RemoteDecoderInfoIPDL::TAudioInfo) {
+-    SupportDecoderParams params(aInfo.get_AudioInfo(), &error);
+-    *aSuccess = factory.Supports(params, aDiagnostics);
+-  } else if (aInfo.type() == RemoteDecoderInfoIPDL::TVideoDecoderInfoIPDL) {
+-    RefPtr<KnowsCompositorVideo> knowsCompositor;
+-    if (aIdentifier) {
+-      // Check to see if we have a direct PVideoBridge connection to the
+-      // destination process specified in aIdentifier, and create a
+-      // KnowsCompositor representing that connection if so. If this fails, then
+-      // we fall back to returning the decoded frames directly via Output().
+-      knowsCompositor =
+-          KnowsCompositorVideo::TryCreateForIdentifier(*aIdentifier);
+-    }
+-
+-    const VideoDecoderInfoIPDL& info = aInfo.get_VideoDecoderInfoIPDL();
+-    SupportDecoderParams params(info.videoInfo(), knowsCompositor,
+-                                media::VideoFrameRate(info.framerate()),
+-                                &error);
+-    *aSuccess = factory.Supports(params, aDiagnostics);
+-  }
+-
+-  return IPC_OK();
+-}
+-
+ mozilla::ipc::IPCResult RemoteDecoderManagerParent::RecvReadback(
+     const SurfaceDescriptorGPUVideo& aSD, SurfaceDescriptor* aResult) {
+   const SurfaceDescriptorRemoteDecoder& sd = aSD;

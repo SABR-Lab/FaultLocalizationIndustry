@@ -1,0 +1,45 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: parser/html/nsHtml5Parser.cpp
+# Commit: 77388b0795b4
+# Full Hash: 77388b0795b4f9a30171c922d6b649c52e5f6c87
+# Author: Henri Sivonen <hsivonen@hsivonen.fi>
+# Date: 2021-12-23 09:34:36
+# Description:
+#   Bug 1745142 - Communicate encoding commitment via speculative load queue. r=smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D133996
+# ==============================================================================
+
+diff -r a388127095db -r 77388b0795b4 parser/html/nsHtml5Parser.cpp
+--- a/parser/html/nsHtml5Parser.cpp	Wed Dec 22 15:47:08 2021 +0000
++++ b/parser/html/nsHtml5Parser.cpp	Wed Dec 22 15:54:49 2021 +0000
+@@ -48,7 +48,7 @@
+       mFirstBuffer(new nsHtml5OwningUTF16Buffer((void*)nullptr)),
+       mLastBuffer(mFirstBuffer),
+       mExecutor(new nsHtml5TreeOpExecutor()),
+-      mTreeBuilder(new nsHtml5TreeBuilder(mExecutor, nullptr)),
++      mTreeBuilder(new nsHtml5TreeBuilder(mExecutor, nullptr, false)),
+       mTokenizer(new nsHtml5Tokenizer(mTreeBuilder.get(), false)),
+       mRootContextLineNumber(1),
+       mReturnToStreamParserPermitted(false) {
+@@ -100,7 +100,8 @@
+   MOZ_ASSERT(GetStreamParser(), "Setting charset on a script-only parser.");
+   GetStreamParser()->SetDocumentCharset(
+       aEncoding, (nsCharsetSource)aCharsetSource, aForceAutoDetection);
+-  mExecutor->SetDocumentCharsetAndSource(aEncoding, aCharsetSource);
++  mExecutor->SetDocumentCharsetAndSource(aEncoding,
++                                         (nsCharsetSource)aCharsetSource);
+ }
+ 
+ NS_IMETHODIMP
+@@ -410,7 +411,7 @@
+       if (!mDocWriteSpeculativeTreeBuilder) {
+         // Lazily initialize if uninitialized
+         mDocWriteSpeculativeTreeBuilder =
+-            MakeUnique<nsHtml5TreeBuilder>(nullptr, executor->GetStage());
++            MakeUnique<nsHtml5TreeBuilder>(nullptr, executor->GetStage(), true);
+         mDocWriteSpeculativeTreeBuilder->setScriptingEnabled(
+             mTreeBuilder->isScriptingEnabled());
+         mDocWriteSpeculativeTokenizer = MakeUnique<nsHtml5Tokenizer>(

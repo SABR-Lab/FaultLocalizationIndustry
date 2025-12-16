@@ -1,0 +1,94 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsContentUtils.h
+# Commit: 5661dec1e128
+# Full Hash: 5661dec1e128f48fc62be6ebc2774fc247b71fc3
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2025-05-08 04:32:48
+# Regressor Bug: 1932150
+# File Overlap Count: 1
+# Description:
+#   Bug 1932150 - Allow using flat tree order for point comparing in selection r=jjaschke,smaug,dom-core
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D231588
+# ==============================================================================
+
+diff -r 15ccf86bce5a -r 5661dec1e128 dom/base/nsContentUtils.h
+--- a/dom/base/nsContentUtils.h	Wed May 07 15:05:08 2025 +0000
++++ b/dom/base/nsContentUtils.h	Wed May 07 15:05:09 2025 +0000
+@@ -714,6 +714,9 @@
+    *          0 if point1 == point2.
+    *          `Nothing` if the two nodes aren't in the same connected subtree.
+    */
++  template <TreeKind aKind = TreeKind::ShadowIncludingDOM,
++            typename = std::enable_if_t<aKind == TreeKind::ShadowIncludingDOM ||
++                                        aKind == TreeKind::Flat>>
+   static mozilla::Maybe<int32_t> ComparePointsWithIndices(
+       const nsINode* aParent1, uint32_t aOffset1, const nsINode* aParent2,
+       uint32_t aOffset2, NodeIndexCache* aIndexCache = nullptr);
+@@ -728,7 +731,10 @@
+    *          0 if point1 == point2.
+    *          `Nothing` if the two nodes aren't in the same connected subtree.
+    */
+-  template <typename PT1, typename RT1, typename PT2, typename RT2>
++  template <TreeKind aKind = TreeKind::ShadowIncludingDOM, typename PT1,
++            typename RT1, typename PT2, typename RT2,
++            typename = std::enable_if_t<aKind == TreeKind::ShadowIncludingDOM ||
++                                        aKind == TreeKind::Flat>>
+   static mozilla::Maybe<int32_t> ComparePoints(
+       const mozilla::RangeBoundaryBase<PT1, RT1>& aBoundary1,
+       const mozilla::RangeBoundaryBase<PT2, RT2>& aBoundary2,
+@@ -744,6 +750,9 @@
+    * traditional behavior. If you want to use this in new code, it means that
+    * you **should** check the offset values and call `ComparePoints` instead.
+    */
++  template <TreeKind aKind = TreeKind::ShadowIncludingDOM,
++            typename = std::enable_if_t<aKind == TreeKind::ShadowIncludingDOM ||
++                                        aKind == TreeKind::Flat>>
+   static mozilla::Maybe<int32_t> ComparePoints_AllowNegativeOffsets(
+       const nsINode* aParent1, int64_t aOffset1, const nsINode* aParent2,
+       int64_t aOffset2) {
+@@ -766,7 +775,7 @@
+       }
+       // Otherwise, aOffset1 nor aOffset2 is referred so that any value is fine
+       // if negative.
+-      return ComparePointsWithIndices(
++      return ComparePointsWithIndices<aKind>(
+           aParent1,
+           // Avoid warnings.
+           aOffset1 < 0 ? aParent1->GetChildCount()
+@@ -778,7 +787,8 @@
+                        : std::min(static_cast<uint32_t>(aOffset2),
+                                   aParent2->GetChildCount()));
+     }
+-    return ComparePointsWithIndices(aParent1, aOffset1, aParent2, aOffset2);
++    return ComparePointsWithIndices<aKind>(aParent1, aOffset1, aParent2,
++                                           aOffset2);
+   }
+ 
+   /**
+@@ -3634,6 +3644,9 @@
+    * node.
+    * Return Nothing if aChild1 is a root of the native anonymous subtree.
+    */
++  template <TreeKind aKind,
++            typename = std::enable_if_t<aKind == TreeKind::ShadowIncludingDOM ||
++                                        aKind == TreeKind::Flat>>
+   static mozilla::Maybe<int32_t> CompareChildNodes(
+       const nsINode* aChild1, const nsINode* aChild2,
+       NodeIndexCache* aIndexCache = nullptr);
+@@ -3663,8 +3676,12 @@
+    * includes odd traditional behavior. Therefore, do not use this method as a
+    * utility method.
+    */
++  template <TreeKind aKind = TreeKind::ShadowIncludingDOM,
++            typename = std::enable_if_t<aKind == TreeKind::ShadowIncludingDOM ||
++                                        aKind == TreeKind::Flat>>
+   static mozilla::Maybe<int32_t> CompareClosestCommonAncestorChildren(
+-      const nsINode&, const nsINode*, const nsINode*, NodeIndexCache*);
++      const nsINode&, const nsINode*, const nsINode*,
++      NodeIndexCache* = nullptr);
+ 
+   static nsIXPConnect* sXPConnect;
+ 

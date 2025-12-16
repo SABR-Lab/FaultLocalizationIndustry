@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmIonCompile.cpp
+# Commit: f1af63fb5986
+# Full Hash: f1af63fb5986e30fa5695a26b9ed7cd506475e1d
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-09-09 16:10:02
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 6: Force Ion to preserve its tls. r=lth
+#   
+#   Let's see following code and let's assume that wasm-compiler is ion:
+#   
+#   call foo
+# ==============================================================================
+
+diff -r facc78377809 -r f1af63fb5986 js/src/wasm/WasmIonCompile.cpp
+--- a/js/src/wasm/WasmIonCompile.cpp	Wed Sep 09 05:43:19 2020 +0000
++++ b/js/src/wasm/WasmIonCompile.cpp	Wed Sep 09 08:55:17 2020 +0000
+@@ -1571,7 +1571,7 @@
+     }
+ 
+     if (values.empty()) {
+-      curBlock_->end(MWasmReturnVoid::New(alloc()));
++      curBlock_->end(MWasmReturnVoid::New(alloc(), tlsPointer_));
+     } else {
+       ResultType resultType = ResultType::Vector(funcType().results());
+       ABIResultIter iter(resultType);
+@@ -1603,7 +1603,7 @@
+         } else {
+           MOZ_ASSERT(iter.remaining() == 1);
+           MOZ_ASSERT(i + 1 == values.length());
+-          curBlock_->end(MWasmReturn::New(alloc(), values[i]));
++          curBlock_->end(MWasmReturn::New(alloc(), values[i], tlsPointer_));
+         }
+       }
+     }

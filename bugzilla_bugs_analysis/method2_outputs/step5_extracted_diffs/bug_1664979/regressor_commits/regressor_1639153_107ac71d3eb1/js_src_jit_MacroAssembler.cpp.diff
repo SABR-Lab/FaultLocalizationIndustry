@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/MacroAssembler.cpp
+# Commit: 107ac71d3eb1
+# Full Hash: 107ac71d3eb130663cd04b149c9d9d7143b7379e
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-10-30 16:09:44
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 7: Remove Frame::tls. r=lth
+#   
+#   
+#   We remove Frame::tls and fix prologue/epilogue. Runtime, Ion and Baseline are ready for this move already.
+#   
+# ==============================================================================
+
+diff -r 5737845e8af2 -r 107ac71d3eb1 js/src/jit/MacroAssembler.cpp
+--- a/js/src/jit/MacroAssembler.cpp	Fri Oct 23 18:17:38 2020 +0000
++++ b/js/src/jit/MacroAssembler.cpp	Fri Oct 30 09:12:21 2020 +0000
+@@ -3187,11 +3187,11 @@
+   uint32_t stackAdjust;
+   callWithABIPre(&stackAdjust, /* callFromWasm = */ true);
+ 
+-  // The TLS register is used in builtin thunks and must be set, by ABI.
++  // The TLS register is used in builtin thunks and must be set.
+   if (tlsOffset) {
+     loadPtr(Address(getStackPointer(), *tlsOffset + stackAdjust), WasmTlsReg);
+   } else {
+-    MOZ_CRASH("This can be only for an unsupported architecture.");
++    MOZ_CRASH("tlsOffset is Nothing only for unsupported abi calls.");
+   }
+   CodeOffset raOffset = call(
+       wasm::CallSiteDesc(bytecode.offset(), wasm::CallSite::Symbolic), imm);
+@@ -4111,11 +4111,6 @@
+   memoryBarrier(sync.barrierAfter);
+ }
+ 
+-void MacroAssembler::loadWasmTlsRegFromFrame(Register dest) {
+-  loadPtr(Address(getStackPointer(), framePushed() + wasm::Frame::tlsOffset()),
+-          dest);
+-}
+-
+ void MacroAssembler::BranchGCPtr::emit(MacroAssembler& masm) {
+   MOZ_ASSERT(isInitialized());
+   masm.branchPtr(cond(), reg(), ptr_, jump());

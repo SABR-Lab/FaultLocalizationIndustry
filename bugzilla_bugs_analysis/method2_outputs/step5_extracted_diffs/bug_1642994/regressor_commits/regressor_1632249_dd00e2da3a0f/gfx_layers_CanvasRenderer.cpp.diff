@@ -1,0 +1,117 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/CanvasRenderer.cpp
+# Commit: dd00e2da3a0f
+# Full Hash: dd00e2da3a0f11a7cc0af9e5ece21a339f4393eb
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-06-11 04:04:33
+# Regressor Bug: 1632249
+# File Overlap Count: 3
+# Description:
+#   Bug 1632249 - Support compositing out-of-process WebGL. r=handyman,lsalzman,nical,geckoview-reviewers,agi,imanol
+#   
+#   * Majorly simplity CanvasRenderer
+#   * Replace GLScreenBuffer with trivial GLSwapChain
+#   * Use descriptor structs so that future SharedSurface changes aren't so painful
+# ==============================================================================
+
+diff -r 69cc1de6f754 -r dd00e2da3a0f gfx/layers/CanvasRenderer.cpp
+--- a/gfx/layers/CanvasRenderer.cpp	Wed Jun 10 21:57:19 2020 +0000
++++ b/gfx/layers/CanvasRenderer.cpp	Wed Jun 10 22:21:02 2020 +0000
+@@ -6,38 +6,76 @@
+ 
+ #include "CanvasRenderer.h"
+ 
+-#include "AsyncCanvasRenderer.h"
+-#include "GLContext.h"
+-#include "OOPCanvasRenderer.h"
++#include "nsICanvasRenderingContextInternal.h"
+ #include "PersistentBufferProvider.h"
++#include "WebGLTypes.h"
+ 
+ namespace mozilla {
+ namespace layers {
+ 
+-CanvasInitializeData::CanvasInitializeData() = default;
+-CanvasInitializeData::~CanvasInitializeData() = default;
++CanvasRendererData::CanvasRendererData() = default;
++CanvasRendererData::~CanvasRendererData() = default;
++
++// -
+ 
+-CanvasRenderer::CanvasRenderer()
+-    : mPreTransCallback(nullptr),
+-      mPreTransCallbackData(nullptr),
+-      mDidTransCallback(nullptr),
+-      mDidTransCallbackData(nullptr),
+-      mDirty(false) {
+-  MOZ_COUNT_CTOR(CanvasRenderer);
++BorrowedSourceSurface::BorrowedSourceSurface(
++    PersistentBufferProvider* const returnTo,
++    const RefPtr<gfx::SourceSurface> surf)
++    : mReturnTo(returnTo), mSurf(surf) {}
++
++BorrowedSourceSurface::~BorrowedSourceSurface() {
++  if (mReturnTo) {
++    auto forgettable = mSurf;
++    mReturnTo->ReturnSnapshot(forgettable.forget());
++  }
+ }
+ 
++// -
++
++CanvasRenderer::CanvasRenderer() { MOZ_COUNT_CTOR(CanvasRenderer); }
++
+ CanvasRenderer::~CanvasRenderer() {
+-  Destroy();
+   MOZ_COUNT_DTOR(CanvasRenderer);
+ }
+ 
+-void CanvasRenderer::Initialize(const CanvasInitializeData& aData) {
+-  mPreTransCallback = aData.mPreTransCallback;
+-  mPreTransCallbackData = aData.mPreTransCallbackData;
+-  mDidTransCallback = aData.mDidTransCallback;
+-  mDidTransCallbackData = aData.mDidTransCallbackData;
++void CanvasRenderer::Initialize(const CanvasRendererData& aData) {
++  mData = aData;
++}
++
++bool CanvasRenderer::IsDataValid(const CanvasRendererData& aData) const {
++  return mData.GetContext() == aData.GetContext();
++}
++
++std::shared_ptr<BorrowedSourceSurface> CanvasRenderer::BorrowSnapshot() const {
++  const auto context = mData.GetContext();
++  if (!context) return nullptr;
++  const auto& provider = context->GetBufferProvider();
++
++  RefPtr<gfx::SourceSurface> ss;
+ 
+-  mSize = aData.mSize;
++  if (provider) {
++    ss = provider->BorrowSnapshot();
++  }
++  if (!ss) {
++    ss = context->GetFrontBufferSnapshot();
++  }
++  if (!ss) return nullptr;
++
++  return std::make_shared<BorrowedSourceSurface>(provider, ss);
++}
++
++void CanvasRenderer::FirePreTransactionCallback() const {
++  if (!mData.mDoPaintCallbacks) return;
++  const auto context = mData.GetContext();
++  if (!context) return;
++  context->OnBeforePaintTransaction();
++}
++
++void CanvasRenderer::FireDidTransactionCallback() const {
++  if (!mData.mDoPaintCallbacks) return;
++  const auto context = mData.GetContext();
++  if (!context) return;
++  context->OnDidPaintTransaction();
+ }
+ 
+ }  // namespace layers

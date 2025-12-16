@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: ipc/glue/NodeController.cpp
+# Commit: c02fa459e77d
+# Full Hash: c02fa459e77d2572b2fe740f20d6070a77383589
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2021-06-22 21:29:07
+# Regressor Bug: 1706374
+# File Overlap Count: 2
+# Description:
+#   Bug 1706374 - Part 13: Remove the event footer from an IPC::Message when deserializing, r=handyman,glandium
+#   
+#   This unfortunately requires a new method to be added to BufferList to
+#   support truncating the buffer to a particular iterator.
+#   
+# ==============================================================================
+
+diff -r 72dc6537cf0b -r c02fa459e77d ipc/glue/NodeController.cpp
+--- a/ipc/glue/NodeController.cpp	Mon Jun 21 21:53:11 2021 +0000
++++ b/ipc/glue/NodeController.cpp	Mon Jun 21 21:53:11 2021 +0000
+@@ -177,7 +177,8 @@
+   MOZ_ASSERT(message->FooterSize() == aEvent->GetSerializedSize());
+   Vector<char, 256, InfallibleAllocPolicy> buffer2;
+   (void)buffer2.initLengthUninitialized(message->FooterSize());
+-  MOZ_ASSERT(message->ReadFooter(buffer2.begin(), buffer2.length()));
++  MOZ_ASSERT(message->ReadFooter(buffer2.begin(), buffer2.length(),
++                                 /* truncate */ false));
+   MOZ_ASSERT(!memcmp(buffer2.begin(), buffer.begin(), buffer.length()));
+ #endif
+ 
+@@ -188,7 +189,11 @@
+     -> UniquePtr<Event> {
+   Vector<char, 256, InfallibleAllocPolicy> buffer;
+   (void)buffer.initLengthUninitialized(aMessage->FooterSize());
+-  if (!aMessage->ReadFooter(buffer.begin(), buffer.length())) {
++  // Truncate the message when reading the footer, so that the extra footer data
++  // is no longer present in the message. This allows future code to eventually
++  // send the same `IPC::Message` to another process.
++  if (!aMessage->ReadFooter(buffer.begin(), buffer.length(),
++                            /* truncate */ true)) {
+     NODECONTROLLER_WARNING("Call to ReadFooter for message '%s' Failed",
+                            aMessage->name());
+     return nullptr;

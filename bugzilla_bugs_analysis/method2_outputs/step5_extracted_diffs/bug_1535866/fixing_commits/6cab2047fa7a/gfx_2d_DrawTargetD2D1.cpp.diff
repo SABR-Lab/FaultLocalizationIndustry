@@ -1,0 +1,32 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/2d/DrawTargetD2D1.cpp
+# Commit: 6cab2047fa7a
+# Full Hash: 6cab2047fa7a7162b258fdaf5cb46e71ce1d70ff
+# Author: Bas Schouten <bschouten@mozilla.com>
+# Date: 2019-05-01 15:57:23
+# Description:
+#   Bug 1535866: Check if a valid DeviceContext is available before attempting to use it. r=rhunt
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D29106
+# ==============================================================================
+
+diff -r 5d43e71f8770 -r 6cab2047fa7a gfx/2d/DrawTargetD2D1.cpp
+--- a/gfx/2d/DrawTargetD2D1.cpp	Sat Apr 27 17:31:49 2019 +0000
++++ b/gfx/2d/DrawTargetD2D1.cpp	Sat Apr 27 21:01:29 2019 +0000
+@@ -1136,7 +1136,13 @@
+ 
+   RefPtr<ID2D1GradientStopCollection1> stopCollection;
+ 
+-  HRESULT hr = Factory::GetD2DDeviceContext()->CreateGradientStopCollection(
++  RefPtr<ID2D1DeviceContext> dc = Factory::GetD2DDeviceContext();
++
++  if (!dc) {
++    return nullptr;
++  }
++
++  HRESULT hr = dc->CreateGradientStopCollection(
+       stops, aNumStops, D2D1_COLOR_SPACE_SRGB, D2D1_COLOR_SPACE_SRGB,
+       D2D1_BUFFER_PRECISION_8BPC_UNORM, D2DExtend(aExtendMode, Axis::BOTH),
+       D2D1_COLOR_INTERPOLATION_MODE_PREMULTIPLIED,

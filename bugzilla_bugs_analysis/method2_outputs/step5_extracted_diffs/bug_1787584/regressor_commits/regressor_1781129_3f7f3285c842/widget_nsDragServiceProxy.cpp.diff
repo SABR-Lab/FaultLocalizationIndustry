@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/nsDragServiceProxy.cpp
+# Commit: 3f7f3285c842
+# Full Hash: 3f7f3285c8424dfd0d607e19a66c9cbff6480d0a
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2022-08-26 21:48:35
+# Regressor Bug: 1781129
+# File Overlap Count: 1
+# Description:
+#   Bug 1781129 - Part 3: Remove Shmem overload of GetSurfaceData, r=edgar
+#   
+#   After the previous changes there was only one consumer left of the Shmem
+#   version of GetSurfaceData, which could easily be changed to use BigBuffer,
+#   removing the need for that overload.
+# ==============================================================================
+
+diff -r ac8bea9c2071 -r 3f7f3285c842 widget/nsDragServiceProxy.cpp
+--- a/widget/nsDragServiceProxy.cpp	Fri Aug 26 16:08:05 2022 +0000
++++ b/widget/nsDragServiceProxy.cpp	Fri Aug 26 16:08:06 2022 +0000
+@@ -65,22 +65,15 @@
+       if (dataSurface) {
+         size_t length;
+         int32_t stride;
+-        Maybe<Shmem> maybeShm = nsContentUtils::GetSurfaceData(
+-            *dataSurface, &length, &stride, child);
+-        if (maybeShm.isNothing()) {
+-          return NS_ERROR_FAILURE;
+-        }
+-
+-        auto surfaceData = maybeShm.value();
+-
+-        // Save the surface data to shared memory.
+-        if (!surfaceData.IsReadable() || !surfaceData.get<char>()) {
++        auto surfaceData =
++            nsContentUtils::GetSurfaceData(*dataSurface, &length, &stride);
++        if (surfaceData.isNothing()) {
+           NS_WARNING("Failed to create shared memory for drag session.");
+           return NS_ERROR_FAILURE;
+         }
+ 
+         mozilla::Unused << child->SendInvokeDragSession(
+-            std::move(dataTransfers), aActionType, Some(std::move(surfaceData)),
++            std::move(dataTransfers), aActionType, std::move(surfaceData),
+             stride, dataSurface->GetFormat(), dragRect, principal, csp, csArgs,
+             mSourceWindowContext);
+         StartDragSession();

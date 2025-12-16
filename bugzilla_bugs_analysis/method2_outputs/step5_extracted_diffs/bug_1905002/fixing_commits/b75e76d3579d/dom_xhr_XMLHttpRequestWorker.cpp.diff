@@ -1,0 +1,57 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/xhr/XMLHttpRequestWorker.cpp
+# Commit: b75e76d3579d
+# Full Hash: b75e76d3579d8a25d85a5d6d4599b93e9fa85857
+# Author: Thomas Wisniewski <twisniewski@mozilla.com>
+# Date: 2024-07-20 09:15:22
+# Description:
+#   Bug 1905002 - Null-check mProxy in the XHR worker code a bit more intensely; r=kershaw
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D217050
+# ==============================================================================
+
+diff -r c999e42af4b0 -r b75e76d3579d dom/xhr/XMLHttpRequestWorker.cpp
+--- a/dom/xhr/XMLHttpRequestWorker.cpp	Fri Jul 19 12:30:30 2024 +0000
++++ b/dom/xhr/XMLHttpRequestWorker.cpp	Fri Jul 19 12:33:44 2024 +0000
+@@ -1522,12 +1522,14 @@
+   MOZ_LOG(gXMLHttpRequestLog, LogLevel::Debug, ("SetResponseToNetworkError"));
+   mStateData->mStatus = 0;
+   mStateData->mStatusText.Truncate();
+-  mProxy->mLastLengthComputable = false;
+-  mProxy->mLastLoaded = 0;
+-  mProxy->mLastTotal = 0;
+-  mProxy->mLastUploadLengthComputable = false;
+-  mProxy->mLastUploadLoaded = 0;
+-  mProxy->mLastUploadTotal = 0;
++  if (mProxy) {
++    mProxy->mLastLengthComputable = false;
++    mProxy->mLastLoaded = 0;
++    mProxy->mLastTotal = 0;
++    mProxy->mLastUploadLengthComputable = false;
++    mProxy->mLastUploadLoaded = 0;
++    mProxy->mLastUploadTotal = 0;
++  }
+ }
+ 
+ void XMLHttpRequestWorker::RequestErrorSteps(
+@@ -1551,7 +1553,7 @@
+   SetResponseToNetworkError();
+ 
+   // Step 4: If xhr’s synchronous flag is set, then throw exception.
+-  if (mProxy->mIsSyncXHR) {
++  if (!mProxy || mProxy->mIsSyncXHR) {
+     aRv.Throw(aException);
+     return;
+   }
+@@ -1562,7 +1564,8 @@
+   }
+ 
+   // Step 6: If xhr’s upload complete flag is unset, then:
+-  if (mUpload && mProxy->mSeenUploadLoadStart && !mProxy->mSeenUploadLoadEnd) {
++  if (mUpload && mProxy && mProxy->mSeenUploadLoadStart &&
++      !mProxy->mSeenUploadLoadEnd) {
+     // Gecko-specific: we can only know whether the proxy XHR's upload
+     // complete flag is set by waiting for the related upload loadend
+     // event to happen (at which point upload complete has just been set,

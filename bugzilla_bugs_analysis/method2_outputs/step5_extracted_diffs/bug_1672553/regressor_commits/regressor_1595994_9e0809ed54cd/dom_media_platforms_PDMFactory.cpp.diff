@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/platforms/PDMFactory.cpp
+# Commit: 9e0809ed54cd
+# Full Hash: 9e0809ed54cd2da0e3ebbb0bb143f85bb6ad6b14
+# Author: Dan Glastonbury <dan.glastonbury@gmail.com>
+# Date: 2020-10-21 09:51:28
+# Regressor Bug: 1595994
+# File Overlap Count: 1
+# Description:
+#   Bug 1595994 - P4: Use PDMFactory to create decoders in RDD & GPU process. r=kamidphish
+#   
+#   Depends on D54876
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D54875
+# ==============================================================================
+
+diff -r e3f920da2232 -r 9e0809ed54cd dom/media/platforms/PDMFactory.cpp
+--- a/dom/media/platforms/PDMFactory.cpp	Tue Oct 20 23:24:27 2020 +0000
++++ b/dom/media/platforms/PDMFactory.cpp	Tue Oct 20 23:24:40 2020 +0000
+@@ -235,9 +235,6 @@
+     NS_WARNING("Unable to create a decoder, no platform found.");
+     return nullptr;
+   }
+-  if (config.IsAudio()) {
+-    decoder = new AudioTrimmer(decoder.forget(), aParams);
+-  }
+   return decoder.forget();
+ }
+ 
+@@ -276,6 +273,9 @@
+ 
+   if (config.IsAudio()) {
+     m = aPDM->CreateAudioDecoder(aParams);
++    if (!aParams.mNoWrapper.mDontUseWrapper) {
++      m = new AudioTrimmer(m.forget(), aParams);
++    }
+     return m.forget();
+   }
+ 

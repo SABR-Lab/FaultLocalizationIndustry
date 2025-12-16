@@ -1,0 +1,86 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/xul/XULPopupElement.h
+# Commit: 47c002d36372
+# Full Hash: 47c002d3637247e71ee901f32421deaecc9d8ea3
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-01-05 03:40:49
+# Regressor Bug: 1805414
+# File Overlap Count: 2
+# Description:
+#   Bug 1805414 - Remove nsMenuFrame and nsMenuParent. r=smaug,Jamie,desktop-theme-reviewers,settings-reviewers,dao
+#   
+#   Move most the event handling stuff to the DOM. I've left nsMenuBarFrame
+#   for now, but I will be removing that in the future.
+#   
+# ==============================================================================
+
+diff -r 0c989b2bcd78 -r 47c002d36372 dom/xul/XULPopupElement.h
+--- a/dom/xul/XULPopupElement.h	Wed Jan 04 18:28:34 2023 +0000
++++ b/dom/xul/XULPopupElement.h	Wed Jan 04 19:01:13 2023 +0000
+@@ -7,12 +7,15 @@
+ #ifndef XULPopupElement_h__
+ #define XULPopupElement_h__
+ 
++#include "XULMenuParentElement.h"
+ #include "mozilla/Attributes.h"
+ #include "nsCycleCollectionParticipant.h"
++#include "nsINode.h"
+ #include "nsWrapperCache.h"
+ #include "nsString.h"
+ #include "nsXULElement.h"
+ 
++class nsMenuPopupFrame;
+ struct JSContext;
+ 
+ namespace mozilla {
+@@ -29,13 +32,13 @@
+ nsXULElement* NS_NewXULPopupElement(
+     already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
+ 
+-class XULPopupElement : public nsXULElement {
++class XULPopupElement : public XULMenuParentElement {
+  private:
+-  nsIFrame* GetFrame(bool aFlushLayout);
++  nsMenuPopupFrame* GetFrame(FlushType);
+ 
+  public:
+   explicit XULPopupElement(already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo)
+-      : nsXULElement(std::move(aNodeInfo)) {}
++      : XULMenuParentElement(std::move(aNodeInfo)) {}
+ 
+   void GetLabel(DOMString& aValue) const {
+     GetXULAttr(nsGkAtoms::label, aValue);
+@@ -66,11 +69,17 @@
+ 
+   void HidePopup(bool aCancel);
+ 
+-  void ActivateItem(Element& aItemElement,
+-                    const ActivateMenuItemOptions& aOptions, ErrorResult& aRv);
++  MOZ_CAN_RUN_SCRIPT void ActivateItem(Element& aItemElement,
++                                       const ActivateMenuItemOptions& aOptions,
++                                       ErrorResult& aRv);
+ 
+   void GetState(nsString& aState);
+ 
++  MOZ_CAN_RUN_SCRIPT void PopupOpened(bool aSelectFirstItem);
++  MOZ_CAN_RUN_SCRIPT void PopupClosed(bool aDeselectMenu);
++
++  XULButtonElement* GetContainingMenu() const;
++
+   nsINode* GetTriggerNode() const;
+ 
+   Element* GetAnchorNode() const;
+@@ -89,6 +98,11 @@
+   bool IsWaylandDragSource() const;
+   bool IsWaylandPopup() const;
+ 
++  NS_IMPL_FROMNODE_HELPER(XULPopupElement,
++                          IsAnyOfXULElements(nsGkAtoms::menupopup,
++                                             nsGkAtoms::popup, nsGkAtoms::panel,
++                                             nsGkAtoms::tooltip));
++
+  protected:
+   virtual ~XULPopupElement() = default;
+ 

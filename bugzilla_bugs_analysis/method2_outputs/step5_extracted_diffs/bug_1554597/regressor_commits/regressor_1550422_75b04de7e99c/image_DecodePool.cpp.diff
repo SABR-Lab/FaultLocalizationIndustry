@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: image/DecodePool.cpp
+# Commit: 75b04de7e99c
+# Full Hash: 75b04de7e99cab7bed5cc8b0f2f6d52ddf174bf3
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2019-05-25 09:39:13
+# Regressor Bug: 1550422
+# File Overlap Count: 1
+# Description:
+#   Bug 1550422 - P15. Move Skip and Once gfxPrefs to StaticPrefs. r=jrmuizel
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D31259
+# ==============================================================================
+
+diff -r 91c3acdb2454 -r 75b04de7e99c image/DecodePool.cpp
+--- a/image/DecodePool.cpp	Fri May 24 11:32:20 2019 +0000
++++ b/image/DecodePool.cpp	Fri May 24 11:32:54 2019 +0000
+@@ -10,6 +10,7 @@
+ #include "mozilla/ClearOnShutdown.h"
+ #include "mozilla/DebugOnly.h"
+ #include "mozilla/Monitor.h"
++#include "mozilla/StaticPrefs.h"
+ #include "mozilla/TimeStamp.h"
+ #include "nsCOMPtr.h"
+ #include "nsIObserverService.h"
+@@ -20,8 +21,6 @@
+ #include "prsystem.h"
+ #include "nsIXULRuntime.h"
+ 
+-#include "gfxPrefs.h"
+-
+ #include "Decoder.h"
+ #include "IDecodingTask.h"
+ #include "RasterImage.h"
+@@ -354,7 +353,7 @@
+ 
+ DecodePool::DecodePool() : mMutex("image::IOThread") {
+   // Determine the number of threads we want.
+-  int32_t prefLimit = gfxPrefs::ImageMTDecodingLimit();
++  int32_t prefLimit = StaticPrefs::ImageMTDecodingLimit();
+   uint32_t limit;
+   if (prefLimit <= 0) {
+     int32_t numCores = NumberOfCores();
+@@ -384,7 +383,7 @@
+   uint32_t idleLimit;
+ 
+   // The timeout period before shutting down idle threads.
+-  int32_t prefIdleTimeout = gfxPrefs::ImageMTDecodingIdleTimeout();
++  int32_t prefIdleTimeout = StaticPrefs::ImageMTDecodingIdleTimeout();
+   TimeDuration idleTimeout;
+   if (prefIdleTimeout <= 0) {
+     idleTimeout = TimeDuration::Forever();

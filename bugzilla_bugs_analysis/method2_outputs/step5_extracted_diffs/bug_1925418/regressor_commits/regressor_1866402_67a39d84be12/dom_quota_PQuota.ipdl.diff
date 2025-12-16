@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/PQuota.ipdl
+# Commit: 67a39d84be12
+# Full Hash: 67a39d84be12a0ecb22429dbeb88937a3af44450
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2024-10-09 21:46:09
+# Regressor Bug: 1866402
+# File Overlap Count: 1
+# Description:
+#   Bug 1866402 - Rework QuotaManagerService::ResetStoragesForPrincipal to use an async message with an async response; r=dom-storage-reviewers,jari
+#   
+#   A sub actor is no longer created. Actual result is now returned as
+#   an asynchronous response to an asynchronous message.
+#   
+# ==============================================================================
+
+diff -r f52dd3943988 -r 67a39d84be12 dom/quota/PQuota.ipdl
+--- a/dom/quota/PQuota.ipdl	Wed Oct 09 11:57:46 2024 +0000
++++ b/dom/quota/PQuota.ipdl	Wed Oct 09 11:59:34 2024 +0000
+@@ -80,11 +80,6 @@
+   bool clientTypeIsExplicit;
+ };
+ 
+-struct ResetOriginParams
+-{
+-  ClearResetOriginParams commonParams;
+-};
+-
+ struct PersistedParams
+ {
+   PrincipalInfo principalInfo;
+@@ -108,7 +103,6 @@
+ {
+   StorageNameParams;
+   GetFullOriginMetadataParams;
+-  ResetOriginParams;
+   PersistedParams;
+   PersistParams;
+   EstimateParams;
+@@ -190,6 +184,11 @@
+   async ClearStorage()
+       returns(BoolResponse response);
+ 
++  async ShutdownStoragesForOrigin(PersistenceType? persistenceType,
++                                  PrincipalInfo principalInfo,
++                                  Type? clientType)
++      returns(BoolResponse response);
++
+   async ShutdownStorage()
+       returns(BoolResponse response);
+ 

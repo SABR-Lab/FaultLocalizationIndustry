@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/HTMLEditSubActionHandler.cpp
+# Commit: 3efbfdf889b4
+# Full Hash: 3efbfdf889b4bcda432a73871eb329523f78357b
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-08-04 09:46:07
+# Regressor Bug: 1774704
+# File Overlap Count: 1
+# Description:
+#   Bug 1774704 - part 7-2: Make `CSSEditUtils::RemoveCSSInlineStyleWithTransaction` stop touching `Selection` directly r=m_kato
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D152975
+# ==============================================================================
+
+diff -r f9d7d41f5043 -r 3efbfdf889b4 editor/libeditor/HTMLEditSubActionHandler.cpp
+--- a/editor/libeditor/HTMLEditSubActionHandler.cpp	Thu Aug 04 04:19:46 2022 +0000
++++ b/editor/libeditor/HTMLEditSubActionHandler.cpp	Thu Aug 04 04:28:13 2022 +0000
+@@ -9720,14 +9720,23 @@
+         // MOZ_KnownLive(*styledBlockOrHRElement): It's `blockOrHRElement
+         // which is OwningNonNull.
+         nsAutoString dummyCssValue;
+-        nsresult rv = mCSSEditUtils->RemoveCSSInlineStyleWithTransaction(
+-            MOZ_KnownLive(*styledBlockOrHRElement), nsGkAtoms::textAlign,
+-            dummyCssValue);
+-        if (NS_FAILED(rv)) {
++        Result<EditorDOMPoint, nsresult> pointToPutCaretOrError =
++            mCSSEditUtils->RemoveCSSInlineStyleWithTransaction(
++                MOZ_KnownLive(*styledBlockOrHRElement), nsGkAtoms::textAlign,
++                dummyCssValue);
++        if (MOZ_UNLIKELY(pointToPutCaretOrError.isErr())) {
+           NS_WARNING(
+               "CSSEditUtils::RemoveCSSInlineStyleWithTransaction(nsGkAtoms::"
+               "textAlign) failed");
+-          return rv;
++          return pointToPutCaretOrError.unwrapErr();
++        }
++        if (AllowsTransactionsToChangeSelection() &&
++            pointToPutCaretOrError.inspect().IsSet()) {
++          nsresult rv = CollapseSelectionTo(pointToPutCaretOrError.inspect());
++          if (NS_FAILED(rv)) {
++            NS_WARNING("EditorBase::CollapseSelectionTo() failed");
++            return rv;
++          }
+         }
+       }
+     }

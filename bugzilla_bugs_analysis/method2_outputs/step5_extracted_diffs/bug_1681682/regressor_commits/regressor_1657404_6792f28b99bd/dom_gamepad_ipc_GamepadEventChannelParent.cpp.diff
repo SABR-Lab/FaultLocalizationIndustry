@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/gamepad/ipc/GamepadEventChannelParent.cpp
+# Commit: 6792f28b99bd
+# Full Hash: 6792f28b99bdd9a218d3cac9b07db5a1c70c83ea
+# Author: Chris Martin <cmartin@mozilla.com>
+# Date: 2020-12-03 09:47:26
+# Regressor Bug: 1657404
+# File Overlap Count: 1
+# Description:
+#   Bug 1657404 - Refactor GamepadPlatformService r=handyman
+#   
+#   A substantial refactor of GamepadPlatformService:
+#   1. Easier to understand lifetime
+#   2. Correct usage of mutexes to protect shared state
+# ==============================================================================
+
+diff -r 349854c5ad56 -r 6792f28b99bd dom/gamepad/ipc/GamepadEventChannelParent.cpp
+--- a/dom/gamepad/ipc/GamepadEventChannelParent.cpp	Wed Dec 02 22:32:30 2020 +0000
++++ b/dom/gamepad/ipc/GamepadEventChannelParent.cpp	Wed Dec 02 22:36:35 2020 +0000
+@@ -49,20 +49,14 @@
+ 
+   mBackgroundEventTarget = GetCurrentEventTarget();
+ 
+-  RefPtr<GamepadPlatformService> service =
+-      GamepadPlatformService::GetParentService();
+-  MOZ_ASSERT(service);
+-
+-  service->AddChannelParent(this);
++  GamepadPlatformService::AddChannelParent(
++      RefPtr<GamepadEventChannelParent>(this));
+ }
+ 
+ void GamepadEventChannelParent::ActorDestroy(ActorDestroyReason aWhy) {
+   AssertIsOnBackgroundThread();
+ 
+-  RefPtr<GamepadPlatformService> service =
+-      GamepadPlatformService::GetParentService();
+-  MOZ_ASSERT(service);
+-  service->RemoveChannelParent(this);
++  GamepadPlatformService::RemoveChannelParent(this);
+ }
+ 
+ mozilla::ipc::IPCResult GamepadEventChannelParent::RecvVibrateHaptic(

@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/WindowContext.h
+# Commit: ae01b3db6250
+# Full Hash: ae01b3db6250b366ac975c4257a384c1de13d632
+# Author: Dimi Lee <dlee@mozilla.com>
+# Date: 2020-04-23 21:43:09
+# Regressor Bug: 1616775
+# File Overlap Count: 1
+# Description:
+#   Bug 1616775 - P1. Add IsThirdPartyWindow and IsThirdPartyTrackingResourceWindow fields to WindowContext. r=timhuang,baku,farre
+#   
+#   We have to add "IsThirdPartyWindow" in WindowContext because we need to know if
+#   a BrowsingContext is third-party (The browsing context may be not
+#   in-process).
+# ==============================================================================
+
+diff -r 685b68485248 -r ae01b3db6250 docshell/base/WindowContext.h
+--- a/docshell/base/WindowContext.h	Thu Apr 23 04:33:57 2020 +0000
++++ b/docshell/base/WindowContext.h	Thu Apr 23 14:24:56 2020 +0000
+@@ -17,7 +17,13 @@
+ #define MOZ_EACH_WC_FIELD(FIELD)                                       \
+   FIELD(OuterWindowId, uint64_t)                                       \
+   FIELD(CookieJarSettings, Maybe<mozilla::net::CookieJarSettingsArgs>) \
+-  FIELD(HasStoragePermission, bool)
++  FIELD(HasStoragePermission, bool)                                    \
++  /* Whether the given window hierarchy is third party. See            \
++   * ThirdPartyUtil::IsThirdPartyWindow for details */                 \
++  FIELD(IsThirdPartyWindow, bool)                                      \
++  /* Whether this window's channel has been marked as a third-party    \
++   * tracking resource */                                              \
++  FIELD(IsThirdPartyTrackingResourceWindow, bool)
+ 
+ class WindowContext : public nsISupports, public nsWrapperCache {
+   MOZ_DECL_SYNCED_CONTEXT(WindowContext, MOZ_EACH_WC_FIELD)
+@@ -89,6 +95,12 @@
+     return true;
+   }
+ 
++  bool CanSet(FieldIndex<IDX_IsThirdPartyWindow>,
++              const bool& IsThirdPartyWindow, ContentParent* aSource);
++  bool CanSet(FieldIndex<IDX_IsThirdPartyTrackingResourceWindow>,
++              const bool& aIsThirdPartyTrackingResourceWindow,
++              ContentParent* aSource);
++
+   // Overload `DidSet` to get notifications for a particular field being set.
+   //
+   // You can also overload the variant that gets the old value if you need it.

@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/tile_cache.rs
+# Commit: c20cf2fa829a
+# Full Hash: c20cf2fa829a19cb6b60909d05abcda40e77dd70
+# Author: Glenn Watson <git@intuitionlibrary.com>
+# Date: 2022-04-20 09:42:47
+# Regressor Bug: 1764005
+# File Overlap Count: 1
+# Description:
+#   Bug 1764005 - Add backdrop-filter primitive support r=gfx-reviewers,lsalzman,nical
+#   
+#   Add support for backdrop-filter primitive in WR. Each backdrop
+#   filter primitive establishes a render task sub-graph. The primitive
+#   instance registers itself as a resolve source to receive the
+# ==============================================================================
+
+diff -r d5b01209cf78 -r c20cf2fa829a gfx/wr/webrender/src/tile_cache.rs
+--- a/gfx/wr/webrender/src/tile_cache.rs	Wed Apr 20 01:08:52 2022 +0000
++++ b/gfx/wr/webrender/src/tile_cache.rs	Wed Apr 20 01:09:09 2022 +0000
+@@ -132,6 +132,14 @@
+         let mut scroll_root_occurrences = FastHashMap::default();
+ 
+         for cluster in &prim_list.clusters {
++            // If we encounter a cluster which has an unknown spatial node,
++            // we don't include that in the set of spatial nodes that we
++            // are trying to find scroll roots for. Later on, in finalize_picture,
++            // the cluster spatial node will be updated to the selected scroll root.
++            if cluster.spatial_node_index == SpatialNodeIndex::UNKNOWN {
++                continue;
++            }
++
+             let scroll_root = self.find_scroll_root(
+                 cluster.spatial_node_index,
+                 spatial_tree,
+@@ -378,7 +386,7 @@
+                 let (params, iframe_clip) = if slice == MAX_CACHE_SLICES-1 {
+                     let params = TileCacheParams {
+                         slice,
+-                        slice_flags: SliceFlags::empty(),
++                        slice_flags: SliceFlags::IS_ATOMIC,
+                         spatial_node_index: self.root_spatial_node_index,
+                         background_color: None,
+                         shared_clips: Vec::new(),

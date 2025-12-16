@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/wr/WebRenderLayerManager.cpp
+# Commit: b294575c279c
+# Full Hash: b294575c279c9681d0a26b1592f47014262f1d03
+# Author: Alexis Beingessner <a.beingessner@gmail.com>
+# Date: 2019-07-12 09:56:21
+# Regressor Bug: 1547351
+# File Overlap Count: 2
+# Description:
+#   Bug 1547351 - Automatically set content process render root r=kats
+#   
+#   This implements the idea of automatically setting a content proc's
+#   render root based on the render root enclosing the iframe that
+#   points to it. There was a bit of cleanup in here that was a bit
+# ==============================================================================
+
+diff -r 69260373f95c -r b294575c279c gfx/layers/wr/WebRenderLayerManager.cpp
+--- a/gfx/layers/wr/WebRenderLayerManager.cpp	Fri Jul 12 03:19:28 2019 +0000
++++ b/gfx/layers/wr/WebRenderLayerManager.cpp	Fri Jul 12 03:19:28 2019 +0000
+@@ -255,6 +255,7 @@
+         WrBridge()->HasWebRenderParentCommands(renderRoot)) {
+       auto updates = renderRootUpdates.AppendElement();
+       updates->mRenderRoot = renderRoot;
++      updates->mPaintSequenceNumber = mPaintSequenceNumber;
+       if (stateManager.mAsyncResourceUpdates) {
+         stateManager.mAsyncResourceUpdates->Flush(updates->mResourceUpdates,
+                                                   updates->mSmallShmems,
+@@ -269,7 +270,7 @@
+ 
+   Maybe<wr::IpcResourceUpdateQueue> nothing;
+   WrBridge()->EndEmptyTransaction(mFocusTarget, renderRootUpdates,
+-                                  mPaintSequenceNumber, mLatestTransactionId,
++                                  mLatestTransactionId,
+                                   mTransactionIdAllocator->GetVsyncId(),
+                                   mTransactionIdAllocator->GetVsyncStart(),
+                                   refreshStart, mTransactionStart, mURL);

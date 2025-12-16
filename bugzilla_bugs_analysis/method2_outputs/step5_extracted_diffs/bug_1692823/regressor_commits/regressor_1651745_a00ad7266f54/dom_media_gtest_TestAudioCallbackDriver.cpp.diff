@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/gtest/TestAudioCallbackDriver.cpp
+# Commit: a00ad7266f54
+# Full Hash: a00ad7266f54820d7a3ff1233fa156f63190a3a3
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2020-11-06 04:14:34
+# Regressor Bug: 1651745
+# File Overlap Count: 1
+# Description:
+#   Bug 1651745 - Signal AudioInputProcessing on input stream stop instead of driver start. r=padenot
+#   
+#   Without this patch, AudioInputProcessing wouldn't be aware of an audio driver
+#   changing to another driver, be it a system driver or an audio driver that starts
+#   on its fallback.
+# ==============================================================================
+
+diff -r a76d9158cdfd -r a00ad7266f54 dom/media/gtest/TestAudioCallbackDriver.cpp
+--- a/dom/media/gtest/TestAudioCallbackDriver.cpp	Thu Nov 05 16:42:41 2020 +0000
++++ b/dom/media/gtest/TestAudioCallbackDriver.cpp	Thu Nov 05 16:43:24 2020 +0000
+@@ -25,7 +25,7 @@
+   NS_DECL_THREADSAFE_ISUPPORTS
+   MOCK_METHOD4(NotifyOutputData,
+                void(AudioDataValue*, size_t, TrackRate, uint32_t));
+-  MOCK_METHOD0(NotifyStarted, void());
++  MOCK_METHOD0(NotifyInputStopped, void());
+   MOCK_METHOD4(NotifyInputData,
+                void(const AudioDataValue*, size_t, TrackRate, uint32_t));
+   MOCK_METHOD0(DeviceChanged, void());
+@@ -58,7 +58,7 @@
+ 
+   RefPtr<AudioCallbackDriver> driver;
+   auto graph = MakeRefPtr<NiceMock<MockGraphInterface>>();
+-  EXPECT_CALL(*graph, NotifyStarted).Times(1);
++  EXPECT_CALL(*graph, NotifyInputStopped).Times(0);
+   ON_CALL(*graph, NotifyOutputData)
+       .WillByDefault([&](AudioDataValue*, size_t, TrackRate, uint32_t) {});
+ 

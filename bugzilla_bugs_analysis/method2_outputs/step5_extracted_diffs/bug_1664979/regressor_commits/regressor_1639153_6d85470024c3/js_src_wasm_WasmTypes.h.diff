@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmTypes.h
+# Commit: 6d85470024c3
+# Full Hash: 6d85470024c368ed777a64b2be549934a57a4151
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-10-31 21:05:17
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 2: Preserve callee and caller tls'es. r=lth
+#   
+#   This is a followup patch for removing Frame::tls.
+#   Now, we are preserving caller's and callee's tls'es for all possible cross-instance calls in the previously allocated abi slots.
+#   We also use preserved tls values to restore the caller's tls in Ion. Baseline doesn't need this because it restores the caller tls from its private stack slot after the call.
+# ==============================================================================
+
+diff -r 48d5f5918e01 -r 6d85470024c3 js/src/wasm/WasmTypes.h
+--- a/js/src/wasm/WasmTypes.h	Sat Oct 31 09:56:04 2020 +0000
++++ b/js/src/wasm/WasmTypes.h	Sat Oct 31 09:56:05 2020 +0000
+@@ -3311,8 +3311,21 @@
+   constexpr static uint32_t sizeWithoutFrame() {
+     return sizeof(wasm::FrameWithTls) - sizeof(wasm::Frame);
+   }
++
++  constexpr static uint32_t calleeTLSOffset() {
++    return offsetof(FrameWithTls, calleeTls_) - sizeof(wasm::Frame);
++  }
++
++  constexpr static uint32_t callerTLSOffset() {
++    return offsetof(FrameWithTls, callerTls_) - sizeof(wasm::Frame);
++  }
+ };
+ 
++static_assert(FrameWithTls::calleeTLSOffset() == 0u,
++              "Callee tls stored right above the return address.");
++static_assert(FrameWithTls::callerTLSOffset() == sizeof(void*),
++              "Caller tls stored right above the callee tls.");
++
+ static_assert(FrameWithTls::sizeWithoutFrame() == 2 * sizeof(void*),
+               "There are only two additional slots");
+ 

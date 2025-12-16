@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/nsHttpChannel.cpp
+# Commit: cad764eb15a4
+# Full Hash: cad764eb15a4a42cfdb2468ce762029130c0b9fc
+# Author: Junior Hsu <juhsu@mozilla.com>
+# Date: 2020-06-30 10:00:42
+# Regressor Bug: 1633935
+# File Overlap Count: 1
+# Description:
+#   Bug 1633935 - P12 top-level IPC stream filter should happen before OnStartRequest, r=mayhemer,necko-reviewers
+#   
+#   The WebRequest will suspend the channel in nsHttpChannel::PrepareToConnect(), apply the stream filter, send the main thread IPC  and resume.
+#   That is, PHttpChannel::AttachStreamFilter should be handled in Child before OnStartRequest goes to listener.
+#   
+# ==============================================================================
+
+diff -r f75cc7d5f40e -r cad764eb15a4 netwerk/protocol/http/nsHttpChannel.cpp
+--- a/netwerk/protocol/http/nsHttpChannel.cpp	Tue Jun 30 00:34:24 2020 +0000
++++ b/netwerk/protocol/http/nsHttpChannel.cpp	Tue Jun 30 00:34:32 2020 +0000
+@@ -7068,6 +7068,9 @@
+ 
+ auto nsHttpChannel::AttachStreamFilter(base::ProcessId aChildProcessId)
+     -> RefPtr<ChildEndpointPromise> {
++  LOG(("nsHttpChannel::AttachStreamFilter [this=%p]", this));
++  MOZ_ASSERT(!mOnStartRequestCalled);
++
+   nsCOMPtr<nsIParentChannel> parentChannel;
+   NS_QueryNotificationCallbacks(this, parentChannel);
+ 
+@@ -7088,7 +7091,7 @@
+   }
+ 
+   if (RefPtr<HttpChannelParent> httpParent = do_QueryObject(parentChannel)) {
+-    if (httpParent->SendAttachStreamFilter(std::move(parent))) {
++    if (httpParent->AttachStreamFilter(std::move(parent))) {
+       return ChildEndpointPromise::CreateAndResolve(std::move(child), __func__);
+     }
+     return ChildEndpointPromise::CreateAndReject(false, __func__);
+@@ -7100,7 +7103,7 @@
+ 
+ NS_IMETHODIMP
+ nsHttpChannel::GetNavigationStartTimeStamp(TimeStamp* aTimeStamp) {
+-  LOG(("nsHttpChannel::GetNavigationStartTimeStamp %p", this));
++  LOG(("nsHttpChannel::GetNavigationStartTimeStamp [this=%p]", this));
+   MOZ_ASSERT(aTimeStamp);
+   *aTimeStamp = mNavigationStartTimeStamp;
+   return NS_OK;
+@@ -7108,7 +7111,7 @@
+ 
+ NS_IMETHODIMP
+ nsHttpChannel::SetNavigationStartTimeStamp(TimeStamp aTimeStamp) {
+-  LOG(("nsHttpChannel::SetNavigationStartTimeStamp %p", this));
++  LOG(("nsHttpChannel::SetNavigationStartTimeStamp [this=%p]", this));
+   mNavigationStartTimeStamp = aTimeStamp;
+   return NS_OK;
+ }

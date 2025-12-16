@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webcodecs/DecoderAgent.h
+# Commit: 8fe486442687
+# Full Hash: 8fe4864426874b31f061149ae6f73fe5c8f9f96c
+# Author: Chun-Min Chang <chun.m.chang@gmail.com>
+# Date: 2023-06-30 04:06:43
+# Regressor Bug: 1831451
+# File Overlap Count: 1
+# Description:
+#   Bug 1831451 - Generate a unique Id for both ConfigureMessage and DecoderAgent r=alwu
+#   
+#   To batter tracking the ControlMessage logs, ConfigureMessage should
+#   generate a unique Id for itself and its following DecodeMessages and
+#   FlushMessages. Besides, that unique id can be assigned to DecoderAgent
+# ==============================================================================
+
+diff -r b3c2b04d4a36 -r 8fe486442687 dom/media/webcodecs/DecoderAgent.h
+--- a/dom/media/webcodecs/DecoderAgent.h	Thu Jun 29 22:33:14 2023 +0000
++++ b/dom/media/webcodecs/DecoderAgent.h	Thu Jun 29 22:33:14 2023 +0000
+@@ -42,7 +42,8 @@
+  public:
+   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(DecoderAgent);
+ 
+-  static already_AddRefed<DecoderAgent> Create(UniquePtr<TrackInfo>&& aInfo);
++  using Id = uint32_t;
++  DecoderAgent(Id aId, UniquePtr<TrackInfo>&& aInfo);
+ 
+   // The following APIs are owner thread only.
+ 
+@@ -57,13 +58,10 @@
+   // the term from MediaDataDecoder's one, we call it DrainAndFlush() here.
+   RefPtr<DecodePromise> DrainAndFlush();
+ 
+-  using Id = uint32_t;
+-  static constexpr Id None = 0;
+   const Id mId;  // A unique id.
+   const UniquePtr<TrackInfo> mInfo;
+ 
+  private:
+-  DecoderAgent(Id aId, UniquePtr<TrackInfo>&& aInfo);
+   ~DecoderAgent();
+ 
+   // Push out all the data in the MediaDataDecoder's pipeline.

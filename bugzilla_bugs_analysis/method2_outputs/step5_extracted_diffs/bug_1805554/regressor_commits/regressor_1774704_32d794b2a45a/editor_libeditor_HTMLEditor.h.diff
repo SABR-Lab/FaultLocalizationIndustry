@@ -1,0 +1,66 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/HTMLEditor.h
+# Commit: 32d794b2a45a
+# Full Hash: 32d794b2a45a300cd0f5b07dcac5ab5a8a89fb23
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-08-04 09:46:07
+# Regressor Bug: 1774704
+# File Overlap Count: 1
+# Description:
+#   Bug 1774704 - part 4-4: Make `HTMLEditor::ChangeSelectedHardLinesToList` stop setting `TopLevelEditSubActionData::mNewBlockElement` r=m_kato
+#   
+#   With taking an `AutoRangeArray` which is initialized with `Selection`, it can
+#   restore selection and check if it's collapsed and if collapsed in the expected
+#   list element.  Then, its caller can apply the returned range to `Selection`
+# ==============================================================================
+
+diff -r 23d50b5617de -r 32d794b2a45a editor/libeditor/HTMLEditor.h
+--- a/editor/libeditor/HTMLEditor.h	Thu Aug 04 02:12:03 2022 +0000
++++ b/editor/libeditor/HTMLEditor.h	Thu Aug 04 02:28:11 2022 +0000
+@@ -1594,16 +1594,20 @@
+       Element& aListElement, nsAtom& aListType, nsAtom& aItemType);
+ 
+   /**
+-   * ChangeSelectedHardLinesToList() converts selected ranges to specified
+-   * list element.  If there is different type of list elements, this method
+-   * converts them to specified list items too.  Basically, each hard line
+-   * will be wrapped with a list item element.  However, only when `<p>`
++   * ConvertContentAroundRangesToList() converts contents around aRanges to
++   * specified list element.  If there is different type of list elements, this
++   * method converts them to specified list items too.  Basically, each hard
++   * line will be wrapped with a list item element.  However, only when `<p>`
+    * element is selected, its child `<br>` elements won't be treated as
+    * hard line separators.  Perhaps, this is a bug.
+-   * NOTE: This method creates AutoSelectionRestorer.  Therefore, each caller
+-   *       need to check if the editor is still available even if this returns
+-   *       NS_OK.
+    *
++   * @param aRanges     [in/out] The ranges which will be converted to list.
++   *                    The instance must not have saved ranges because it'll
++   *                    be used in this method.
++   *                    If succeeded, this will have selection ranges which
++   *                    should be applied to `Selection`.
++   *                    If failed, this keeps storing original selection
++   *                    ranges.
+    * @param aListElementTagName         The new list element tag name.
+    * @param aListItemElementTagName     The new list item element tag name.
+    * @param aBulletType                 If this is not empty string, it's set
+@@ -1615,11 +1619,11 @@
+    * @param aEditingHost                The editing host.
+    */
+   [[nodiscard]] MOZ_CAN_RUN_SCRIPT EditActionResult
+-  ChangeSelectedHardLinesToList(nsAtom& aListElementTagName,
+-                                nsAtom& aListItemElementTagName,
+-                                const nsAString& aBulletType,
+-                                SelectAllOfCurrentList aSelectAllOfCurrentList,
+-                                const Element& aEditingHost);
++  ConvertContentAroundRangesToList(
++      AutoRangeArray& aRanges, nsAtom& aListElementTagName,
++      nsAtom& aListItemElementTagName, const nsAString& aBulletType,
++      SelectAllOfCurrentList aSelectAllOfCurrentList,
++      const Element& aEditingHost);
+ 
+   /**
+    * MakeOrChangeListAndListItemAsSubAction() handles create list commands with

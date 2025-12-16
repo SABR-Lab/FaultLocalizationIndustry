@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/CoalescedMouseData.cpp
+# Commit: f8a2a169b296
+# Full Hash: f8a2a169b2969d29e04733ae27a56459e5359973
+# Author: Alexandru Marc <amarc@mozila.com>
+# Date: 2025-05-16 09:19:19
+# Regressor Bug: 1550462
+# File Overlap Count: 1
+# Description:
+#   Revert "Bug 1550462 - part 3: Enable `pointerrawupdate` event r=smaug" for causing mochitest failures @ test_pointerrawupdate_event_count.html
+#   
+#   This reverts commit eb27445e0352d6b4df540adb40e21f72fc052e80.
+#   
+#   Revert "Bug 1550462 - part 2: Make `PresShell::HandleEvent` dispatch preceding `pointerrawupdate` event r=smaug,dom-core,edgar"
+# ==============================================================================
+
+diff -r 8d25773fc82f -r f8a2a169b296 dom/ipc/CoalescedMouseData.cpp
+--- a/dom/ipc/CoalescedMouseData.cpp	Fri May 16 06:20:47 2025 +0000
++++ b/dom/ipc/CoalescedMouseData.cpp	Fri May 16 09:30:09 2025 +0300
+@@ -58,29 +58,17 @@
+ 
+ bool CoalescedMouseData::CanCoalesce(const WidgetMouseEvent& aEvent,
+                                      const ScrollableLayerGuid& aGuid,
+-                                     const uint64_t& aInputBlockId,
+-                                     const nsRefreshDriver* aRefreshDriver) {
++                                     const uint64_t& aInputBlockId) {
+   MOZ_ASSERT(aEvent.mMessage == eMouseMove);
+-  if (!mCoalescedInputEvent) {
+-    return true;
+-  }
+-  if (mCoalescedInputEvent->mFlags.mIsSynthesizedForTests !=
+-          aEvent.mFlags.mIsSynthesizedForTests ||
+-      mCoalescedInputEvent->mModifiers != aEvent.mModifiers ||
+-      mCoalescedInputEvent->mInputSource != aEvent.mInputSource ||
+-      mCoalescedInputEvent->pointerId != aEvent.pointerId ||
+-      mCoalescedInputEvent->mButton != aEvent.mButton ||
+-      mCoalescedInputEvent->mButtons != aEvent.mButtons || mGuid != aGuid ||
+-      mInputBlockId != aInputBlockId) {
+-    return false;
+-  }
+-  // Basically, tests do not want to coalesces the consecutive mouse events.
+-  // However, if the test calls nsIDOMWindowUtils::AdvanceTimeAndRefresh(0),
+-  // they must try to check coalesced mouse move events.
+-  if (!aEvent.mFlags.mIsSynthesizedForTests) {
+-    return true;
+-  }
+-  return aRefreshDriver && aRefreshDriver->IsTestControllingRefreshesEnabled();
++  return !mCoalescedInputEvent ||
++         (!mCoalescedInputEvent->mFlags.mIsSynthesizedForTests &&
++          !aEvent.mFlags.mIsSynthesizedForTests &&
++          mCoalescedInputEvent->mModifiers == aEvent.mModifiers &&
++          mCoalescedInputEvent->mInputSource == aEvent.mInputSource &&
++          mCoalescedInputEvent->pointerId == aEvent.pointerId &&
++          mCoalescedInputEvent->mButton == aEvent.mButton &&
++          mCoalescedInputEvent->mButtons == aEvent.mButtons && mGuid == aGuid &&
++          mInputBlockId == aInputBlockId);
+ }
+ 
+ CoalescedMouseMoveFlusher::CoalescedMouseMoveFlusher(

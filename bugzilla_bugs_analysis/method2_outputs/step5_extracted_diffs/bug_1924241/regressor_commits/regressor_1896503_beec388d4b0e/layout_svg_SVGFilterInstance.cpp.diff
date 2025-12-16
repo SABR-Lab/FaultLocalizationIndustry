@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/svg/SVGFilterInstance.cpp
+# Commit: beec388d4b0e
+# Full Hash: beec388d4b0e6a50ac243ed86c0e3f1f48cbe744
+# Author: Ashley Hale <ahale@mozilla.com>
+# Date: 2024-06-25 09:36:02
+# Regressor Bug: 1896503
+# File Overlap Count: 1
+# Description:
+#   Bug 1896503 - Implement FilterInstance code to send SVG filter graph to WebRender r=mstange,gw
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D174208
+# ==============================================================================
+
+diff -r 2147e0051e23 -r beec388d4b0e layout/svg/SVGFilterInstance.cpp
+--- a/layout/svg/SVGFilterInstance.cpp	Mon Jun 24 23:40:38 2024 +0000
++++ b/layout/svg/SVGFilterInstance.cpp	Mon Jun 24 23:45:05 2024 +0000
+@@ -32,7 +32,8 @@
+     const StyleFilter& aFilter, SVGFilterFrame* aFilterFrame,
+     nsIContent* aTargetContent, const UserSpaceMetrics& aMetrics,
+     const gfxRect& aTargetBBox,
+-    const MatrixScalesDouble& aUserSpaceToFilterSpaceScale)
++    const MatrixScalesDouble& aUserSpaceToFilterSpaceScale,
++    gfxRect& aFilterSpaceBoundsNotSnapped)
+     : mFilter(aFilter),
+       mTargetContent(aTargetContent),
+       mMetrics(aMetrics),
+@@ -54,6 +55,7 @@
+   if (!ComputeBounds()) {
+     return;
+   }
++  aFilterSpaceBoundsNotSnapped = mFilterSpaceBoundsNotSnapped;
+ 
+   mInitialized = true;
+ }
+@@ -88,6 +90,7 @@
+   // can align them with the pixel boundaries of the offscreen surface.
+   // The offscreen surface has the same scale as filter space.
+   gfxRect filterSpaceBounds = UserSpaceToFilterSpace(userSpaceBounds);
++  mFilterSpaceBoundsNotSnapped = filterSpaceBounds;
+   filterSpaceBounds.RoundOut();
+   if (filterSpaceBounds.width <= 0 || filterSpaceBounds.height <= 0) {
+     // 0 disables rendering, < 0 is error. dispatch error console warning

@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/wr/WebRenderBridgeChild.cpp
+# Commit: 36b0646e8649
+# Full Hash: 36b0646e86498662e770756ad54b1fd648a82184
+# Author: Andreas Farre <farre@mozilla.com>
+# Date: 2020-04-07 21:44:02
+# Regressor Bug: 1620594
+# File Overlap Count: 1
+# Description:
+#   Bug 1620594 - Part 7: Remove TabGroup and SystemGroup. r=nika,bas
+#   
+#   TabGroup never really made any difference in which thread something go
+#   dispatched to. This was the intended use, but development of TabGroups
+#   with abstract main threads never made it that far. The good thing is
+# ==============================================================================
+
+diff -r a5ad3b179c92 -r 36b0646e8649 gfx/layers/wr/WebRenderBridgeChild.cpp
+--- a/gfx/layers/wr/WebRenderBridgeChild.cpp	Tue Apr 07 15:17:14 2020 +0000
++++ b/gfx/layers/wr/WebRenderBridgeChild.cpp	Tue Apr 07 15:17:47 2020 +0000
+@@ -8,7 +8,6 @@
+ 
+ #include "gfxPlatform.h"
+ #include "mozilla/StaticPrefs_gfx.h"
+-#include "mozilla/dom/TabGroup.h"
+ #include "mozilla/layers/CompositableClient.h"
+ #include "mozilla/layers/CompositorBridgeChild.h"
+ #include "mozilla/layers/ImageDataSerializer.h"
+@@ -565,13 +564,9 @@
+   MOZ_ASSERT(aManager && !mManager);
+   mManager = aManager;
+ 
+-  nsCOMPtr<nsIEventTarget> eventTarget = nullptr;
+-  if (dom::TabGroup* tabGroup = mManager->GetTabGroup()) {
+-    eventTarget = tabGroup->EventTargetFor(TaskCategory::Other);
+-  }
+-  MOZ_ASSERT(eventTarget || !XRE_IsContentProcess());
++  MOZ_ASSERT(NS_IsMainThread() || !XRE_IsContentProcess());
+   mActiveResourceTracker = MakeUnique<ActiveResourceTracker>(
+-      1000, "CompositableForwarder", eventTarget);
++      1000, "CompositableForwarder", nullptr);
+ }
+ 
+ ipc::IShmemAllocator* WebRenderBridgeChild::GetShmemAllocator() {

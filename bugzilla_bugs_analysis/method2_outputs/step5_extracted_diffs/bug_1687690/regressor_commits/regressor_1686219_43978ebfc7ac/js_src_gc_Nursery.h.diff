@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/Nursery.h
+# Commit: 43978ebfc7ac
+# Full Hash: 43978ebfc7ace2c37aba0b7644ac4e866e0730bd
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2021-01-20 16:13:57
+# Regressor Bug: 1686219
+# File Overlap Count: 1
+# Description:
+#   Bug 1686219 - Store chunk information at the start rather than the end of the chunk r=sfink
+#   
+#   This moves the chunk metadata to the start of the chunk and defines the data structures in the public header.  This simplifies accessing this data and removes the need for hardcoded offsets.
+#   
+#   Requesting review from jandem for JIT updates.
+# ==============================================================================
+
+diff -r 496d47ff3fa1 -r 43978ebfc7ac js/src/gc/Nursery.h
+--- a/js/src/gc/Nursery.h	Wed Jan 20 10:04:11 2021 +0000
++++ b/js/src/gc/Nursery.h	Wed Jan 20 10:04:29 2021 +0000
+@@ -366,7 +366,7 @@
+   size_t capacity() const { return capacity_; }
+   size_t committed() const { return spaceToEnd(allocatedChunkCount()); }
+ 
+-  // Used and free space both include chunk trailers for that part of the
++  // Used and free space both include chunk headers for that part of the
+   // nursery.
+   //
+   // usedSpace() + freeSpace() == capacity()
+@@ -434,7 +434,7 @@
+ 
+   // The amount of space in the mapped nursery available to allocations.
+   static const size_t NurseryChunkUsableSize =
+-      gc::ChunkSize - gc::ChunkTrailerSize;
++      gc::ChunkSize - sizeof(gc::ChunkHeader);
+ 
+   void joinDecommitTask() { decommitTask.join(); }
+ 
+@@ -476,8 +476,7 @@
+ 
+   // The current nursery capacity measured in bytes. It may grow up to this
+   // value without a collection, allocating chunks on demand. This limit may be
+-  // changed by maybeResizeNursery() each collection. It does not include chunk
+-  // trailers.
++  // changed by maybeResizeNursery() each collection. It includes chunk headers.
+   size_t capacity_;
+ 
+   mozilla::TimeDuration timeInChunkAlloc_;
+@@ -659,7 +658,7 @@
+ 
+   // extent is advisory, it will be ignored in sub-chunk and generational zeal
+   // modes. It will be clamped to Min(NurseryChunkUsableSize, capacity_).
+-  void poisonAndInitCurrentChunk(size_t extent = NurseryChunkUsableSize);
++  void poisonAndInitCurrentChunk(size_t extent = gc::ChunkSize);
+ 
+   void setCurrentEnd();
+   void setStartPosition();

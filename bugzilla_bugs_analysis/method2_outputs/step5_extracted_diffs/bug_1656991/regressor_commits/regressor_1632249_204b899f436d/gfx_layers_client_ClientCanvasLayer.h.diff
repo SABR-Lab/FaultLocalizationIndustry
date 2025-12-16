@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/client/ClientCanvasLayer.h
+# Commit: 204b899f436d
+# Full Hash: 204b899f436d99f0eae759af3ccfcbaabfbbb428
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-06-11 09:34:54
+# Regressor Bug: 1632249
+# File Overlap Count: 1
+# Description:
+#   Bug 1632249 - Support compositing out-of-process WebGL. r=handyman,lsalzman,nical,geckoview-reviewers,agi,imanol
+#   
+#   * Majorly simplity CanvasRenderer
+#   * Replace GLScreenBuffer with trivial GLSwapChain
+#   * Use descriptor structs so that future SharedSurface changes aren't so painful
+# ==============================================================================
+
+diff -r 3f5baab34b1f -r 204b899f436d gfx/layers/client/ClientCanvasLayer.h
+--- a/gfx/layers/client/ClientCanvasLayer.h	Thu Jun 11 06:36:55 2020 +0000
++++ b/gfx/layers/client/ClientCanvasLayer.h	Thu Jun 11 06:37:35 2020 +0000
+@@ -30,7 +30,7 @@
+     MOZ_COUNT_CTOR(ClientCanvasLayer);
+   }
+ 
+-  CanvasRenderer* CreateCanvasRendererInternal() override;
++  RefPtr<CanvasRenderer> CreateCanvasRendererInternal() override;
+ 
+  protected:
+   virtual ~ClientCanvasLayer();
+@@ -59,7 +59,7 @@
+   Layer* AsLayer() override { return this; }
+   ShadowableLayer* AsShadowableLayer() override { return this; }
+ 
+-  void Disconnect() override { mCanvasRenderer->Destroy(); }
++  void Disconnect() override { mCanvasRenderer->DisconnectClient(); }
+ 
+   CompositableClient* GetCompositableClient() override {
+     ClientCanvasRenderer* canvasRenderer =

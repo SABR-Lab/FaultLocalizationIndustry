@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/Lowering.cpp
+# Commit: 659b24c3626c
+# Full Hash: 659b24c3626c6a299ef34ce4a0109fca2e2a9112
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-09-11 21:38:12
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 6.4: Add tls dependency for WasmTruncateToInt64 and Int64ToFloatingPoint for arm. r=lth
+#   
+#   In this patch we add a tls dependency for the remaining nodes which use
+#   BuiltinThunk to call c++ runtime. By ABI requirements WasmTlsReg should
+#   be set.
+# ==============================================================================
+
+diff -r 473f1cb675ea -r 659b24c3626c js/src/jit/Lowering.cpp
+--- a/js/src/jit/Lowering.cpp	Fri Sep 11 05:37:42 2020 +0000
++++ b/js/src/jit/Lowering.cpp	Fri Sep 11 12:02:42 2020 +0000
+@@ -1861,6 +1861,16 @@
+   defineReturn(lir, ins);
+ }
+ 
++void LIRGenerator::visitBuiltinInt64ToFloatingPoint(
++    MBuiltinInt64ToFloatingPoint* ins) {
++  lowerBuiltinInt64ToFloatingPoint(ins);
++}
++
++void LIRGenerator::visitWasmBuiltinTruncateToInt64(
++    MWasmBuiltinTruncateToInt64* ins) {
++  lowerWasmBuiltinTruncateToInt64(ins);
++}
++
+ void LIRGenerator::visitMod(MMod* ins) {
+   MOZ_ASSERT(ins->lhs()->type() == ins->rhs()->type());
+   MOZ_ASSERT(IsNumberType(ins->type()));

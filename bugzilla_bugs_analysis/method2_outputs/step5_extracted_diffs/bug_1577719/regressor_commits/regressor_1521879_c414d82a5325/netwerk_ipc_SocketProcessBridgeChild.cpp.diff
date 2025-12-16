@@ -1,0 +1,117 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/ipc/SocketProcessBridgeChild.cpp
+# Commit: c414d82a5325
+# Full Hash: c414d82a532508523d40ce63111cb30b2a1076be
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2019-02-22 05:26:22
+# Regressor Bug: 1521879
+# File Overlap Count: 1
+# Description:
+#   Bug 1521879 - Part 1: IPC-based MediaTransport implementation r=mjf
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D17273
+# ==============================================================================
+
+diff -r 3a182b05e2c1 -r c414d82a5325 netwerk/ipc/SocketProcessBridgeChild.cpp
+--- a/netwerk/ipc/SocketProcessBridgeChild.cpp	Thu Feb 21 19:01:32 2019 +0200
++++ b/netwerk/ipc/SocketProcessBridgeChild.cpp	Thu Feb 21 16:42:12 2019 +0000
+@@ -9,6 +9,7 @@
+ #include "mozilla/net/NeckoChild.h"
+ #include "nsIObserverService.h"
+ #include "nsThreadUtils.h"
++#include "mozilla/dom/PMediaTransportChild.h"
+ 
+ namespace mozilla {
+ namespace net {
+@@ -47,35 +48,49 @@
+ }
+ 
+ // static
+-void SocketProcessBridgeChild::EnsureSocketProcessBridge(
+-    std::function<void()>&& aOnSuccess, std::function<void()>&& aOnFailure) {
+-  MOZ_ASSERT(IsNeckoChild() && gNeckoChild);
++RefPtr<SocketProcessBridgeChild::GetPromise>
++SocketProcessBridgeChild::GetSocketProcessBridge() {
+   MOZ_ASSERT(NS_IsMainThread());
+ 
+   if (!gNeckoChild) {
+-    aOnFailure();
+-    return;
++    return GetPromise::CreateAndReject(nsCString("No NeckoChild!"), __func__);
+   }
+ 
+   if (sSocketProcessBridgeChild) {
+-    aOnSuccess();
+-    return;
++    return GetPromise::CreateAndResolve(sSocketProcessBridgeChild, __func__);
+   }
+ 
+-  gNeckoChild->SendInitSocketProcessBridge()->Then(
++  return gNeckoChild->SendInitSocketProcessBridge()->Then(
+       GetMainThreadSerialEventTarget(), __func__,
+-      [onSuccess = std::move(aOnSuccess), onFailure = std::move(aOnFailure)](
+-          Endpoint<PSocketProcessBridgeChild>&& aEndpoint) {
+-        if (aEndpoint.IsValid()) {
+-          if (SocketProcessBridgeChild::Create(std::move(aEndpoint))) {
+-            onSuccess();
+-            return;
++      [](NeckoChild::InitSocketProcessBridgePromise::ResolveOrRejectValue&&
++             aResult) {
++        if (!sSocketProcessBridgeChild) {
++          if (aResult.IsReject()) {
++            return GetPromise::CreateAndReject(
++                nsCString("SendInitSocketProcessBridge failed"), __func__);
++          }
++
++          if (!aResult.ResolveValue().IsValid()) {
++            return GetPromise::CreateAndReject(
++                nsCString(
++                    "SendInitSocketProcessBridge resolved with an invalid "
++                    "endpoint!"),
++                __func__);
++          }
++
++          if (!SocketProcessBridgeChild::Create(
++                  std::move(aResult.ResolveValue()))) {
++            return GetPromise::CreateAndReject(
++                nsCString("SendInitSocketProcessBridge resolved with a valid "
++                          "endpoint, "
++                          "but SocketProcessBridgeChild::Create failed!"),
++                __func__);
+           }
+         }
+-        onFailure();
+-      },
+-      [onFailure = std::move(aOnFailure)](
+-          const mozilla::ipc::ResponseRejectReason) { onFailure(); });
++
++        return GetPromise::CreateAndResolve(sSocketProcessBridgeChild,
++                                            __func__);
++      });
+ }
+ 
+ SocketProcessBridgeChild::SocketProcessBridgeChild(
+@@ -133,5 +148,21 @@
+   sSocketProcessBridgeChild = nullptr;
+ }
+ 
++dom::PMediaTransportChild*
++SocketProcessBridgeChild::AllocPMediaTransportChild() {
++  // We don't allocate here: MediaTransportHandlerIPC is in charge of that,
++  // so we don't need to know the implementation particulars here.
++  MOZ_ASSERT_UNREACHABLE(
++      "The only thing that ought to be creating a PMediaTransportChild is "
++      "MediaTransportHandlerIPC!");
++  return nullptr;
++}
++
++bool SocketProcessBridgeChild::DeallocPMediaTransportChild(
++    dom::PMediaTransportChild* aActor) {
++  delete aActor;
++  return true;
++}
++
+ }  // namespace net
+ }  // namespace mozilla

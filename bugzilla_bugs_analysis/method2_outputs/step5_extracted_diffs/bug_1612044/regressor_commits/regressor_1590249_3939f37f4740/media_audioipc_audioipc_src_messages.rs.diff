@@ -1,0 +1,96 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/audioipc/audioipc/src/messages.rs
+# Commit: 3939f37f4740
+# Full Hash: 3939f37f47400a76a94962da4c38c24456952ee6
+# Author: Matthew Gregan <kinetik@flim.org>
+# Date: 2020-01-26 09:48:16
+# Regressor Bug: 1590249
+# File Overlap Count: 3
+# Description:
+#   Bug 1590249 - Update audioipc to 86d49ddf.  r=chunmin
+#   
+#   Minus audio_thread_priority 0.21, due to Android build breakage.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D60615
+# ==============================================================================
+
+diff -r a6f08a30777b -r 3939f37f4740 media/audioipc/audioipc/src/messages.rs
+--- a/media/audioipc/audioipc/src/messages.rs	Sat Jan 25 22:49:44 2020 +0000
++++ b/media/audioipc/audioipc/src/messages.rs	Sat Jan 25 22:50:52 2020 +0000
+@@ -292,24 +292,26 @@
+ 
+ impl AssocRawPlatformHandle for ClientMessage {
+     fn platform_handles(&self) -> Option<([PlatformHandleType; 3], u32)> {
+-        match *self {
+-            ClientMessage::StreamCreated(ref data) => Some((
+-                [
+-                    data.platform_handles[0].as_raw(),
+-                    data.platform_handles[1].as_raw(),
+-                    data.platform_handles[2].as_raw(),
+-                ],
+-                data.target_pid,
+-            )),
+-            ClientMessage::ContextSetupDeviceCollectionCallback(ref data) => Some((
+-                [
+-                    data.platform_handles[0].as_raw(),
+-                    data.platform_handles[1].as_raw(),
+-                    data.platform_handles[2].as_raw(),
+-                ],
+-                data.target_pid,
+-            )),
+-            _ => None,
++        unsafe {
++            match *self {
++                ClientMessage::StreamCreated(ref data) => Some((
++                    [
++                        data.platform_handles[0].into_raw(),
++                        data.platform_handles[1].into_raw(),
++                        data.platform_handles[2].into_raw(),
++                    ],
++                    data.target_pid,
++                )),
++                ClientMessage::ContextSetupDeviceCollectionCallback(ref data) => Some((
++                    [
++                        data.platform_handles[0].into_raw(),
++                        data.platform_handles[1].into_raw(),
++                        data.platform_handles[2].into_raw(),
++                    ],
++                    data.target_pid,
++                )),
++                _ => None,
++            }
+         }
+     }
+ 
+@@ -317,22 +319,23 @@
+     where
+         F: FnOnce() -> Option<[PlatformHandleType; 3]>,
+     {
++        let owned = cfg!(unix);
+         match *self {
+             ClientMessage::StreamCreated(ref mut data) => {
+                 let handles =
+                     f().expect("platform_handles must be available when processing StreamCreated");
+                 data.platform_handles = [
+-                    PlatformHandle::new(handles[0]),
+-                    PlatformHandle::new(handles[1]),
+-                    PlatformHandle::new(handles[2]),
++                    PlatformHandle::new(handles[0], owned),
++                    PlatformHandle::new(handles[1], owned),
++                    PlatformHandle::new(handles[2], owned),
+                 ]
+             }
+             ClientMessage::ContextSetupDeviceCollectionCallback(ref mut data) => {
+                 let handles = f().expect("platform_handles must be available when processing ContextSetupDeviceCollectionCallback");
+                 data.platform_handles = [
+-                    PlatformHandle::new(handles[0]),
+-                    PlatformHandle::new(handles[1]),
+-                    PlatformHandle::new(handles[2]),
++                    PlatformHandle::new(handles[0], owned),
++                    PlatformHandle::new(handles[1], owned),
++                    PlatformHandle::new(handles[2], owned),
+                 ]
+             }
+             _ => {}

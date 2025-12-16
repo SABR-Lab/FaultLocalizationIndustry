@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/CompositorBridgeChild.cpp
+# Commit: 4357d695b8d5
+# Full Hash: 4357d695b8d5dd901788d922b73e89f16c45b2c9
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-07 16:20:31
+# Regressor Bug: 1464032
+# File Overlap Count: 1
+# Description:
+#   Bug 1464032 Part 12: Add CanvasParent, CanvasChild and RecordedTextureData. r=mattwoodrow, jld
+#   
+#   RecordedTextureData records TextureData calls for play back in the GPU process.
+#   CanvasChild and CanvasParent set up the recorder and translator.
+#   They also help to manage the starting of translation and co-ordinating the
+# ==============================================================================
+
+diff -r e32d6c3ba887 -r 4357d695b8d5 gfx/layers/ipc/CompositorBridgeChild.cpp
+--- a/gfx/layers/ipc/CompositorBridgeChild.cpp	Sun Dec 02 14:17:24 2018 +0000
++++ b/gfx/layers/ipc/CompositorBridgeChild.cpp	Sun Dec 02 14:19:11 2018 +0000
+@@ -18,6 +18,7 @@
+ #include "mozilla/layers/APZChild.h"
+ #include "mozilla/layers/IAPZCTreeManager.h"
+ #include "mozilla/layers/APZCTreeManagerChild.h"
++#include "mozilla/layers/CanvasChild.h"
+ #include "mozilla/layers/LayerTransactionChild.h"
+ #include "mozilla/layers/PaintThread.h"
+ #include "mozilla/layers/PLayerTransactionChild.h"
+@@ -117,6 +118,10 @@
+     mActorDestroyed = true;
+   }
+ 
++  if (mCanvasChild) {
++    mCanvasChild->Destroy();
++  }
++
+   if (sCompositorBridge == this) {
+     sCompositorBridge = nullptr;
+   }
+@@ -245,6 +250,18 @@
+ 
+   mCanSend = true;
+   mIdNamespace = aNamespace;
++
++  if (gfx::gfxVars::RemoteCanvasEnabled()) {
++    ipc::Endpoint<PCanvasParent> parentEndpoint;
++    ipc::Endpoint<PCanvasChild> childEndpoint;
++    nsresult rv = PCanvas::CreateEndpoints(OtherPid(), base::GetCurrentProcId(),
++                                           &parentEndpoint, &childEndpoint);
++    if (NS_SUCCEEDED(rv)) {
++      Unused << SendInitPCanvasParent(std::move(parentEndpoint));
++      mCanvasChild = new CanvasChild(std::move(childEndpoint));
++    }
++  }
++
+   sCompositorBridge = this;
+ }
+ 
+@@ -918,6 +935,16 @@
+       LayersId{0} /* FIXME? */, aSerial, aExternalImageId);
+ }
+ 
++already_AddRefed<CanvasChild> CompositorBridgeChild::GetCanvasChild() {
++  return do_AddRef(mCanvasChild);
++}
++
++void CompositorBridgeChild::EndCanvasTransaction() {
++  if (mCanvasChild) {
++    mCanvasChild->EndTransaction();
++  }
++}
++
+ bool CompositorBridgeChild::AllocUnsafeShmem(
+     size_t aSize, ipc::SharedMemory::SharedMemoryType aType,
+     ipc::Shmem* aShmem) {

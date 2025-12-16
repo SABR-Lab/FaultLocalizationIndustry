@@ -1,0 +1,73 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/manager/ssl/tests/unit/test_trust_anchors.js
+# Commit: dc509eab3ed7
+# Full Hash: dc509eab3ed7a513258723eb46b25f33a610e720
+# Author: Dana Keeler <dkeeler@mozilla.com>
+# Date: 2025-07-11 16:36:21
+# Regressor Bug: 1953221
+# File Overlap Count: 3
+# Description:
+#   Bug 1953221 - don't accept SCTs with a timestamp after the distrustAfter date for the root r=jschanck
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D256720
+# ==============================================================================
+
+diff -r 5b86ae2c81f9 -r dc509eab3ed7 security/manager/ssl/tests/unit/test_trust_anchors.js
+--- a/security/manager/ssl/tests/unit/test_trust_anchors.js	Thu Jul 10 18:37:49 2025 +0000
++++ b/security/manager/ssl/tests/unit/test_trust_anchors.js	Thu Jul 10 19:04:10 2025 +0000
+@@ -36,17 +36,15 @@
+   );
+ });
+ 
++let gEEPreDistrustCert;
++
+ add_task(async function test_distrust_after() {
+-  let ee_pre_distrust_cert = addCertFromFile(
++  gEEPreDistrustCert = addCertFromFile(
+     gCertDb,
+     "test_trust_anchors/ee-notBefore-2021.pem",
+     ",,"
+   );
+-  notEqual(
+-    ee_pre_distrust_cert,
+-    null,
+-    "EE cert should have successfully loaded"
+-  );
++  notEqual(gEEPreDistrustCert, null, "EE cert should have successfully loaded");
+ 
+   let ee_post_distrust_cert = addCertFromFile(
+     gCertDb,
+@@ -66,7 +64,7 @@
+   // should verify.
+   await checkCertErrorGeneric(
+     gCertDb,
+-    ee_pre_distrust_cert,
++    gEEPreDistrustCert,
+     PRErrorCodeSuccess,
+     Ci.nsIX509CertDB.verifyUsageTLSServer
+   );
+@@ -80,3 +78,22 @@
+     Ci.nsIX509CertDB.verifyUsageTLSServer
+   );
+ });
++
++add_task(
++  { skip_if: () => !AppConstants.DEBUG },
++  async function test_ct_notes_distrust_after() {
++    Services.prefs.setIntPref(
++      "security.pki.certificate_transparency.mode",
++      CT_MODE_ENFORCE
++    );
++    // This certificate, which has a notBefore before the distrustAfter date, has
++    // an embedded SCT with a timestamp after the distrustAfter date, so this
++    // should result in a CT error.
++    await checkCertErrorGeneric(
++      gCertDb,
++      gEEPreDistrustCert,
++      MOZILLA_PKIX_ERROR_INSUFFICIENT_CERTIFICATE_TRANSPARENCY,
++      Ci.nsIX509CertDB.verifyUsageTLSServer
++    );
++  }
++);

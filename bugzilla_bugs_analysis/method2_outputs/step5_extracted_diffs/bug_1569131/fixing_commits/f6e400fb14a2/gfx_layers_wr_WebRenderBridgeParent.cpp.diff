@@ -1,0 +1,62 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/wr/WebRenderBridgeParent.cpp
+# Commit: f6e400fb14a2
+# Full Hash: f6e400fb14a2bd8133ba6a83d1b1b233fc41bf99
+# Author: Alexis Beingessner <a.beingessner@gmail.com>
+# Date: 2019-08-21 21:53:43
+# Description:
+#   Bug 1569131 - Also defer RecvParentCommands. r=jrmuizel
+#   
+#   We defer ParentCommands when they come in attached to a display list,
+#   but we forgot to defer them when they're sent directly. This was
+#   causing us to crash when we defer updates that register textures
+# ==============================================================================
+
+diff -r 8c915889c8f0 -r f6e400fb14a2 gfx/layers/wr/WebRenderBridgeParent.cpp
+--- a/gfx/layers/wr/WebRenderBridgeParent.cpp	Wed Aug 21 07:38:13 2019 +0000
++++ b/gfx/layers/wr/WebRenderBridgeParent.cpp	Wed Aug 21 13:59:49 2019 +0000
+@@ -378,7 +378,7 @@
+             wr::IpcResourceUpdateQueue::ReleaseShmems(self, x.mSmallShmems);
+             wr::IpcResourceUpdateQueue::ReleaseShmems(self, x.mLargeShmems);
+           },
+-          [=](FocusTarget& x) {});
++          [=](ParentCommands& x) {}, [=](FocusTarget& x) {});
+     }
+     entry.Remove();
+   }
+@@ -452,6 +452,17 @@
+           wr::IpcResourceUpdateQueue::ReleaseShmems(this, data.mLargeShmems);
+           return true;
+         },
++        [&](ParentCommands& data) {
++          wr::TransactionBuilder txn;
++          txn.SetLowPriority(!IsRootWebRenderBridgeParent());
++          if (!ProcessWebRenderParentCommands(data.mCommands, txn,
++                                              wr::RenderRoot::Default)) {
++            return false;
++          }
++
++          Api(wr::RenderRoot::Default)->SendTransaction(txn);
++          return true;
++        },
+         [&](FocusTarget& data) {
+           UpdateAPZFocusState(data);
+           return true;
+@@ -1523,6 +1534,15 @@
+   if (mDestroyed) {
+     return IPC_OK();
+   }
++
++  if (!mRenderRoot) {
++    MOZ_ASSERT(aRenderRoot == RenderRoot::Default);
++    PushDeferredPipelineData(AsVariant(ParentCommands{
++        std::move(aCommands),
++    }));
++    return IPC_OK();
++  }
++
+   wr::TransactionBuilder txn;
+   txn.SetLowPriority(!IsRootWebRenderBridgeParent());
+   if (!ProcessWebRenderParentCommands(aCommands, txn, aRenderRoot)) {

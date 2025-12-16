@@ -1,0 +1,93 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/apz/src/APZCTreeManager.cpp
+# Commit: 52ba9b55ca7c
+# Full Hash: 52ba9b55ca7c15bb591db67c0573f3cb943739a6
+# Author: Botond Ballo <botond@mozilla.com>
+# Date: 2022-07-19 09:34:24
+# Regressor Bug: 1779144
+# File Overlap Count: 1
+# Description:
+#   Bug 1779144 - Factor out a helper shared by the touch event and tap event handling codepaths. r=dlrobertson
+#   
+#   Depends on D151939
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D151940
+# ==============================================================================
+
+diff -r fe20f47f85d9 -r 52ba9b55ca7c gfx/layers/apz/src/APZCTreeManager.cpp
+--- a/gfx/layers/apz/src/APZCTreeManager.cpp	Mon Jul 18 21:37:47 2022 +0000
++++ b/gfx/layers/apz/src/APZCTreeManager.cpp	Mon Jul 18 21:37:48 2022 +0000
+@@ -2046,23 +2046,8 @@
+           return;
+         }
+         touchData.mScreenPoint = *untransformedScreenPoint;
+-        if (mTouchBlockHitResult.mFixedPosSides != SideBits::eNone) {
+-          MutexAutoLock lock(mMapLock);
+-          touchData.mScreenPoint -= RoundedToInt(apz::ComputeFixedMarginsOffset(
+-              GetCompositorFixedLayerMargins(lock),
+-              mTouchBlockHitResult.mFixedPosSides, mGeckoFixedLayerMargins));
+-        } else if (mTouchBlockHitResult.mNode &&
+-                   mTouchBlockHitResult.mNode->GetStickyPositionAnimationId()) {
+-          SideBits sideBits = SideBits::eNone;
+-          {
+-            RecursiveMutexAutoLock lock(mTreeLock);
+-            sideBits =
+-                SidesStuckToRootContent(mTouchBlockHitResult.mNode.Get(lock));
+-          }
+-          MutexAutoLock lock(mMapLock);
+-          touchData.mScreenPoint -= RoundedToInt(apz::ComputeFixedMarginsOffset(
+-              GetCompositorFixedLayerMargins(lock), sideBits, ScreenMargin()));
+-        }
++        AdjustEventPointForDynamicToolbar(touchData.mScreenPoint,
++                                          mTouchBlockHitResult);
+       }
+     }
+   }
+@@ -2078,6 +2063,25 @@
+   }
+ }
+ 
++void APZCTreeManager::AdjustEventPointForDynamicToolbar(
++    ScreenIntPoint& aEventPoint, const HitTestResult& aHit) {
++  if (aHit.mFixedPosSides != SideBits::eNone) {
++    MutexAutoLock lock(mMapLock);
++    aEventPoint -= RoundedToInt(apz::ComputeFixedMarginsOffset(
++        GetCompositorFixedLayerMargins(lock), aHit.mFixedPosSides,
++        mGeckoFixedLayerMargins));
++  } else if (aHit.mNode && aHit.mNode->GetStickyPositionAnimationId()) {
++    SideBits sideBits = SideBits::eNone;
++    {
++      RecursiveMutexAutoLock lock(mTreeLock);
++      sideBits = SidesStuckToRootContent(mTouchBlockHitResult.mNode.Get(lock));
++    }
++    MutexAutoLock lock(mMapLock);
++    aEventPoint -= RoundedToInt(apz::ComputeFixedMarginsOffset(
++        GetCompositorFixedLayerMargins(lock), sideBits, ScreenMargin()));
++  }
++}
++
+ static MouseInput::MouseType MultiTouchTypeToMouseType(
+     MultiTouchInput::MultiTouchType aType) {
+   switch (aType) {
+@@ -3262,18 +3266,7 @@
+   Maybe<ScreenIntPoint> geckoPoint =
+       UntransformBy(transformScreenToGecko, aPoint);
+   if (geckoPoint) {
+-    if (hit.mFixedPosSides != SideBits::eNone) {
+-      MutexAutoLock mapLock(mMapLock);
+-      *geckoPoint -= RoundedToInt(apz::ComputeFixedMarginsOffset(
+-          GetCompositorFixedLayerMargins(mapLock), hit.mFixedPosSides,
+-          mGeckoFixedLayerMargins));
+-    } else if (hit.mNode && hit.mNode->GetStickyPositionAnimationId()) {
+-      SideBits sideBits = SidesStuckToRootContent(hit.mNode.Get(lock));
+-
+-      MutexAutoLock mapLock(mMapLock);
+-      *geckoPoint -= RoundedToInt(apz::ComputeFixedMarginsOffset(
+-          GetCompositorFixedLayerMargins(mapLock), sideBits, ScreenMargin()));
+-    }
++    AdjustEventPointForDynamicToolbar(*geckoPoint, hit);
+   }
+   return geckoPoint;
+ }

@@ -1,0 +1,40 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: xpcom/base/AvailableMemoryTracker.cpp
+# Commit: 0a5c47d4a336
+# Full Hash: 0a5c47d4a336cfffcfd09465ff6d699a4b364dc4
+# Author: Gabriele Svelto <gsvelto@mozilla.com>
+# Date: 2021-06-12 09:41:20
+# Description:
+#   Bug 1715026 - Properly transfer ownership of the memory pressure watcher to the memory resource callback r=tkikuchi
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D117051
+# ==============================================================================
+
+diff -r 5a65ee9d697a -r 0a5c47d4a336 xpcom/base/AvailableMemoryTracker.cpp
+--- a/xpcom/base/AvailableMemoryTracker.cpp	Sat Jun 12 05:16:57 2021 +0300
++++ b/xpcom/base/AvailableMemoryTracker.cpp	Sat Jun 12 05:54:01 2021 +0000
+@@ -217,15 +217,16 @@
+ 
+ bool nsAvailableMemoryWatcher::ListenForLowMemory() {
+   if (mLowMemoryHandle && !mWaitHandle) {
++    // We're giving ownership of this object to the LowMemoryCallback(). We
++    // increment the count here so that the object is kept alive until the
++    // callback decrements it.
++    this->AddRef();
+     bool res = ::RegisterWaitForSingleObject(
+         &mWaitHandle, mLowMemoryHandle, LowMemoryCallback, this, INFINITE,
+         WT_EXECUTEDEFAULT | WT_EXECUTEONLYONCE);
+-    if (res) {
+-      // We bump the reference count when registering the callback to keep the
+-      // object alive in case of shutdown. Note that the reference count will be
+-      // decremented by the callback itself only when it gets called, if it
+-      // doesn't we have to decrement it ourselves.
+-      this->AddRef();
++    if (!res) {
++      // We couldn't register the callback, decrement the count
++      this->Release();
+     }
+     return res;
+   }

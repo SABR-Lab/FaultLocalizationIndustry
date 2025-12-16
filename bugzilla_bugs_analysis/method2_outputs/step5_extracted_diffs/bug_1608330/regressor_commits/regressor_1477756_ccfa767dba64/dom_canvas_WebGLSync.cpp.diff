@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLSync.cpp
+# Commit: ccfa767dba64
+# Full Hash: ccfa767dba644dc193e0246eb8e8ff3377e8b8a5
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Client-side bindings mirror for precise CC, and merge similar codepaths. r=handyman
+#   
+#   * Context loss using RAII
+#   * Move Program reflection Client-side
+#   
+# ==============================================================================
+
+diff -r 71c122ac0ca7 -r ccfa767dba64 dom/canvas/WebGLSync.cpp
+--- a/dom/canvas/WebGLSync.cpp	Wed Jan 08 22:19:14 2020 +0000
++++ b/dom/canvas/WebGLSync.cpp	Wed Jan 08 22:19:16 2020 +0000
+@@ -12,18 +12,15 @@
+ namespace mozilla {
+ 
+ WebGLSync::WebGLSync(WebGLContext* webgl, GLenum condition, GLbitfield flags)
+-    : WebGLRefCountedObject(webgl),
++    : WebGLContextBoundObject(webgl),
+       mGLName(mContext->gl->fFenceSync(condition, flags)),
+       mFenceId(mContext->mNextFenceId) {
+   mContext->mNextFenceId += 1;
+-  mContext->mSyncs.insertBack(this);
+ }
+ 
+-WebGLSync::~WebGLSync() { DeleteOnce(); }
+-
+-void WebGLSync::Delete() {
++WebGLSync::~WebGLSync() {
++  if (!mContext) return;
+   mContext->gl->fDeleteSync(mGLName);
+-  LinkedListElement<WebGLSync>::removeFrom(mContext->mSyncs);
+ }
+ 
+ void WebGLSync::MarkSignaled() const {

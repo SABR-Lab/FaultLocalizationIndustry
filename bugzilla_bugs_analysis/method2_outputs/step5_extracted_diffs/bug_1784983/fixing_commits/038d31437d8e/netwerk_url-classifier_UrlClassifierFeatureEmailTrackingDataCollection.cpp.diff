@@ -1,0 +1,33 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: netwerk/url-classifier/UrlClassifierFeatureEmailTrackingDataCollection.cpp
+# Commit: 038d31437d8e
+# Full Hash: 038d31437d8e353b374e652b56530132b6943504
+# Author: Andrew McCreight <continuation@gmail.com>
+# Date: 2022-08-16 09:55:03
+# Description:
+#   Bug 1784983 - Don't try to gather telemetry for a discarded bc in UrlClassifierFeatureEmailTrackingDataCollection::ProcessChannel. r=dimi
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D154708
+# ==============================================================================
+
+diff -r edc391b8001f -r 038d31437d8e netwerk/url-classifier/UrlClassifierFeatureEmailTrackingDataCollection.cpp
+--- a/netwerk/url-classifier/UrlClassifierFeatureEmailTrackingDataCollection.cpp	Tue Aug 16 03:05:45 2022 +0000
++++ b/netwerk/url-classifier/UrlClassifierFeatureEmailTrackingDataCollection.cpp	Tue Aug 16 03:36:53 2022 +0000
+@@ -180,9 +180,15 @@
+ 
+   RefPtr<dom::BrowsingContext> bc;
+   loadInfo->GetBrowsingContext(getter_AddRefs(bc));
++  if (!bc || bc->IsDiscarded()) {
++    return NS_OK;
++  }
+ 
+   RefPtr<dom::WindowGlobalParent> topWindowParent =
+       bc->Canonical()->GetTopWindowContext();
++  if (!topWindowParent || topWindowParent->IsDiscarded()) {
++    return NS_OK;
++  }
+ 
+   // Cache the email webapp domains pref value and register the callback
+   // function to update the cached value when the pref changes.

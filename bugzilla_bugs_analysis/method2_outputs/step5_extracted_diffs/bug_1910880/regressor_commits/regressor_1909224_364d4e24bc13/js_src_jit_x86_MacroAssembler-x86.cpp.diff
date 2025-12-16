@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/x86/MacroAssembler-x86.cpp
+# Commit: 364d4e24bc13
+# Full Hash: 364d4e24bc13eafbb893adf6381a6cbb862d405f
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2024-07-29 20:43:57
+# Regressor Bug: 1909224
+# File Overlap Count: 2
+# Description:
+#   Bug 1909224 part 3 - Remove checks for FailInstanceReg on JIT => Wasm call path. r=rhunt
+#   
+#   Because we now unwind JS JIT frames after unwinding Wasm frames, we no longer
+#   return to the JIT => Wasm entry code from the exception handler.
+#   
+# ==============================================================================
+
+diff -r 6eb32b942a04 -r 364d4e24bc13 js/src/jit/x86/MacroAssembler-x86.cpp
+--- a/js/src/jit/x86/MacroAssembler-x86.cpp	Mon Jul 29 13:14:47 2024 +0000
++++ b/js/src/jit/x86/MacroAssembler-x86.cpp	Mon Jul 29 13:14:48 2024 +0000
+@@ -532,7 +532,7 @@
+   Label returnBaseline;
+   Label returnIon;
+   Label bailout;
+-  Label wasm;
++  Label wasmInterpEntry;
+   Label wasmCatch;
+ 
+   loadPtr(Address(esp, ResumeFromException::offsetOfKind()), eax);
+@@ -549,8 +549,9 @@
+                     Imm32(ExceptionResumeKind::ForcedReturnIon), &returnIon);
+   asMasm().branch32(Assembler::Equal, eax, Imm32(ExceptionResumeKind::Bailout),
+                     &bailout);
+-  asMasm().branch32(Assembler::Equal, eax, Imm32(ExceptionResumeKind::Wasm),
+-                    &wasm);
++  asMasm().branch32(Assembler::Equal, eax,
++                    Imm32(ExceptionResumeKind::WasmInterpEntry),
++                    &wasmInterpEntry);
+   asMasm().branch32(Assembler::Equal, eax,
+                     Imm32(ExceptionResumeKind::WasmCatch), &wasmCatch);
+ 
+@@ -636,13 +637,12 @@
+   move32(Imm32(1), ReturnReg);
+   jump(bailoutTail);
+ 
+-  // If we are throwing and the innermost frame was a wasm frame, reset SP and
+-  // FP; SP is pointing to the unwound return address to the wasm entry, so
+-  // we can just ret().
+-  bind(&wasm);
++  // Reset SP and FP; SP is pointing to the unwound return address to the wasm
++  // interpreter entry, so we can just ret().
++  bind(&wasmInterpEntry);
+   loadPtr(Address(esp, ResumeFromException::offsetOfFramePointer()), ebp);
+   loadPtr(Address(esp, ResumeFromException::offsetOfStackPointer()), esp);
+-  movePtr(ImmPtr((const void*)wasm::FailInstanceReg), InstanceReg);
++  movePtr(ImmPtr((const void*)wasm::InterpFailInstanceReg), InstanceReg);
+   masm.ret();
+ 
+   // Found a wasm catch handler, restore state and jump to it.

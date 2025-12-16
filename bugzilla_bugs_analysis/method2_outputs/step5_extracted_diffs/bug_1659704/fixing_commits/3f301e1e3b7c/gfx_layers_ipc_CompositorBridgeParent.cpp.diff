@@ -1,0 +1,44 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/CompositorBridgeParent.cpp
+# Commit: 3f301e1e3b7c
+# Full Hash: 3f301e1e3b7ccc38018abe962cb43a927d7a95a1
+# Author: Kartikaya Gupta <kgupta@mozilla.com>
+# Date: 2020-08-19 10:01:16
+# Description:
+#   Bug 1659704 - Add some release assertions to find out why assumptions are breaking. r=snorp
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D87472
+# ==============================================================================
+
+diff -r 603ca1324860 -r 3f301e1e3b7c gfx/layers/ipc/CompositorBridgeParent.cpp
+--- a/gfx/layers/ipc/CompositorBridgeParent.cpp	Tue Aug 18 04:14:19 2020 +0000
++++ b/gfx/layers/ipc/CompositorBridgeParent.cpp	Tue Aug 18 18:10:23 2020 +0000
+@@ -1147,8 +1147,16 @@
+ }
+ 
+ PAPZParent* CompositorBridgeParent::AllocPAPZParent(const LayersId& aLayersId) {
++  // This is the CompositorBridgeParent for a window, and so should only be
++  // creating a PAPZ instance if it lives in the GPU process. Instances that
++  // live in the UI process should going through SetControllerForLayerTree.
++  MOZ_RELEASE_ASSERT(XRE_IsGPUProcess());
++
++  // We should only ever get this if APZ is enabled on this compositor.
++  MOZ_RELEASE_ASSERT(mOptions.UseAPZ());
++
+   // The main process should pass in 0 because we assume mRootLayerTreeID
+-  MOZ_ASSERT(!aLayersId.IsValid());
++  MOZ_RELEASE_ASSERT(!aLayersId.IsValid());
+ 
+   RemoteContentController* controller = new RemoteContentController();
+ 
+@@ -1159,7 +1167,7 @@
+   MonitorAutoLock lock(*sIndirectLayerTreesLock);
+   CompositorBridgeParent::LayerTreeState& state =
+       sIndirectLayerTrees[mRootLayerTreeID];
+-  MOZ_ASSERT(!state.mController);
++  MOZ_RELEASE_ASSERT(!state.mController);
+   state.mController = controller;
+ 
+   return controller;

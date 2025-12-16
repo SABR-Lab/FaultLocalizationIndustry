@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsFrameLoader.h
+# Commit: 6fd57b83bb52
+# Full Hash: 6fd57b83bb52e9683bade8cbfb5f8ba6575ac6af
+# Author: Kris Maglione <maglione.k@gmail.com>
+# Date: 2020-02-07 03:55:51
+# Regressor Bug: 1582832
+# File Overlap Count: 3
+# Description:
+#   Bug 1582832: Part 1 - Make FrameLoader owner rather than DocShell responsible for discarding a BC. r=nika
+#   
+#   There are all sorts of lifecycle issues which arise from making DocShell
+#   responsible for discarding BrowsingContexts. In this particular bug, we tend
+#   to run into them in cases where we create a BrowsingContext for a FrameLoader,
+# ==============================================================================
+
+diff -r 28a9e4b075af -r 6fd57b83bb52 dom/base/nsFrameLoader.h
+--- a/dom/base/nsFrameLoader.h	Thu Feb 06 18:35:10 2020 +0000
++++ b/dom/base/nsFrameLoader.h	Thu Feb 06 19:07:56 2020 +0000
+@@ -396,7 +396,7 @@
+   virtual JSObject* WrapObject(JSContext* cx,
+                                JS::Handle<JSObject*> aGivenProto) override;
+ 
+-  void SkipBrowsingContextDetach();
++  void SetWillChangeProcess();
+ 
+   void MaybeNotifyCrashed(mozilla::dom::BrowsingContext* aBrowsingContext,
+                           mozilla::ipc::MessageChannel* aChannel);
+@@ -527,6 +527,9 @@
+ 
+   bool mRemoteBrowserShown : 1;
+   bool mIsRemoteFrame : 1;
++  // If true, the FrameLoader will be re-created with the same BrowsingContext,
++  // but for a different process, after it is destroyed.
++  bool mWillChangeProcess : 1;
+   bool mObservingOwnerContent : 1;
+ 
+   // When an out-of-process nsFrameLoader crashes, an event is fired on the

@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/security/nsContentSecurityUtils.cpp
+# Commit: 83e5baac01a9
+# Full Hash: 83e5baac01a9ca24f16d971a7a89aa32650bdf3c
+# Author: Tom Ritter <tom@mozilla.com>
+# Date: 2021-08-09 21:33:53
+# Regressor Bug: 1723204
+# File Overlap Count: 1
+# Description:
+#   Bug 1723204: Wire up a crash for Javascript Load Telemetry r=ckerschb,Gijs
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D121417
+# ==============================================================================
+
+diff -r 2ee6c94f35b3 -r 83e5baac01a9 dom/security/nsContentSecurityUtils.cpp
+--- a/dom/security/nsContentSecurityUtils.cpp	Mon Aug 09 14:42:31 2021 +0000
++++ b/dom/security/nsContentSecurityUtils.cpp	Mon Aug 09 14:42:31 2021 +0000
+@@ -1177,6 +1177,18 @@
+   Telemetry::RecordEvent(eventType, mozilla::Some(fileNameTypeAndDetails.first),
+                          extra);
+ 
++#ifdef NIGHTLY_BUILD
++  // Cause a crash (if we've never crashed before and we can ensure we won't do
++  // it again.)
++  // The details in the second arg, passed to UNSAFE_PRINTF, are also included in
++  // Event Telemetry and have received data review.
++  if (fileNameTypeAndDetails.second.isSome()) {
++    PossiblyCrash("js_load_1", NS_ConvertUTF16toUTF8(fileNameTypeAndDetails.second.value()));
++  } else {
++    PossiblyCrash("js_load_1", "(None)"_ns);
++  }
++#endif
++
+   // Presently we are not enforcing any restrictions for the script filename,
+   // we're only reporting Telemetry. In the future we will assert in debug
+   // builds and return false to prevent execution in non-debug builds.

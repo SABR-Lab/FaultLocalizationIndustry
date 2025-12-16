@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/public/experimental/TypedData.h
+# Commit: 456fc09d6816
+# Full Hash: 456fc09d6816bb2fd3bb5d1801221ee608940996
+# Author: Steve Fink <sfink@mozilla.com>
+# Date: 2021-09-09 15:22:41
+# Regressor Bug: 1720422
+# File Overlap Count: 1
+# Description:
+#   Bug 1720422 - Add (type)Array aliases, eg JS::Int8Array r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D120651
+# ==============================================================================
+
+diff -r df0c1ee4d0b0 -r 456fc09d6816 js/public/experimental/TypedData.h
+--- a/js/public/experimental/TypedData.h	Wed Sep 08 23:46:58 2021 +0000
++++ b/js/public/experimental/TypedData.h	Wed Sep 08 23:46:59 2021 +0000
+@@ -537,9 +537,10 @@
+   }
+ };
+ 
+-ArrayBufferOrView ArrayBufferOrView::fromObject(JSObject* obj) {
+-  if (ArrayBuffer::fromObject(obj) || ArrayBufferView::fromObject(obj)) {
+-    return ArrayBufferOrView(obj);
++ArrayBufferOrView ArrayBufferOrView::fromObject(JSObject* unwrapped) {
++  if (ArrayBuffer::fromObject(unwrapped) ||
++      ArrayBufferView::fromObject(unwrapped)) {
++    return ArrayBufferOrView(unwrapped);
+   }
+   return ArrayBufferOrView(nullptr);
+ }
+@@ -632,6 +633,12 @@
+ JS_FOR_EACH_TYPED_ARRAY(IMPL_TYPED_ARRAY_CLASS)
+ #undef IMPL_TYPED_ARRAY_CLASS
+ 
++// Create simple names like Int8Array, Float32Array, etc.
++#define JS_DECLARE_CLASS_ALIAS(ExternalType, NativeType, Name) \
++  using Name##Array = TypedArray<js::Scalar::Name>;
++JS_FOR_EACH_TYPED_ARRAY(JS_DECLARE_CLASS_ALIAS)
++#undef JS_DECLARE_CLASS_ALIAS
++
+ }  // namespace JS
+ 
+ #endif  // js_experimental_TypedData_h

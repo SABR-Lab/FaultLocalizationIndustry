@@ -1,0 +1,53 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmInstance.cpp
+# Commit: 8c7ce56c181b
+# Full Hash: 8c7ce56c181bb521dd74a9754fcac855fc26fe32
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2022-03-29 09:56:04
+# Description:
+#   Bug 1761606 - wasm: Clean up debug filter allocation. r=lth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D142157
+# ==============================================================================
+
+diff -r 09e7d05bc460 -r 8c7ce56c181b js/src/wasm/WasmInstance.cpp
+--- a/js/src/wasm/WasmInstance.cpp	Mon Mar 28 22:01:09 2022 +0000
++++ b/js/src/wasm/WasmInstance.cpp	Mon Mar 28 22:05:03 2022 +0000
+@@ -1433,10 +1433,9 @@
+ 
+   // Add debug filtering table.
+   if (metadata().debugEnabled) {
+-    size_t numBytes = (metadata().debugFuncReturnTypes.length() + 7) >> 3;
+-    debugFilter_ = (uint32_t*)js_calloc(
+-        AlignBytes(numBytes, sizeof(uint32_t)) / sizeof(uint32_t),
+-        sizeof(uint32_t));
++    size_t numFuncs = metadata().debugFuncReturnTypes.length();
++    size_t numWords = std::max<size_t>((numFuncs + 31) / 32, 1);
++    debugFilter_ = (uint32_t*)js_calloc(numWords, sizeof(uint32_t));
+     if (!debugFilter_) {
+       return false;
+     }
+@@ -1628,18 +1627,14 @@
+ }
+ 
+ bool Instance::debugFilter(uint32_t funcIndex) const {
+-  return (debugFilter_[funcIndex / sizeof(uint32_t)] >>
+-          funcIndex % sizeof(uint32_t)) &
+-         1;
++  return (debugFilter_[funcIndex / 32] >> funcIndex % 32) & 1;
+ }
+ 
+ void Instance::setDebugFilter(uint32_t funcIndex, bool value) {
+   if (value) {
+-    debugFilter_[funcIndex / sizeof(uint32_t)] |=
+-        (1 << funcIndex % sizeof(uint32_t));
++    debugFilter_[funcIndex / 32] |= (1 << funcIndex % 32);
+   } else {
+-    debugFilter_[funcIndex / sizeof(uint32_t)] &=
+-        ~(1 << funcIndex % sizeof(uint32_t));
++    debugFilter_[funcIndex / 32] &= ~(1 << funcIndex % 32);
+   }
+ }
+ 

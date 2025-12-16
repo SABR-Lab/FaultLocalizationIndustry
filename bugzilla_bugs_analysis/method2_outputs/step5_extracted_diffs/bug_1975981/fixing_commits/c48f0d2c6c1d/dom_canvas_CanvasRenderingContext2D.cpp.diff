@@ -1,0 +1,42 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/CanvasRenderingContext2D.cpp
+# Commit: c48f0d2c6c1d
+# Full Hash: c48f0d2c6c1d3a61945193cffc22ad20533b12b7
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2025-07-09 03:16:15
+# Description:
+#   Bug 1975981 - Move optimized filter check later. r=aosmond
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D256330
+# ==============================================================================
+
+diff -r 6295a834a93d -r c48f0d2c6c1d dom/canvas/CanvasRenderingContext2D.cpp
+--- a/dom/canvas/CanvasRenderingContext2D.cpp	Tue Jul 08 17:21:50 2025 +0000
++++ b/dom/canvas/CanvasRenderingContext2D.cpp	Tue Jul 08 17:30:19 2025 +0000
+@@ -762,11 +762,6 @@
+       return;
+     }
+     if (applyFilter) {
+-      // Only allow optimizatoin of filters if no shadow is being drawn.
+-      if (aAllowOptimization && !mShadowTarget) {
+-        mOptimizeFilter = true;
+-      }
+-
+       bounds.RoundOut();
+ 
+       if (!mTarget) {
+@@ -776,6 +771,12 @@
+       if (!bounds.ToIntRect(&intBounds)) {
+         return;
+       }
++
++      // Only allow optimization of filters if no shadow is being drawn.
++      if (aAllowOptimization && !mShadowTarget) {
++        mOptimizeFilter = true;
++      }
++
+       mFilterTarget = MakeUnique<AdjustedTargetForFilter>(
+           aCtx, mTarget, offsetToFinalDT, intBounds,
+           gfx::RoundedToInt(boundsAfterFilter), mUsedOperation,

@@ -1,0 +1,157 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/wr/WebRenderScrollData.h
+# Commit: c09a51622e98
+# Full Hash: c09a51622e988e81077c75e3aaa5a49df66284b3
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2019-03-22 16:44:08
+# Regressor Bug: 1441308
+# File Overlap Count: 2
+# Description:
+#   Bug 1441308 - Core renderroot splitting changes r=kats,sotaro
+#   
+#   This is a large patch that contains all of the core changes for
+#   renderroot splitting.
+#   
+# ==============================================================================
+
+diff -r 737807563dd5 -r c09a51622e98 gfx/layers/wr/WebRenderScrollData.h
+--- a/gfx/layers/wr/WebRenderScrollData.h	Thu Mar 21 23:14:26 2019 +0000
++++ b/gfx/layers/wr/WebRenderScrollData.h	Fri Mar 22 03:15:14 2019 +0000
+@@ -18,6 +18,9 @@
+ #include "mozilla/layers/LayerAttributes.h"
+ #include "mozilla/layers/LayersMessageUtils.h"
+ #include "mozilla/layers/FocusTarget.h"
++#include "mozilla/layers/RenderRootBoundary.h"
++#include "mozilla/layers/WebRenderMessageUtils.h"
++#include "mozilla/webrender/WebRenderTypes.h"
+ #include "mozilla/Maybe.h"
+ #include "nsTArrayForwardDeclare.h"
+ 
+@@ -46,7 +49,8 @@
+   void Initialize(WebRenderScrollData& aOwner, nsDisplayItem* aItem,
+                   int32_t aDescendantCount,
+                   const ActiveScrolledRoot* aStopAtAsr,
+-                  const Maybe<gfx::Matrix4x4>& aAncestorTransform);
++                  const Maybe<gfx::Matrix4x4>& aAncestorTransform,
++                  wr::RenderRoot aRenderRoot);
+ 
+   int32_t GetDescendantCount() const;
+   size_t GetScrollMetadataCount() const;
+@@ -86,6 +90,17 @@
+   void SetReferentId(LayersId aReferentId) { mReferentId = Some(aReferentId); }
+   Maybe<LayersId> GetReferentId() const { return mReferentId; }
+ 
++  void SetReferentRenderRoot(RenderRootBoundary aBoundary) {
++    mReferentRenderRoot = Some(aBoundary);
++  }
++  Maybe<RenderRootBoundary> GetReferentRenderRoot() const {
++    return mReferentRenderRoot;
++  }
++  void SetBoundaryRoot(RenderRootBoundary aBoundary) {
++    mBoundaryRoot = Some(aBoundary);
++  }
++  Maybe<RenderRootBoundary> GetBoundaryRoot() const { return mBoundaryRoot; }
++
+   void SetScrollbarData(const ScrollbarData& aData) { mScrollbarData = aData; }
+   const ScrollbarData& GetScrollbarData() const { return mScrollbarData; }
+   void SetScrollbarAnimationId(const uint64_t& aId) {
+@@ -102,6 +117,8 @@
+     return mFixedPosScrollContainerId;
+   }
+ 
++  wr::RenderRoot GetRenderRoot() { return mRenderRoot; }
++
+   void SetZoomAnimationId(const uint64_t& aId) { mZoomAnimationId = Some(aId); }
+   Maybe<uint64_t> GetZoomAnimationId() const { return mZoomAnimationId; }
+ 
+@@ -130,10 +147,13 @@
+   bool mTransformIsPerspective;
+   LayerIntRegion mVisibleRegion;
+   Maybe<LayersId> mReferentId;
++  Maybe<RenderRootBoundary> mReferentRenderRoot;
++  Maybe<RenderRootBoundary> mBoundaryRoot;
+   EventRegionsOverride mEventRegionsOverride;
+   ScrollbarData mScrollbarData;
+   Maybe<uint64_t> mScrollbarAnimationId;
+   ScrollableLayerGuid::ViewID mFixedPosScrollContainerId;
++  wr::RenderRoot mRenderRoot;
+   Maybe<uint64_t> mZoomAnimationId;
+ };
+ 
+@@ -166,9 +186,6 @@
+   Maybe<size_t> HasMetadataFor(
+       const ScrollableLayerGuid::ViewID& aScrollId) const;
+ 
+-  const FocusTarget& GetFocusTarget() const { return mFocusTarget; }
+-  void SetFocusTarget(const FocusTarget& aFocusTarget);
+-
+   void SetIsFirstPaint();
+   bool IsFirstPaint() const;
+   void SetPaintSequenceNumber(uint32_t aPaintSequenceNumber);
+@@ -212,9 +229,6 @@
+   // the other side.
+   nsTArray<WebRenderLayerScrollData> mLayerScrollData;
+ 
+-  // The focus information for this layer tree
+-  FocusTarget mFocusTarget;
+-
+   bool mIsFirstPaint;
+   uint32_t mPaintSequenceNumber;
+ };
+@@ -224,6 +238,10 @@
+ 
+ namespace IPC {
+ 
++template <>
++struct ParamTraits<mozilla::layers::RenderRootBoundary>
++    : public PlainOldDataSerializer<mozilla::layers::RenderRootBoundary> {};
++
+ // When ScrollbarData is stored on the layer tree, it's part of
+ // SimpleAttributes which itself uses PlainOldDataSerializer, so
+ // we don't need a ParamTraits specialization for ScrollbarData
+@@ -246,10 +264,13 @@
+     WriteParam(aMsg, aParam.mTransformIsPerspective);
+     WriteParam(aMsg, aParam.mVisibleRegion);
+     WriteParam(aMsg, aParam.mReferentId);
++    WriteParam(aMsg, aParam.mReferentRenderRoot);
++    WriteParam(aMsg, aParam.mBoundaryRoot);
+     WriteParam(aMsg, aParam.mEventRegionsOverride);
+     WriteParam(aMsg, aParam.mScrollbarData);
+     WriteParam(aMsg, aParam.mScrollbarAnimationId);
+     WriteParam(aMsg, aParam.mFixedPosScrollContainerId);
++    WriteParam(aMsg, aParam.mRenderRoot);
+     WriteParam(aMsg, aParam.mZoomAnimationId);
+   }
+ 
+@@ -262,10 +283,13 @@
+            ReadParam(aMsg, aIter, &aResult->mTransformIsPerspective) &&
+            ReadParam(aMsg, aIter, &aResult->mVisibleRegion) &&
+            ReadParam(aMsg, aIter, &aResult->mReferentId) &&
++           ReadParam(aMsg, aIter, &aResult->mReferentRenderRoot) &&
++           ReadParam(aMsg, aIter, &aResult->mBoundaryRoot) &&
+            ReadParam(aMsg, aIter, &aResult->mEventRegionsOverride) &&
+            ReadParam(aMsg, aIter, &aResult->mScrollbarData) &&
+            ReadParam(aMsg, aIter, &aResult->mScrollbarAnimationId) &&
+            ReadParam(aMsg, aIter, &aResult->mFixedPosScrollContainerId) &&
++           ReadParam(aMsg, aIter, &aResult->mRenderRoot) &&
+            ReadParam(aMsg, aIter, &aResult->mZoomAnimationId);
+   }
+ };
+@@ -277,7 +301,6 @@
+   static void Write(Message* aMsg, const paramType& aParam) {
+     WriteParam(aMsg, aParam.mScrollMetadatas);
+     WriteParam(aMsg, aParam.mLayerScrollData);
+-    WriteParam(aMsg, aParam.mFocusTarget);
+     WriteParam(aMsg, aParam.mIsFirstPaint);
+     WriteParam(aMsg, aParam.mPaintSequenceNumber);
+   }
+@@ -286,7 +309,6 @@
+                    paramType* aResult) {
+     return ReadParam(aMsg, aIter, &aResult->mScrollMetadatas) &&
+            ReadParam(aMsg, aIter, &aResult->mLayerScrollData) &&
+-           ReadParam(aMsg, aIter, &aResult->mFocusTarget) &&
+            ReadParam(aMsg, aIter, &aResult->mIsFirstPaint) &&
+            ReadParam(aMsg, aIter, &aResult->mPaintSequenceNumber) &&
+            aResult->RepopulateMap();

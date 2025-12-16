@@ -1,0 +1,93 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: xpfe/appshell/nsContentTreeOwner.cpp
+# Commit: fde2d124a1b1
+# Full Hash: fde2d124a1b15877570390c7c69f5fcf6770640d
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-04-08 03:36:50
+# Regressor Bug: 1616353
+# File Overlap Count: 1
+# Description:
+#   Bug 1616353 - Part 7.2: Create and use nsOpenWindowInfo types in nsWindowWatcher logic, r=kmag
+#   
+#   This patch builds on top of part 7.1 by creating this object within
+#   nsWindowWatcher and ContentParent to carry the relevant information through
+#   provider interfaces when creating new content windows. The nsOpenWindowInfo
+# ==============================================================================
+
+diff -r 7ccbbb127b7f -r fde2d124a1b1 xpfe/appshell/nsContentTreeOwner.cpp
+--- a/xpfe/appshell/nsContentTreeOwner.cpp	Tue Apr 07 21:39:24 2020 +0000
++++ b/xpfe/appshell/nsContentTreeOwner.cpp	Tue Apr 07 21:39:32 2020 +0000
+@@ -14,6 +14,7 @@
+ #include "nsIDOMChromeWindow.h"
+ #include "nsIBrowserDOMWindow.h"
+ #include "nsIEmbeddingSiteWindow.h"
++#include "nsIOpenWindowInfo.h"
+ #include "nsIPrompt.h"
+ #include "nsIAuthPrompt.h"
+ #include "nsIXULBrowserWindow.h"
+@@ -616,16 +617,14 @@
+ //*****************************************************************************
+ NS_IMETHODIMP
+ nsContentTreeOwner::ProvideWindow(
+-    mozIDOMWindowProxy* aParent, uint32_t aChromeFlags, bool aCalledFromJS,
+-    bool aWidthSpecified, nsIURI* aURI, const nsAString& aName,
+-    const nsACString& aFeatures, bool aForceNoOpener, bool aForceNoReferrer,
+-    nsDocShellLoadState* aLoadState, bool* aWindowIsNew,
++    nsIOpenWindowInfo* aOpenWindowInfo, uint32_t aChromeFlags,
++    bool aCalledFromJS, bool aWidthSpecified, nsIURI* aURI,
++    const nsAString& aName, const nsACString& aFeatures, bool aForceNoOpener,
++    bool aForceNoReferrer, nsDocShellLoadState* aLoadState, bool* aWindowIsNew,
+     BrowsingContext** aReturn) {
+-  NS_ENSURE_ARG_POINTER(aParent);
++  NS_ENSURE_ARG_POINTER(aOpenWindowInfo);
+ 
+-  auto* parentWin = nsPIDOMWindowOuter::From(aParent);
+-  dom::BrowsingContext* parent =
+-      parentWin ? parentWin->GetBrowsingContext() : nullptr;
++  RefPtr<dom::BrowsingContext> parent = aOpenWindowInfo->GetParent();
+ 
+   *aReturn = nullptr;
+ 
+@@ -634,9 +633,9 @@
+     return NS_OK;
+   }
+ 
++  nsCOMPtr<nsIDocShell> docshell = parent->GetDocShell();
+ #ifdef DEBUG
+-  nsCOMPtr<nsIWebNavigation> parentNav = do_GetInterface(aParent);
+-  nsCOMPtr<nsIDocShellTreeOwner> parentOwner = do_GetInterface(parentNav);
++  nsCOMPtr<nsIDocShellTreeOwner> parentOwner = do_GetInterface(docshell);
+   NS_ASSERTION(
+       SameCOMIdentity(parentOwner, static_cast<nsIDocShellTreeOwner*>(this)),
+       "Parent from wrong docshell tree?");
+@@ -645,7 +644,6 @@
+   // If aParent is inside an <iframe mozbrowser> and this isn't a request to
+   // open a modal-type window, we're going to create a new <iframe mozbrowser>
+   // and return its window here.
+-  nsCOMPtr<nsIDocShell> docshell = do_GetInterface(aParent);
+   if (docshell && docshell->GetIsInMozBrowser() &&
+       !(aChromeFlags & (nsIWebBrowserChrome::CHROME_MODAL |
+                         nsIWebBrowserChrome::CHROME_OPENAS_DIALOG |
+@@ -680,7 +678,7 @@
+   }
+ 
+   int32_t openLocation = nsWindowWatcher::GetWindowOpenLocation(
+-      parentWin, aChromeFlags, aCalledFromJS, aWidthSpecified);
++      parent->GetDOMWindow(), aChromeFlags, aCalledFromJS, aWidthSpecified);
+ 
+   if (openLocation != nsIBrowserDOMWindow::OPEN_NEWTAB &&
+       openLocation != nsIBrowserDOMWindow::OPEN_CURRENTWINDOW) {
+@@ -724,8 +722,9 @@
+     // ourselves.
+     RefPtr<NullPrincipal> nullPrincipal =
+         NullPrincipal::CreateWithoutOriginAttributes();
+-    return browserDOMWin->CreateContentWindow(
+-        aURI, aParent, openLocation, flags, nullPrincipal, nullptr, aReturn);
++    return browserDOMWin->CreateContentWindow(aURI, aOpenWindowInfo,
++                                              openLocation, flags,
++                                              nullPrincipal, nullptr, aReturn);
+   }
+ }
+ 

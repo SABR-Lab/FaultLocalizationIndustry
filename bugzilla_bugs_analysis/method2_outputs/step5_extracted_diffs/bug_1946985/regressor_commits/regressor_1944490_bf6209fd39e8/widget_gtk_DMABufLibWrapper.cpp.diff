@@ -1,0 +1,89 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/DMABufLibWrapper.cpp
+# Commit: bf6209fd39e8
+# Full Hash: bf6209fd39e85664974d19bfc1c8cb6d06d48a21
+# Author: stransky <stransky@redhat.com>
+# Date: 2025-02-05 16:56:59
+# Regressor Bug: 1944490
+# File Overlap Count: 1
+# Description:
+#   Bug 1944490 [Linux] Ensure DMABufFormats provides basic dmabuf formats r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D236688
+# ==============================================================================
+
+diff -r a374b7104d05 -r bf6209fd39e8 widget/gtk/DMABufLibWrapper.cpp
+--- a/widget/gtk/DMABufLibWrapper.cpp	Wed Feb 05 11:23:30 2025 +0000
++++ b/widget/gtk/DMABufLibWrapper.cpp	Wed Feb 05 11:26:53 2025 +0000
+@@ -217,9 +217,7 @@
+     return;
+   }
+ 
+-#ifdef MOZ_WAYLAND
+   LoadFormatModifiers();
+-#endif
+ 
+   LOGDMABUF(("DMABuf is enabled"));
+ }
+@@ -243,12 +241,18 @@
+          gfx::gfxVars::UseDMABufWebGL();
+ }
+ 
++void DMABufDevice::SetModifiersToGfxVars() {
++  RefPtr<DMABufFormats> formats;
+ #ifdef MOZ_WAYLAND
+-void DMABufDevice::SetModifiersToGfxVars() {
+-  RefPtr<DMABufFormats> formats = WaylandDisplayGet()->GetDMABufFormats();
++  if (GdkIsWaylandDisplay()) {
++    formats = WaylandDisplayGet()->GetDMABufFormats();
++  }
++#endif
+   if (!formats) {
+-    return;
++    formats = new DMABufFormats();
++    formats->EnsureBasicFormats();
+   }
++
+   if (DRMFormat* format = formats->GetFormat(GBM_FORMAT_XRGB8888)) {
+     mFormatRGBX = new DRMFormat(*format);
+     gfxVars::SetDMABufModifiersXRGB(*format->GetModifiers());
+@@ -265,15 +269,16 @@
+   mFormatRGBX =
+       new DRMFormat(GBM_FORMAT_ARGB8888, gfxVars::DMABufModifiersARGB());
+ }
+-#endif
+ 
+ void DMABufDevice::DisableDMABufWebGL() { sUseWebGLDmabufBackend = false; }
+ 
+ RefPtr<DRMFormat> DMABufDevice::GetDRMFormat(int32_t aFOURCCFormat) {
+   switch (aFOURCCFormat) {
+     case GBM_FORMAT_XRGB8888:
++      MOZ_DIAGNOSTIC_ASSERT(mFormatRGBX, "Missing RGBX dmabuf format!");
+       return mFormatRGBX;
+     case GBM_FORMAT_ARGB8888:
++      MOZ_DIAGNOSTIC_ASSERT(mFormatRGBA, "Missing RGBA dmabuf format!");
+       return mFormatRGBA;
+     default:
+       gfxCriticalNoteOnce << "DMABufDevice::GetDRMFormat() unknow format: "
+@@ -282,11 +287,7 @@
+   }
+ }
+ 
+-#ifdef MOZ_WAYLAND
+ void DMABufDevice::LoadFormatModifiers() {
+-  if (!GdkIsWaylandDisplay()) {
+-    return;
+-  }
+   if (XRE_IsParentProcess()) {
+     MOZ_ASSERT(NS_IsMainThread());
+     SetModifiersToGfxVars();
+@@ -294,7 +295,6 @@
+     GetModifiersFromGfxVars();
+   }
+ }
+-#endif
+ 
+ DMABufDevice* GetDMABufDevice() {
+   static StaticAutoPtr<DMABufDevice> sDmaBufDevice;

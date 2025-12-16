@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxWindowsPlatform.cpp
+# Commit: 228200dcaf93
+# Full Hash: 228200dcaf93bb3f10e338157325ef6227e8a0a5
+# Author: Kelsey Gilbert <kelsey.gilbert@mozilla.com>
+# Date: 2023-02-15 18:16:35
+# Regressor Bug: 1799258
+# File Overlap Count: 1
+# Description:
+#   Bug 1799258 - Do color-management on Windows+DComp via IDCompositionFilterEffects. r=sotaro
+#   
+#   + Add gfx.color_management.rec709_gamma_as_srgb:true. :'(
+#   
+#   In particular, rec709(16/255) -> srgb(31/255). Even though it's
+# ==============================================================================
+
+diff -r b25110652394 -r 228200dcaf93 gfx/thebes/gfxWindowsPlatform.cpp
+--- a/gfx/thebes/gfxWindowsPlatform.cpp	Wed Feb 15 08:29:41 2023 +0000
++++ b/gfx/thebes/gfxWindowsPlatform.cpp	Wed Feb 15 08:29:41 2023 +0000
+@@ -1036,16 +1036,21 @@
+     return result;
+   }
+ 
+-  if (!mCachedOutputColorProfile.IsEmpty()) {
+-    return mCachedOutputColorProfile.Clone();
+-  }
++  return GetPlatformCMSOutputProfileData_Impl();
++}
+ 
+-  mCachedOutputColorProfile = [&] {
+-    nsTArray<uint8_t> prefProfileData = GetPrefCMSOutputProfileData();
++nsTArray<uint8_t> gfxWindowsPlatform::GetPlatformCMSOutputProfileData_Impl() {
++  static nsTArray<uint8_t> sCached = [&] {
++    // Check override pref first:
++    nsTArray<uint8_t> prefProfileData =
++        gfxPlatform::GetPrefCMSOutputProfileData();
+     if (!prefProfileData.IsEmpty()) {
+       return prefProfileData;
+     }
+ 
++    // -
++    // Otherwise, create a dummy DC and pull from that.
++
+     HDC dc = ::GetDC(nullptr);
+     if (!dc) {
+       return nsTArray<uint8_t>();
+@@ -1078,7 +1083,7 @@
+     return result;
+   }();
+ 
+-  return mCachedOutputColorProfile.Clone();
++  return sCached.Clone();
+ }
+ 
+ void gfxWindowsPlatform::GetDLLVersion(char16ptr_t aDLLPath,

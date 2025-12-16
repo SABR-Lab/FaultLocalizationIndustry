@@ -1,0 +1,34 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/webrtc/signaling/src/media-conduit/AudioConduit.cpp
+# Commit: 551533329f3f
+# Full Hash: 551533329f3fdb48cb2df554f2fbbb4d6ce1f877
+# Author: Dan Minor <dminor@mozilla.com>
+# Date: 2018-11-09 10:01:40
+# Regressor Bug: 1376873
+# File Overlap Count: 3
+# Description:
+#   Bug 1376873 - Use audio/video sync groups; r=bwc
+#   
+#   This uses sync groups in the receive stream configs for the conduits rather
+#   than establishing sync through direct calls. When the streams are created
+#   in call.cc, ConfigureSync is called, which results in SetSync being called
+# ==============================================================================
+
+diff -r b55b0368d9f2 -r 551533329f3f media/webrtc/signaling/src/media-conduit/AudioConduit.cpp
+--- a/media/webrtc/signaling/src/media-conduit/AudioConduit.cpp	Wed Feb 07 15:00:17 2018 -0500
++++ b/media/webrtc/signaling/src/media-conduit/AudioConduit.cpp	Fri Apr 27 07:25:19 2018 -0400
+@@ -187,6 +187,12 @@
+   return true;
+ }
+ 
++void WebrtcAudioConduit::SetSyncGroup(const std::string& group)
++{
++  MOZ_ASSERT(NS_IsMainThread());
++  mRecvStreamConfig.sync_group = group;
++}
++
+ bool WebrtcAudioConduit::GetSendPacketTypeStats(
+   webrtc::RtcpPacketTypeCounter* aPacketCounts)
+ {

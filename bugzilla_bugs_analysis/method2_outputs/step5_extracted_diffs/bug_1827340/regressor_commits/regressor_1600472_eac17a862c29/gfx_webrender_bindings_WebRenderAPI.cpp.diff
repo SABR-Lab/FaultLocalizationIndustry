@@ -1,0 +1,66 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/webrender_bindings/WebRenderAPI.cpp
+# Commit: eac17a862c29
+# Full Hash: eac17a862c29a52ae1a389c5e55c0a1cec0db7b6
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2020-01-11 09:48:29
+# Regressor Bug: 1600472
+# File Overlap Count: 2
+# Description:
+#   Bug 1600472 - Disable allowing sacrificing subpixel anti-aliasing for small screens. r=jrmuizel
+#   
+#   This patch only allows sacrificing subpixel anti-aliasing when the
+#   screen size is larger than WUXGA, and when the force disable pref is not
+#   set. In the future, we may also add disable this for high end GPUs.
+# ==============================================================================
+
+diff -r b6e5faa0693d -r eac17a862c29 gfx/webrender_bindings/WebRenderAPI.cpp
+--- a/gfx/webrender_bindings/WebRenderAPI.cpp	Fri Jan 10 18:24:13 2020 +0000
++++ b/gfx/webrender_bindings/WebRenderAPI.cpp	Fri Jan 10 16:57:55 2020 +0000
+@@ -363,7 +363,6 @@
+       mUseDComp(aUseDComp),
+       mUseTripleBuffering(aUseTripleBuffering),
+       mSyncHandle(aSyncHandle),
+-      mDebugFlags({0}),
+       mRenderRoot(aRenderRoot) {}
+ 
+ WebRenderAPI::~WebRenderAPI() {
+@@ -386,14 +385,10 @@
+ }
+ 
+ void WebRenderAPI::UpdateDebugFlags(uint32_t aFlags) {
+-  if (mDebugFlags.bits != aFlags) {
+-    mDebugFlags.bits = aFlags;
+-    wr_api_set_debug_flags(mDocHandle, mDebugFlags);
+-  }
++  wr_api_set_debug_flags(mDocHandle, wr::DebugFlags{aFlags});
+ }
+ 
+ void WebRenderAPI::SendTransaction(TransactionBuilder& aTxn) {
+-  UpdateDebugFlags(gfx::gfxVars::WebRenderDebugFlags());
+   wr_api_send_transaction(mDocHandle, aTxn.Raw(), aTxn.UseSceneBuilderThread());
+ }
+ 
+@@ -405,8 +400,6 @@
+     return;
+   }
+ 
+-  aApis[RenderRoot::Default]->UpdateDebugFlags(
+-      gfx::gfxVars::WebRenderDebugFlags());
+   AutoTArray<DocumentHandle*, kRenderRootCount> documentHandles;
+   AutoTArray<Transaction*, kRenderRootCount> txns;
+   Maybe<bool> useSceneBuilderThread;
+@@ -844,6 +837,11 @@
+   wr_resource_updates_delete_font_instance(mTxn, aKey);
+ }
+ 
++void TransactionBuilder::UpdateQualitySettings(
++    bool aAllowSacrificingSubpixelAA) {
++  wr_transaction_set_quality_settings(mTxn, aAllowSacrificingSubpixelAA);
++}
++
+ class FrameStartTime : public RendererEvent {
+  public:
+   explicit FrameStartTime(const TimeStamp& aTime) : mTime(aTime) {

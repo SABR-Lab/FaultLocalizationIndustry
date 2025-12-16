@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/shared/LIR-shared.h
+# Commit: 16fd9844f2d2
+# Full Hash: 16fd9844f2d2029feaba3c864b1a0f830f9da235
+# Author: Andy Wingo <wingo@igalia.com>
+# Date: 2020-03-18 16:05:52
+# Regressor Bug: 1620197
+# File Overlap Count: 1
+# Description:
+#   Bug 1620197 - Enable multiple results from WebAssembly functions r=lth
+#   
+#   This patch enables multi-value calls and returns, adding some tests, and
+#   conditionally disabling a couple expect-fail reftests that now pass.
+#   
+# ==============================================================================
+
+diff -r 0d19968c99a7 -r 16fd9844f2d2 js/src/jit/shared/LIR-shared.h
+--- a/js/src/jit/shared/LIR-shared.h	Wed Mar 18 13:39:50 2020 +0200
++++ b/js/src/jit/shared/LIR-shared.h	Wed Mar 18 10:29:53 2020 +0000
+@@ -6816,6 +6816,13 @@
+   MOZ_ASSERT(!done());
+   MWasmStackResultArea* area = alloc_.ins()->toWasmStackResultArea()->mir();
+   MIRType type = area->result(idx_).type();
++#ifndef JS_PUNBOX64
++  // LDefinition::TypeFrom isn't defined for MIRType::Int64 values on
++  // this platform, so here we have a special case.
++  if (type == MIRType::Int64) {
++    return false;
++  }
++#endif
+   return LDefinition::TypeFrom(type) == LDefinition::OBJECT;
+ }
+ 

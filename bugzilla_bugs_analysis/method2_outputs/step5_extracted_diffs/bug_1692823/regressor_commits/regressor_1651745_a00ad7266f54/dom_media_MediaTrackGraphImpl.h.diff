@@ -1,0 +1,34 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/MediaTrackGraphImpl.h
+# Commit: a00ad7266f54
+# Full Hash: a00ad7266f54820d7a3ff1233fa156f63190a3a3
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2020-11-06 04:14:34
+# Regressor Bug: 1651745
+# File Overlap Count: 1
+# Description:
+#   Bug 1651745 - Signal AudioInputProcessing on input stream stop instead of driver start. r=padenot
+#   
+#   Without this patch, AudioInputProcessing wouldn't be aware of an audio driver
+#   changing to another driver, be it a system driver or an audio driver that starts
+#   on its fallback.
+# ==============================================================================
+
+diff -r a76d9158cdfd -r a00ad7266f54 dom/media/MediaTrackGraphImpl.h
+--- a/dom/media/MediaTrackGraphImpl.h	Thu Nov 05 16:42:41 2020 +0000
++++ b/dom/media/MediaTrackGraphImpl.h	Thu Nov 05 16:43:24 2020 +0000
+@@ -424,9 +424,9 @@
+    * This is the mixed audio output of this MediaTrackGraph. */
+   void NotifyOutputData(AudioDataValue* aBuffer, size_t aFrames,
+                         TrackRate aRate, uint32_t aChannels) override;
+-  /* Called on the graph thread before the first Notify*Data after an
+-   * AudioCallbackDriver starts. */
+-  void NotifyStarted() override;
++  /* Called on the graph thread after an AudioCallbackDriver with an input
++   * stream has stopped. */
++  void NotifyInputStopped() override;
+   /* Called on the graph thread when there is new input data for listeners. This
+    * is the raw audio input for this MediaTrackGraph. */
+   void NotifyInputData(const AudioDataValue* aBuffer, size_t aFrames,

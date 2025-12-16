@@ -1,0 +1,65 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/gfx-backend-empty/src/descriptor.rs
+# Commit: ef5dc3e04e5f
+# Full Hash: ef5dc3e04e5f271eea0636ab3a495e95cc912f1d
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-09-04 09:40:24
+# Regressor Bug: 1726626
+# File Overlap Count: 3
+# Description:
+#   Bug 1726626 - Move gfx/wgpu into a 3rd party dependency r=jgilbert,bholley
+#   
+#   This update makes wgpu a vendored dependency instead of having it in gfx/wgpu.
+#   
+#   ## Notes
+# ==============================================================================
+
+diff --git a/third_party/rust/gfx-backend-empty/src/descriptor.rs b/third_party/rust/gfx-backend-empty/src/descriptor.rs
+deleted file mode 100644
+--- a/third_party/rust/gfx-backend-empty/src/descriptor.rs
++++ /dev/null
+@@ -1,42 +0,0 @@
+-use hal::pso;
+-use log::debug;
+-
+-/// Dummy descriptor pool.
+-#[derive(Debug)]
+-pub struct DescriptorPool;
+-
+-impl pso::DescriptorPool<crate::Backend> for DescriptorPool {
+-    unsafe fn allocate_one(
+-        &mut self,
+-        _layout: &DescriptorSetLayout,
+-    ) -> Result<DescriptorSet, pso::AllocationError> {
+-        Ok(DescriptorSet {
+-            name: String::new(),
+-        })
+-    }
+-
+-    unsafe fn free<I>(&mut self, descriptor_sets: I)
+-    where
+-        I: Iterator<Item = DescriptorSet>,
+-    {
+-        for _ in descriptor_sets {
+-            // Let the descriptor set drop
+-        }
+-    }
+-
+-    unsafe fn reset(&mut self) {
+-        debug!("Resetting descriptor pool");
+-    }
+-}
+-
+-#[derive(Debug)]
+-pub struct DescriptorSetLayout {
+-    /// User-defined name for this descriptor set layout
+-    pub(crate) name: String,
+-}
+-
+-#[derive(Debug)]
+-pub struct DescriptorSet {
+-    /// User-defined name for this descriptor set
+-    pub(crate) name: String,
+-}

@@ -1,0 +1,79 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/COLRFonts.h
+# Commit: 768df8b3c770
+# Full Hash: 768df8b3c7707d579965f1a37b073adbaa6ed7a4
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2022-08-16 16:01:29
+# Regressor Bug: 1740530
+# File Overlap Count: 1
+# Description:
+#   Bug 1740530 - patch 5 - Implement support for COLRv1 glyphs represented as acyclic graphs of paint records. r=gfx-reviewers,lsalzman
+#   
+#   Depends on D153870
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D152041
+# ==============================================================================
+
+diff -r 4db61d87c172 -r 768df8b3c770 gfx/thebes/COLRFonts.h
+--- a/gfx/thebes/COLRFonts.h	Tue Aug 16 10:39:51 2022 +0000
++++ b/gfx/thebes/COLRFonts.h	Tue Aug 16 10:39:52 2022 +0000
+@@ -10,6 +10,7 @@
+ 
+ struct hb_blob_t;
+ struct hb_face_t;
++struct hb_font_t;
+ 
+ namespace mozilla {
+ 
+@@ -18,21 +19,44 @@
+ }
+ 
+ namespace gfx {
+-struct COLRBaseGlyphRecord;
+ 
+ class COLRFonts {
+  public:
+-  // for color layer from glyph using COLR and CPAL tables
+   static bool ValidateColorGlyphs(hb_blob_t* aCOLR, hb_blob_t* aCPAL);
+ 
+-  static const COLRBaseGlyphRecord* GetGlyphLayers(hb_blob_t* aCOLR,
+-                                                   uint32_t aGlyphId);
++  // COLRv0: color glyph is represented as a simple list of colored layers.
++  struct GlyphLayers;
++
++  static const GlyphLayers* GetGlyphLayers(hb_blob_t* aCOLR, uint32_t aGlyphId);
+ 
+   static bool PaintGlyphLayers(
+-      hb_blob_t* aCOLR, hb_face_t* aFace, const COLRBaseGlyphRecord* aLayers,
++      hb_blob_t* aCOLR, hb_face_t* aFace, const GlyphLayers* aLayers,
+       DrawTarget* aDrawTarget, layout::TextDrawTarget* aTextDrawer,
+       ScaledFont* aScaledFont, DrawOptions aDrawOptions,
+       const sRGBColor& aCurrentColor, const Point& aPoint);
++
++  // COLRv1 support: color glyph is represented by a directed acyclic graph of
++  // paint records.
++  struct GlyphPaintGraph;
++
++  static const GlyphPaintGraph* GetGlyphPaintGraph(hb_blob_t* aCOLR,
++                                                   uint32_t aGlyphId);
++
++  static bool PaintGlyphGraph(hb_blob_t* aCOLR, hb_font_t* aFont,
++                              const GlyphPaintGraph* aPaintGraph,
++                              DrawTarget* aDrawTarget,
++                              layout::TextDrawTarget* aTextDrawer,
++                              ScaledFont* aScaledFont, DrawOptions aDrawOptions,
++                              const sRGBColor& aCurrentColor,
++                              const Point& aPoint, uint32_t aGlyphId,
++                              float aFontUnitsToPixels);
++
++  static Rect GetColorGlyphBounds(hb_blob_t* aCOLR, hb_font_t* aFont,
++                                  uint32_t aGlyphId, DrawTarget* aDrawTarget,
++                                  ScaledFont* aScaledFont,
++                                  float aFontUnitsToPixels);
++
++  static uint16_t GetColrTableVersion(hb_blob_t* aCOLR);
+ };
+ 
+ }  // namespace gfx

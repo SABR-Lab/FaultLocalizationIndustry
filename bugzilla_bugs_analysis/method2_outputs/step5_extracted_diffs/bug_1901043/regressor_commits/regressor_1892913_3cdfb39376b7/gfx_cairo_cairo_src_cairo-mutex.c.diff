@@ -1,0 +1,94 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/cairo/cairo/src/cairo-mutex.c
+# Commit: 3cdfb39376b7
+# Full Hash: 3cdfb39376b736597fe658a322389117686b7e82
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2024-05-07 09:13:07
+# Regressor Bug: 1892913
+# File Overlap Count: 3
+# Description:
+#   Bug 1892913 - patch 1 - Update cairo source to 1.18.0 r=gfx-reviewers,lsalzman
+#   
+#   Wholesale replacement of files in gfx/cairo/cairo with contents of the 1.18.0 release tarball,
+#   omitting subdirectories that are not part of the core library build.
+#   
+# ==============================================================================
+
+diff -r 9daa351f875b -r 3cdfb39376b7 gfx/cairo/cairo/src/cairo-mutex.c
+--- a/gfx/cairo/cairo/src/cairo-mutex.c	Mon May 06 19:22:35 2024 +0000
++++ b/gfx/cairo/cairo/src/cairo-mutex.c	Mon May 06 19:25:12 2024 +0000
+@@ -41,13 +41,17 @@
+ 
+ #if _CAIRO_MUTEX_IMPL_USE_STATIC_INITIALIZER || _CAIRO_MUTEX_IMPL_USE_STATIC_FINALIZER
+ 
++#define _CAIRO_MUTEX_UNINITIALIZED 0
++#define _CAIRO_MUTEX_INITIALIZING  1
++#define _CAIRO_MUTEX_INITIALIZED   2
++
+ # if _CAIRO_MUTEX_IMPL_USE_STATIC_INITIALIZER
+-#  define _CAIRO_MUTEX_IMPL_INITIALIZED_DEFAULT_VALUE FALSE
++#  define _CAIRO_MUTEX_IMPL_INITIALIZED_DEFAULT_VALUE _CAIRO_MUTEX_UNINITIALIZED
+ # else
+-#  define _CAIRO_MUTEX_IMPL_INITIALIZED_DEFAULT_VALUE TRUE
++#  define _CAIRO_MUTEX_IMPL_INITIALIZED_DEFAULT_VALUE _CAIRO_MUTEX_INITIALIZED
+ # endif
+ 
+-cairo_bool_t _cairo_mutex_initialized = _CAIRO_MUTEX_IMPL_INITIALIZED_DEFAULT_VALUE;
++int _cairo_mutex_initialized = _CAIRO_MUTEX_IMPL_INITIALIZED_DEFAULT_VALUE;
+ 
+ # undef _CAIRO_MUTEX_IMPL_INITIALIZED_DEFAULT_VALUE
+ 
+@@ -56,24 +60,47 @@
+ #if _CAIRO_MUTEX_IMPL_USE_STATIC_INITIALIZER
+ void _cairo_mutex_initialize (void)
+ {
+-    if (_cairo_mutex_initialized)
++#if HAS_ATOMIC_OPS
++    int old_value;
++    do {
++        old_value = _cairo_atomic_int_cmpxchg_return_old (&_cairo_mutex_initialized,
++                                                          _CAIRO_MUTEX_UNINITIALIZED,
++                                                          _CAIRO_MUTEX_INITIALIZING);
++        if (old_value == _CAIRO_MUTEX_INITIALIZED)
++            return;
++
++    } while (old_value == _CAIRO_MUTEX_INITIALIZING);
++#else
++    if (_cairo_mutex_initialized == _CAIRO_MUTEX_INITIALIZED)
+         return;
+ 
+-    _cairo_mutex_initialized = TRUE;
++    _cairo_mutex_initialized = _CAIRO_MUTEX_INITIALIZED;
++#endif
+ 
+ #define  CAIRO_MUTEX_DECLARE(mutex) CAIRO_MUTEX_INIT (mutex);
+ #include "cairo-mutex-list-private.h"
+ #undef   CAIRO_MUTEX_DECLARE
++
++#if HAS_ATOMIC_OPS
++    _cairo_atomic_int_set_relaxed (&_cairo_mutex_initialized, _CAIRO_MUTEX_INITIALIZED);
++#endif
+ }
+ #endif
+ 
+ #if _CAIRO_MUTEX_IMPL_USE_STATIC_FINALIZER
+ void _cairo_mutex_finalize (void)
+ {
+-    if (!_cairo_mutex_initialized)
++#if HAS_ATOMIC_OPS
++    if (!_cairo_atomic_int_cmpxchg (&_cairo_mutex_initialized,
++                                    _CAIRO_MUTEX_INITIALIZED,
++                                    _CAIRO_MUTEX_UNINITIALIZED))
++        return;
++#else
++    if (_cairo_mutex_initialized != _CAIRO_MUTEX_INITIALIZED)
+         return;
+ 
+-    _cairo_mutex_initialized = FALSE;
++    _cairo_mutex_initialized = _CAIRO_MUTEX_UNINITIALIZED;
++#endif
+ 
+ #define  CAIRO_MUTEX_DECLARE(mutex) CAIRO_MUTEX_FINI (mutex);
+ #include "cairo-mutex-list-private.h"

@@ -1,0 +1,88 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/localstorage/ActorsParent.cpp
+# Commit: c8a45415dc5b
+# Full Hash: c8a45415dc5b0b33b7e9d4b9cd8114ac09a05218
+# Author: Jens Stutte <jstutte@mozilla.com>
+# Date: 2021-05-28 21:48:03
+# Description:
+#   Bug 1706998: Replace QuotaManager::GetRef().MaybeRecordShutdownStep by static QuotaManager::(Safe)MaybeRecordQuotaClientShutdownStep; r=dom-storage-reviewers,janv
+#   
+#   There are some few unsafe uses of MaybeRecordShutdownStep where the QuotaManager singleton may be  not (yet or anymore) alive.
+#   In order to not add many unnecessary null checks, we drop GetRef and MaybeRecordShutdownStep in favor of
+#   QuotaManager::MaybeRecordQuotaClientShutdownStep
+# ==============================================================================
+
+diff -r cc21fb9be25a -r c8a45415dc5b dom/localstorage/ActorsParent.cpp
+--- a/dom/localstorage/ActorsParent.cpp	Fri May 28 05:49:26 2021 +0000
++++ b/dom/localstorage/ActorsParent.cpp	Fri May 28 06:46:04 2021 +0000
+@@ -4351,7 +4351,7 @@
+ 
+   mPrepareDatastoreOps.Remove(aPrepareDatastoreOp);
+ 
+-  QuotaManager::GetRef().MaybeRecordShutdownStep(
++  QuotaManager::MaybeRecordQuotaClientShutdownStep(
+       quota::Client::LS, "PrepareDatastoreOp finished"_ns);
+ 
+   MaybeClose();
+@@ -4374,7 +4374,7 @@
+ 
+   mHasLivePrivateDatastore = false;
+ 
+-  QuotaManager::GetRef().MaybeRecordShutdownStep(
++  QuotaManager::MaybeRecordQuotaClientShutdownStep(
+       quota::Client::LS, "PrivateDatastore finished"_ns);
+ 
+   MaybeClose();
+@@ -4401,7 +4401,7 @@
+ 
+   mPreparedDatastores.Remove(aPreparedDatastore);
+ 
+-  QuotaManager::GetRef().MaybeRecordShutdownStep(
++  QuotaManager::MaybeRecordQuotaClientShutdownStep(
+       quota::Client::LS, "PreparedDatastore finished"_ns);
+ 
+   MaybeClose();
+@@ -4427,8 +4427,8 @@
+ 
+   mDatabases.Remove(aDatabase);
+ 
+-  QuotaManager::GetRef().MaybeRecordShutdownStep(quota::Client::LS,
+-                                                 "Database finished"_ns);
++  QuotaManager::MaybeRecordQuotaClientShutdownStep(quota::Client::LS,
++                                                   "Database finished"_ns);
+ 
+   MaybeClose();
+ }
+@@ -5087,8 +5087,8 @@
+   const DebugOnly<bool> removed = gDatastores->Remove(mOriginMetadata.mOrigin);
+   MOZ_ASSERT(removed);
+ 
+-  QuotaManager::GetRef().MaybeRecordShutdownStep(quota::Client::LS,
+-                                                 "Datastore removed"_ns);
++  QuotaManager::MaybeRecordQuotaClientShutdownStep(quota::Client::LS,
++                                                   "Datastore removed"_ns);
+ 
+   if (!gDatastores->Count()) {
+     gDatastores = nullptr;
+@@ -5285,8 +5285,8 @@
+   MOZ_ASSERT(gLiveDatabases);
+   gLiveDatabases->RemoveElement(this);
+ 
+-  QuotaManager::GetRef().MaybeRecordShutdownStep(quota::Client::LS,
+-                                                 "Live database removed"_ns);
++  QuotaManager::MaybeRecordQuotaClientShutdownStep(quota::Client::LS,
++                                                   "Live database removed"_ns);
+ 
+   if (gLiveDatabases->IsEmpty()) {
+     gLiveDatabases = nullptr;
+@@ -7400,7 +7400,7 @@
+   MOZ_ASSERT(gPrepareDatastoreOps);
+   gPrepareDatastoreOps->RemoveElement(this);
+ 
+-  QuotaManager::GetRef().MaybeRecordShutdownStep(
++  QuotaManager::MaybeRecordQuotaClientShutdownStep(
+       quota::Client::LS, "PrepareDatastoreOp completed"_ns);
+ 
+   if (gPrepareDatastoreOps->IsEmpty()) {

@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/OffscreenCanvasDisplayHelper.cpp
+# Commit: 4b60c438e5d6
+# Full Hash: 4b60c438e5d69c30b5d3c24664a06da7693a9402
+# Author: Jamie Nicol <jnicol@mozilla.com>
+# Date: 2024-07-23 09:34:47
+# Regressor Bug: 1898238
+# File Overlap Count: 1
+# Description:
+#   Bug 1898238 - Don't call TexTypeForWebgl when initializing offscreen canvas. r=aosmond,jgilbert
+#   
+#   This is only used if the OffscreenCanvas has a webgl context, in which
+#   case it forwards the tex type to WebGLContext::PresentFrontBuffer(). A
+#   later patch in this series will make TexTypeForWebgl() return a
+# ==============================================================================
+
+diff -r 51ece15f6b4e -r 4b60c438e5d6 dom/canvas/OffscreenCanvasDisplayHelper.cpp
+--- a/dom/canvas/OffscreenCanvasDisplayHelper.cpp	Mon Jul 22 20:21:30 2024 +0000
++++ b/dom/canvas/OffscreenCanvasDisplayHelper.cpp	Mon Jul 22 20:23:37 2024 +0000
+@@ -171,7 +171,6 @@
+ 
+ bool OffscreenCanvasDisplayHelper::CommitFrameToCompositor(
+     nsICanvasRenderingContextInternal* aContext,
+-    layers::TextureType aTextureType,
+     const Maybe<OffscreenCanvasDisplayData>& aData) {
+   auto endTransaction = MakeScopeExit([&]() {
+     if (auto* cm = gfx::CanvasManagerChild::Get()) {
+@@ -242,7 +241,7 @@
+       aContext->OnBeforePaintTransaction();
+     }
+ 
+-    desc = aContext->PresentFrontBuffer(nullptr, aTextureType);
++    desc = aContext->PresentFrontBuffer(nullptr);
+     if (desc) {
+       hasRemoteTextureDesc =
+           desc->type() ==

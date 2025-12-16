@@ -1,0 +1,63 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/base/nsRefreshDriver.h
+# Commit: 1290c81b4fd7
+# Full Hash: 1290c81b4fd788222a335a1bbe07747b28d22ae9
+# Author: Alexander Surkov <surkov.alexander@gmail.com>
+# Date: 2023-10-03 15:57:45
+# Regressor Bug: 1807253
+# File Overlap Count: 1
+# Description:
+#   Bug 1807253 - get rid of ResizeObserverNotificationHelper, r=emilio
+#   
+#   Integrate resize observer processing with RefreshDriver to make it
+#   more extensible.
+#   
+# ==============================================================================
+
+diff -r 5502331146fe -r 1290c81b4fd7 layout/base/nsRefreshDriver.h
+--- a/layout/base/nsRefreshDriver.h	Tue Oct 03 09:40:06 2023 +0000
++++ b/layout/base/nsRefreshDriver.h	Tue Oct 03 09:48:46 2023 +0000
+@@ -419,6 +419,16 @@
+     mNeedToUpdateIntersectionObservations = true;
+   }
+ 
++  void ResizeObserverControllerAdded() {
++    EnsureTimerStarted();
++    mResizeObservationCount++;
++  }
++
++  void ResizeObserverControllerRemoved() {
++    MOZ_ASSERT(mResizeObservationCount);
++    mResizeObservationCount--;
++  }
++
+   void ScheduleMediaQueryListenerUpdate() {
+     EnsureTimerStarted();
+     mMightNeedMediaQueryListenerUpdate = true;
+@@ -446,6 +456,7 @@
+     eHasScrollEvents = 1 << 5,
+     eHasVisualViewportScrollEvents = 1 << 6,
+     eHasPendingMediaQueryListeners = 1 << 7,
++    eNeedsToNotifyResizeObservers = 1 << 8,
+   };
+ 
+   void AddForceNotifyContentfulPaintPresContext(nsPresContext* aPresContext);
+@@ -492,6 +503,7 @@
+   void RunFrameRequestCallbacks(mozilla::TimeStamp aNowTime);
+   void UpdateIntersectionObservations(mozilla::TimeStamp aNowTime);
+   void UpdateRelevancyOfContentVisibilityAutoFrames();
++  MOZ_CAN_RUN_SCRIPT void NotifyResizeObservers();
+   void MaybeIncreaseMeasuredTicksSinceLoading();
+   void EvaluateMediaQueriesAndReportChanges();
+ 
+@@ -647,6 +659,8 @@
+ 
+   bool mHasStartedTimerAtLeastOnce : 1;
+ 
++  int32_t mResizeObservationCount;
++
+   mozilla::TimeStamp mMostRecentRefresh;
+   mozilla::TimeStamp mTickStart;
+   mozilla::VsyncId mTickVsyncId;

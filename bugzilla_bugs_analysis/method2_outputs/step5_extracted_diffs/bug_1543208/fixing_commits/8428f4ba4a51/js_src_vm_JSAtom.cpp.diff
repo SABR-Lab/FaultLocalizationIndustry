@@ -1,0 +1,56 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/JSAtom.cpp
+# Commit: 8428f4ba4a51
+# Full Hash: 8428f4ba4a51304584ade9bcbbcb2d555807b406
+# Author: Steve Fink <sfink@mozilla.com>
+# Date: 2019-04-11 09:50:57
+# Description:
+#   Bug 1543208 - Prevent GC from seeing uninitialized well-known symbols r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D26841
+# ==============================================================================
+
+diff -r c3c81f8321b7 -r 8428f4ba4a51 js/src/vm/JSAtom.cpp
+--- a/js/src/vm/JSAtom.cpp	Wed Apr 10 21:44:16 2019 +0000
++++ b/js/src/vm/JSAtom.cpp	Wed Apr 10 17:09:50 2019 +0000
+@@ -20,6 +20,7 @@
+ #include "jstypes.h"
+ 
+ #include "builtin/String.h"
++#include "gc/GC.h"
+ #include "gc/Marking.h"
+ #include "js/CharacterEncoding.h"
+ #include "js/Symbol.h"
+@@ -283,15 +284,18 @@
+   emptyString = commonNames->empty;
+ 
+   // Create the well-known symbols.
+-  wellKnownSymbols = js_new<WellKnownSymbols>();
+-  if (!wellKnownSymbols) {
++  auto wks = js_new<WellKnownSymbols>();
++  if (!wks) {
+     return false;
+   }
+ 
++  // Prevent GC until we have fully initialized the well known symbols table.
++  // Faster than zeroing the array and null checking during every GC.
++  gc::AutoSuppressGC nogc(cx);
++
+   ImmutablePropertyNamePtr* descriptions =
+       commonNames->wellKnownSymbolDescriptions();
+-  ImmutableSymbolPtr* symbols =
+-      reinterpret_cast<ImmutableSymbolPtr*>(wellKnownSymbols.ref());
++  ImmutableSymbolPtr* symbols = reinterpret_cast<ImmutableSymbolPtr*>(wks);
+   for (size_t i = 0; i < JS::WellKnownSymbolLimit; i++) {
+     HandlePropertyName description = descriptions[i];
+     JS::Symbol* symbol = JS::Symbol::new_(cx, JS::SymbolCode(i), description);
+@@ -302,6 +306,7 @@
+     symbols[i].init(symbol);
+   }
+ 
++  wellKnownSymbols = wks;
+   return true;
+ }
+ 

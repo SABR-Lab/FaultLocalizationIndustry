@@ -1,0 +1,124 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/ipc/DocumentLoadListener.h
+# Commit: 86a5e0827050
+# Full Hash: 86a5e0827050e262bb713d6910a8c1d6e6ec3738
+# Author: Dan Glastonbury <dan.glastonbury@gmail.com>
+# Date: 2020-07-13 09:51:22
+# Regressor Bug: 1646899
+# File Overlap Count: 1
+# Description:
+#   Bug 1646899 - P4: Handle object & embed via DocumentChannel. r=mattwoodrow,jya
+#   
+#   Pass internal content policy type to DLL and switch behavior depending on type
+#   being loaded. This implementation immediately redirects channel back to the
+#   content process for further handling.
+# ==============================================================================
+
+diff -r d2fd0f955e24 -r 86a5e0827050 netwerk/ipc/DocumentLoadListener.h
+--- a/netwerk/ipc/DocumentLoadListener.h	Mon Jul 13 00:48:54 2020 +0000
++++ b/netwerk/ipc/DocumentLoadListener.h	Mon Jul 13 00:48:57 2020 +0000
+@@ -94,8 +94,10 @@
+                              public nsIMultiPartChannelListener,
+                              public nsIProgressEventSink {
+  public:
++  // See the comment on GetLoadingBrowsingContext for explanation of
++  // aLoadingBrowsingContext.
+   explicit DocumentLoadListener(
+-      dom::CanonicalBrowsingContext* aBrowsingContext);
++      dom::CanonicalBrowsingContext* aLoadingBrowsingContext);
+ 
+   struct OpenPromiseSucceededType {
+     nsTArray<ipc::Endpoint<extensions::PStreamFilterParent>>
+@@ -117,6 +119,7 @@
+                      true /* isExclusive */>
+       OpenPromise;
+ 
++ private:
+   // Creates the channel, and then calls AsyncOpen on it.
+   // The DocumentLoadListener will require additional process from the consumer
+   // in order to complete the redirect to the end channel. This is done by
+@@ -125,14 +128,30 @@
+   // Once that promise is resolved; the consumer no longer needs to hold a
+   // reference to the DocumentLoadListener nor will the consumer required to be
+   // used again.
+-  RefPtr<OpenPromise> Open(nsDocShellLoadState* aLoadState, uint32_t aCacheKey,
++  RefPtr<OpenPromise> Open(nsDocShellLoadState* aLoadState, LoadInfo* aLoadInfo,
++                           nsLoadFlags aLoadFlags, uint32_t aCacheKey,
+                            const Maybe<uint64_t>& aChannelId,
+                            const TimeStamp& aAsyncOpenTime,
+                            nsDOMNavigationTiming* aTiming,
+-                           Maybe<dom::ClientInfo>&& aInfo,
+-                           uint64_t aOuterWindowId, bool aHasGesture,
+-                           Maybe<bool> aUriModified, Maybe<bool> aIsXFOError,
+-                           base::ProcessId aPid, nsresult* aRv);
++                           Maybe<dom::ClientInfo>&& aInfo, bool aHasGesture,
++                           bool aUrgentStart, base::ProcessId aPid,
++                           nsresult* aRv);
++
++ public:
++  RefPtr<OpenPromise> OpenDocument(
++      nsDocShellLoadState* aLoadState, uint32_t aCacheKey,
++      const Maybe<uint64_t>& aChannelId, const TimeStamp& aAsyncOpenTime,
++      nsDOMNavigationTiming* aTiming, Maybe<dom::ClientInfo>&& aInfo,
++      uint64_t aOuterWindowId, bool aHasGesture, Maybe<bool> aUriModified,
++      Maybe<bool> aIsXFOError, base::ProcessId aPid, nsresult* aRv);
++
++  RefPtr<OpenPromise> OpenObject(
++      nsDocShellLoadState* aLoadState, uint32_t aCacheKey,
++      const Maybe<uint64_t>& aChannelId, const TimeStamp& aAsyncOpenTime,
++      nsDOMNavigationTiming* aTiming, Maybe<dom::ClientInfo>&& aInfo,
++      uint64_t aInnerWindowId, nsLoadFlags aLoadFlags,
++      nsContentPolicyType aContentPolicyType, bool aHasGesture,
++      bool aUrgentStart, base::ProcessId aPid, nsresult* aRv);
+ 
+   // Creates a DocumentLoadListener entirely in the parent process and opens it,
+   // and never needs a DocumentChannel to connect to an existing docshell.
+@@ -237,8 +256,6 @@
+                              dom::ContentParent* aParent) const;
+ 
+   uint64_t GetLoadIdentifier() const { return mLoadIdentifier; }
+-  dom::CanonicalBrowsingContext* GetBrowsingContext() const;
+-
+   uint32_t GetLoadType() const { return mLoadStateLoadType; }
+ 
+  protected:
+@@ -298,7 +315,18 @@
+   // Construct a LoadInfo object to use for the internal channel.
+   already_AddRefed<LoadInfo> CreateLoadInfo(
+       dom::CanonicalBrowsingContext* aBrowsingContext,
+-      nsDocShellLoadState* aLoadState, uint64_t aOuterWindowId);
++      nsDocShellLoadState* aLoadState, uint64_t aOuterWindowId,
++      uint64_t aInnerWindowId, nsContentPolicyType aContentPolicyType);
++
++  // Return the Browsing Context that is performing the load.
++  // For document loads, the BC is the one that the (sub)doc
++  // will load into. For <object>/<embed>, it's the embedder document's BC.
++  dom::CanonicalBrowsingContext* GetLoadingBrowsingContext() const;
++
++  // Return the Browsing Context that document is being loaded into. For
++  // non-document loads, this will return nullptr.
++  dom::CanonicalBrowsingContext* GetDocumentBrowsingContext() const;
++  dom::CanonicalBrowsingContext* GetTopBrowsingContext() const;
+ 
+   void AddURIVisit(nsIChannel* aChannel, uint32_t aLoadFlags);
+   bool HasCrossOriginOpenerPolicyMismatch() const;
+@@ -314,6 +342,8 @@
+   // Returns false if the docshell will ignore the load entirely.
+   bool DocShellWillDisplayContent(nsresult aStatus);
+ 
++  void FireStateChange(uint32_t aStateFlags, nsresult aStatus);
++
+   // Returns true if this is a failed load, where we have successfully
+   // created a fixed URI to attempt loading instead.
+   // If successful, this calls DisconnectListeners to completely finish
+@@ -441,6 +471,8 @@
+ 
+   mozilla::UniquePtr<mozilla::dom::SessionHistoryInfo> mSessionHistoryInfo;
+ 
++  nsContentPolicyType mExternalContentPolicyType;
++
+   // Flags from nsDocShellLoadState::LoadFlags/Type that we want to make
+   // available to the new docshell if we switch processes.
+   uint32_t mLoadStateLoadFlags = 0;

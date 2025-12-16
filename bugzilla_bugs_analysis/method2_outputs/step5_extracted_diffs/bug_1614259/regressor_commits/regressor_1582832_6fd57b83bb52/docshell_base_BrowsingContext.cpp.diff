@@ -1,0 +1,112 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/BrowsingContext.cpp
+# Commit: 6fd57b83bb52
+# Full Hash: 6fd57b83bb52e9683bade8cbfb5f8ba6575ac6af
+# Author: Kris Maglione <maglione.k@gmail.com>
+# Date: 2020-02-07 03:55:51
+# Regressor Bug: 1582832
+# File Overlap Count: 3
+# Description:
+#   Bug 1582832: Part 1 - Make FrameLoader owner rather than DocShell responsible for discarding a BC. r=nika
+#   
+#   There are all sorts of lifecycle issues which arise from making DocShell
+#   responsible for discarding BrowsingContexts. In this particular bug, we tend
+#   to run into them in cases where we create a BrowsingContext for a FrameLoader,
+# ==============================================================================
+
+diff -r 28a9e4b075af -r 6fd57b83bb52 docshell/base/BrowsingContext.cpp
+--- a/docshell/base/BrowsingContext.cpp	Thu Feb 06 18:35:10 2020 +0000
++++ b/docshell/base/BrowsingContext.cpp	Thu Feb 06 19:07:56 2020 +0000
+@@ -147,8 +147,10 @@
+ 
+   RefPtr<BrowsingContext> context;
+   if (XRE_IsParentProcess()) {
+-    context = new CanonicalBrowsingContext(aParent, group, id,
+-                                           /* aProcessId */ 0, aType, {});
++    context =
++        new CanonicalBrowsingContext(aParent, group, id,
++                                     /* aOwnerProcessId */ 0,
++                                     /* aEmbedderProcessId */ 0, aType, {});
+   } else {
+     context = new BrowsingContext(aParent, group, id, aType, {});
+   }
+@@ -224,9 +226,13 @@
+ 
+   RefPtr<BrowsingContext> context;
+   if (XRE_IsParentProcess()) {
+-    context =
+-        new CanonicalBrowsingContext(parent, aGroup, aInit.mId, originId,
+-                                     Type::Content, std::move(aInit.mFields));
++    // If the new BrowsingContext has a parent, it is a sub-frame embedded in
++    // whatever process sent the message. If it doesn't, it is a new window or
++    // tab, and will be embedded in the parent process.
++    uint64_t embedderProcessId = parent ? originId : 0;
++    context = new CanonicalBrowsingContext(parent, aGroup, aInit.mId, originId,
++                                           embedderProcessId, Type::Content,
++                                           std::move(aInit.mFields));
+   } else {
+     context = new BrowsingContext(parent, aGroup, aInit.mId, Type::Content,
+                                   std::move(aInit.mFields));
+@@ -373,8 +379,6 @@
+     return;
+   }
+ 
+-  RefPtr<BrowsingContext> self(this);
+-
+   if (!mGroup->EvictCachedContext(this)) {
+     Children* children = nullptr;
+     if (mParent) {
+@@ -391,11 +395,31 @@
+     mChildren.Clear();
+   }
+ 
++  {
++    // Hold a strong reference to ourself until the responses comes back to
++    // ensure we don't die while messages relating to this context are
++    // in-flight.
++    RefPtr<BrowsingContext> self(this);
++    auto callback = [self](auto) {};
++    if (XRE_IsParentProcess()) {
++      Group()->EachParent([&](ContentParent* aParent) {
++        // Only the embedder process is allowed to initiate a BrowsingContext
++        // detach, so if we've gotten here, the host process already knows we've
++        // been detached, and there's no need to tell it again.
++        if (!Canonical()->IsEmbeddedInProcess(aParent->ChildID())) {
++          aParent->SendDetachBrowsingContext(Id(), callback, callback);
++        }
++      });
++    } else if (!aFromIPC) {
++      ContentChild::GetSingleton()->SendDetachBrowsingContext(Id(), callback,
++                                                              callback);
++    }
++  }
++
+   mGroup->Unregister(this);
+   mIsDiscarded = true;
+ 
+-  nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
+-  if (obs) {
++  if (nsCOMPtr<nsIObserverService> obs = services::GetObserverService()) {
+     obs->NotifyObservers(ToSupports(this), "browsing-context-discarded",
+                          nullptr);
+   }
+@@ -414,17 +438,6 @@
+   if (XRE_IsParentProcess()) {
+     Canonical()->CanonicalDiscard();
+   }
+-
+-  if (!aFromIPC && XRE_IsContentProcess()) {
+-    auto cc = ContentChild::GetSingleton();
+-    MOZ_DIAGNOSTIC_ASSERT(cc);
+-    // Tell our parent that the BrowsingContext has been detached. A strong
+-    // reference to this is held until the promise is resolved to ensure it
+-    // doesn't die before the parent receives the message.
+-    auto resolve = [self](bool) {};
+-    auto reject = [self](mozilla::ipc::ResponseRejectReason) {};
+-    cc->SendDetachBrowsingContext(Id(), resolve, reject);
+-  }
+ }
+ 
+ void BrowsingContext::PrepareForProcessChange() {

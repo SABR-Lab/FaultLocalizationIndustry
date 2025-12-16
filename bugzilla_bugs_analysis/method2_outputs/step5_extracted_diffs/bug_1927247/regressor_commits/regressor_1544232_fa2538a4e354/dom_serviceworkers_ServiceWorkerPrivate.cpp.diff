@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/serviceworkers/ServiceWorkerPrivate.cpp
+# Commit: fa2538a4e354
+# Full Hash: fa2538a4e354c1d9841b2a611def5843c1e383a6
+# Author: Andrew Sutherland <asutherland@asutherland.org>
+# Date: 2024-11-05 16:14:41
+# Regressor Bug: 1544232
+# File Overlap Count: 7
+# Description:
+#   Bug 1927247 - Regenerate Client Id for ServiceWorkers on termination. r=dom-worker-reviewers,webidl,smaug
+#   
+#   Bug 1544232 changed it so ServiceWorker globals used a ClientInfo and
+#   Client Id created by the ServiceWorkerPrivate rather than creating a
+#   random client id.  This allows the ServiceWorkerManager to reliably map
+# ==============================================================================
+
+diff -r 18af0608f7f1 -r fa2538a4e354 dom/serviceworkers/ServiceWorkerPrivate.cpp
+--- a/dom/serviceworkers/ServiceWorkerPrivate.cpp	Tue Nov 05 05:18:37 2024 +0000
++++ b/dom/serviceworkers/ServiceWorkerPrivate.cpp	Tue Nov 05 06:26:05 2024 +0000
+@@ -740,6 +740,16 @@
+   return NS_OK;
+ }
+ 
++void ServiceWorkerPrivate::RegenerateClientInfo() {
++  // inductively, this object can only still be alive after Initialize() if the
++  // mClientInfo was correctly initialized.
++  MOZ_DIAGNOSTIC_ASSERT(mClientInfo.isSome());
++
++  mClientInfo = ClientManager::CreateInfo(
++      ClientType::Serviceworker, mClientInfo->GetPrincipal().unwrap().get());
++  mRemoteWorkerData.clientInfo().ref() = mClientInfo.ref().ToIPC();
++}
++
+ nsresult ServiceWorkerPrivate::CheckScriptEvaluation(
+     const ServiceWorkerLifetimeExtension& aLifetimeExtension,
+     RefPtr<LifeCycleEventCallback> aCallback) {
+@@ -1859,9 +1869,16 @@
+ 
+   /**
+    * After dispatching a termination operation, no new operations should
+-   * be routed through this actor anymore.
++   * be routed through this actor anymore so we can drop the controller
++   * reference.  This also means that the next time SpawnWorkerIfNeeded is
++   * invoked we will spawn a new worker, creating a new mControllerChild.
+    */
+   mControllerChild = nullptr;
++  // Create a new ClientInfo for the next time we potentially spawn this
++  // ServiceWorker.  We do this now rather than immediately before spawning the
++  // ServiceWorker so it's possible to know what the client id will be before
++  // triggering the next spawn.
++  RegenerateClientInfo();
+ 
+   // Update here, since Evaluation failures directly call ShutdownInternal
+   UpdateRunning(-1, mHandlesFetch == Enabled ? -1 : 0);

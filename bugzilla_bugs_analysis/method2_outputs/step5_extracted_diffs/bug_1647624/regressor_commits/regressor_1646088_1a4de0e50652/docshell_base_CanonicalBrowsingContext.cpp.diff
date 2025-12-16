@@ -1,0 +1,157 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/CanonicalBrowsingContext.cpp
+# Commit: 1a4de0e50652
+# Full Hash: 1a4de0e50652bc0f8e9411b04fb73d82d22cac47
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2020-06-22 21:47:58
+# Regressor Bug: 1646088
+# File Overlap Count: 2
+# Description:
+#   Bug 1646088 - Part 1: Keep processes alive during process switches, r=kmag
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D79888
+# ==============================================================================
+
+diff -r 0a814322a3e6 -r 1a4de0e50652 docshell/base/CanonicalBrowsingContext.cpp
+--- a/docshell/base/CanonicalBrowsingContext.cpp	Mon Jun 22 14:24:16 2020 +0000
++++ b/docshell/base/CanonicalBrowsingContext.cpp	Thu Jun 18 18:51:54 2020 +0000
+@@ -421,8 +421,7 @@
+   LoadURI(loadState, true);
+ }
+ 
+-void CanonicalBrowsingContext::PendingRemotenessChange::ProcessReady(
+-    ContentParent* aContentParent) {
++void CanonicalBrowsingContext::PendingRemotenessChange::ProcessReady() {
+   if (!mPromise) {
+     return;
+   }
+@@ -431,18 +430,15 @@
+   if (mPrepareToChangePromise) {
+     mPrepareToChangePromise->Then(
+         GetMainThreadSerialEventTarget(), __func__,
+-        [self = RefPtr{this}, contentParent = RefPtr{aContentParent}](bool) {
+-          self->Finish(contentParent);
+-        },
++        [self = RefPtr{this}](bool) { self->Finish(); },
+         [self = RefPtr{this}](nsresult aRv) { self->Cancel(aRv); });
+     return;
+   }
+ 
+-  Finish(aContentParent);
++  Finish();
+ }
+ 
+-void CanonicalBrowsingContext::PendingRemotenessChange::Finish(
+-    ContentParent* aContentParent) {
++void CanonicalBrowsingContext::PendingRemotenessChange::Finish() {
+   if (!mPromise) {
+     return;
+   }
+@@ -482,13 +478,13 @@
+     // browser to determine if it is remote, so update the value.
+     browserElement->SetAttr(
+         kNameSpaceID_None, nsGkAtoms::remote,
+-        aContentParent ? NS_LITERAL_STRING("true") : NS_LITERAL_STRING("false"),
++        mContentParent ? NS_LITERAL_STRING("true") : NS_LITERAL_STRING("false"),
+         /* notify */ true);
+ 
+     // The process has been created, hand off to nsFrameLoaderOwner to finish
+     // the process switch.
+     ErrorResult error;
+-    frameLoaderOwner->ChangeRemotenessToProcess(aContentParent,
++    frameLoaderOwner->ChangeRemotenessToProcess(mContentParent,
+                                                 mReplaceBrowsingContext, error);
+     if (error.Failed()) {
+       Cancel(error.StealNSResult());
+@@ -507,7 +503,7 @@
+     RefPtr<nsFrameLoader> frameLoader = frameLoaderOwner->GetFrameLoader();
+     RefPtr<BrowserParent> newBrowser = frameLoader->GetBrowserParent();
+     if (!newBrowser) {
+-      if (aContentParent) {
++      if (mContentParent) {
+         // Failed to create the BrowserParent somehow! Abort the process switch
+         // attempt.
+         Cancel(NS_ERROR_UNEXPECTED);
+@@ -537,7 +533,7 @@
+     return;
+   }
+ 
+-  if (NS_WARN_IF(!aContentParent)) {
++  if (NS_WARN_IF(!mContentParent)) {
+     Cancel(NS_ERROR_FAILURE);
+     return;
+   }
+@@ -575,7 +571,7 @@
+   // Update which process is considered the current owner
+   uint64_t inFlightProcessId = target->OwnerProcessId();
+   target->SetInFlightProcessId(inFlightProcessId);
+-  target->SetOwnerProcessId(aContentParent->ChildID());
++  target->SetOwnerProcessId(mContentParent->ChildID());
+ 
+   auto resetInFlightId = [target, inFlightProcessId] {
+     if (target->GetInFlightProcessId() == inFlightProcessId) {
+@@ -608,7 +604,7 @@
+   // Create and initialize our new BrowserBridgeParent.
+   TabId tabId(nsContentUtils::GenerateTabId());
+   RefPtr<BrowserBridgeParent> bridge = new BrowserBridgeParent();
+-  nsresult rv = bridge->InitWithProcess(embedderBrowser, aContentParent,
++  nsresult rv = bridge->InitWithProcess(embedderBrowser, mContentParent,
+                                         windowInit, chromeFlags, tabId);
+   if (NS_WARN_IF(NS_FAILED(rv))) {
+     Cancel(rv);
+@@ -661,6 +657,13 @@
+     mTarget->mPendingRemotenessChange = nullptr;
+   }
+ 
++  // When this PendingRemotenessChange was created, it was given a
++  // `mContentParent`.
++  if (mContentParent) {
++    mContentParent->RemoveKeepAlive();
++    mContentParent = nullptr;
++  }
++
+   mPromise = nullptr;
+   mTarget = nullptr;
+   mPrepareToChangePromise = nullptr;
+@@ -765,23 +768,27 @@
+   }
+ 
+   if (aRemoteType.IsEmpty()) {
+-    change->ProcessReady(nullptr);
++    change->ProcessReady();
+   } else {
+-    ContentParent::GetNewOrUsedBrowserProcessAsync(
++    change->mContentParent = ContentParent::GetNewOrUsedLaunchingBrowserProcess(
+         /* aFrameElement = */ nullptr,
+         /* aRemoteType = */ aRemoteType,
+         /* aPriority = */ hal::PROCESS_PRIORITY_FOREGROUND,
+         /* aOpener = */ nullptr,
+-        /* aPreferUsed = */ false)
+-        ->Then(
+-            GetMainThreadSerialEventTarget(), __func__,
+-            [change](ContentParent* aContentParent) {
+-              MOZ_RELEASE_ASSERT(
+-                  aContentParent,
+-                  "Null process from GetNewOrUsedBrowserProcessAsync");
+-              change->ProcessReady(aContentParent);
+-            },
+-            [change](LaunchError aError) { change->Cancel(NS_ERROR_FAILURE); });
++        /* aPreferUsed = */ false);
++    if (!change->mContentParent) {
++      change->Cancel(NS_ERROR_FAILURE);
++      return promise.forget();
++    }
++
++    // Add a KeepAlive used by this ContentParent, which will be cleared when
++    // the change is complete. This should prevent the process dying before
++    // we're ready to use it.
++    change->mContentParent->AddKeepAlive();
++    change->mContentParent->WaitForLaunchAsync()->Then(
++        GetMainThreadSerialEventTarget(), __func__,
++        [change](ContentParent*) { change->ProcessReady(); },
++        [change](LaunchError) { change->Cancel(NS_ERROR_FAILURE); });
+   }
+   return promise.forget();
+ }

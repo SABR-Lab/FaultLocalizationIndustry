@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/CodeGenerator.cpp
+# Commit: c012fb62e4fe
+# Full Hash: c012fb62e4fe45d3c0ec02bd9fb26bb94b3da9fb
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2022-06-09 22:00:48
+# Regressor Bug: 1770366
+# File Overlap Count: 2
+# Description:
+#   Bug 1770366 part 5 - Add frame pointer to IonJS/Warp frames. r=iain
+#   
+#   Change OSR to use the standard frame epilogue on the Baseline side and frame prologue
+#   on the CodeGenerator side.
+#   
+# ==============================================================================
+
+diff -r cc3833b385cd -r c012fb62e4fe js/src/jit/CodeGenerator.cpp
+--- a/js/src/jit/CodeGenerator.cpp	Thu Jun 09 13:49:16 2022 +0000
++++ b/js/src/jit/CodeGenerator.cpp	Thu Jun 09 13:49:17 2022 +0000
+@@ -3737,10 +3737,15 @@
+   MOZ_ASSERT(masm.framePushed() == frameSize());
+   masm.setFramePushed(0);
+ 
++  // Frame prologue.
++  masm.Push(FramePointer);
++  masm.moveStackPtrTo(FramePointer);
++
++  masm.reserveStack(frameSize() - sizeof(uintptr_t));
++  MOZ_ASSERT(masm.framePushed() == frameSize());
++
+   // Ensure that the Ion frames is properly aligned.
+   masm.assertStackAlignment(JitStackAlignment, 0);
+-
+-  masm.reserveStack(frameSize());
+ }
+ 
+ void CodeGenerator::visitOsrEnvironmentChain(LOsrEnvironmentChain* lir) {

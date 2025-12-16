@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/dns/nsHostResolver.cpp
+# Commit: af0f14eed70e
+# Full Hash: af0f14eed70edb2abb1ecd3cae4928387287d3e1
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2024-06-14 20:49:45
+# Regressor Bug: 1901990
+# File Overlap Count: 2
+# Description:
+#   Bug 1901990 - Introduce a pref for setting a mock HTTPS RR, r=necko-reviewers,valentin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D213559
+# ==============================================================================
+
+diff -r 9f913cbd60ee -r af0f14eed70e netwerk/dns/nsHostResolver.cpp
+--- a/netwerk/dns/nsHostResolver.cpp	Thu Jun 13 15:08:04 2024 +0200
++++ b/netwerk/dns/nsHostResolver.cpp	Fri Jun 14 09:11:49 2024 +0000
+@@ -498,6 +498,26 @@
+   return rec.forget();
+ }
+ 
++already_AddRefed<nsHostRecord> nsHostResolver::InitMockHTTPSRecord(
++    const nsHostKey& key) {
++  MOZ_ASSERT(IS_OTHER_TYPE(key.type));
++  RefPtr<nsHostRecord> rec = InitRecord(key);
++  LOG(("InitMockHTTPSRecord host=%s\n", rec->host.get()));
++
++  TypeRecordResultType result = AsVariant(mozilla::Nothing());
++  uint32_t ttl = UINT32_MAX;
++  nsresult rv =
++      CreateAndResolveMockHTTPSRecord(rec->host, rec->flags, result, ttl);
++  if (NS_FAILED(rv)) {
++    return nullptr;
++  }
++
++  RefPtr<TypeHostRecord> typeRec = do_QueryObject(rec);
++  typeRec->mResults = result;
++  typeRec->negative = false;
++  return rec.forget();
++}
++
+ // static
+ bool nsHostResolver::IsNativeHTTPSEnabled() {
+   if (!StaticPrefs::network_dns_native_https_query()) {
+@@ -597,6 +617,13 @@
+       return NS_OK;
+     }
+ 
++    if (flags & nsIDNSService::RESOLVE_CREATE_MOCK_HTTPS_RR) {
++      RefPtr<nsHostRecord> result = InitMockHTTPSRecord(key);
++      aCallback->OnResolveHostComplete(this, result,
++                                       result ? NS_OK : NS_ERROR_UNKNOWN_HOST);
++      return NS_OK;
++    }
++
+     RefPtr<nsHostRecord> rec =
+         mRecordDB.LookupOrInsertWith(key, [&] { return InitRecord(key); });
+ 

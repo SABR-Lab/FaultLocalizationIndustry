@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/jsapi/RTCRtpReceiver.h
+# Commit: 0552c0b4a079
+# Full Hash: 0552c0b4a079a695edfca100df68c4ad82481e58
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 5
+# Description:
+#   Bug 1654112 - Refactor away RtcpEventObserver in favor of MediaEvents. r=bwc
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D123223
+# ==============================================================================
+
+diff -r 877a0fcc6da9 -r 0552c0b4a079 dom/media/webrtc/jsapi/RTCRtpReceiver.h
+--- a/dom/media/webrtc/jsapi/RTCRtpReceiver.h	Mon Aug 16 15:57:10 2021 +0200
++++ b/dom/media/webrtc/jsapi/RTCRtpReceiver.h	Thu Aug 19 11:49:29 2021 +0200
+@@ -16,7 +16,6 @@
+ #include "nsTArray.h"
+ #include "mozilla/dom/RTCStatsReportBinding.h"
+ #include "RTCStatsReport.h"
+-#include "libwebrtcglue/RtcpEventObserver.h"
+ #include <vector>
+ 
+ class nsPIDOMWindowInner;
+@@ -35,9 +34,7 @@
+ struct RTCRtpContributingSource;
+ struct RTCRtpSynchronizationSource;
+ 
+-class RTCRtpReceiver : public nsISupports,
+-                       public nsWrapperCache,
+-                       public RtcpEventObserver {
++class RTCRtpReceiver : public nsISupports, public nsWrapperCache {
+  public:
+   RTCRtpReceiver(nsPIDOMWindowInner* aWindow, bool aPrivacyNeeded,
+                  const std::string& aPCHandle,
+@@ -100,9 +97,8 @@
+   // This is called when we set a remote description; may be an offer or answer.
+   void UpdateStreams(StreamAssociationChanges* aChanges);
+ 
+-  void OnRtcpBye() override;
+-
+-  void OnRtcpTimeout() override;
++  void OnRtcpBye();
++  void OnRtcpTimeout();
+ 
+   void SetReceiveTrackMuted(bool aMuted);
+ 
+@@ -149,6 +145,9 @@
+   std::vector<std::string> mStreamIds;
+   bool mRemoteSetSendBit = false;
+ 
++  MediaEventListener mRtcpByeListener;
++  MediaEventListener mRtcpTimeoutListener;
++
+   Canonical<Ssrc> mSsrc;
+   Canonical<Ssrc> mVideoRtxSsrc;
+   Canonical<RtpExtList> mLocalRtpExtensions;

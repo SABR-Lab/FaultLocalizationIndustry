@@ -1,0 +1,83 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/sandbox/chromium/sandbox/win/src/unload_dll_test.cc
+# Commit: 370c40e49230
+# Full Hash: 370c40e4923073a87845b57c1f4851bacd9663da
+# Author: Bob Owen <bobowencode@gmail.com>
+# Date: 2019-06-12 21:42:35
+# Regressor Bug: 1552160
+# File Overlap Count: 3
+# Description:
+#   Bug 1552160 Part 1: Roll-up of chromium sandbox update and mozilla patches to get a running browser. r=jld,aklotz,tjr,bobowen
+#   
+#   This updates security/sandbox/chromium/ files to chromium commit 84108231f6e6e0772fb9a4643679ce76aa771e67.
+#   
+#   Existing and new patches applied from security/sandbox/chromium-shim/patches/with_update/ to give a compiling and mostly working browser.
+# ==============================================================================
+
+diff -r bd5ecd72f76c -r 370c40e49230 security/sandbox/chromium/sandbox/win/src/unload_dll_test.cc
+--- a/security/sandbox/chromium/sandbox/win/src/unload_dll_test.cc	Wed Jun 12 21:55:59 2019 +1200
++++ b/security/sandbox/chromium/sandbox/win/src/unload_dll_test.cc	Wed Jun 12 11:10:48 2019 +0100
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "base/win/scoped_handle.h"
++#include "build/build_config.h"
+ #include "sandbox/win/src/sandbox.h"
+ #include "sandbox/win/src/sandbox_factory.h"
+ #include "sandbox/win/src/target_services.h"
+@@ -13,7 +14,7 @@
+ 
+ // Loads and or unloads a DLL passed in the second parameter of argv.
+ // The first parameter of argv is 'L' = load, 'U' = unload or 'B' for both.
+-SBOX_TESTS_COMMAND int UseOneDLL(int argc, wchar_t **argv) {
++SBOX_TESTS_COMMAND int UseOneDLL(int argc, wchar_t** argv) {
+   if (argc != 2)
+     return SBOX_TEST_FAILED_TO_RUN_TEST;
+   int rv = SBOX_TEST_FAILED_TO_RUN_TEST;
+@@ -21,7 +22,7 @@
+   wchar_t option = (argv[0])[0];
+   if ((option == L'L') || (option == L'B')) {
+     HMODULE module1 = ::LoadLibraryW(argv[1]);
+-    rv = (module1 == NULL) ? SBOX_TEST_FAILED : SBOX_TEST_SUCCEEDED;
++    rv = (!module1) ? SBOX_TEST_FAILED : SBOX_TEST_SUCCEEDED;
+   }
+ 
+   if ((option == L'U') || (option == L'B')) {
+@@ -32,15 +33,21 @@
+ }
+ 
+ // Opens an event passed as the first parameter of argv.
+-SBOX_TESTS_COMMAND int SimpleOpenEvent(int argc, wchar_t **argv) {
++SBOX_TESTS_COMMAND int SimpleOpenEvent(int argc, wchar_t** argv) {
+   if (argc != 1)
+     return SBOX_TEST_FAILED_TO_EXECUTE_COMMAND;
+ 
+-  base::win::ScopedHandle event_open(::OpenEvent(SYNCHRONIZE, FALSE, argv[0]));
++  base::win::ScopedHandle event_open(::OpenEvent(SYNCHRONIZE, false, argv[0]));
+   return event_open.Get() ? SBOX_TEST_SUCCEEDED : SBOX_TEST_FAILED;
+ }
+ 
+-TEST(UnloadDllTest, BaselineAvicapDll) {
++// Fails on Windows ARM64: https://crbug.com/905526
++#if defined(ARCH_CPU_ARM64)
++#define MAYBE_BaselineAvicapDll DISABLED_BaselineAvicapDll
++#else
++#define MAYBE_BaselineAvicapDll BaselineAvicapDll
++#endif
++TEST(UnloadDllTest, MAYBE_BaselineAvicapDll) {
+   TestRunner runner;
+   runner.SetTestState(BEFORE_REVERT);
+   runner.SetTimeout(2000);
+@@ -72,8 +79,8 @@
+   sandbox::TargetPolicy* policy = runner.GetPolicy();
+   policy->AddDllToUnload(L"avicap32.dll");
+ 
+-  base::win::ScopedHandle handle1(::CreateEvent(
+-      NULL, FALSE, FALSE, L"tst0001"));
++  base::win::ScopedHandle handle1(
++      ::CreateEvent(nullptr, false, false, L"tst0001"));
+ 
+   // Add a couple of rules that ensures that the interception agent add EAT
+   // patching on the client which makes sure that the unload dll record does

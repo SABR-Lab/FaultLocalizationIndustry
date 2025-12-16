@@ -1,0 +1,28 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentParent.cpp
+# Commit: 8872f5c51d5c
+# Full Hash: 8872f5c51d5c1b3c9ebf53dfb421fc71eef8de59
+# Author: Gabriele Svelto <gsvelto@mozilla.com>
+# Date: 2022-09-14 21:36:49
+# Description:
+#   Bug 1790562 - Guard access to the crash reporter for cases where initialization didn't finish and thus it might be NULL during shutdown r=mccr8
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D157211
+# ==============================================================================
+
+diff -r 6a2d2972d17b -r 8872f5c51d5c dom/ipc/ContentParent.cpp
+--- a/dom/ipc/ContentParent.cpp	Wed Sep 14 12:11:35 2022 +0000
++++ b/dom/ipc/ContentParent.cpp	Wed Sep 14 12:25:41 2022 +0000
+@@ -4332,7 +4332,9 @@
+   }
+ 
+   if (!KillProcess(otherProcessHandle, base::PROCESS_END_KILLED_BY_USER)) {
+-    mCrashReporter->DeleteCrashReport();
++    if (mCrashReporter) {
++      mCrashReporter->DeleteCrashReport();
++    }
+     NS_WARNING("failed to kill subprocess!");
+   }
+ 

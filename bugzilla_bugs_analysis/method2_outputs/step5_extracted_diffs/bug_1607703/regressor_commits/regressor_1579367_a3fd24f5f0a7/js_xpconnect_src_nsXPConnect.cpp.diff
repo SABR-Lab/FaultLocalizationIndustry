@@ -1,0 +1,86 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/xpconnect/src/nsXPConnect.cpp
+# Commit: a3fd24f5f0a7
+# Full Hash: a3fd24f5f0a7bc094409fdbdbe1ef92fc459677b
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2019-11-23 21:49:00
+# Regressor Bug: 1579367
+# File Overlap Count: 1
+# Description:
+#   Bug 1579367 - Initialize XPCJSContext explicitly, after loading user prefs. r=kmag
+#   
+#   This way we get the correct values for start-up prefs in the parent process.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D51061
+# ==============================================================================
+
+diff -r e06f2a4de969 -r a3fd24f5f0a7 js/xpconnect/src/nsXPConnect.cpp
+--- a/js/xpconnect/src/nsXPConnect.cpp	Fri Nov 22 09:48:58 2019 +0000
++++ b/js/xpconnect/src/nsXPConnect.cpp	Fri Nov 22 12:40:17 2019 +0000
+@@ -26,6 +26,7 @@
+ #include "mozilla/dom/DOMException.h"
+ #include "mozilla/dom/Exceptions.h"
+ #include "mozilla/dom/Promise.h"
++#include "mozilla/ScriptPreloader.h"
+ 
+ #include "nsDOMMutationObserver.h"
+ #include "nsICycleCollectorListener.h"
+@@ -71,17 +72,35 @@
+   JS::SetProfilingThreadCallbacks(profiler_register_thread,
+                                   profiler_unregister_thread);
+ #endif
++}
++
++// static
++void nsXPConnect::InitJSContext() {
++  MOZ_ASSERT(!gContext);
+ 
+   XPCJSContext* xpccx = XPCJSContext::NewXPCJSContext();
+   if (!xpccx) {
+     MOZ_CRASH("Couldn't create XPCJSContext.");
+   }
+   gContext = xpccx;
+-  mRuntime = xpccx->Runtime();
++  gSelf->mRuntime = xpccx->Runtime();
++
++  // Initialize our singleton scopes.
++  gSelf->mRuntime->InitSingletonScopes();
++
++  mozJSComponentLoader::InitStatics();
++
++  // Initialize the script preloader cache.
++  Unused << mozilla::ScriptPreloader::GetSingleton();
++
++  nsJSContext::EnsureStatics();
+ }
+ 
++void xpc::InitializeJSContext() { nsXPConnect::InitJSContext(); }
++
+ nsXPConnect::~nsXPConnect() {
+   MOZ_ASSERT(XPCJSContext::Get() == gContext);
++  MOZ_ASSERT(mRuntime);
+ 
+   mRuntime->DeleteSingletonScopes();
+ 
+@@ -136,19 +155,6 @@
+   gScriptSecurityManager = nsScriptSecurityManager::GetScriptSecurityManager();
+   gScriptSecurityManager->GetSystemPrincipal(&gSystemPrincipal);
+   MOZ_RELEASE_ASSERT(gSystemPrincipal);
+-
+-  JSContext* cx = XPCJSContext::Get()->Context();
+-  if (!JS::InitSelfHostedCode(cx)) {
+-    MOZ_CRASH("InitSelfHostedCode failed");
+-  }
+-  if (!gSelf->mRuntime->InitializeStrings(cx)) {
+-    MOZ_CRASH("InitializeStrings failed");
+-  }
+-
+-  // Initialize our singleton scopes.
+-  gSelf->mRuntime->InitSingletonScopes();
+-
+-  mozJSComponentLoader::InitStatics();
+ }
+ 
+ // static

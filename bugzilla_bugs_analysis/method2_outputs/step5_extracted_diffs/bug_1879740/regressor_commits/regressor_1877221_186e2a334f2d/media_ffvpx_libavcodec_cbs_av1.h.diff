@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/ffvpx/libavcodec/cbs_av1.h
+# Commit: 186e2a334f2d
+# Full Hash: 186e2a334f2deb37b29f44b28bc8c83babeeb9a4
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2024-02-09 09:37:17
+# Regressor Bug: 1877221
+# File Overlap Count: 1
+# Description:
+#   Bug 1877221 - Pull in new ffmpeg code, reapply patch. r=media-playback-reviewers,chunmin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D199909
+# ==============================================================================
+
+diff -r c5920de78d16 -r 186e2a334f2d media/ffvpx/libavcodec/cbs_av1.h
+--- a/media/ffvpx/libavcodec/cbs_av1.h	Thu Feb 08 10:39:53 2024 +0000
++++ b/media/ffvpx/libavcodec/cbs_av1.h	Thu Feb 08 10:39:54 2024 +0000
+@@ -437,7 +437,8 @@
+     const AVClass *class;
+ 
+     AV1RawSequenceHeader *sequence_header;
+-    AVBufferRef          *sequence_header_ref;
++    /** A RefStruct reference backing sequence_header. */
++    AV1RawOBU            *sequence_header_ref;
+ 
+     int     seen_frame_header;
+     AVBufferRef *frame_header_ref;
+@@ -467,6 +468,10 @@
+ 
+     // AVOptions
+     int operating_point;
++    // When writing, fix the length in bytes of the obu_size field.
++    // Writing will fail with an error if an OBU larger than can be
++    // represented by the fixed size is encountered.
++    int fixed_obu_size_length;
+ } CodedBitstreamAV1Context;
+ 
+ 

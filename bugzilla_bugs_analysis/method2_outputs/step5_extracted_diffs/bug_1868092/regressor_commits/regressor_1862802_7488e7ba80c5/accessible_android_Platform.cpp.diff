@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/android/Platform.cpp
+# Commit: 7488e7ba80c5
+# Full Hash: 7488e7ba80c5973f1444fa7502c84a95e90a7f2c
+# Author: James Teh <jteh@mozilla.com>
+# Date: 2023-11-30 04:12:04
+# Regressor Bug: 1862802
+# File Overlap Count: 1
+# Description:
+#   Bug 1862802 part 3: Directly handle scrolling start events on Android instead of converting them to virtual cursor change events. r=eeejay
+#   
+#   Depends on D192643
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D192644
+# ==============================================================================
+
+diff -r 3d0747ce0174 -r 7488e7ba80c5 accessible/android/Platform.cpp
+--- a/accessible/android/Platform.cpp	Tue Nov 28 22:03:19 2023 +0000
++++ b/accessible/android/Platform.cpp	Tue Nov 28 22:03:20 2023 +0000
+@@ -12,6 +12,7 @@
+ #include "nsIAccessibleEvent.h"
+ #include "nsIAccessiblePivot.h"
+ #include "nsIStringBundle.h"
++#include "TextLeafRange.h"
+ 
+ #define ROLE_STRINGS_URL "chrome://global/locale/AccessFu.properties"
+ 
+@@ -95,6 +96,13 @@
+     case nsIAccessibleEvent::EVENT_REORDER:
+       sessionAcc->SendWindowContentChangedEvent();
+       break;
++    case nsIAccessibleEvent::EVENT_SCROLLING_START:
++      if (Accessible* result = AccessibleWrap::DoPivot(
++              aTarget, java::SessionAccessibility::HTML_GRANULARITY_DEFAULT,
++              true, true)) {
++        sessionAcc->SendAccessibilityFocusedEvent(result);
++      }
++      break;
+     default:
+       break;
+   }

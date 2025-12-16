@@ -1,0 +1,71 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/ClientWebGLContext.cpp
+# Commit: 6f19f43e0a0b
+# Full Hash: 6f19f43e0a0bad72fa370191f4cc7f86f58566c2
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-06-11 09:34:54
+# Regressor Bug: 1632249
+# File Overlap Count: 1
+# Description:
+#   Bug 1632249 - NON_PREMULT TextureClient iff NON_PREMULT CanvasClient. r=handyman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D78800
+# ==============================================================================
+
+diff -r 073302d26c5e -r 6f19f43e0a0b dom/canvas/ClientWebGLContext.cpp
+--- a/dom/canvas/ClientWebGLContext.cpp	Thu Jun 11 06:37:38 2020 +0000
++++ b/dom/canvas/ClientWebGLContext.cpp	Thu Jun 11 06:37:40 2020 +0000
+@@ -421,7 +421,6 @@
+                                  const layers::TextureType type) {
+   if (!mIsCanvasDirty && !fb) return;
+   mIsCanvasDirty = false;
+-  mFrontBufferSnapshot = nullptr;
+ 
+   Run<RPROC(Present)>(fb ? fb->mId : 0, type);
+ }
+@@ -882,7 +881,8 @@
+   return ret.forget();
+ }
+ 
+-RefPtr<gfx::SourceSurface> ClientWebGLContext::GetFrontBufferSnapshot() {
++RefPtr<gfx::SourceSurface> ClientWebGLContext::GetFrontBufferSnapshot(
++    const bool requireAlphaPremult) {
+   const FuncScope funcScope(*this, "<GetSurfaceSnapshot>");
+   if (IsContextLost()) return nullptr;
+   const auto notLost =
+@@ -890,20 +890,19 @@
+ 
+   const auto& options = mNotLost->info.options;
+ 
+-  if (!mFrontBufferSnapshot) {
+-    mFrontBufferSnapshot = Run<RPROC(GetFrontBufferSnapshot)>();
+-    if (!mFrontBufferSnapshot) return nullptr;
+-
+-    if (options.alpha && !options.premultipliedAlpha) {
+-      const auto nonPremultSurf = mFrontBufferSnapshot;
+-      const auto& size = nonPremultSurf->GetSize();
+-      const auto format = nonPremultSurf->GetFormat();
+-      mFrontBufferSnapshot =
+-          gfx::Factory::CreateDataSourceSurface(size, format, /*zero=*/false);
+-      gfxUtils::PremultiplyDataSurface(nonPremultSurf, mFrontBufferSnapshot);
+-    }
+-  }
+-  return mFrontBufferSnapshot;
++  auto snapshot = Run<RPROC(GetFrontBufferSnapshot)>();
++  if (!snapshot) return nullptr;
++
++  if (requireAlphaPremult && options.alpha && !options.premultipliedAlpha) {
++    const auto nonPremultSurf = snapshot;
++    const auto& size = nonPremultSurf->GetSize();
++    const auto format = nonPremultSurf->GetFormat();
++    snapshot =
++        gfx::Factory::CreateDataSourceSurface(size, format, /*zero=*/false);
++    gfxUtils::PremultiplyDataSurface(nonPremultSurf, snapshot);
++  }
++
++  return snapshot;
+ }
+ 
+ RefPtr<gfx::DataSourceSurface> ClientWebGLContext::BackBufferSnapshot() {

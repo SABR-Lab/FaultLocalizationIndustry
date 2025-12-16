@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/ffvpx/libavutil/aarch64/asm.S
+# Commit: 186e2a334f2d
+# Full Hash: 186e2a334f2deb37b29f44b28bc8c83babeeb9a4
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2024-02-09 09:37:17
+# Regressor Bug: 1877221
+# File Overlap Count: 1
+# Description:
+#   Bug 1877221 - Pull in new ffmpeg code, reapply patch. r=media-playback-reviewers,chunmin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D199909
+# ==============================================================================
+
+diff -r c5920de78d16 -r 186e2a334f2d media/ffvpx/libavutil/aarch64/asm.S
+--- a/media/ffvpx/libavutil/aarch64/asm.S	Thu Feb 08 10:39:53 2024 +0000
++++ b/media/ffvpx/libavutil/aarch64/asm.S	Thu Feb 08 10:39:54 2024 +0000
+@@ -41,12 +41,24 @@
+ #endif
+ 
+ #if HAVE_AS_ARCHEXT_DOTPROD_DIRECTIVE
+-        .arch_extension dotprod
++#define ENABLE_DOTPROD  .arch_extension dotprod
++#define DISABLE_DOTPROD .arch_extension nodotprod
++#else
++#define ENABLE_DOTPROD
++#define DISABLE_DOTPROD
+ #endif
++
+ #if HAVE_AS_ARCHEXT_I8MM_DIRECTIVE
+-        .arch_extension i8mm
++#define ENABLE_I8MM  .arch_extension i8mm
++#define DISABLE_I8MM .arch_extension noi8mm
++#else
++#define ENABLE_I8MM
++#define DISABLE_I8MM
+ #endif
+ 
++DISABLE_DOTPROD
++DISABLE_I8MM
++
+ 
+ /* Support macros for
+  *   - Armv8.3-A Pointer Authentication and

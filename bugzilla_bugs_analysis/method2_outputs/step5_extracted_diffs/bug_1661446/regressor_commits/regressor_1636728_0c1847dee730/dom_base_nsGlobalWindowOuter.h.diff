@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsGlobalWindowOuter.h
+# Commit: 0c1847dee730
+# Full Hash: 0c1847dee730f55b184459f5578c67ab45b611c1
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2020-08-26 03:24:37
+# Regressor Bug: 1636728
+# File Overlap Count: 1
+# Description:
+#   Bug 1636728 - Make calling window.print() before load keep deferring the actual printing and closing the window until load. r=smaug
+#   
+#   Other engines also do this, but with my previous patch breaks it
+#   (because we only hit print() on the print-content-viewer _after_ doing
+#   the clone).
+# ==============================================================================
+
+diff -r 93e3344dd1f7 -r 0c1847dee730 dom/base/nsGlobalWindowOuter.h
+--- a/dom/base/nsGlobalWindowOuter.h	Tue Aug 25 17:45:12 2020 +0000
++++ b/dom/base/nsGlobalWindowOuter.h	Tue Aug 25 17:45:24 2020 +0000
+@@ -1041,6 +1041,14 @@
+   bool IsOnlyTopLevelDocumentInSHistory();
+ 
+  public:
++  bool DelayedPrintUntilAfterLoad() const {
++    return mDelayedPrintUntilAfterLoad;
++  }
++
++  void StopDelayingPrintingUntilAfterLoad() {
++    mShouldDelayPrintUntilAfterLoad = false;
++  }
++
+   // Dispatch a runnable related to the global.
+   virtual nsresult Dispatch(mozilla::TaskCategory aCategory,
+                             already_AddRefed<nsIRunnable>&& aRunnable) override;
+@@ -1088,6 +1096,11 @@
+   // whether storage access has been granted to this frame.
+   bool mStorageAccessPermissionGranted : 1;
+ 
++  // Whether we've delayed a print until after load.
++  bool mDelayedPrintUntilAfterLoad : 1;
++  // Whether we should delay printing until after load.
++  bool mShouldDelayPrintUntilAfterLoad : 1;
++
+   nsCOMPtr<nsIScriptContext> mContext;
+   nsCOMPtr<nsIControllers> mControllers;
+ 

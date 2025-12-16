@@ -1,0 +1,27 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: netwerk/dns/TRR.cpp
+# Commit: 19330c144141
+# Full Hash: 19330c144141b25c3b4e4333ed631c07495335dd
+# Author: Valentin Gosu <valentin.gosu@gmail.com>
+# Date: 2020-09-21 21:36:12
+# Description:
+#   Bug 1665979 - Make sure we call MaybeRenewHostRecord when adding additional record r=kershaw,necko-reviewers
+#   
+#   If we don't, the record may already be on the eviction queue, meaning
+#   we try to remove it twice.
+#   
+# ==============================================================================
+
+diff -r 0f44990cd8d0 -r 19330c144141 netwerk/dns/TRR.cpp
+--- a/netwerk/dns/TRR.cpp	Mon Sep 21 07:02:42 2020 +0000
++++ b/netwerk/dns/TRR.cpp	Mon Sep 21 07:09:05 2020 +0000
+@@ -1359,6 +1359,7 @@
+     RefPtr<AddrInfo> ai(new AddrInfo(iter.Key(), TRRTYPE_A,
+                                      std::move(iter.Data()->mAddresses),
+                                      iter.Data()->mTtl));
++    mHostResolver->MaybeRenewHostRecord(hostRecord);
+ 
+     // Since we're not actually calling NameLookup for this record, we need
+     // to set these fields to avoid assertions in CompleteLookup.

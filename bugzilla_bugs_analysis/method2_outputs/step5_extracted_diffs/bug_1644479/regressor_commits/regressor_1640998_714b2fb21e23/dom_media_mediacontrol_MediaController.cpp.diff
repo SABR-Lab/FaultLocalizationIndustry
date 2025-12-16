@@ -1,0 +1,90 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediacontrol/MediaController.cpp
+# Commit: 714b2fb21e23
+# Full Hash: 714b2fb21e2341e8e2bf1be1271ca0ed5e526443
+# Author: alwu <alwu@mozilla.com>
+# Date: 2020-06-09 09:21:34
+# Regressor Bug: 1640998
+# File Overlap Count: 1
+# Description:
+#   Bug 1640998 - part5 : set supported keys to the event source r=chunmin
+#   
+#   This patch will
+#   - add a method `SetSupportedMediaKeys()` on `MediaControlKeysEventSource`
+#   - set main controller's supported key to the event source
+# ==============================================================================
+
+diff -r a48b6554ba9c -r 714b2fb21e23 dom/media/mediacontrol/MediaController.cpp
+--- a/dom/media/mediacontrol/MediaController.cpp	Mon Jun 08 22:16:46 2020 +0000
++++ b/dom/media/mediacontrol/MediaController.cpp	Tue Jun 09 02:23:35 2020 +0000
+@@ -21,11 +21,27 @@
+ namespace mozilla {
+ namespace dom {
+ 
++static const MediaControlKeysEvent sDefaultSupportedKeys[] = {
++    MediaControlKeysEvent::eFocus, MediaControlKeysEvent::ePlay,
++    MediaControlKeysEvent::ePause, MediaControlKeysEvent::ePlayPause,
++    MediaControlKeysEvent::eStop,
++};
++
++static void GetDefaultSupportedKeys(nsTArray<MediaControlKeysEvent>& aKeys) {
++  for (const auto& key : sDefaultSupportedKeys) {
++    aKeys.AppendElement(key);
++  }
++}
++
+ MediaController::MediaController(uint64_t aBrowsingContextId)
+     : MediaStatusManager(aBrowsingContextId) {
+   MOZ_DIAGNOSTIC_ASSERT(XRE_IsParentProcess(),
+                         "MediaController only runs on Chrome process!");
+   LOG("Create controller %" PRId64, Id());
++  GetDefaultSupportedKeys(mSupportedKeys);
++  mSupportedActionsChangedListener = SupportedActionsChangedEvent().Connect(
++      AbstractThread::MainThread(), this,
++      &MediaController::HandleSupportedMediaSessionActionsChanged);
+ }
+ 
+ MediaController::~MediaController() {
+@@ -120,6 +136,7 @@
+   // controller from the service.
+   Deactivate();
+   mShutdown = true;
++  mSupportedActionsChangedListener.DisconnectIfExists();
+ }
+ 
+ void MediaController::NotifyMediaPlaybackChanged(uint64_t aBrowsingContextId,
+@@ -223,5 +240,32 @@
+   }
+ }
+ 
++void MediaController::HandleSupportedMediaSessionActionsChanged(
++    const nsTArray<MediaSessionAction>& aSupportedAction) {
++  // Convert actions to keys, some of them have been included in the supported
++  // keys, such as "play", "pause" and "stop".
++  nsTArray<MediaControlKeysEvent> newSupportedKeys;
++  GetDefaultSupportedKeys(newSupportedKeys);
++  for (const auto& action : aSupportedAction) {
++    MediaControlKeysEvent key = ConvertMediaSessionActionToControlKey(action);
++    if (!newSupportedKeys.Contains(key)) {
++      newSupportedKeys.AppendElement(key);
++    }
++  }
++  // As the supported key event should only be notified when supported keys
++  // change, so abort following steps if they don't change.
++  if (newSupportedKeys == mSupportedKeys) {
++    return;
++  }
++  LOG("Supported keys changes");
++  mSupportedKeys = newSupportedKeys;
++  mSupportedKeysChangedEvent.Notify(mSupportedKeys);
++}
++
++CopyableTArray<MediaControlKeysEvent> MediaController::GetSupportedMediaKeys()
++    const {
++  return mSupportedKeys;
++}
++
+ }  // namespace dom
+ }  // namespace mozilla

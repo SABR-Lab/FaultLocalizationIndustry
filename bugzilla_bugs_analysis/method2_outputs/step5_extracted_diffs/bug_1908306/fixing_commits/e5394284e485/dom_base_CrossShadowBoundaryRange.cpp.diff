@@ -1,0 +1,42 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/base/CrossShadowBoundaryRange.cpp
+# Commit: e5394284e485
+# Full Hash: e5394284e4853671f29ab9bb88ea2f300e58f01d
+# Author: Sean Feng <sean@seanfeng.dev>
+# Date: 2024-07-20 09:15:22
+# Description:
+#   Bug 1908306 - Ensure CrossShadowBoundaryRange stops observing any instances when the common ancestor is unlinked r=jjaschke,dom-core
+#   
+#   When CrossShadowBoundaryRange is CC'd, it'll unlink the mCommonAncestor
+#   member variable which will clear it, and we need to remove
+#   CrossShadowBoundaryRange from an observer of mCommonAncestor.
+# ==============================================================================
+
+diff -r 56323baa28da -r e5394284e485 dom/base/CrossShadowBoundaryRange.cpp
+--- a/dom/base/CrossShadowBoundaryRange.cpp	Fri Jul 19 13:14:19 2024 +0000
++++ b/dom/base/CrossShadowBoundaryRange.cpp	Fri Jul 19 13:50:59 2024 +0000
+@@ -68,6 +68,9 @@
+ 
+ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(CrossShadowBoundaryRange,
+                                                 StaticRange)
++  if (tmp->mCommonAncestor) {
++    tmp->mCommonAncestor->RemoveMutationObserver(tmp);
++  }
+   NS_IMPL_CYCLE_COLLECTION_UNLINK(mCommonAncestor)
+ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
+ 
+@@ -247,9 +250,9 @@
+ // DOM mutation for shadow-crossing selection is not specified.
+ // Spec issue: https://github.com/w3c/selection-api/issues/168
+ void CrossShadowBoundaryRange::ParentChainChanged(nsIContent* aContent) {
+-  MOZ_ASSERT(mCommonAncestor == aContent,
+-             "Wrong ParentChainChanged notification");
+-  MOZ_ASSERT(mOwner);
++  MOZ_DIAGNOSTIC_ASSERT(mCommonAncestor == aContent,
++                        "Wrong ParentChainChanged notification");
++  MOZ_DIAGNOSTIC_ASSERT(mOwner);
+   mOwner->ResetCrossShadowBoundaryRange();
+ }
+ }  // namespace mozilla::dom

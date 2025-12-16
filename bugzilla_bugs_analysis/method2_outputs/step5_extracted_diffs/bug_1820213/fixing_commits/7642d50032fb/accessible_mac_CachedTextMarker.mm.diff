@@ -1,0 +1,38 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: accessible/mac/CachedTextMarker.mm
+# Commit: 7642d50032fb
+# Full Hash: 7642d50032fb242a3377f4a0381e9da02a8bac64
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2023-03-04 09:52:24
+# Description:
+#   Bug 1820213 - Use initial attributes run of first segment after an input. r=morgan
+#   
+#   There is a potential null dereference if currentRun is first assigned
+#   using a point in an empty input because the attributes will be null.
+#   
+# ==============================================================================
+
+diff -r d583f69e4434 -r 7642d50032fb accessible/mac/CachedTextMarker.mm
+--- a/accessible/mac/CachedTextMarker.mm	Sat Mar 04 04:17:54 2023 +0200
++++ b/accessible/mac/CachedTextMarker.mm	Sat Mar 04 06:57:39 2023 +0000
+@@ -313,13 +313,17 @@
+           : mRange;
+ 
+   nsAutoString text;
+-  RefPtr<AccAttributes> currentRun = range.Start().GetTextAttributes();
++  RefPtr<AccAttributes> currentRun = nullptr;
+   Accessible* runAcc = range.Start().mAcc;
+   for (TextLeafRange segment : range) {
+     TextLeafPoint start = segment.Start();
+     if (start.mAcc->IsTextField() && start.mAcc->ChildCount() == 0) {
+       continue;
+     }
++    if (!currentRun) {
++      // This is the first segment that isn't an empty input.
++      currentRun = start.GetTextAttributes();
++    }
+     TextLeafPoint attributesNext;
+     do {
+       attributesNext = start.FindTextAttrsStart(eDirNext, false);

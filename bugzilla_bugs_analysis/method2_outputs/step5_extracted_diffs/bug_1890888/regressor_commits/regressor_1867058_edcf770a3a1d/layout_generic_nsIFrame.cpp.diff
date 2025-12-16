@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/nsIFrame.cpp
+# Commit: edcf770a3a1d
+# Full Hash: edcf770a3a1df7b6d618062eb7cdbde9596adbad
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2024-03-26 04:11:24
+# Regressor Bug: 1867058
+# File Overlap Count: 1
+# Description:
+#   Bug 1867058 - Part 8: Update Selection to support across shadow dom selection r=smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D195310
+# ==============================================================================
+
+diff -r d665bdcc228a -r edcf770a3a1d layout/generic/nsIFrame.cpp
+--- a/layout/generic/nsIFrame.cpp	Mon Mar 25 13:40:58 2024 +0000
++++ b/layout/generic/nsIFrame.cpp	Mon Mar 25 13:40:59 2024 +0000
+@@ -8568,6 +8568,12 @@
+ bool nsIFrame::IsFrameSelected() const {
+   NS_ASSERTION(!GetContent() || GetContent()->IsMaybeSelected(),
+                "use the public IsSelected() instead");
++  if (StaticPrefs::dom_shadowdom_selection_across_boundary_enabled()) {
++    if (const ShadowRoot* shadowRoot =
++            GetContent()->GetShadowRootForSelection()) {
++      return shadowRoot->IsSelected(0, shadowRoot->GetChildCount());
++    }
++  }
+   return GetContent()->IsSelected(0, GetContent()->GetChildCount());
+ }
+ 
+@@ -8991,6 +8997,13 @@
+ 
+   if (reachedLimit) {  // no "stop frame" found
+     aPos->mResultContent = frame->GetContent();
++    if (ShadowRoot* shadowRoot =
++            aPos->mResultContent->GetShadowRootForSelection()) {
++      // Even if there's no children for this node,
++      // the elements inside the shadow root is still
++      // selectable
++      aPos->mResultContent = shadowRoot;
++    }
+     if (aPos->mDirection == eDirPrevious) {
+       aPos->mContentOffset = 0;
+     } else if (aPos->mResultContent) {

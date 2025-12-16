@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/RemoteContentController.cpp
+# Commit: 473798bd1191
+# Full Hash: 473798bd11916dc1d69f8f3486377dfaa4e30610
+# Author: Jamie Nicol <jnicol@mozilla.com>
+# Date: 2022-09-17 21:32:34
+# Regressor Bug: 1785786
+# File Overlap Count: 1
+# Description:
+#   Bug 1791154 - Check for null root content controller in UpdateOverscrollVelocity/Offset. r=hiro
+#   
+#   In bug 1785786 we added a GPU process implementation for
+#   RemoteContentController::UpdateOverscrollVelocity and
+#   RemoteContentController::UpdateOverscrollOffset. These work by looking
+# ==============================================================================
+
+diff -r 53a9865333ad -r 473798bd1191 gfx/layers/ipc/RemoteContentController.cpp
+--- a/gfx/layers/ipc/RemoteContentController.cpp	Sat Sep 17 08:14:25 2022 +0000
++++ b/gfx/layers/ipc/RemoteContentController.cpp	Sat Sep 17 11:41:59 2022 +0000
+@@ -266,9 +266,12 @@
+     GeckoContentController* rootController =
+         CompositorBridgeParent::GetGeckoContentControllerForRoot(
+             aGuid.mLayersId);
+-    MOZ_RELEASE_ASSERT(rootController->IsRemote());
+-    Unused << static_cast<RemoteContentController*>(rootController)
+-                  ->SendUpdateOverscrollVelocity(aGuid, aX, aY, aIsRootContent);
++    if (rootController) {
++      MOZ_RELEASE_ASSERT(rootController->IsRemote());
++      Unused << static_cast<RemoteContentController*>(rootController)
++                    ->SendUpdateOverscrollVelocity(aGuid, aX, aY,
++                                                   aIsRootContent);
++    }
+   }
+ }
+ 
+@@ -308,9 +311,11 @@
+     GeckoContentController* rootController =
+         CompositorBridgeParent::GetGeckoContentControllerForRoot(
+             aGuid.mLayersId);
+-    MOZ_RELEASE_ASSERT(rootController->IsRemote());
+-    Unused << static_cast<RemoteContentController*>(rootController)
+-                  ->SendUpdateOverscrollOffset(aGuid, aX, aY, aIsRootContent);
++    if (rootController) {
++      MOZ_RELEASE_ASSERT(rootController->IsRemote());
++      Unused << static_cast<RemoteContentController*>(rootController)
++                    ->SendUpdateOverscrollOffset(aGuid, aX, aY, aIsRootContent);
++    }
+   }
+ }
+ 

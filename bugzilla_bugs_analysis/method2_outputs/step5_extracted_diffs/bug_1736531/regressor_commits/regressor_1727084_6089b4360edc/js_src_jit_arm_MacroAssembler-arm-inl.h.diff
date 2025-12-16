@@ -1,0 +1,36 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/arm/MacroAssembler-arm-inl.h
+# Commit: 6089b4360edc
+# Full Hash: 6089b4360edcfb3a4bda506e37be8ca75a9f15a6
+# Author: Lars T Hansen <lhansen@mozilla.com>
+# Date: 2021-10-18 16:09:29
+# Regressor Bug: 1727084
+# File Overlap Count: 6
+# Description:
+#   Bug 1727084 - Memory64 - Non-atomic-RMW baseline operations. r=yury
+#   
+#   Implement scalar, SIMD, and atomic loads and stores for the baseline
+#   compiler for x64, x86, arm64, and arm32.  Atomic RMW operations and
+#   wait/notify are in the next patch.
+# ==============================================================================
+
+diff -r b9d32ef0ad83 -r 6089b4360edc js/src/jit/arm/MacroAssembler-arm-inl.h
+--- a/js/src/jit/arm/MacroAssembler-arm-inl.h	Mon Oct 18 07:31:55 2021 +0000
++++ b/js/src/jit/arm/MacroAssembler-arm-inl.h	Mon Oct 18 07:31:55 2021 +0000
+@@ -1740,6 +1740,14 @@
+   j(cond, label);
+ }
+ 
++void MacroAssembler::branchAdd64(Condition cond, Imm32 imm, Register64 dest,
++                                 Label* label) {
++  ScratchRegisterScope scratch(*this);
++  ma_add(imm, dest.low, scratch, SetCC);
++  as_adc(dest.high, dest.high, Imm8(0), SetCC);
++  j(cond, label);
++}
++
+ template <typename T>
+ void MacroAssembler::branchAddPtr(Condition cond, T src, Register dest,
+                                   Label* label) {

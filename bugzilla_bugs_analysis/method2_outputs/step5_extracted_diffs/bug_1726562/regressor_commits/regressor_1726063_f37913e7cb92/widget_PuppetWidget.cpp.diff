@@ -1,0 +1,36 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/PuppetWidget.cpp
+# Commit: f37913e7cb92
+# Full Hash: f37913e7cb9295617b7e5a7ac5f462f29df583b4
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2021-08-18 15:53:06
+# Regressor Bug: 1726063
+# File Overlap Count: 1
+# Description:
+#   Bug 1726063 - Remove support for non-WR compositor initialization. r=jrmuizel,aosmond
+#   
+#   Depends on D122796
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D122798
+# ==============================================================================
+
+diff -r 7398bc391379 -r f37913e7cb92 widget/PuppetWidget.cpp
+--- a/widget/PuppetWidget.cpp	Tue Aug 17 23:19:44 2021 +0000
++++ b/widget/PuppetWidget.cpp	Tue Aug 17 23:19:44 2021 +0000
+@@ -620,13 +620,8 @@
+ 
+ bool PuppetWidget::CreateRemoteLayerManager(
+     const std::function<bool(LayerManager*)>& aInitializeFunc) {
+-  RefPtr<LayerManager> lm;
++  RefPtr<LayerManager> lm = new WebRenderLayerManager(this);
+   MOZ_ASSERT(mBrowserChild);
+-  if (mBrowserChild->GetCompositorOptions().UseWebRender()) {
+-    lm = new WebRenderLayerManager(this);
+-  } else {
+-    lm = new ClientLayerManager(this);
+-  }
+ 
+   if (!aInitializeFunc(lm)) {
+     return false;

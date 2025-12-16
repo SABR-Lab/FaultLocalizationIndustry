@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/webauthn/WebAuthnResult.cpp
+# Commit: 451aa9946a65
+# Full Hash: 451aa9946a651f29b86ad2492e8892a6610122a5
+# Author: John Schanck <jschanck@mozilla.com>
+# Date: 2024-12-06 09:28:31
+# Regressor Bug: 1935278
+# File Overlap Count: 1
+# Description:
+#   Bug 1935278 - support for the WebAuthn PRF extension on Windows. r=keeler
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D230316
+# ==============================================================================
+
+diff -r 9220d6281c56 -r 451aa9946a65 dom/webauthn/WebAuthnResult.cpp
+--- a/dom/webauthn/WebAuthnResult.cpp	Fri Dec 06 00:31:20 2024 +0000
++++ b/dom/webauthn/WebAuthnResult.cpp	Fri Dec 06 00:31:20 2024 +0000
+@@ -92,19 +92,23 @@
+ 
+ NS_IMETHODIMP
+ WebAuthnRegisterResult::GetPrfEnabled(bool* aPrfEnabled) {
+-  return NS_ERROR_NOT_IMPLEMENTED;
++  if (mPrf.isSome()) {
++    *aPrfEnabled = mPrf.ref();
++    return NS_OK;
++  }
++  return NS_ERROR_NOT_AVAILABLE;
+ }
+ 
+ NS_IMETHODIMP
+ WebAuthnRegisterResult::GetPrfResultsFirst(
+     nsTArray<uint8_t>& aPrfResultsFirst) {
+-  return NS_ERROR_NOT_IMPLEMENTED;
++  return NS_ERROR_NOT_AVAILABLE;
+ }
+ 
+ NS_IMETHODIMP
+ WebAuthnRegisterResult::GetPrfResultsSecond(
+     nsTArray<uint8_t>& aPrfResultsSecond) {
+-  return NS_ERROR_NOT_IMPLEMENTED;
++  return NS_ERROR_NOT_AVAILABLE;
+ }
+ 
+ NS_IMETHODIMP
+@@ -216,17 +220,26 @@
+ 
+ NS_IMETHODIMP
+ WebAuthnSignResult::GetPrfMaybe(bool* aPrfMaybe) {
+-  return NS_ERROR_NOT_IMPLEMENTED;
++  *aPrfMaybe = mPrfFirst.isSome();
++  return NS_OK;
+ }
+ 
+ NS_IMETHODIMP
+ WebAuthnSignResult::GetPrfResultsFirst(nsTArray<uint8_t>& aPrfResultsFirst) {
+-  return NS_ERROR_NOT_IMPLEMENTED;
++  if (mPrfFirst.isNothing()) {
++    return NS_ERROR_NOT_AVAILABLE;
++  }
++  aPrfResultsFirst.Assign(*mPrfFirst);
++  return NS_OK;
+ }
+ 
+ NS_IMETHODIMP
+ WebAuthnSignResult::GetPrfResultsSecond(nsTArray<uint8_t>& aPrfResultsSecond) {
+-  return NS_ERROR_NOT_IMPLEMENTED;
++  if (mPrfSecond.isNothing()) {
++    return NS_ERROR_NOT_AVAILABLE;
++  }
++  aPrfResultsSecond.Assign(*mPrfSecond);
++  return NS_OK;
+ }
+ 
+ NS_IMETHODIMP

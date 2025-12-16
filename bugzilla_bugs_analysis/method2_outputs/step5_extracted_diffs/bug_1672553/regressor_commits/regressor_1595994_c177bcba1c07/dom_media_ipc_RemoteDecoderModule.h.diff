@@ -1,0 +1,61 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/ipc/RemoteDecoderModule.h
+# Commit: c177bcba1c07
+# Full Hash: c177bcba1c076d041e3470c8058bb2b4adaa1123
+# Author: Dan Glastonbury <dan.glastonbury@gmail.com>
+# Date: 2020-10-21 09:51:28
+# Regressor Bug: 1595994
+# File Overlap Count: 1
+# Description:
+#   Bug 1595994 - P8: Use RemoteDecoderModule to communicate with GPU and RDD. r=mattwoodrow
+#   
+#   Depends on D54879
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D54880
+# ==============================================================================
+
+diff -r 57607f8b6d8e -r c177bcba1c07 dom/media/ipc/RemoteDecoderModule.h
+--- a/dom/media/ipc/RemoteDecoderModule.h	Tue Oct 20 23:26:27 2020 +0000
++++ b/dom/media/ipc/RemoteDecoderModule.h	Tue Oct 20 23:26:30 2020 +0000
+@@ -9,26 +9,34 @@
+ 
+ namespace mozilla {
+ 
+-// A PDM implementation that creates a RemoteMediaDataDecoder (a
+-// MediaDataDecoder) that proxies to a RemoteVideoDecoderChild.
+-// A decoder child will talk to its respective decoder parent
+-// (RemoteVideoDecoderParent) on the RDD process.
++enum class RemoteDecodeIn;
++
++// A decoder module that proxies decoding to either GPU or RDD process.
+ class RemoteDecoderModule : public PlatformDecoderModule {
+   template <typename T, typename... Args>
+   friend already_AddRefed<T> MakeAndAddRef(Args&&...);
+ 
+  public:
+   static void Init();
+-  static already_AddRefed<PlatformDecoderModule> Create();
++  static already_AddRefed<PlatformDecoderModule> Create(
++      RemoteDecodeIn aLocation);
+ 
+   bool SupportsMimeType(const nsACString& aMimeType,
+                         DecoderDoctorDiagnostics* aDiagnostics) const override;
+ 
++  bool Supports(const SupportDecoderParams& aParams,
++                DecoderDoctorDiagnostics* aDiagnostics) const override;
++
+   already_AddRefed<MediaDataDecoder> CreateVideoDecoder(
+       const CreateDecoderParams& aParams) override;
+ 
+   already_AddRefed<MediaDataDecoder> CreateAudioDecoder(
+       const CreateDecoderParams& aParams) override;
++
++ private:
++  explicit RemoteDecoderModule(RemoteDecodeIn aLocation);
++
++  const RemoteDecodeIn mLocation;
+ };
+ 
+ }  // namespace mozilla

@@ -1,0 +1,37 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: modules/libpref/init/StaticPrefList.yaml
+# Commit: c38029641964
+# Full Hash: c38029641964591e518535856e2d7b3038b134ad
+# Author: Max Inden <mail@max-inden.de>
+# Date: 2024-08-02 15:37:12
+# Regressor Bug: 1910360
+# File Overlap Count: 1
+# Description:
+#   Bug 1910360 - use quinn-udp instead of NSPR for QUIC I/O on Nightly r=kershaw
+#   
+#   https://phabricator.services.mozilla.com/D212959 adds optional support for QUIC
+#   I/O via quinn-udp instead of NSPR. This is controlled via pref
+#   `network.http.http3.use_nspr_for_io`. The default pref value was `true`, thus
+# ==============================================================================
+
+diff -r 8b383558e0bf -r c38029641964 modules/libpref/init/StaticPrefList.yaml
+--- a/modules/libpref/init/StaticPrefList.yaml	Fri Aug 02 11:51:48 2024 +0300
++++ b/modules/libpref/init/StaticPrefList.yaml	Fri Aug 02 09:15:36 2024 +0000
+@@ -13561,7 +13561,14 @@
+ # Use NSPR for HTTP3 UDP IO
+ - name: network.http.http3.use_nspr_for_io
+   type: RelaxedAtomicBool
+-  value: true
++# Always use NSPR on Android x86. On Android x86 sendmsg and recvmmsg, both used
++# by quinn-udp, are disallowed by seccomp. Future fix and further details
++# tracked in https://github.com/quinn-rs/quinn/issues/1947.
++#if defined(ANDROID) && !defined(HAVE_64BIT_BUILD)
++  value: true
++#else
++  value: @IS_NOT_NIGHTLY_BUILD@
++#endif
+   mirror: always
+ 
+ - name: network.http.http3.enable_qlog

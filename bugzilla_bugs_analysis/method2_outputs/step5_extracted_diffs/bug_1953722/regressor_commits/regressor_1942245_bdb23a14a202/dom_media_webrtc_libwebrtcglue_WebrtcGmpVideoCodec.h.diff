@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/WebrtcGmpVideoCodec.h
+# Commit: bdb23a14a202
+# Full Hash: bdb23a14a20287150197258058e5db11fbb00dbe
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2025-01-24 21:02:20
+# Regressor Bug: 1942245
+# File Overlap Count: 2
+# Description:
+#   Bug 1942245 - Limit the number of images in flight in webrtc gmp encoder. r=aosmond
+#   
+#   Frames from screen capture are often large and with OpenH264 in screen content
+#   mode, encoding them takes several times longer than encoding non-screen content.
+#   
+# ==============================================================================
+
+diff -r bb3495397f18 -r bdb23a14a202 dom/media/webrtc/libwebrtcglue/WebrtcGmpVideoCodec.h
+--- a/dom/media/webrtc/libwebrtcglue/WebrtcGmpVideoCodec.h	Fri Jan 24 11:43:23 2025 +0000
++++ b/dom/media/webrtc/libwebrtcglue/WebrtcGmpVideoCodec.h	Fri Jan 24 11:43:24 2025 +0000
+@@ -256,10 +256,12 @@
+   const std::string mPCHandle;
+ 
+   struct InputImageData {
++    uint64_t rtp_timestamp;
+     int64_t timestamp_us;
+   };
++  static constexpr size_t kMaxImagesInFlight = 5;
+   // Map rtp time -> input image data
+-  std::map<uint64_t, InputImageData> mInputImageMap;
++  AutoTArray<InputImageData, kMaxImagesInFlight> mInputImageMap;
+ 
+   MediaEventProducer<uint64_t> mInitPluginEvent;
+   MediaEventProducer<uint64_t> mReleasePluginEvent;

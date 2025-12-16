@@ -1,0 +1,62 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fetch/FetchDriver.h
+# Commit: 4fd92351d64b
+# Full Hash: 4fd92351d64b1cbeb82beaf6228b21c01dc9bc03
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2023-01-19 04:46:07
+# Regressor Bug: 1351231
+# File Overlap Count: 1
+# Description:
+#   Bug 1351231 - FetchService integration for PFetch. r=dom-worker-reviewers,jesup
+#   
+#   Depends on D142436
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D142437
+# ==============================================================================
+
+diff -r 7a4e3f5f674a -r 4fd92351d64b dom/fetch/FetchDriver.h
+--- a/dom/fetch/FetchDriver.h	Wed Jan 18 00:50:19 2023 +0000
++++ b/dom/fetch/FetchDriver.h	Wed Jan 18 00:50:20 2023 +0000
+@@ -9,6 +9,7 @@
+ 
+ #include "nsIChannelEventSink.h"
+ #include "nsIInterfaceRequestor.h"
++#include "nsINetworkInterceptController.h"
+ #include "nsIStreamListener.h"
+ #include "nsIThreadRetargetableStreamListener.h"
+ #include "mozilla/ConsoleReportCollector.h"
+@@ -92,6 +93,7 @@
+ class FetchDriver final : public nsIStreamListener,
+                           public nsIChannelEventSink,
+                           public nsIInterfaceRequestor,
++                          public nsINetworkInterceptController,
+                           public nsIThreadRetargetableStreamListener,
+                           public AbortFollower {
+  public:
+@@ -100,6 +102,7 @@
+   NS_DECL_NSISTREAMLISTENER
+   NS_DECL_NSICHANNELEVENTSINK
+   NS_DECL_NSIINTERFACEREQUESTOR
++  NS_DECL_NSINETWORKINTERCEPTCONTROLLER
+   NS_DECL_NSITHREADRETARGETABLESTREAMLISTENER
+ 
+   FetchDriver(SafeRefPtr<InternalRequest> aRequest, nsIPrincipal* aPrincipal,
+@@ -133,6 +136,8 @@
+   void RunAbortAlgorithm() override;
+   void FetchDriverAbortActions(AbortSignalImpl* aSignalImpl);
+ 
++  void EnableNetworkInterceptControl();
++
+  private:
+   nsCOMPtr<nsIPrincipal> mPrincipal;
+   nsCOMPtr<nsILoadGroup> mLoadGroup;
+@@ -181,6 +186,7 @@
+   bool mResponseAvailableCalled;
+   bool mFetchCalled;
+ #endif
++  nsCOMPtr<nsINetworkInterceptController> mInterceptController;
+ 
+   friend class AlternativeDataStreamListener;
+ 

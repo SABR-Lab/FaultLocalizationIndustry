@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentChild.cpp
+# Commit: b003e26209cf
+# Full Hash: b003e26209cf8e5dc1ac040f43f9caff01a5c613
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2025-04-09 04:12:49
+# Regressor Bug: 1899503
+# File Overlap Count: 2
+# Description:
+#   Bug 1899503 - P2 PRemoteWorkerDebuggerMangaer binding implementation. r=asuth
+#   
+#   This patch implements the PRemoteWorkerDebuggerManager binding.
+#   
+#   PRemoteWorkerDebuggerManager is the IPC that handles the registration/unregistration of remote debuggers.
+# ==============================================================================
+
+diff -r 9e22fbf8ab8f -r b003e26209cf dom/ipc/ContentChild.cpp
+--- a/dom/ipc/ContentChild.cpp	Tue Apr 08 09:43:33 2025 +0000
++++ b/dom/ipc/ContentChild.cpp	Tue Apr 08 09:43:33 2025 +0000
+@@ -81,6 +81,7 @@
+ #include "mozilla/dom/PSessionStorageObserverChild.h"
+ #include "mozilla/dom/PostMessageEvent.h"
+ #include "mozilla/dom/PushNotifier.h"
++#include "mozilla/dom/RemoteWorkerDebuggerManagerChild.h"
+ #include "mozilla/dom/RemoteWorkerService.h"
+ #include "mozilla/dom/ScreenOrientation.h"
+ #include "mozilla/dom/ServiceWorkerManager.h"
+@@ -2679,8 +2680,10 @@
+ const nsACString& ContentChild::GetRemoteType() const { return mRemoteType; }
+ 
+ mozilla::ipc::IPCResult ContentChild::RecvInitRemoteWorkerService(
+-    Endpoint<PRemoteWorkerServiceChild>&& aEndpoint) {
+-  RemoteWorkerService::InitializeChild(std::move(aEndpoint));
++    Endpoint<PRemoteWorkerServiceChild>&& aEndpoint,
++    Endpoint<PRemoteWorkerDebuggerManagerChild>&& aDebuggerChiledEp) {
++  RemoteWorkerService::InitializeChild(std::move(aEndpoint),
++                                       std::move(aDebuggerChiledEp));
+   return IPC_OK();
+ }
+ 

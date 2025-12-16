@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLChild.cpp
+# Commit: 71c122ac0ca7
+# Full Hash: 71c122ac0ca73391866b1ef19f4f82bc2d28568b
+# Author: David Parks <davidp99@gmail.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Initial out-of-process WebGL implementation. r=mccr8,handyman
+#   
+#   Splits WebGLContext into ClientWebGLContext and HostWebGLContext.  The Client enables the JS-control of a WebGL context in a content procecss while the Host executes the WebGL graphics operations (via a WebGLContext that maintains much of the existing code) in the compositor process.  At this point, the cross-process behavior is disabled -- this series of patches is an incremental step toward that final goal.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D54018
+# ==============================================================================
+
+diff -r 5cbf5bb11c58 -r 71c122ac0ca7 dom/canvas/WebGLChild.cpp
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/dom/canvas/WebGLChild.cpp	Wed Jan 08 22:19:14 2020 +0000
+@@ -0,0 +1,37 @@
++/* -*- Mode: C++; tab-width: 20; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++#include "WebGLChild.h"
++
++#include "ClientWebGLContext.h"
++#include "nsICanvasRenderingContextInternal.h"
++#include "nsQueryObject.h"
++
++namespace mozilla {
++
++namespace dom {
++
++mozilla::ipc::IPCResult WebGLChild::RecvQueueFailed() {
++  mozilla::ClientWebGLContext* context = GetContext();
++  if (context) {
++    context->OnQueueFailed();
++  }
++  return Send__delete__(this) ? IPC_OK() : IPC_FAIL_NO_REASON(this);
++}
++
++mozilla::ClientWebGLContext* WebGLChild::GetContext() {
++  nsCOMPtr<nsICanvasRenderingContextInternal> ret = do_QueryReferent(mContext);
++  if (!ret) {
++    return nullptr;
++  }
++  return static_cast<mozilla::ClientWebGLContext*>(ret.get());
++}
++
++void WebGLChild::SetContext(mozilla::ClientWebGLContext* aContext) {
++  mContext = do_GetWeakReference(aContext);
++}
++
++}  // namespace dom
++}  // namespace mozilla

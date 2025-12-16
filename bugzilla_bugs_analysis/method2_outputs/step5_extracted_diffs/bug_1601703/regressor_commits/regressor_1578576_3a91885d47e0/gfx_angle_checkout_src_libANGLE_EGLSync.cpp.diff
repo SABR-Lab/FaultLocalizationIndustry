@@ -1,0 +1,84 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/angle/checkout/src/libANGLE/EGLSync.cpp
+# Commit: 3a91885d47e0
+# Full Hash: 3a91885d47e0ef7fba9749562d52300eea67c651
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2019-11-11 21:52:52
+# Regressor Bug: 1578576
+# File Overlap Count: 4
+# Description:
+#   Bug 1578576 - Part 2: Update to ANGLE 3865 r=jgilbert
+#   
+#   Depends on D44561
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44579
+# ==============================================================================
+
+diff -r 77cee77c0307 -r 3a91885d47e0 gfx/angle/checkout/src/libANGLE/EGLSync.cpp
+--- a/gfx/angle/checkout/src/libANGLE/EGLSync.cpp	Fri Nov 08 16:41:42 2019 +0000
++++ b/gfx/angle/checkout/src/libANGLE/EGLSync.cpp	Fri Nov 08 17:06:00 2019 +0000
+@@ -18,7 +18,11 @@
+ {
+ 
+ Sync::Sync(rx::EGLImplFactory *factory, EGLenum type, const AttributeMap &attribs)
+-    : mFence(factory->createSync(attribs)), mType(type)
++    : mFence(factory->createSync(attribs)),
++      mLabel(nullptr),
++      mType(type),
++      mNativeFenceFD(
++          attribs.getAsInt(EGL_SYNC_NATIVE_FENCE_FD_ANDROID, EGL_NO_NATIVE_FENCE_FD_ANDROID))
+ {}
+ 
+ void Sync::onDestroy(const Display *display)
+@@ -30,19 +34,33 @@
+ 
+ Sync::~Sync() {}
+ 
+-Error Sync::initialize(const Display *display)
++Error Sync::initialize(const Display *display, const gl::Context *context)
+ {
+-    return mFence->initialize(display, mType);
++    return mFence->initialize(display, context, mType);
++}
++
++void Sync::setLabel(EGLLabelKHR label)
++{
++    mLabel = label;
+ }
+ 
+-Error Sync::clientWait(const Display *display, EGLint flags, EGLTime timeout, EGLint *outResult)
++EGLLabelKHR Sync::getLabel() const
+ {
+-    return mFence->clientWait(display, flags, timeout, outResult);
++    return mLabel;
+ }
+ 
+-Error Sync::serverWait(const Display *display, EGLint flags)
++Error Sync::clientWait(const Display *display,
++                       const gl::Context *context,
++                       EGLint flags,
++                       EGLTime timeout,
++                       EGLint *outResult)
+ {
+-    return mFence->serverWait(display, flags);
++    return mFence->clientWait(display, context, flags, timeout, outResult);
++}
++
++Error Sync::serverWait(const Display *display, const gl::Context *context, EGLint flags)
++{
++    return mFence->serverWait(display, context, flags);
+ }
+ 
+ Error Sync::getStatus(const Display *display, EGLint *outStatus) const
+@@ -50,4 +68,9 @@
+     return mFence->getStatus(display, outStatus);
+ }
+ 
++Error Sync::dupNativeFenceFD(const Display *display, EGLint *result) const
++{
++    return mFence->dupNativeFenceFD(display, result);
++}
++
+ }  // namespace egl

@@ -1,0 +1,35 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/ipc/CanvasManagerChild.cpp
+# Commit: de6ddf5eb2a7
+# Full Hash: de6ddf5eb2a7bd3d8a2f58636760e0aa16c584b9
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2023-12-05 21:29:44
+# Regressor Bug: 1829026
+# File Overlap Count: 1
+# Description:
+#   Bug 1829026 - Update CanvasTranslator to work with DrawTargetWebgl. r=aosmond
+#   
+#   This adds the necessary infrastructure for CanvasTranslator to allocate DrawTargetWebgl
+#   instead of just allocating TextureData, and to use RemoteTextureMap to handle sending
+#   the DrawTargetWebgl frames to the compositor.
+# ==============================================================================
+
+diff -r 773e7b31ac6e -r de6ddf5eb2a7 gfx/ipc/CanvasManagerChild.cpp
+--- a/gfx/ipc/CanvasManagerChild.cpp	Tue Dec 05 09:37:03 2023 +0000
++++ b/gfx/ipc/CanvasManagerChild.cpp	Tue Dec 05 09:37:03 2023 +0000
+@@ -159,7 +159,13 @@
+   }
+ }
+ 
++void CanvasManagerChild::BlockCanvas() { mBlocked = true; }
++
+ RefPtr<layers::CanvasChild> CanvasManagerChild::GetCanvasChild() {
++  if (mBlocked) {
++    return nullptr;
++  }
++
+   if (!mActive) {
+     MOZ_ASSERT(!mCanvasChild);
+     return nullptr;

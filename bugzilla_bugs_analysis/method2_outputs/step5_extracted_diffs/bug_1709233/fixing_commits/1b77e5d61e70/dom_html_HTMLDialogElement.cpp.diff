@@ -1,0 +1,33 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/html/HTMLDialogElement.cpp
+# Commit: 1b77e5d61e70
+# Full Hash: 1b77e5d61e70612b47460088c2bcef9ff0bd9752
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2021-05-05 04:13:36
+# Description:
+#   Bug 1709233 - Fix a null pointer crash in HTMLDialogElement::StorePreviouslyFocusedElement r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D114256
+# ==============================================================================
+
+diff -r 8dd62880c934 -r 1b77e5d61e70 dom/html/HTMLDialogElement.cpp
+--- a/dom/html/HTMLDialogElement.cpp	Tue May 04 18:06:25 2021 +0000
++++ b/dom/html/HTMLDialogElement.cpp	Tue May 04 18:39:04 2021 +0000
+@@ -109,10 +109,11 @@
+ }
+ 
+ void HTMLDialogElement::StorePreviouslyFocusedElement() {
+-  if (nsIContent* unretargetedFocus =
+-          GetComposedDoc()->GetUnretargetedFocusedContent()) {
+-    mPreviouslyFocusedElement =
+-        do_GetWeakReference(unretargetedFocus->AsElement());
++  if (Document* doc = GetComposedDoc()) {
++    if (nsIContent* unretargetedFocus = doc->GetUnretargetedFocusedContent()) {
++      mPreviouslyFocusedElement =
++          do_GetWeakReference(unretargetedFocus->AsElement());
++    }
+   }
+ }
+ 

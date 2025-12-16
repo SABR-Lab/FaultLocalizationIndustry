@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/windows/filedialog/PWinFileDialog.ipdl
+# Commit: af562cec3d70
+# Full Hash: af562cec3d706ee3ed605ffeade4d3ba982d2545
+# Author: Ray Kraesig <rkraesig@mozilla.com>
+# Date: 2023-10-27 04:08:13
+# Regressor Bug: 1837079
+# File Overlap Count: 2
+# Description:
+#   Bug 1837079 - [5/10] Create WinFileDialog IPDL protocol and implementation  r=gstoll,handyman,ipc-reviewers,nika,win-reviewers,mhowell
+#   
+#   Create and implement a new top-level IPC protocol, `PWinFileDialog`,
+#   using the primitives from bug 1833450 and the new sandboxing type from
+#   the previous commit.
+# ==============================================================================
+
+diff -r b5d52e5f75f2 -r af562cec3d70 widget/windows/filedialog/PWinFileDialog.ipdl
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/widget/windows/filedialog/PWinFileDialog.ipdl	Thu Oct 26 18:21:28 2023 +0000
+@@ -0,0 +1,31 @@
++/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
++/* vim: set sw=2 ts=8 et ft=ipdl : */
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++include WinFileDialogCommandsDefn;
++using mozilla::WindowsHandle from "mozilla/ipc/IPCTypes.h";
++using mozilla::widget::filedialog::FileDialogType from "mozilla/widget/filedialog/WinFileDialogCommands.h";
++
++namespace mozilla {
++namespace widget {
++namespace filedialog {
++
++protocol PWinFileDialog {
++
++child:
++  // Exactly one Show function should be called per instance. Further calls will
++  // result in IPC failure.
++  //
++  // Each will return `Nothing` iff the operation was canceled by the user.
++
++  async ShowFileDialog(WindowsHandle parentHwnd, FileDialogType type, Command[] commands)
++    returns (Results? results);
++  async ShowFolderDialog(WindowsHandle parentHwnd, Command[] commands)
++    returns (nsString? path);
++};
++
++}  // namespace filedialog
++}  // namespace widget
++}  // namespace mozilla

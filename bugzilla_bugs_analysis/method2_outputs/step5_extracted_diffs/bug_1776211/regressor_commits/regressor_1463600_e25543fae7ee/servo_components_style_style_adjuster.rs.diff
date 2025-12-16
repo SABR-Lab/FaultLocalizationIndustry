@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: servo/components/style/style_adjuster.rs
+# Commit: e25543fae7ee
+# Full Hash: e25543fae7ee03ac57b9cfbfeb2418c9e2f490fc
+# Author: Martin Robinson <mrobinson@igalia.com>
+# Date: 2022-06-23 03:54:50
+# Regressor Bug: 1463600
+# File Overlap Count: 1
+# Description:
+#   Bug 1463600 - Implement CSS 'contain: style' r=emilio
+#   
+#   Add an implementation of CSS `contain: style`. This introduces two new
+#   data structures, the ContainStyleScope and ContainStyleScopeManager.
+#   
+# ==============================================================================
+
+diff -r 4230bdcf07ae -r e25543fae7ee servo/components/style/style_adjuster.rs
+--- a/servo/components/style/style_adjuster.rs	Wed Jun 22 16:15:57 2022 +0000
++++ b/servo/components/style/style_adjuster.rs	Wed Jun 22 16:16:59 2022 +0000
+@@ -7,12 +7,14 @@
+ 
+ use crate::computed_value_flags::ComputedValueFlags;
+ use crate::dom::TElement;
++use crate::properties::longhands::contain::SpecifiedValue;
+ use crate::properties::longhands::display::computed_value::T as Display;
+ use crate::properties::longhands::float::computed_value::T as Float;
+ use crate::properties::longhands::overflow_x::computed_value::T as Overflow;
+ use crate::properties::longhands::position::computed_value::T as Position;
+ use crate::properties::{self, ComputedValues, StyleBuilder};
+ 
++
+ /// A struct that implements all the adjustment methods.
+ ///
+ /// NOTE(emilio): If new adjustments are introduced that depend on reset
+@@ -246,6 +248,15 @@
+                 .add_flags(ComputedValueFlags::IS_ROOT_ELEMENT_STYLE);
+         }
+ 
++        if self.style
++            .get_box()
++            .clone_contain()
++            .contains(SpecifiedValue::STYLE)
++        {
++            self.style
++                .add_flags(ComputedValueFlags::SELF_OR_ANCESTOR_HAS_CONTAIN_STYLE);
++        }
++
+         #[cfg(feature = "servo-layout-2013")]
+         {
+             if self.style.get_parent_column().is_multicol() {

@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/html/HTMLMediaElement.h
+# Commit: c4c53ba08359
+# Full Hash: c4c53ba083593742ed6d9bf8528ad984f3c558e9
+# Author: alwu <alwu@mozilla.com>
+# Date: 2020-07-24 09:32:06
+# Regressor Bug: 1653390
+# File Overlap Count: 1
+# Description:
+#   Bug 1653390 - part6 : add audible check back in media element. r=bryce
+#   
+#   In D73335, we remove those check which causes a regression where inaudible media is also able to be controlled by media control keys.
+#   
+#   In order not to control those inaudible media, we should add the check back. If the media is inaudible, then we should not start the listener that would connect media element to the media control.
+# ==============================================================================
+
+diff -r a8a44fb117cb -r c4c53ba08359 dom/html/HTMLMediaElement.h
+--- a/dom/html/HTMLMediaElement.h	Thu Jul 23 21:33:31 2020 +0000
++++ b/dom/html/HTMLMediaElement.h	Fri Jul 24 02:43:33 2020 +0000
+@@ -1927,9 +1927,16 @@
+   MozPromiseRequestHolder<ResumeDelayedPlaybackAgent::ResumePromise>
+       mResumePlaybackRequest;
+ 
+-  // We use MediaControlKeyListener to listen media control key, by which we
+-  // would play or pause media element.
+-  void StartListeningMediaControlKeyIfNeeded();
++  // Return true if the media qualifies for being controlled by media control
++  // keys.
++  bool ShouldStartMediaControlKeyListener() const;
++
++  // Start the listener if media fits the requirement of being able to be
++  // controlled be media control keys.
++  void StartMediaControlKeyListenerIfNeeded();
++
++  // It's used to listen media control key, by which we would play or pause
++  // media element.
+   RefPtr<MediaControlKeyListener> mMediaControlKeyListener;
+ 
+   // Return true if the media element is being used in picture in picture mode.

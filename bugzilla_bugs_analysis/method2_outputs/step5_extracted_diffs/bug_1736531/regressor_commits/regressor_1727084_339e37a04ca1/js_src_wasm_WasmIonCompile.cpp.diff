@@ -1,0 +1,195 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmIonCompile.cpp
+# Commit: 339e37a04ca1
+# Full Hash: 339e37a04ca17a209114f9d346751e6d05f6a37d
+# Author: Lars T Hansen <lhansen@mozilla.com>
+# Date: 2021-10-18 16:09:29
+# Regressor Bug: 1727084
+# File Overlap Count: 1
+# Description:
+#   Bug 1727084 - Memory64 - Preliminaries. r=yury
+#   
+#   Scaffolding: Add assertions everywhere execution currently depends on
+#   a memory being a memory32.  These assertions will disappear by and by.
+#   
+# ==============================================================================
+
+diff -r 83e52246d0ea -r 339e37a04ca1 js/src/wasm/WasmIonCompile.cpp
+--- a/js/src/wasm/WasmIonCompile.cpp	Mon Oct 18 09:58:13 2021 +0000
++++ b/js/src/wasm/WasmIonCompile.cpp	Mon Oct 18 09:58:13 2021 +0000
+@@ -1042,6 +1042,8 @@
+   }
+ 
+  public:
++  bool isMem32() { return moduleEnv_.memory->indexType() == IndexType::I32; }
++
+   // Add the offset into the pointer to yield the EA; trap on overflow.
+   MDefinition* computeEffectiveAddress(MDefinition* base,
+                                        MemoryAccessDesc* access) {
+@@ -3251,6 +3253,7 @@
+     return false;
+   }
+ 
++  MOZ_ASSERT(f.isMem32());
+   MemoryAccessDesc access(viewType, addr.align, addr.offset,
+                           f.bytecodeIfNotAsmJS());
+   auto* ins = f.load(addr.base, &access, type);
+@@ -3271,6 +3274,7 @@
+     return false;
+   }
+ 
++  MOZ_ASSERT(f.isMem32());
+   MemoryAccessDesc access(viewType, addr.align, addr.offset,
+                           f.bytecodeIfNotAsmJS());
+ 
+@@ -3287,6 +3291,7 @@
+     return false;
+   }
+ 
++  MOZ_ASSERT(f.isMem32());
+   MemoryAccessDesc access(viewType, addr.align, addr.offset,
+                           f.bytecodeIfNotAsmJS());
+ 
+@@ -3311,6 +3316,7 @@
+     MOZ_CRASH("unexpected coerced store");
+   }
+ 
++  MOZ_ASSERT(f.isMem32());
+   MemoryAccessDesc access(viewType, addr.align, addr.offset,
+                           f.bytecodeIfNotAsmJS());
+ 
+@@ -3472,6 +3478,7 @@
+     return false;
+   }
+ 
++  MOZ_ASSERT(f.isMem32());
+   MemoryAccessDesc access(viewType, addr.align, addr.offset, f.bytecodeOffset(),
+                           Synchronization::Full());
+   auto* ins =
+@@ -3491,6 +3498,7 @@
+     return false;
+   }
+ 
++  MOZ_ASSERT(f.isMem32());
+   MemoryAccessDesc access(viewType, addr.align, addr.offset, f.bytecodeOffset(),
+                           Synchronization::Load());
+   auto* ins = f.load(addr.base, &access, type);
+@@ -3510,6 +3518,7 @@
+     return false;
+   }
+ 
++  MOZ_ASSERT(f.isMem32());
+   MemoryAccessDesc access(viewType, addr.align, addr.offset, f.bytecodeOffset(),
+                           Synchronization::Full());
+   auto* ins = f.atomicBinopHeap(op, addr.base, &access, type, value);
+@@ -3529,6 +3538,7 @@
+     return false;
+   }
+ 
++  MOZ_ASSERT(f.isMem32());
+   MemoryAccessDesc access(viewType, addr.align, addr.offset, f.bytecodeOffset(),
+                           Synchronization::Store());
+   f.store(addr.base, &access, value);
+@@ -3555,6 +3565,7 @@
+     return false;
+   }
+ 
++  MOZ_ASSERT(f.isMem32());
+   MemoryAccessDesc access(type == ValType::I32 ? Scalar::Int32 : Scalar::Int64,
+                           addr.align, addr.offset, f.bytecodeOffset());
+   MDefinition* ptr = f.computeEffectiveAddress(addr.base, &access);
+@@ -3612,6 +3623,7 @@
+     return false;
+   }
+ 
++  MOZ_ASSERT(f.isMem32());
+   MemoryAccessDesc access(Scalar::Int32, addr.align, addr.offset,
+                           f.bytecodeOffset());
+   MDefinition* ptr = f.computeEffectiveAddress(addr.base, &access);
+@@ -3648,6 +3660,7 @@
+     return false;
+   }
+ 
++  MOZ_ASSERT(f.isMem32());
+   MemoryAccessDesc access(viewType, addr.align, addr.offset, f.bytecodeOffset(),
+                           Synchronization::Full());
+   MDefinition* ins = f.atomicExchangeHeap(addr.base, &access, type, value);
+@@ -3841,6 +3854,7 @@
+     return true;
+   }
+ 
++  MOZ_ASSERT(f.isMem32());
+   if (len->isConstant() && len->type() == MIRType::Int32 &&
+       len->toConstant()->toInt32() != 0 &&
+       uint32_t(len->toConstant()->toInt32()) <= MaxInlineMemoryCopyLength) {
+@@ -4069,6 +4083,7 @@
+     return true;
+   }
+ 
++  MOZ_ASSERT(f.isMem32());
+   if (len->isConstant() && len->type() == MIRType::Int32 &&
+       len->toConstant()->toInt32() != 0 &&
+       uint32_t(len->toConstant()->toInt32()) <= MaxInlineMemoryFillLength &&
+@@ -4090,6 +4105,7 @@
+     return true;
+   }
+ 
++  MOZ_ASSERT_IF(isMem, f.isMem32());
+   uint32_t lineOrBytecode = f.readCallSiteLineOrBytecode();
+ 
+   const SymbolicAddressSignature& callee =
+@@ -4580,6 +4596,7 @@
+     return false;
+   }
+ 
++  MOZ_ASSERT(f.isMem32());
+   f.iter().setResult(f.loadSplatSimd128(viewType, addr, splatOp));
+   return true;
+ }
+@@ -4590,6 +4607,7 @@
+     return false;
+   }
+ 
++  MOZ_ASSERT(f.isMem32());
+   f.iter().setResult(f.loadExtendSimd128(addr, op));
+   return true;
+ }
+@@ -4601,6 +4619,7 @@
+     return false;
+   }
+ 
++  MOZ_ASSERT(f.isMem32());
+   f.iter().setResult(f.loadZeroSimd128(viewType, numBytes, addr));
+   return true;
+ }
+@@ -4613,6 +4632,7 @@
+     return false;
+   }
+ 
++  MOZ_ASSERT(f.isMem32());
+   f.iter().setResult(f.loadLaneSimd128(laneSize, addr, laneIndex, src));
+   return true;
+ }
+@@ -4625,6 +4645,7 @@
+     return false;
+   }
+ 
++  MOZ_ASSERT(f.isMem32());
+   f.storeLaneSimd128(laneSize, addr, laneIndex, src);
+   return true;
+ }
+@@ -5885,7 +5906,11 @@
+     MIRGenerator mir(nullptr, options, &alloc, &graph, &compileInfo,
+                      IonOptimizations.get(OptimizationLevel::Wasm));
+     if (moduleEnv.usesMemory()) {
+-      mir.initMinWasmHeapLength(moduleEnv.memory->initialLength32());
++      if (moduleEnv.memory->indexType() == IndexType::I32) {
++        mir.initMinWasmHeapLength(moduleEnv.memory->initialLength32());
++      } else {
++        mir.initMinWasmHeapLength(moduleEnv.memory->initialLength64());
++      }
+     }
+ 
+     // Build MIR graph

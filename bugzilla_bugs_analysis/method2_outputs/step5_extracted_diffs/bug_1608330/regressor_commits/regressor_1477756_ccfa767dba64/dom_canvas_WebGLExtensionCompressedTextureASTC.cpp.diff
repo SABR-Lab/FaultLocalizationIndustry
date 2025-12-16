@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLExtensionCompressedTextureASTC.cpp
+# Commit: ccfa767dba64
+# Full Hash: ccfa767dba644dc193e0246eb8e8ff3377e8b8a5
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Client-side bindings mirror for precise CC, and merge similar codepaths. r=handyman
+#   
+#   * Context loss using RAII
+#   * Move Program reflection Client-side
+#   
+# ==============================================================================
+
+diff -r 71c122ac0ca7 -r ccfa767dba64 dom/canvas/WebGLExtensionCompressedTextureASTC.cpp
+--- a/dom/canvas/WebGLExtensionCompressedTextureASTC.cpp	Wed Jan 08 22:19:14 2020 +0000
++++ b/dom/canvas/WebGLExtensionCompressedTextureASTC.cpp	Wed Jan 08 22:19:16 2020 +0000
+@@ -24,8 +24,6 @@
+     auto usage = fua->EditUsage(effFormat);
+     usage->isFilterable = true;
+     fua->AllowSizedTexFormat(sizedFormat, usage);
+-
+-    webgl_->mCompressedTextureFormats.AppendElement(sizedFormat);
+   };
+ 
+ #define FOO(x) LOCAL_GL_##x, webgl::EffectiveFormat::x
+@@ -63,27 +61,6 @@
+ #undef FOO
+ }
+ 
+-WebGLExtensionCompressedTextureASTC::~WebGLExtensionCompressedTextureASTC() {}
+-
+-Maybe<nsTArray<nsString>>
+-WebGLExtensionCompressedTextureASTC::GetSupportedProfiles() const {
+-  if (mIsLost || !mContext) {
+-    if (mContext) {
+-      mContext->ErrorInvalidOperation("%s: Extension is lost.",
+-                                      "drawElementsInstancedANGLE");
+-    }
+-    return {};
+-  }
+-
+-  nsTArray<nsString> arr;
+-  arr.AppendElement(NS_LITERAL_STRING("ldr"));
+-  if (mContext->gl->IsExtensionSupported(
+-          gl::GLContext::KHR_texture_compression_astc_hdr)) {
+-    arr.AppendElement(NS_LITERAL_STRING("hdr"));
+-  }
+-  return Some(arr);
+-}
+-
+ bool WebGLExtensionCompressedTextureASTC::IsSupported(
+     const WebGLContext* webgl) {
+   gl::GLContext* gl = webgl->GL();

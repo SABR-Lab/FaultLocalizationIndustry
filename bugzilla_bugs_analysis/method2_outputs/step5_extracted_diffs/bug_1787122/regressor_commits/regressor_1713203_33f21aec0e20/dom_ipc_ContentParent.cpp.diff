@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/ContentParent.cpp
+# Commit: 33f21aec0e20
+# Full Hash: 33f21aec0e20d39623554816399ee76d13d7e08f
+# Author: edguloien <eguloien@mozilla.com>
+# Date: 2022-08-23 21:47:27
+# Regressor Bug: 1713203
+# File Overlap Count: 1
+# Description:
+#   Bug 1713203 - Added check for host, scheme and origin attributes check before cookie change broadcast to content processes r=dveditz,dragana,nika
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D146346
+# ==============================================================================
+
+diff -r fe25d4f35ef8 -r 33f21aec0e20 dom/ipc/ContentParent.cpp
+--- a/dom/ipc/ContentParent.cpp	Tue Aug 23 17:30:19 2022 +0000
++++ b/dom/ipc/ContentParent.cpp	Tue Aug 23 17:36:24 2022 +0000
+@@ -162,6 +162,7 @@
+ #include "mozilla/net/NeckoMessageUtils.h"
+ #include "mozilla/net/NeckoParent.h"
+ #include "mozilla/net/PCookieServiceParent.h"
++#include "mozilla/net/CookieKey.h"
+ #include "mozilla/TelemetryComms.h"
+ #include "mozilla/TelemetryEventEnums.h"
+ #include "mozilla/RemoteLazyInputStreamParent.h"
+@@ -3946,11 +3947,18 @@
+ 
+     nsCOMPtr<nsICookie> xpcCookie = do_QueryInterface(aSubject);
+     NS_ASSERTION(xpcCookie, "couldn't get cookie");
++
++    // only broadcast the cookie change to content processes that need it
++    const Cookie& cookie = xpcCookie->AsCookie();
++    if (!cs->CookieMatchesContentList(cookie)) {
++      return NS_OK;
++    }
++
+     if (!nsCRT::strcmp(aData, u"deleted")) {
+-      cs->RemoveCookie(xpcCookie);
++      cs->RemoveCookie(cookie);
+     } else if ((!nsCRT::strcmp(aData, u"added")) ||
+                (!nsCRT::strcmp(aData, u"changed"))) {
+-      cs->AddCookie(xpcCookie);
++      cs->AddCookie(cookie);
+     }
+   } else if (!strcmp(aTopic, NS_NETWORK_LINK_TYPE_TOPIC)) {
+     UpdateNetworkLinkType();

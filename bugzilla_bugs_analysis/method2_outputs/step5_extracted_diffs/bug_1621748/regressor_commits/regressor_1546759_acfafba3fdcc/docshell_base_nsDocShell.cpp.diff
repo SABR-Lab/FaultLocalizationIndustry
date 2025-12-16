@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/nsDocShell.cpp
+# Commit: acfafba3fdcc
+# Full Hash: acfafba3fdcc02c781f1d3e04f219478a38a4912
+# Author: Anny Gakhokidze <agakhokidze@mozilla.com>
+# Date: 2020-03-13 04:24:24
+# Regressor Bug: 1546759
+# File Overlap Count: 1
+# Description:
+#   Bug 1546759 - Do not update session history entries in BC when it is discarded, r=peterv
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D66519
+# ==============================================================================
+
+diff -r 286dc40ec81b -r acfafba3fdcc docshell/base/nsDocShell.cpp
+--- a/docshell/base/nsDocShell.cpp	Thu Mar 12 18:12:33 2020 +0000
++++ b/docshell/base/nsDocShell.cpp	Thu Mar 12 14:14:40 2020 +0000
+@@ -11383,22 +11383,21 @@
+     MOZ_ASSERT(mOSHE.get() == aOSHE.value());
+   }
+ 
+-  // If the SH pref is off and we are not a parent process do not update
+-  // canonical BC
+-  if (!StaticPrefs::fission_sessionHistoryInParent() &&
+-      XRE_IsContentProcess()) {
++  // Do not update the BC if the SH pref is off and we are not a parent process
++  // or if it is discarded
++  if ((!StaticPrefs::fission_sessionHistoryInParent() &&
++      XRE_IsContentProcess()) || mBrowsingContext->IsDiscarded()) {
+     return;
+   }
+-  ContentChild* cc = ContentChild::GetSingleton();
+-  RefPtr<BrowsingContext> bc =
+-      mBrowsingContext->IsDiscarded() ? nullptr : mBrowsingContext;
+   if (XRE_IsParentProcess()) {
+     // We are in the parent process, thus we can update the entries directly
+     mBrowsingContext->Canonical()->UpdateSHEntries(mLSHE, mOSHE);
+   } else {
++    ContentChild* cc = ContentChild::GetSingleton();
+     // We can't update canonical BC directly, so do it over IPC call
+     cc->SendUpdateSHEntriesInBC(static_cast<SHEntryChild*>(mLSHE.get()),
+-                                static_cast<SHEntryChild*>(mOSHE.get()), bc);
++                                static_cast<SHEntryChild*>(mOSHE.get()),
++                                mBrowsingContext);
+   }
+ }
+ 

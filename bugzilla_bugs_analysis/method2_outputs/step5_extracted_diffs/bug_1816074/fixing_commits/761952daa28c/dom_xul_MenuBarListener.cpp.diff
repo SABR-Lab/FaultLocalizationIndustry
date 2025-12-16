@@ -1,0 +1,51 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/xul/MenuBarListener.cpp
+# Commit: 761952daa28c
+# Full Hash: 761952daa28c591f7d2bcfaa038749947ec9d4e6
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-02-15 09:39:02
+# Description:
+#   Bug 1816074 - Prevent activating menubar without a selectable menu item. r=smaug
+#   
+#   We might not have an active item if all items are disabled.
+#   
+#   Add the null-check just to be safe too.
+# ==============================================================================
+
+diff -r a98793b8ce26 -r 761952daa28c dom/xul/MenuBarListener.cpp
+--- a/dom/xul/MenuBarListener.cpp	Tue Feb 14 16:07:39 2023 +0000
++++ b/dom/xul/MenuBarListener.cpp	Tue Feb 14 16:01:50 2023 +0000
+@@ -109,7 +109,7 @@
+     if (aByKeyboard == ByKeyboard::Yes) {
+       menuBar->SetActiveByKeyboard();
+     }
+-    menuBar->SetActive(true);
++    // This will activate the menubar if needed.
+     menuBar->SelectFirstItem();
+   }
+ }
+@@ -226,9 +226,10 @@
+ 
+       if (mMenuBar && mMenuBar->IsActive()) {
+ #  ifdef MOZ_WIDGET_GTK
+-        RefPtr child = mMenuBar->GetActiveMenuChild();
+-        // In GTK, this also opens the first menu.
+-        child->OpenMenuPopup(false);
++        if (RefPtr child = mMenuBar->GetActiveMenuChild()) {
++          // In GTK, this also opens the first menu.
++          child->OpenMenuPopup(false);
++        }
+ #  endif
+         aKeyEvent->StopPropagation();
+         aKeyEvent->PreventDefault();
+@@ -270,7 +271,7 @@
+ 
+   RefPtr menuBar = mMenuBar;
+   menuBar->SetActiveByKeyboard();
+-  menuBar->SetActive(true);
++  // This will activate the menubar as needed.
+   menuForKey->OpenMenuPopup(true);
+ 
+   // The opened menu will listen next keyup event.

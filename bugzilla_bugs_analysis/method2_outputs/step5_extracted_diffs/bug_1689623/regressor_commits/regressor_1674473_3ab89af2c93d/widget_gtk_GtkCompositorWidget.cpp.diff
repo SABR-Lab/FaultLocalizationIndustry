@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/GtkCompositorWidget.cpp
+# Commit: 3ab89af2c93d
+# Full Hash: 3ab89af2c93d5453bcafd1e0a30f5823148d1a11
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2021-01-23 10:00:21
+# Regressor Bug: 1674473
+# File Overlap Count: 1
+# Description:
+#   Bug 1674473 - use ClearRect instead of FillRect. r=jrmuizel
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D102796
+# ==============================================================================
+
+diff -r 6f1a1f0ae9ed -r 3ab89af2c93d widget/gtk/GtkCompositorWidget.cpp
+--- a/widget/gtk/GtkCompositorWidget.cpp	Fri Jan 22 19:52:30 2021 +0000
++++ b/widget/gtk/GtkCompositorWidget.cpp	Fri Jan 22 20:19:44 2021 +0000
+@@ -133,21 +133,15 @@
+   // SW-WR paints with alpha blending (see Bug 1674473).
+   if (mWidget->IsPopup()) {
+     for (auto iter = aRegion.RectIter(); !iter.Done(); iter.Next()) {
+-      LayoutDeviceIntRect r = iter.Get();
+-      aTarget->FillRect(gfx::Rect(r.x, r.y, r.width, r.height),
+-                        ColorPattern(DeviceColor(0, 0, 0, 0)),
+-                        DrawOptions(1.0f, CompositionOp::OP_SOURCE));
++      aTarget->ClearRect(gfx::Rect(iter.Get().ToUnknownRect()));
+     }
+-    aTarget->Flush();
+   }
+ 
+   // Clear background of titlebar area to render titlebar
+   // transparent corners correctly.
+   gfx::Rect rect;
+   if (mWidget->GetTitlebarRect(rect)) {
+-    aTarget->FillRect(rect, ColorPattern(DeviceColor(0, 0, 0, 0)),
+-                      DrawOptions(1.0f, CompositionOp::OP_SOURCE));
+-    aTarget->Flush();
++    aTarget->ClearRect(rect);
+   }
+ }
+ 

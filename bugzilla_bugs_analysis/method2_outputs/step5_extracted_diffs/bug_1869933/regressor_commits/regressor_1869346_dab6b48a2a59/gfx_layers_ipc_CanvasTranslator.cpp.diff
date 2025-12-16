@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/CanvasTranslator.cpp
+# Commit: dab6b48a2a59
+# Full Hash: dab6b48a2a592a441229e88c88b1aa2570f2171d
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2023-12-12 04:37:49
+# Regressor Bug: 1869346
+# File Overlap Count: 5
+# Description:
+#   Bug 1869346 - Rework how canvas accesses shared surfaces in the compositor process. r=gfx-reviewers,lsalzman
+#   
+#   This patch adds plumbing to allow sharing ExternalImageId via
+#   SurfaceDescriptor. This will be used in a future patch by WebGL and
+#   WebGPU to avoid extra copies. It also refactors how CanvasTranslator
+# ==============================================================================
+
+diff -r af13afc7d44f -r dab6b48a2a59 gfx/layers/ipc/CanvasTranslator.cpp
+--- a/gfx/layers/ipc/CanvasTranslator.cpp	Mon Dec 11 20:19:47 2023 +0000
++++ b/gfx/layers/ipc/CanvasTranslator.cpp	Mon Dec 11 20:44:44 2023 +0000
+@@ -50,9 +50,11 @@
+   return textureData;
+ }
+ 
+-CanvasTranslator::CanvasTranslator(const dom::ContentParentId& aContentId,
+-                                   uint32_t aManagerId)
+-    : mMaxSpinCount(StaticPrefs::gfx_canvas_remote_max_spin_count()),
++CanvasTranslator::CanvasTranslator(
++    layers::SharedSurfacesHolder* aSharedSurfacesHolder,
++    const dom::ContentParentId& aContentId, uint32_t aManagerId)
++    : mSharedSurfacesHolder(aSharedSurfacesHolder),
++      mMaxSpinCount(StaticPrefs::gfx_canvas_remote_max_spin_count()),
+       mContentId(aContentId),
+       mManagerId(aManagerId) {
+   mNextEventTimeout = TimeDuration::FromMilliseconds(
+@@ -640,7 +642,7 @@
+ 
+ already_AddRefed<gfx::SourceSurface> CanvasTranslator::LookupExternalSurface(
+     uint64_t aKey) {
+-  return SharedSurfacesParent::Get(wr::ToExternalImageId(aKey));
++  return mSharedSurfacesHolder->Get(wr::ToExternalImageId(aKey));
+ }
+ 
+ void CanvasTranslator::CheckpointReached() { CheckAndSignalWriter(); }

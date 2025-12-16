@@ -1,0 +1,30 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/render_task_graph.rs
+# Commit: f17e315eda26
+# Full Hash: f17e315eda269b160a920cbad3a9632fadff9460
+# Author: Glenn Watson <git@intuitionlibrary.com>
+# Date: 2022-07-22 08:59:33
+# Description:
+#   Bug 1780567 - Fix shared target allocation for tasks with Existing mode r=gfx-reviewers,jgilbert
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D152474
+# ==============================================================================
+
+diff -r 8bbec265ab8c -r f17e315eda26 gfx/wr/webrender/src/render_task_graph.rs
+--- a/gfx/wr/webrender/src/render_task_graph.rs	Fri Jul 22 02:17:27 2022 +0200
++++ b/gfx/wr/webrender/src/render_task_graph.rs	Thu Jul 21 23:57:02 2022 +0000
+@@ -399,8 +399,11 @@
+                         let mut location = None;
+                         let kind = task.kind.target_kind();
+ 
++                        // If a task is used as part of an existing-chain then we can't
++                        // safely share it (nor would we want to).
+                         let can_use_shared_surface =
+-                            task.kind.can_use_shared_surface();
++                            task.kind.can_use_shared_surface() &&
++                            task.free_after != PassId::INVALID;
+ 
+                         if can_use_shared_surface {
+                             // If we can use a shared surface, step through the existing shared

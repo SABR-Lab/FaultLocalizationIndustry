@@ -1,0 +1,59 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmStubs.cpp
+# Commit: 1904a5f49768
+# Full Hash: 1904a5f4976884a08d761f8371e0736b75030215
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2024-08-06 21:12:39
+# Regressor Bug: 1909224
+# File Overlap Count: 1
+# Description:
+#   Bug 1911242 - Don't reload instance register after calling into Wasm from JitEntry stub. r=rhunt
+#   
+#   It used to be that the exception handler could return directly to the JitEntry stub after unwinding
+#   (with `FailInstanceReg` in the instance register) so we had to reload the instance register based on the
+#   frame's callee to ensure it was valid.
+# ==============================================================================
+
+diff -r 58322f347f7f -r 1904a5f49768 js/src/wasm/WasmStubs.cpp
+--- a/js/src/wasm/WasmStubs.cpp	Tue Aug 06 12:15:36 2024 +0000
++++ b/js/src/wasm/WasmStubs.cpp	Tue Aug 06 12:26:38 2024 +0000
+@@ -844,6 +844,8 @@
+ 
+ // Creates a JS fake exit frame for wasm, so the frame iterators just use
+ // JSJit frame iteration.
++//
++// Note: the caller must ensure InstanceReg is valid.
+ static void GenerateJitEntryThrow(MacroAssembler& masm, unsigned frameSize) {
+   AssertExpectedSP(masm);
+ 
+@@ -852,8 +854,6 @@
+   masm.freeStack(frameSize);
+   MoveSPForJitABI(masm);
+ 
+-  GenerateJitEntryLoadInstance(masm);
+-
+   masm.loadPtr(Address(InstanceReg, Instance::offsetOfCx()), ScratchIonEntry);
+   masm.enterFakeExitFrameForWasm(ScratchIonEntry, ScratchIonEntry,
+                                  ExitFrameType::WasmGenericJitEntry);
+@@ -1203,8 +1203,7 @@
+   masm.storePtr(InstanceReg, Address(masm.getStackPointer(),
+                                      WasmCalleeInstanceOffsetBeforeCall));
+ 
+-  // Call into the real function. Note that, due to the throw stub, instance
+-  // and pinned registers may be clobbered.
++  // Call into the real function.
+   masm.assertStackAlignment(WasmStackAlignment);
+   CallFuncExport(masm, fe, funcPtr);
+   masm.assertStackAlignment(WasmStackAlignment);
+@@ -1253,9 +1252,6 @@
+         MOZ_CRASH("unexpected return type when calling from ion to wasm");
+       }
+       case ValType::Ref: {
+-        // Per comment above, the call may have clobbered the instance
+-        // register, so reload since unboxing will need it.
+-        GenerateJitEntryLoadInstance(masm);
+         GenPrintPtr(DebugChannel::Import, masm, ReturnReg);
+         masm.convertWasmAnyRefToValue(InstanceReg, ReturnReg, JSReturnOperand,
+                                       WasmJitEntryReturnScratch);

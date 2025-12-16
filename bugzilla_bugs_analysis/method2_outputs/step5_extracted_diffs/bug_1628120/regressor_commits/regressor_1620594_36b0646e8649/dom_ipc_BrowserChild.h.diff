@@ -1,0 +1,72 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/BrowserChild.h
+# Commit: 36b0646e8649
+# Full Hash: 36b0646e86498662e770756ad54b1fd648a82184
+# Author: Andreas Farre <farre@mozilla.com>
+# Date: 2020-04-07 21:44:02
+# Regressor Bug: 1620594
+# File Overlap Count: 1
+# Description:
+#   Bug 1620594 - Part 7: Remove TabGroup and SystemGroup. r=nika,bas
+#   
+#   TabGroup never really made any difference in which thread something go
+#   dispatched to. This was the intended use, but development of TabGroups
+#   with abstract main threads never made it that far. The good thing is
+# ==============================================================================
+
+diff -r a5ad3b179c92 -r 36b0646e8649 dom/ipc/BrowserChild.h
+--- a/dom/ipc/BrowserChild.h	Tue Apr 07 15:17:14 2020 +0000
++++ b/dom/ipc/BrowserChild.h	Tue Apr 07 15:17:47 2020 +0000
+@@ -75,6 +75,7 @@
+ namespace dom {
+ 
+ class BrowserChild;
++class BrowsingContext;
+ class TabGroup;
+ class ClonedMessageData;
+ class CoalescedMouseData;
+@@ -183,18 +184,19 @@
+   /**
+    * Create a new BrowserChild object.
+    */
+-  BrowserChild(ContentChild* aManager, const TabId& aTabId, TabGroup* aTabGroup,
+-               const TabContext& aContext, BrowsingContext* aBrowsingContext,
+-               uint32_t aChromeFlags, bool aIsTopLevel);
++  BrowserChild(ContentChild* aManager, const TabId& aTabId,
++               const TabContext& aContext,
++               dom::BrowsingContext* aBrowsingContext, uint32_t aChromeFlags,
++               bool aIsTopLevel);
+ 
+   nsresult Init(mozIDOMWindowProxy* aParent,
+                 WindowGlobalChild* aInitialWindowChild);
+ 
+   /** Return a BrowserChild with the given attributes. */
+   static already_AddRefed<BrowserChild> Create(
+-      ContentChild* aManager, const TabId& aTabId, const TabId& aSameTabGroupAs,
+-      const TabContext& aContext, BrowsingContext* aBrowsingContext,
+-      uint32_t aChromeFlags, bool aIsTopLevel);
++      ContentChild* aManager, const TabId& aTabId, const TabContext& aContext,
++      BrowsingContext* aBrowsingContext, uint32_t aChromeFlags,
++      bool aIsTopLevel);
+ 
+   // Let managees query if it is safe to send messages.
+   bool IsDestroyed() const { return mDestroyed; }
+@@ -630,7 +632,7 @@
+   bool StopAwaitingLargeAlloc();
+   bool IsAwaitingLargeAlloc();
+ 
+-  mozilla::dom::TabGroup* TabGroup();
++  BrowsingContext* GetBrowsingContext() const { return mBrowsingContext; }
+ 
+ #if defined(ACCESSIBILITY)
+   void SetTopLevelDocAccessibleChild(PDocAccessibleChild* aTopLevelChild) {
+@@ -842,7 +844,6 @@
+   TextureFactoryIdentifier mTextureFactoryIdentifier;
+   RefPtr<nsWebBrowser> mWebBrowser;
+   nsCOMPtr<nsIWebNavigation> mWebNav;
+-  RefPtr<mozilla::dom::TabGroup> mTabGroup;
+   RefPtr<PuppetWidget> mPuppetWidget;
+   nsCOMPtr<nsIURI> mLastURI;
+   RefPtr<ContentChild> mManager;

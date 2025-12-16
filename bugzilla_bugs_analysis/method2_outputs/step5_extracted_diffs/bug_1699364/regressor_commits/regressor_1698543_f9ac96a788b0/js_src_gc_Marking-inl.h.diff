@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/Marking-inl.h
+# Commit: f9ac96a788b0
+# Full Hash: f9ac96a788b01dca26ece865efed3a5ee5fd3246
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2021-03-19 09:53:39
+# Regressor Bug: 1698543
+# File Overlap Count: 7
+# Description:
+#   Bug 1699364 - Re-add special case pre-barrier for rope flattening r=sfink
+#   
+#   It turns out that patch for bug 1698543 was too optimistic and we need the special case barrier for rope flattening for another reason: during flattening rope nodes are transformed before their ancestors.  Interior rope nodes are transformed to dependent strings with the base being the root node, and the root transformed into a linear string. Since the root is changed last the GC graph is not safe to traverse until flattening has finished.
+#   
+#   This makes the test case pass.  I added this test case and the one for the previous bug.  I don't think we need to hide these since this change has only been on nightly so far.
+# ==============================================================================
+
+diff -r f2ed6497335f -r f9ac96a788b0 js/src/gc/Marking-inl.h
+--- a/js/src/gc/Marking-inl.h	Thu Mar 18 19:24:51 2021 +0000
++++ b/js/src/gc/Marking-inl.h	Thu Mar 18 19:31:57 2021 +0000
+@@ -138,6 +138,29 @@
+   return !Nursery::getForwardedPointer(cellp);
+ }
+ 
++// Special case pre-write barrier for strings used during rope flattening. This
++// is a work around as tracing these strings is problematic for two reasons:
++//  - they may have had their cell headers overwritten with temporary GC data
++//  - interior rope nodes may be transformed into dependent strings before their
++//    base nodes have been transformed into linear strings
++inline void PreWriteBarrierDuringFlattening(JSString* str) {
++  MOZ_ASSERT(str);
++  MOZ_ASSERT(!JS::RuntimeHeapIsMajorCollecting());
++
++  if (IsInsideNursery(str) || str->isPermanentAndMayBeShared()) {
++    return;
++  }
++
++  auto* cell = reinterpret_cast<TenuredCell*>(str);
++  JS::shadow::Zone* zone = cell->shadowZoneFromAnyThread();
++
++  MOZ_ASSERT(CurrentThreadCanAccessRuntime(zone->runtimeFromAnyThread()));
++
++  if (zone->needsIncrementalBarrier()) {
++    PerformIncrementalBarrierDuringFlattening(str);
++  }
++}
++
+ #ifdef JSGC_HASH_TABLE_CHECKS
+ 
+ template <typename T>

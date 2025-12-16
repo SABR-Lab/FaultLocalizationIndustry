@@ -1,0 +1,85 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLObjectModel.h
+# Commit: 71c122ac0ca7
+# Full Hash: 71c122ac0ca73391866b1ef19f4f82bc2d28568b
+# Author: David Parks <davidp99@gmail.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Initial out-of-process WebGL implementation. r=mccr8,handyman
+#   
+#   Splits WebGLContext into ClientWebGLContext and HostWebGLContext.  The Client enables the JS-control of a WebGL context in a content procecss while the Host executes the WebGL graphics operations (via a WebGLContext that maintains much of the existing code) in the compositor process.  At this point, the cross-process behavior is disabled -- this series of patches is an incremental step toward that final goal.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D54018
+# ==============================================================================
+
+diff -r 5cbf5bb11c58 -r 71c122ac0ca7 dom/canvas/WebGLObjectModel.h
+--- a/dom/canvas/WebGLObjectModel.h	Wed Jan 08 21:52:03 2020 +0000
++++ b/dom/canvas/WebGLObjectModel.h	Wed Jan 08 22:19:14 2020 +0000
+@@ -21,22 +21,27 @@
+ // This class is a mixin for objects that are tied to a specific
+ // context (which is to say, all of them).  They provide initialization
+ // as well as comparison with the current context.
+-class WebGLContextBoundObject {
++template <typename Derived>
++class WebGLContextBoundObject : public WebGLId<Derived> {
+  public:
+   const WeakPtr<WebGLContext> mContext;
+ 
+- private:
+-  const uint32_t mContextGeneration;
++  explicit WebGLContextBoundObject(WebGLContext* webgl)
++      : mContext(webgl), mContextGeneration(webgl->Generation()) {}
+ 
+- public:
+-  explicit WebGLContextBoundObject(WebGLContext* webgl);
++  bool IsCompatibleWithContext(const WebGLContext* other) const {
++    return (mContext == other && mContextGeneration == other->Generation());
++  }
+ 
+-  bool IsCompatibleWithContext(const WebGLContext* other) const;
++ private:
++  friend class HostWebGLContext;
++
++  const uint32_t mContextGeneration;
+ };
+ 
+ ////
+ 
+-class WebGLDeletableObject : public WebGLContextBoundObject {
++class WebGLDeletableObject {
+   template <typename>
+   friend class WebGLRefCountedObject;
+ 
+@@ -47,8 +52,7 @@
+ 
+   ////
+ 
+-  explicit WebGLDeletableObject(WebGLContext* webgl)
+-      : WebGLContextBoundObject(webgl), mDeletionStatus(Default) {}
++  explicit WebGLDeletableObject() : mDeletionStatus(Default) {}
+ 
+   ~WebGLDeletableObject() {
+     MOZ_ASSERT(mDeletionStatus == Deleted,
+@@ -139,7 +143,8 @@
+  */
+ 
+ template <typename Derived>
+-class WebGLRefCountedObject : public WebGLDeletableObject {
++class WebGLRefCountedObject : public WebGLContextBoundObject<Derived>,
++                              public WebGLDeletableObject {
+   friend class WebGLContext;
+   template <typename T>
+   friend void ClearLinkedList(LinkedList<T>& list);
+@@ -149,7 +154,7 @@
+ 
+  public:
+   explicit WebGLRefCountedObject(WebGLContext* webgl)
+-      : WebGLDeletableObject(webgl) {}
++      : WebGLContextBoundObject<Derived>(webgl), WebGLDeletableObject() {}
+ 
+   ~WebGLRefCountedObject() {
+     MOZ_ASSERT(mWebGLRefCnt == 0,

@@ -1,0 +1,28 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/script/ScriptLoader.cpp
+# Commit: 566430349999
+# Full Hash: 566430349999f5c1eb844ea6e01f9ef349258986
+# Author: Denis Palmeiro <dpalmeiro@mozilla.com>
+# Date: 2020-05-15 09:33:04
+# Description:
+#   Bug 1637886 - Check for valid JSScript* before getting private value r=smaug
+#   
+#   Missing check to see if the JSScript coming from exec.GetScript() is valid.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D75320
+# ==============================================================================
+
+diff -r c2658687ac23 -r 566430349999 dom/script/ScriptLoader.cpp
+--- a/dom/script/ScriptLoader.cpp	Thu May 14 16:46:08 2020 +0000
++++ b/dom/script/ScriptLoader.cpp	Thu May 14 17:22:52 2020 +0000
+@@ -2870,7 +2870,7 @@
+ 
+             if (rv == NS_OK) {
+               script = exec.GetScript();
+-              if (JS::GetScriptPrivate(script).isUndefined()) {
++              if (script && JS::GetScriptPrivate(script).isUndefined()) {
+                 classicScript->AssociateWithScript(script);
+               }
+               rv = ExecuteCompiledScript(cx, aRequest, exec);

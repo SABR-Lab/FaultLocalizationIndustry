@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webcodecs/VideoDecoder.h
+# Commit: ecb08baa7f0e
+# Full Hash: ecb08baa7f0ef9cc68b6049afcc358eddc0d096c
+# Author: Chun-Min Chang <chun.m.chang@gmail.com>
+# Date: 2023-06-29 15:31:45
+# Regressor Bug: 1831451
+# File Overlap Count: 1
+# Description:
+#   Bug 1831451 - Schedule to report error in Close() r=padenot
+#   
+#   This patch completes the implementation for close method.
+#   
+#   By Close VideoDecoder algorithm [1], the error callback is invoked in a
+# ==============================================================================
+
+diff -r f1b3b6d3186b -r ecb08baa7f0e dom/media/webcodecs/VideoDecoder.h
+--- a/dom/media/webcodecs/VideoDecoder.h	Thu Jun 29 04:15:04 2023 +0000
++++ b/dom/media/webcodecs/VideoDecoder.h	Thu Jun 29 04:15:04 2023 +0000
+@@ -111,16 +111,15 @@
+ 
+   uint32_t DecodeQueueSize() const;
+ 
+-  MOZ_CAN_RUN_SCRIPT void Configure(const VideoDecoderConfig& aConfig,
+-                                    ErrorResult& aRv);
++  void Configure(const VideoDecoderConfig& aConfig, ErrorResult& aRv);
+ 
+-  MOZ_CAN_RUN_SCRIPT void Decode(EncodedVideoChunk& aChunk, ErrorResult& aRv);
++  void Decode(EncodedVideoChunk& aChunk, ErrorResult& aRv);
+ 
+-  MOZ_CAN_RUN_SCRIPT already_AddRefed<Promise> Flush(ErrorResult& aRv);
++  already_AddRefed<Promise> Flush(ErrorResult& aRv);
+ 
+   void Reset(ErrorResult& aRv);
+ 
+-  MOZ_CAN_RUN_SCRIPT void Close(ErrorResult& aRv);
++  void Close(ErrorResult& aRv);
+ 
+   static already_AddRefed<Promise> IsConfigSupported(
+       const GlobalObject& aGlobal, const VideoDecoderConfig& aConfig,
+@@ -131,12 +130,15 @@
+   void AssertIsOnOwningThread() const { NS_ASSERT_OWNINGTHREAD(VideoDecoder); }
+ 
+   Result<Ok, nsresult> Reset(const nsresult& aResult);
+-  MOZ_CAN_RUN_SCRIPT Result<Ok, nsresult> Close(const nsresult& aResult);
++  Result<Ok, nsresult> Close(const nsresult& aResult);
+ 
+   MOZ_CAN_RUN_SCRIPT void ReportError(const nsresult& aResult);
+   MOZ_CAN_RUN_SCRIPT void OutputVideoFrames(
+       nsTArray<RefPtr<MediaData>>&& aData);
+ 
++  class ErrorRunnable;
++  void ScheduleReportError(const nsresult& aResult);
++
+   class OutputRunnable;
+   void ScheduleOutputVideoFrames(nsTArray<RefPtr<MediaData>>&& aData,
+                                  const nsACString& aLabel);
+@@ -148,14 +150,13 @@
+   void SchedulePromiseResolveOrReject(Promise* aPromise,
+                                       const nsresult& aResult);
+ 
+-  MOZ_CAN_RUN_SCRIPT void ProcessControlMessageQueue();
++  void ProcessControlMessageQueue();
+   void CancelPendingControlMessages(const nsresult& aResult);
+ 
+   using ControlMessage = Variant<ConfigureMessage, DecodeMessage, FlushMessage>;
+   enum class MessageProcessedResult { NotProcessed, Processed };
+ 
+-  MOZ_CAN_RUN_SCRIPT MessageProcessedResult
+-  ProcessConfigureMessage(ControlMessage& aMessage);
++  MessageProcessedResult ProcessConfigureMessage(ControlMessage& aMessage);
+ 
+   MessageProcessedResult ProcessDecodeMessage(ControlMessage& aMessage);
+ 

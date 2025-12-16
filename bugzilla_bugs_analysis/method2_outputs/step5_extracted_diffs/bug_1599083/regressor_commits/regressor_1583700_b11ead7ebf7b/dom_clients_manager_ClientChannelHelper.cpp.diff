@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/clients/manager/ClientChannelHelper.cpp
+# Commit: b11ead7ebf7b
+# Full Hash: b11ead7ebf7bd6ca370be9b39adde1ceaab669cf
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2019-10-23 09:48:16
+# Regressor Bug: 1583700
+# File Overlap Count: 1
+# Description:
+#   Bug 1583700 - Create a new ClientSource from a parent-allocated ClientInfo even for same-origin redirects, since there might have been a prior cross-origin redirect. r=perry,asuth
+#   
+#   We fail navigation-redirect.https.html?client without this (with the subtest to redirects to a cross-origin page and then redirects back again to a same-origin page). In this case the ClientChannelHelper running in the child only sees a same-origin redirect (the first URL to the final one), but we've still allocated a new ClientInfo in the parent and we want to create the corresponding ClientSource.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D49870
+# ==============================================================================
+
+diff -r 57e190b02a52 -r b11ead7ebf7b dom/clients/manager/ClientChannelHelper.cpp
+--- a/dom/clients/manager/ClientChannelHelper.cpp	Tue Oct 22 01:03:10 2019 +0000
++++ b/dom/clients/manager/ClientChannelHelper.cpp	Tue Oct 22 01:03:22 2019 +0000
+@@ -83,13 +83,16 @@
+     if (NS_SUCCEEDED(rv)) {
+       // If we're running in the child, but redirects are handled by the parent
+       // then our reserved/initial info should already have been moved to the
+-      // new channel via the parent. If they still match, then we can copy our
+-      // reserved client source to the new channel, since that isn't passed
+-      // between processes.
++      // new channel via the parent. If they don't match, then we need to create
++      // a new reserved client for the specified info, otherwise we can copy our
++      // reserved client source to the new channel.
+       if (mMode == Mode::Mode_Child) {
+         Maybe<ClientInfo> newClientInfo = newLoadInfo->GetReservedClientInfo();
+-        if (reservedClient && newClientInfo &&
+-            reservedClient->Info() == *newClientInfo) {
++        if (newClientInfo) {
++          if (!reservedClient || reservedClient->Info() != *newClientInfo) {
++            reservedClient = ClientManager::CreateSourceFromInfo(*newClientInfo,
++                                                                 mEventTarget);
++          }
+           newLoadInfo->GiveReservedClientSource(std::move(reservedClient));
+         }
+       } else {

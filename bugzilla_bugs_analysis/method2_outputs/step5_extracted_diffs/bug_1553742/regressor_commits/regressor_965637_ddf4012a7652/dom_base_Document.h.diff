@@ -1,0 +1,65 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/Document.h
+# Commit: ddf4012a7652
+# Full Hash: ddf4012a7652e36d144fc43bc99335276deeafbe
+# Author: Christoph Kerschbaumer <ckerschb@christophkerschbaumer.com>
+# Date: 2019-05-22 03:40:58
+# Regressor Bug: 965637
+# File Overlap Count: 1
+# Description:
+#   Bug 965637: Move CSP from Principal into Client, part 1: backend changes. r=mccr8
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D27654
+# ==============================================================================
+
+diff -r 6c2047bc2f3e -r ddf4012a7652 dom/base/Document.h
+--- a/dom/base/Document.h	Tue May 21 22:51:54 2019 +0000
++++ b/dom/base/Document.h	Tue May 21 23:14:27 2019 +0000
+@@ -98,6 +98,7 @@
+ class nsIBFCacheEntry;
+ class nsIChannel;
+ class nsIContent;
++class nsIContentSecurityPolicy;
+ class nsIContentSink;
+ class nsIDocShell;
+ class nsIDocShellTreeItem;
+@@ -697,6 +698,24 @@
+   void SetChromeXHRDocBaseURI(nsIURI* aURI) { mChromeXHRDocBaseURI = aURI; }
+ 
+   /**
++   * The CSP in general is stored in the ClientInfo, but we also cache
++   * the CSP on the document so subresources loaded within a document
++   * can query that cached CSP instead of having to deserialize the CSP
++   * from the Client.
++   *
++   * Please note that at the time of CSP parsing the Client is not
++   * available yet, hence we sync CSP of document and Client when the
++   * Client becomes available within nsGlobalWindowInner::EnsureClientSource().
++   */
++  nsIContentSecurityPolicy* GetCsp() const;
++  void SetCsp(nsIContentSecurityPolicy* aCSP);
++
++  nsIContentSecurityPolicy* GetPreloadCsp() const;
++  void SetPreloadCsp(nsIContentSecurityPolicy* aPreloadCSP);
++
++  void GetCspJSON(nsString& aJSON);
++
++  /**
+    * Set referrer policy and upgrade-insecure-requests flags
+    */
+   void ApplySettingsFromCSP(bool aSpeculative);
+@@ -4415,6 +4434,12 @@
+   // The channel that got passed to Document::StartDocumentLoad(), if any.
+   nsCOMPtr<nsIChannel> mChannel;
+ 
++  // The CSP for every load lives in the Client within the LoadInfo. For all
++  // document-initiated subresource loads we can use that cached version of the
++  // CSP so we do not have to deserialize the CSP from the Client all the time.
++  nsCOMPtr<nsIContentSecurityPolicy> mCSP;
++  nsCOMPtr<nsIContentSecurityPolicy> mPreloadCSP;
++
+  private:
+   nsCString mContentType;
+ 

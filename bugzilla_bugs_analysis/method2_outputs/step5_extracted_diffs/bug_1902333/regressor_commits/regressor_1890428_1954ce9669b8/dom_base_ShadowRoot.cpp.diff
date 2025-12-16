@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/ShadowRoot.cpp
+# Commit: 1954ce9669b8
+# Full Hash: 1954ce9669b86b61c418c8286fbe0754ad2419cd
+# Author: Adam Vandolder <avandolder@mozilla.com>
+# Date: 2024-05-15 20:24:18
+# Regressor Bug: 1890428
+# File Overlap Count: 1
+# Description:
+#   Bug 1890428 - Add serialization support for Declarative Shadow DOM. r=webidl,smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D206955
+# ==============================================================================
+
+diff -r 3e45e3d15eed -r 1954ce9669b8 dom/base/ShadowRoot.cpp
+--- a/dom/base/ShadowRoot.cpp	Wed May 15 03:01:18 2024 +0000
++++ b/dom/base/ShadowRoot.cpp	Wed May 15 03:01:19 2024 +0000
+@@ -13,6 +13,7 @@
+ #include "nsWindowSizes.h"
+ #include "mozilla/dom/DirectionalityUtils.h"
+ #include "mozilla/dom/Element.h"
++#include "mozilla/dom/ElementBinding.h"
+ #include "mozilla/dom/HTMLDetailsElement.h"
+ #include "mozilla/dom/HTMLSlotElement.h"
+ #include "mozilla/dom/HTMLSummaryElement.h"
+@@ -52,7 +53,8 @@
+ ShadowRoot::ShadowRoot(Element* aElement, ShadowRootMode aMode,
+                        Element::DelegatesFocus aDelegatesFocus,
+                        SlotAssignmentMode aSlotAssignment,
+-                       IsClonable aIsClonable, Declarative aDeclarative,
++                       IsClonable aIsClonable, IsSerializable aIsSerializable,
++                       Declarative aDeclarative,
+                        already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo)
+     : DocumentFragment(std::move(aNodeInfo)),
+       DocumentOrShadowRoot(this),
+@@ -62,7 +64,8 @@
+       mIsDetailsShadowTree(aElement->IsHTMLElement(nsGkAtoms::details)),
+       mIsAvailableToElementInternals(false),
+       mIsDeclarative(aDeclarative),
+-      mIsClonable(aIsClonable) {
++      mIsClonable(aIsClonable),
++      mIsSerializable(aIsSerializable) {
+   // nsINode.h relies on this.
+   MOZ_ASSERT(static_cast<nsINode*>(this) == reinterpret_cast<nsINode*>(this));
+   MOZ_ASSERT(static_cast<nsIContent*>(this) ==
+@@ -885,3 +888,9 @@
+   RefPtr<Element> host = GetHost();
+   nsContentUtils::SetHTMLUnsafe(this, host, aHTML);
+ }
++
++void ShadowRoot::GetHTML(const GetHTMLOptions& aOptions, nsAString& aResult) {
++  nsContentUtils::SerializeNodeToMarkup<SerializeShadowRoots::Yes>(
++      this, true, aResult, aOptions.mSerializableShadowRoots,
++      aOptions.mShadowRoots);
++}

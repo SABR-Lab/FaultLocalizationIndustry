@@ -1,0 +1,78 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/cookie/CookieService.cpp
+# Commit: 39f2e21623aa
+# Full Hash: 39f2e21623aa7c19517e32cbd97dc1c3584c58ca
+# Author: Andrea Marchesini <amarchesini@mozilla.com>
+# Date: 2020-06-02 03:24:46
+# Regressor Bug: 1638358
+# File Overlap Count: 1
+# Description:
+#   Bug 1638358 - Cookie Schemeful Same-Site - part 5 - schemeful comparison, r=mayhemer
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D75629
+# ==============================================================================
+
+diff -r 2c873c72bf1f -r 39f2e21623aa netwerk/cookie/CookieService.cpp
+--- a/netwerk/cookie/CookieService.cpp	Mon Jun 01 16:49:05 2020 +0000
++++ b/netwerk/cookie/CookieService.cpp	Mon Jun 01 16:49:03 2020 +0000
+@@ -284,6 +284,9 @@
+ 
+   nsCOMPtr<nsIPrincipal> principal = aDocument->EffectiveStoragePrincipal();
+ 
++  nsICookie::schemeType schemeType =
++      CookieCommons::PrincipalToSchemeType(principal);
++
+   CookieStorage* storage = PickStorage(principal->OriginAttributesRef());
+ 
+   nsAutoCString baseDomain;
+@@ -352,6 +355,10 @@
+       continue;
+     }
+ 
++    if (!CookieCommons::MaybeCompareScheme(cookie, schemeType)) {
++      continue;
++    }
++
+     // if the nsIURI path doesn't match the cookie path, don't send it back
+     if (!CookieCommons::PathMatches(cookie, pathFromURI)) {
+       continue;
+@@ -849,6 +856,8 @@
+                                             baseDomainFromURI);
+   NS_ENSURE_SUCCESS_VOID(rv);
+ 
++  nsICookie::schemeType schemeType = CookieCommons::URIToSchemeType(aHostURI);
++
+   // check default prefs
+   uint32_t rejectedReason = aRejectedReason;
+   uint32_t priorCookieCount = storage->CountCookiesFromHost(
+@@ -913,6 +922,11 @@
+       continue;
+     }
+ 
++    // The scheme doesn't match.
++    if (!CookieCommons::MaybeCompareScheme(cookie, schemeType)) {
++      continue;
++    }
++
+     if (aHttpBound && aIsSameSiteForeign &&
+         !ProcessSameSiteCookieForForeignRequest(
+             aChannel, cookie, aIsSafeTopLevelNav, laxByDefault)) {
+@@ -977,15 +991,7 @@
+   // init expiryTime such that session cookies won't prematurely expire
+   aCookieData.expiry() = INT64_MAX;
+ 
+-  if (aHostURI->SchemeIs("https")) {
+-    aCookieData.schemeMap() = nsICookie::SCHEME_HTTPS;
+-  } else if (aHostURI->SchemeIs("http")) {
+-    aCookieData.schemeMap() = nsICookie::SCHEME_HTTP;
+-  } else if (aHostURI->SchemeIs("file")) {
+-    aCookieData.schemeMap() = nsICookie::SCHEME_FILE;
+-  } else {
+-    MOZ_CRASH("Unsupported scheme type");
+-  }
++  aCookieData.schemeMap() = CookieCommons::URIToSchemeType(aHostURI);
+ 
+   // aCookieHeader is an in/out param to point to the next cookie, if
+   // there is one. Save the present value for logging purposes

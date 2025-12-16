@@ -1,0 +1,37 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/promise/Promise.cpp
+# Commit: 379cd5044768
+# Full Hash: 379cd5044768c61ee7b94cc383fa498433a30999
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2024-04-19 15:22:44
+# Regressor Bug: 1769913
+# File Overlap Count: 3
+# Description:
+#   Bug 1769913 - P1 Make WorkerRunnable to be a base class for runnables on Worker thread and Worker's parent thread. r=dom-worker-reviewers,asuth
+#   
+#   This is the first step in splitting the parent thread runnable out of WorkerRunnable.
+#   
+#   To reuse the runnable dispatching codes in Worker, we still need a base class for runnable on the worker thread and the parent thread.
+# ==============================================================================
+
+diff -r 29cb10d35b5a -r 379cd5044768 dom/promise/Promise.cpp
+--- a/dom/promise/Promise.cpp	Fri Apr 19 09:32:48 2024 +0000
++++ b/dom/promise/Promise.cpp	Fri Apr 19 09:41:57 2024 +0000
+@@ -719,12 +719,12 @@
+ 
+ // A WorkerRunnable to resolve/reject the Promise on the worker thread.
+ // Calling thread MUST hold PromiseWorkerProxy's mutex before creating this.
+-class PromiseWorkerProxyRunnable final : public WorkerRunnable {
++class PromiseWorkerProxyRunnable final : public WorkerThreadRunnable {
+  public:
+   PromiseWorkerProxyRunnable(PromiseWorkerProxy* aPromiseWorkerProxy,
+                              PromiseWorkerProxy::RunCallbackFunc aFunc)
+-      : WorkerRunnable(aPromiseWorkerProxy->GetWorkerPrivate(),
+-                       "PromiseWorkerProxyRunnable", WorkerThread),
++      : WorkerThreadRunnable(aPromiseWorkerProxy->GetWorkerPrivate(),
++                             "PromiseWorkerProxyRunnable"),
+         mPromiseWorkerProxy(aPromiseWorkerProxy),
+         mFunc(aFunc) {
+     MOZ_ASSERT(NS_IsMainThread());

@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/WindowSurfaceProvider.cpp
+# Commit: 4c01de826e16
+# Full Hash: 4c01de826e163eb3dfd0c9f25205af79f9ea4651
+# Author: stransky <stransky@redhat.com>
+# Date: 2022-04-09 09:22:24
+# Regressor Bug: 1763727
+# File Overlap Count: 1
+# Description:
+#   Bug 1763727 [Wayland] Paint to Gtk owned wl_surface in main thread r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D143266
+# ==============================================================================
+
+diff -r 841fc14c7f3e -r 4c01de826e16 widget/gtk/WindowSurfaceProvider.cpp
+--- a/widget/gtk/WindowSurfaceProvider.cpp	Sat Apr 09 00:46:33 2022 +0300
++++ b/widget/gtk/WindowSurfaceProvider.cpp	Sat Apr 09 05:51:13 2022 +0000
+@@ -161,10 +161,22 @@
+ 
+ void WindowSurfaceProvider::EndRemoteDrawingInRegion(
+     gfx::DrawTarget* aDrawTarget, const LayoutDeviceIntRegion& aInvalidRegion) {
+-  MutexAutoLock lock(mMutex);
+-  // Commit to mWindowSurface only when we have a valid one.
+-  if (mWindowSurface && mWindowSurfaceValid) {
+-    mWindowSurface->Commit(aInvalidRegion);
++  auto commit = [RefPtr{mWidget}, this, aInvalidRegion]() {
++    MutexAutoLock lock(mMutex);
++    // Commit to mWindowSurface only when we have a valid one.
++    if (mWindowSurface && mWindowSurfaceValid) {
++      mWindowSurface->Commit(aInvalidRegion);
++    }
++  };
++
++  // If we're drawing directly to wl_surface owned by Gtk we need to use it
++  // in main thread to sync with Gtk access to it.
++  if (moz_container_wayland_is_commiting_to_parent(
++          mWidget->GetMozContainer())) {
++    NS_DispatchToMainThread(NS_NewRunnableFunction(
++        "WindowSurfaceProvider::EndRemoteDrawingInRegion", commit));
++  } else {
++    commit();
+   }
+ }
+ 

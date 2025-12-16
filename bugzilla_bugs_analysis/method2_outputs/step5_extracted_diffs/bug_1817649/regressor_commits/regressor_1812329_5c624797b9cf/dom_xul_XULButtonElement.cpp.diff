@@ -1,0 +1,87 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/xul/XULButtonElement.cpp
+# Commit: 5c624797b9cf
+# Full Hash: 5c624797b9cfc9a130d143a7d018c7c0d4a60b60
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-02-08 21:41:44
+# Regressor Bug: 1812329
+# File Overlap Count: 1
+# Description:
+#   Bug 1812329 - Remove nsMenuBarFrame. r=smaug
+#   
+#   This ended up being a lot more straight-forward than the menu changes.
+#   
+#   TLDR:
+# ==============================================================================
+
+diff -r 59c4e9d17bfc -r 5c624797b9cf dom/xul/XULButtonElement.cpp
+--- a/dom/xul/XULButtonElement.cpp	Wed Feb 08 13:06:36 2023 +0000
++++ b/dom/xul/XULButtonElement.cpp	Wed Feb 08 13:12:23 2023 +0000
+@@ -18,12 +18,12 @@
+ #include "mozilla/dom/MouseEventBinding.h"
+ #include "mozilla/dom/NameSpaceConstants.h"
+ #include "mozilla/dom/AncestorIterator.h"
++#include "mozilla/dom/XULMenuBarElement.h"
+ #include "nsGkAtoms.h"
+ #include "nsITimer.h"
+ #include "nsLayoutUtils.h"
+ #include "nsCaseTreatment.h"
+ #include "nsChangeHint.h"
+-#include "nsMenuBarFrame.h"
+ #include "nsMenuPopupFrame.h"
+ #include "nsPlaceholderFrame.h"
+ #include "nsPresContext.h"
+@@ -444,7 +444,8 @@
+             // If we're open we never deselect. PopupClosed will do as needed.
+             return false;
+           }
+-          if (!parent->IsMenuBar()) {
++          auto* menubar = XULMenuBarElement::FromNode(*parent);
++          if (!menubar) {
+             // Don't de-select when not in the menubar.
+             // NOTE(emilio): Behavior from before bug 1811466 is equivalent to
+             // returning true here, consider flipping this.
+@@ -452,9 +453,7 @@
+           }
+           // De-select when exiting a menubar item, if the menubar wasn't
+           // activated by keyboard.
+-          nsMenuBarFrame* menubar = do_QueryFrame(parent->GetPrimaryFrame());
+-          const bool openedByKey = menubar && menubar->IsActiveByKeyboard();
+-          return !openedByKey;
++          return !menubar->IsActiveByKeyboard();
+         }();
+ 
+         if (shouldDeactivate) {
+@@ -756,17 +755,11 @@
+   }
+ }
+ 
+-nsMenuBarFrame* XULButtonElement::GetMenuBar(FlushType aFlushType) {
++XULMenuBarElement* XULButtonElement::GetMenuBar() const {
+   if (!IsMenu()) {
+     return nullptr;
+   }
+-  nsIFrame* frame = GetPrimaryFrame(aFlushType);
+-  for (; frame; frame = frame->GetParent()) {
+-    if (nsMenuBarFrame* menubar = do_QueryFrame(frame)) {
+-      return menubar;
+-    }
+-  }
+-  return nullptr;
++  return FirstAncestorOfType<XULMenuBarElement>();
+ }
+ 
+ XULMenuParentElement* XULButtonElement::GetMenuParent() const {
+@@ -800,8 +793,8 @@
+   return do_QueryFrame(popup->GetPrimaryFrame(aFlushType));
+ }
+ 
+-bool XULButtonElement::OpenedWithKey() {
+-  nsMenuBarFrame* menubar = GetMenuBar(FlushType::Frames);
++bool XULButtonElement::OpenedWithKey() const {
++  auto* menubar = GetMenuBar();
+   return menubar && menubar->IsActiveByKeyboard();
+ }
+ 

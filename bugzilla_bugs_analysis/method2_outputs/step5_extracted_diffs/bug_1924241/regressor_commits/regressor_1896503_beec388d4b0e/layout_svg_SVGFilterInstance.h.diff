@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/svg/SVGFilterInstance.h
+# Commit: beec388d4b0e
+# Full Hash: beec388d4b0e6a50ac243ed86c0e3f1f48cbe744
+# Author: Ashley Hale <ahale@mozilla.com>
+# Date: 2024-06-25 09:36:02
+# Regressor Bug: 1896503
+# File Overlap Count: 1
+# Description:
+#   Bug 1896503 - Implement FilterInstance code to send SVG filter graph to WebRender r=mstange,gw
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D174208
+# ==============================================================================
+
+diff -r 2147e0051e23 -r beec388d4b0e layout/svg/SVGFilterInstance.h
+--- a/layout/svg/SVGFilterInstance.h	Mon Jun 24 23:40:38 2024 +0000
++++ b/layout/svg/SVGFilterInstance.h	Mon Jun 24 23:45:05 2024 +0000
+@@ -79,11 +79,12 @@
+    * @param aTargetBBox The SVG bbox to use for the target frame, computed by
+    *   the caller. The caller may decide to override the actual SVG bbox.
+    */
+-  SVGFilterInstance(
+-      const StyleFilter& aFilter, SVGFilterFrame* aFilterFrame,
+-      nsIContent* aTargetContent, const UserSpaceMetrics& aMetrics,
+-      const gfxRect& aTargetBBox,
+-      const gfx::MatrixScalesDouble& aUserSpaceToFilterSpaceScale);
++  SVGFilterInstance(const StyleFilter& aFilter, SVGFilterFrame* aFilterFrame,
++                    nsIContent* aTargetContent,
++                    const UserSpaceMetrics& aMetrics,
++                    const gfxRect& aTargetBBox,
++                    const gfx::MatrixScalesDouble& aUserSpaceToFilterSpaceScale,
++                    gfxRect& aFilterSpaceBoundsNotSnapped);
+ 
+   /**
+    * Returns true if the filter instance was created successfully.
+@@ -226,6 +227,11 @@
+   nsIntRect mFilterSpaceBounds;
+ 
+   /**
++   * The bounds of the filter element itself, which may be non-integer.
++   */
++  gfxRect mFilterSpaceBoundsNotSnapped;
++
++  /**
+    * The scale factors between user space and filter space.
+    */
+   gfx::MatrixScalesDouble mUserSpaceToFilterSpaceScale;

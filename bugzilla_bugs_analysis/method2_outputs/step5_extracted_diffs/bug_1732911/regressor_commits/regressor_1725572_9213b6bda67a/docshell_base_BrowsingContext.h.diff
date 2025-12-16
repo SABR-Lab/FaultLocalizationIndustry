@@ -1,0 +1,37 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: docshell/base/BrowsingContext.h
+# Commit: 9213b6bda67a
+# Full Hash: 9213b6bda67a689644f442f7b98902c5a5184c74
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2021-09-24 09:46:13
+# Regressor Bug: 1725572
+# File Overlap Count: 1
+# Description:
+#   Bug 1725572 - Part 2: Keep BrowsingContext alive until every process has acknowledged the discard, r=farre
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D125897
+# ==============================================================================
+
+diff -r 6bb38c7309e5 -r 9213b6bda67a docshell/base/BrowsingContext.h
+--- a/docshell/base/BrowsingContext.h	Thu Sep 23 18:54:31 2021 +0000
++++ b/docshell/base/BrowsingContext.h	Thu Sep 23 18:54:31 2021 +0000
+@@ -872,6 +872,8 @@
+   void RequestForPageAwake();
+   void RevokeForPageAwake();
+ 
++  void AddDiscardListener(std::function<void(uint64_t)>&& aListener);
++
+  protected:
+   virtual ~BrowsingContext();
+   BrowsingContext(WindowContext* aParentWindow, BrowsingContextGroup* aGroup,
+@@ -1263,6 +1265,8 @@
+   RefPtr<SessionStorageManager> mSessionStorageManager;
+   RefPtr<ChildSHistory> mChildSessionHistory;
+ 
++  nsTArray<std::function<void(uint64_t)>> mDiscardListeners;
++
+   // Counter and time span for rate limiting Location and History API calls.
+   // Used by CheckLocationChangeRateLimit. Do not apply cross-process.
+   uint32_t mLocationChangeRateLimitCount;

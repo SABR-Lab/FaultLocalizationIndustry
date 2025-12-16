@@ -1,0 +1,88 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/ScriptLoader.cpp
+# Commit: 4dbd510fb042
+# Full Hash: 4dbd510fb042e57f8f817b0c3032dafc78143b39
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-12-15 09:27:59
+# Regressor Bug: 1247687
+# File Overlap Count: 1
+# Description:
+#   Bug 1247687 - Implement correct referrer for modules; r=jonco
+#   
+#   In our implementation, we do not have "client" as a referrer, so we resolve the URI directly as part
+#   of ScriptLoadRequest creation.
+#   
+# ==============================================================================
+
+diff -r 9276c7e1ddd9 -r 4dbd510fb042 dom/workers/ScriptLoader.cpp
+--- a/dom/workers/ScriptLoader.cpp	Wed Dec 14 14:55:35 2022 +0000
++++ b/dom/workers/ScriptLoader.cpp	Wed Dec 14 14:55:36 2022 +0000
+@@ -529,7 +529,7 @@
+         new ScriptFetchOptions(CORSMode::CORS_NONE, referrerPolicy, nullptr);
+ 
+     request = new ScriptLoadRequest(ScriptKind::eClassic, uri, fetchOptions,
+-                                    SRIMetadata(), nullptr, /* = aReferrer */
++                                    SRIMetadata(), nullptr,  // mReferrer
+                                     loadContext);
+   } else {
+     // Implements part of "To fetch a worklet/module worker script graph"
+@@ -540,11 +540,23 @@
+     RefPtr<ScriptFetchOptions> fetchOptions =
+         new ScriptFetchOptions(CORSMode::CORS_NONE, referrerPolicy, nullptr);
+ 
+-    // Part of Step 2. This sets the Top-level flag to true
+     RefPtr<WorkerModuleLoader::ModuleLoaderBase> moduleLoader =
+         static_cast<WorkerGlobalScopeBase*>(GetGlobal())->GetModuleLoader();
++
++    // Implements the referrer for "To fetch a single module script"
++    // Our implementation does not have a "client" as a referrer.
++    // However, when client is resolved (per 8.3. Determine request’s
++    // Referrer in
++    // https://w3c.github.io/webappsec-referrer-policy/#determine-requests-referrer)
++    // This should result in the referrer source being the creation URL.
++    //
++    // In subresource modules, the referrer is the importing script.
++    nsCOMPtr<nsIURI> referrer =
++        mWorkerRef->Private()->GetReferrerInfo()->GetOriginalReferrer();
++
++    // Part of Step 2. This sets the Top-level flag to true
+     request = new ModuleLoadRequest(
+-        uri, fetchOptions, SRIMetadata(), nullptr, loadContext,
++        uri, fetchOptions, SRIMetadata(), referrer, loadContext,
+         true,  /* is top level */
+         false, /* is dynamic import */
+         moduleLoader, ModuleLoadRequest::NewVisitedSetForTopLevelImport(uri),
+@@ -788,18 +800,24 @@
+   }
+ 
+   if (!channel) {
+-    nsCOMPtr<nsIReferrerInfo> referrerInfo =
+-        ReferrerInfo::CreateForFetch(principal, nullptr);
+-    if (parentWorker && !loadContext->IsTopLevel()) {
++    nsCOMPtr<nsIReferrerInfo> referrerInfo;
++    ScriptLoadRequest* request = aRequestHandle->GetRequest();
++    if (request->IsModuleRequest()) {
+       referrerInfo =
+-          static_cast<ReferrerInfo*>(referrerInfo.get())
+-              ->CloneWithNewPolicy(parentWorker->GetReferrerPolicy());
++          new ReferrerInfo(request->mReferrer, request->ReferrerPolicy());
++    } else {
++      referrerInfo = ReferrerInfo::CreateForFetch(principal, nullptr);
++      if (parentWorker && !loadContext->IsTopLevel()) {
++        referrerInfo =
++            static_cast<ReferrerInfo*>(referrerInfo.get())
++                ->CloneWithNewPolicy(parentWorker->GetReferrerPolicy());
++      }
+     }
+ 
+     rv = ChannelFromScriptURL(
+         principal, parentDoc, mWorkerRef->Private(), loadGroup, ios, secMan,
+-        aRequestHandle->GetRequest()->mURI, loadContext->mClientInfo,
+-        mController, loadContext->IsTopLevel(), mWorkerScriptType,
++        request->mURI, loadContext->mClientInfo, mController,
++        loadContext->IsTopLevel(), mWorkerScriptType,
+         mWorkerRef->Private()->ContentPolicyType(), loadFlags,
+         mWorkerRef->Private()->CookieJarSettings(), referrerInfo,
+         getter_AddRefs(channel));

@@ -1,0 +1,37 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/systemservices/objc_video_capture/video_capture.mm
+# Commit: 703360f0b861
+# Full Hash: 703360f0b8611916dfb3724eda7f35345d3f4be7
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2022-12-13 04:11:09
+# Regressor Bug: 1451394
+# File Overlap Count: 1
+# Description:
+#   Bug 1451394 - Integrate with the libwebrtc camera backend for Mac. r=webrtc-reviewers,jib
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D163684
+# ==============================================================================
+
+diff -r 49002523b70d -r 703360f0b861 dom/media/systemservices/objc_video_capture/video_capture.mm
+--- a/dom/media/systemservices/objc_video_capture/video_capture.mm	Mon Dec 12 15:47:22 2022 +0000
++++ b/dom/media/systemservices/objc_video_capture/video_capture.mm	Mon Dec 12 15:47:22 2022 +0000
+@@ -16,11 +16,17 @@
+ #include "rtc_video_capture_objc.h"
+ #include "rtc_base/ref_counted_object.h"
+ #include "api/scoped_refptr.h"
++#include "video_capture_avfoundation.h"
++#include "mozilla/StaticPrefs_media.h"
+ 
++using namespace mozilla;
+ using namespace webrtc;
+ using namespace videocapturemodule;
+ 
+ rtc::scoped_refptr<VideoCaptureModule> VideoCaptureImpl::Create(const char* deviceUniqueIdUTF8) {
++  if (StaticPrefs::media_getusermedia_camera_macavf_enabled_AtStartup()) {
++    return VideoCaptureAvFoundation::Create(deviceUniqueIdUTF8);
++  }
+   return VideoCaptureIos::Create(deviceUniqueIdUTF8);
+ }
+ 

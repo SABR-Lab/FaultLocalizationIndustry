@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/TabParent.cpp
+# Commit: 277768e37335
+# Full Hash: 277768e37335cef6490ca9d35122af8b231398cd
+# Author: Barret Rennie <barret@brennie.ca>
+# Date: 2019-04-04 04:33:36
+# Regressor Bug: 1510569
+# File Overlap Count: 1
+# Description:
+#   Bug 1510569 - Use Maybe<T> directly in TabChild::PrepareProgressListenerData r=nika,Alex_Gaynor
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D24806
+# ==============================================================================
+
+diff -r 1ba9a2cebf12 -r 277768e37335 dom/ipc/TabParent.cpp
+--- a/dom/ipc/TabParent.cpp	Wed Apr 03 17:29:15 2019 +0000
++++ b/dom/ipc/TabParent.cpp	Wed Apr 03 17:29:28 2019 +0000
+@@ -2215,17 +2215,16 @@
+   nsCOMPtr<nsIBrowser> browser =
+       mFrameElement ? mFrameElement->AsBrowser() : nullptr;
+   if (browser) {
+-    if (aWebProgressData.isNothing()) {
++    if (aWebProgressData) {
+       Unused << browser->CallWebProgressContentBlockingEventListeners(
+-          false, false, false, 0, 0, aRequestData.requestURI(),
++          true, aWebProgressData->isTopLevel(),
++          aWebProgressData->isLoadingDocument(), aWebProgressData->loadType(),
++          aWebProgressData->DOMWindowID(), aRequestData.requestURI(),
+           aRequestData.originalRequestURI(), aRequestData.matchedList(),
+           aEvent);
+     } else {
+       Unused << browser->CallWebProgressContentBlockingEventListeners(
+-          true, aWebProgressData.ref().isTopLevel(),
+-          aWebProgressData.ref().isLoadingDocument(),
+-          aWebProgressData.ref().loadType(),
+-          aWebProgressData.ref().DOMWindowID(), aRequestData.requestURI(),
++          false, false, false, 0, 0, aRequestData.requestURI(),
+           aRequestData.originalRequestURI(), aRequestData.matchedList(),
+           aEvent);
+     }

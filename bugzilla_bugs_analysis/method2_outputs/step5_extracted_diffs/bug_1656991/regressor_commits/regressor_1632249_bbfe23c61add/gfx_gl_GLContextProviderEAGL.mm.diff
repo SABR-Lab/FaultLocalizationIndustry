@@ -1,0 +1,101 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/gl/GLContextProviderEAGL.mm
+# Commit: bbfe23c61add
+# Full Hash: bbfe23c61add07377daf80696fd6996c0463f5b6
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-06-09 09:21:34
+# Regressor Bug: 1632249
+# File Overlap Count: 1
+# Description:
+#   Bug 1632249 - Support compositing out-of-process WebGL. r=handyman,lsalzman,nical,geckoview-reviewers,agi,imanol
+#   
+#   * Majorly simplity CanvasRenderer
+#   * Replace GLScreenBuffer with trivial GLSwapChain
+#   * Use descriptor structs so that future SharedSurface changes aren't so painful
+# ==============================================================================
+
+diff -r 8fcfac450ecc -r bbfe23c61add gfx/gl/GLContextProviderEAGL.mm
+--- a/gfx/gl/GLContextProviderEAGL.mm	Mon Jun 08 20:13:01 2020 +0000
++++ b/gfx/gl/GLContextProviderEAGL.mm	Mon Jun 08 20:34:15 2020 +0000
+@@ -21,9 +21,9 @@
+ 
+ using namespace mozilla::widget;
+ 
+-GLContextEAGL::GLContextEAGL(CreateContextFlags flags, const SurfaceCaps& caps,
+-                             EAGLContext* context, GLContext* sharedContext, bool isOffscreen)
+-    : GLContext(flags, caps, sharedContext, isOffscreen), mContext(context) {}
++GLContextEAGL::GLContextEAGL(const GLContextDesc& desc, EAGLContext* context,
++                             GLContext* sharedContext)
++    : GLContext(desc, sharedContext), mContext(context) {}
+ 
+ GLContextEAGL::~GLContextEAGL() {
+   MakeCurrent();
+@@ -131,8 +131,8 @@
+   return static_cast<GLContextEAGL*>(GLContextProviderEAGL::GetGlobalContext());
+ }
+ 
+-static already_AddRefed<GLContext> CreateEAGLContext(CreateContextFlags flags, bool aOffscreen,
+-                                                     GLContextEAGL* sharedContext) {
++static RefPtr<GLContext> CreateEAGLContext(const GLContextDesc& desc,
++                                           GLContextEAGL* sharedContext) {
+   EAGLRenderingAPI apis[] = {kEAGLRenderingAPIOpenGLES3, kEAGLRenderingAPIOpenGLES2};
+ 
+   // Try to create a GLES3 context if we can, otherwise fall back to GLES2
+@@ -154,14 +154,13 @@
+     return nullptr;
+   }
+ 
+-  RefPtr<GLContextEAGL> glContext =
+-      new GLContextEAGL(flags, SurfaceCaps::ForRGBA(), context, sharedContext, aOffscreen);
++  RefPtr<GLContextEAGL> glContext = new GLContextEAGL(desc, context, sharedContext);
+   if (!glContext->Init()) {
+     glContext = nullptr;
+     return nullptr;
+   }
+ 
+-  return glContext.forget();
++  return glContext;
+ }
+ 
+ already_AddRefed<GLContext> GLContextProviderEAGL::CreateForCompositorWidget(
+@@ -171,8 +170,8 @@
+     return nullptr;
+   }
+ 
+-  RefPtr<GLContext> glContext =
+-      CreateEAGLContext(CreateContextFlags::NONE, false, GetGlobalContextEAGL());
++  const GLContextDesc desc = {};
++  auto glContext = CreateEAGLContext(desc, GetGlobalContextEAGL());
+   if (!glContext) {
+     return nullptr;
+   }
+@@ -184,20 +183,17 @@
+   return glContext.forget();
+ }
+ 
+-already_AddRefed<GLContext> GLContextProviderEAGL::CreateHeadless(CreateContextFlags flags,
+-                                                                  nsACString* const out_failureId) {
+-  return CreateEAGLContext(flags, true, GetGlobalContextEAGL());
++already_AddRefed<GLContext> GLContextProviderEAGL::CreateHeadless(
++    const GLContextCreateDesc& createDesc, nsACString* const out_failureId) {
++  auto desc = GLContextDesc{createDesc};
++  desc.isOffcreen = true;
++  return CreateEAGLContext(desc, GetGlobalContextEAGL()).forget();
+ }
+ 
+ already_AddRefed<GLContext> GLContextProviderEAGL::CreateOffscreen(
+-    const mozilla::gfx::IntSize& size, const SurfaceCaps& caps, CreateContextFlags flags,
++    const mozilla::gfx::IntSize& size, const GLContextCreateDesc& desc,
+     nsACString* const out_failureId) {
+-  RefPtr<GLContext> glContext = CreateHeadless(flags, out_failureId);
+-  if (!glContext->InitOffscreen(size, caps)) {
+-    return nullptr;
+-  }
+-
+-  return glContext.forget();
++  return CreateHeadless(desc, out_failureId);
+ }
+ 
+ static RefPtr<GLContext> gGlobalContext;

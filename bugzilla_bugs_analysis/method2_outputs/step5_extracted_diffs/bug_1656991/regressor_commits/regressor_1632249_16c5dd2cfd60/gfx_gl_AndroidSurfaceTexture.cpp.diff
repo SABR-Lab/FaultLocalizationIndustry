@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/gl/AndroidSurfaceTexture.cpp
+# Commit: 16c5dd2cfd60
+# Full Hash: 16c5dd2cfd600a62c80ca17cfb35c0868e016056
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-06-15 21:48:38
+# Regressor Bug: 1632249
+# File Overlap Count: 1
+# Description:
+#   Bug 1632249 - Support compositing out-of-process WebGL. r=handyman,lsalzman,nical,geckoview-reviewers,agi,imanol
+#   
+#   * Majorly simplity CanvasRenderer
+#   * Replace GLScreenBuffer with trivial GLSwapChain
+#   * Use descriptor structs so that future SharedSurface changes aren't so painful
+# ==============================================================================
+
+diff -r ca8139d58d58 -r 16c5dd2cfd60 gfx/gl/AndroidSurfaceTexture.cpp
+--- a/gfx/gl/AndroidSurfaceTexture.cpp	Fri Jun 12 21:53:14 2020 +0000
++++ b/gfx/gl/AndroidSurfaceTexture.cpp	Mon Jun 15 18:25:55 2020 +0000
+@@ -102,9 +102,8 @@
+     if (!eglContext) {
+       return nullptr;
+     }
+-    RefPtr<GLContextEGL> gl = new GLContextEGL(
+-        egl, CreateContextFlags::NONE, SurfaceCaps::Any(),
+-        /* offscreen? */ false, eglConfig, EGL_NO_SURFACE, eglContext);
++    RefPtr<GLContextEGL> gl =
++        new GLContextEGL(egl, {}, eglConfig, EGL_NO_SURFACE, eglContext);
+     if (!gl->Init()) {
+       NS_WARNING("Fail to create GL context for native blitter.");
+       return nullptr;

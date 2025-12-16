@@ -1,0 +1,37 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmFrameIter.h
+# Commit: c50443ca5619
+# Full Hash: c50443ca56192590adb210fdbed1e46ef27ebc74
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-10-31 21:05:17
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 4: Untie frame iteration from Frame::tls. r=lth
+#   
+#   Here we replace usage of Frame::tls in frame iteration with GetNearestEffectiveTls.
+#   We also maintain current tls for frame iteration object to not to call GetNearestEffectiveTls everytime.
+#   
+# ==============================================================================
+
+diff -r f981949ae991 -r c50443ca5619 js/src/wasm/WasmFrameIter.h
+--- a/js/src/wasm/WasmFrameIter.h	Sat Oct 31 09:56:05 2020 +0000
++++ b/js/src/wasm/WasmFrameIter.h	Sat Oct 31 09:56:05 2020 +0000
+@@ -65,6 +65,7 @@
+   const CodeRange* codeRange_;
+   unsigned lineOrBytecode_;
+   Frame* fp_;
++  TlsData* tls_;
+   uint8_t* unwoundIonCallerFP_;
+   jit::FrameType unwoundIonFrameType_;
+   Unwind unwind_;
+@@ -95,6 +96,7 @@
+   jit::FrameType unwoundIonFrameType() const;
+   uint8_t* unwoundIonCallerFP() const { return unwoundIonCallerFP_; }
+   Frame* frame() const { return fp_; }
++  TlsData* tls() const { return tls_; }
+ 
+   // Returns the address of the next instruction that will execute in this
+   // frame, once control returns to this frame.

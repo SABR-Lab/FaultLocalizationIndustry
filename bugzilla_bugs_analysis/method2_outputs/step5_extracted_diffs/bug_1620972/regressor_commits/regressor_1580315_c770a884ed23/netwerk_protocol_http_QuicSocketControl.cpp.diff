@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/QuicSocketControl.cpp
+# Commit: c770a884ed23
+# Full Hash: c770a884ed23f610ab0905785c173906444f0382
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2019-10-16 05:20:00
+# Regressor Bug: 1580315
+# File Overlap Count: 1
+# Description:
+#   Bug 1580315 - Change certList internal representation to Array r=keeler
+#   
+#   This patch intends to change the internal reprensentation of certList
+#   from nsIX509CertList to Array for TransportSecurityInfo.
+#   
+# ==============================================================================
+
+diff -r 1f7358c2efa5 -r c770a884ed23 netwerk/protocol/http/QuicSocketControl.cpp
+--- a/netwerk/protocol/http/QuicSocketControl.cpp	Wed Oct 16 00:34:01 2019 +0300
++++ b/netwerk/protocol/http/QuicSocketControl.cpp	Tue Oct 15 19:57:23 2019 +0000
+@@ -64,9 +64,16 @@
+   uint32_t state = nsIWebProgressListener::STATE_IS_SECURE;
+ 
+   bool distrustImminent;
+-  nsresult srv =
+-      IsCertificateDistrustImminent(mSucceededCertChain, distrustImminent);
+-  if (NS_SUCCEEDED(srv) && distrustImminent) {
++  nsCOMPtr<nsIX509CertList> succeededCertChain;
++  nsresult rv = TransportSecurityInfo::ConvertCertArrayToCertList(
++      mSucceededCertChain, getter_AddRefs(succeededCertChain));
++
++  nsresult srv;
++  if (NS_SUCCEEDED(rv)) {
++    srv = IsCertificateDistrustImminent(succeededCertChain, distrustImminent);
++  }
++
++  if (NS_SUCCEEDED(rv) && NS_SUCCEEDED(srv) && distrustImminent) {
+     state |= nsIWebProgressListener::STATE_CERT_DISTRUST_IMMINENT;
+   }
+ 

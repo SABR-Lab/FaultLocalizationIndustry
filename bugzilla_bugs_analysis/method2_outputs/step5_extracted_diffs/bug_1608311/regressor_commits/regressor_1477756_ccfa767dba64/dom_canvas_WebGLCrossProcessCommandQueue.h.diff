@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/WebGLCrossProcessCommandQueue.h
+# Commit: ccfa767dba64
+# Full Hash: ccfa767dba644dc193e0246eb8e8ff3377e8b8a5
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-01-09 03:40:18
+# Regressor Bug: 1477756
+# File Overlap Count: 1
+# Description:
+#   Bug 1477756 - Client-side bindings mirror for precise CC, and merge similar codepaths. r=handyman
+#   
+#   * Context loss using RAII
+#   * Move Program reflection Client-side
+#   
+# ==============================================================================
+
+diff -r 71c122ac0ca7 -r ccfa767dba64 dom/canvas/WebGLCrossProcessCommandQueue.h
+--- a/dom/canvas/WebGLCrossProcessCommandQueue.h	Wed Jan 08 22:19:14 2020 +0000
++++ b/dom/canvas/WebGLCrossProcessCommandQueue.h	Wed Jan 08 22:19:16 2020 +0000
+@@ -32,13 +32,10 @@
+ class HostWebGLCommandSink : public SyncCommandSink<size_t> {
+  public:
+   HostWebGLCommandSink(UniquePtr<Consumer>&& aConsumer,
+-                       UniquePtr<ProducerConsumerQueue>& aResponsePcq);
+-
+-  ~HostWebGLCommandSink() {}
++                       UniquePtr<Producer>&& aResponseProducer)
++      : SyncCommandSink(std::move(aConsumer), std::move(aResponseProducer)) {}
+ 
+-  void SetHostContext(HostWebGLContext* aHostContext) {
+-    mHostContext = aHostContext;
+-  }
++  HostWebGLContext* mHostContext = nullptr;
+ 
+  protected:
+   // For IPDL:
+@@ -47,18 +44,8 @@
+   HostWebGLCommandSink() {}
+ 
+   bool DispatchCommand(size_t command) override;
+-
+-  void ReportOOM() override;
+-
+-  HostWebGLContext* mHostContext;
+ };
+ 
+-/**
+- * Factory for the WebGL command queue.
+- */
+-using WebGLCrossProcessCommandQueue =
+-    CommandQueue<ClientWebGLCommandSource, HostWebGLCommandSink>;
+-
+ namespace ipc {
+ 
+ template <>

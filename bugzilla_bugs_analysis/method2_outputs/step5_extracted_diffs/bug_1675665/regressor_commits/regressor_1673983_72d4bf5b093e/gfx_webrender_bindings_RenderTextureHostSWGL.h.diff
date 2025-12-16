@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/webrender_bindings/RenderTextureHostSWGL.h
+# Commit: 72d4bf5b093e
+# Full Hash: 72d4bf5b093e9b00eed78bf4e51850d56df5ae6c
+# Author: Matt Woodrow <mwoodrow@mozilla.com>
+# Date: 2020-11-05 16:09:03
+# Regressor Bug: 1673983
+# File Overlap Count: 2
+# Description:
+#   Bug 1673983 - Add RenderTextureHostSWGL support to D3D11 RenderTextureHosts. r=lsalzman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D95799
+# ==============================================================================
+
+diff -r 99b2e5c55a25 -r 72d4bf5b093e gfx/webrender_bindings/RenderTextureHostSWGL.h
+--- a/gfx/webrender_bindings/RenderTextureHostSWGL.h	Thu Nov 05 09:14:52 2020 +0000
++++ b/gfx/webrender_bindings/RenderTextureHostSWGL.h	Thu Nov 05 09:15:05 2020 +0000
+@@ -17,6 +17,7 @@
+   RenderTextureHostSWGL() {}
+ 
+   wr::WrExternalImage LockSWGL(uint8_t aChannelIndex, void* aContext,
++                               RenderCompositor* aCompositor,
+                                wr::ImageRendering aRendering) override;
+ 
+   void UnlockSWGL() override;
+@@ -25,9 +26,7 @@
+ 
+   virtual size_t GetPlaneCount() const = 0;
+ 
+-  virtual gfx::SurfaceFormat GetFormat() const {
+-    return gfx::SurfaceFormat::UNKNOWN;
+-  }
++  virtual gfx::SurfaceFormat GetFormat() const = 0;
+ 
+   virtual gfx::ColorDepth GetColorDepth() const {
+     return gfx::ColorDepth::UNKNOWN;
+@@ -46,7 +45,8 @@
+     gfx::IntSize mSize;
+   };
+ 
+-  virtual bool MapPlane(uint8_t aChannelIndex, PlaneInfo& aPlaneInfo) = 0;
++  virtual bool MapPlane(RenderCompositor* aCompositor, uint8_t aChannelIndex,
++                        PlaneInfo& aPlaneInfo) = 0;
+ 
+   virtual void UnmapPlanes() = 0;
+ 
+@@ -64,7 +64,8 @@
+ 
+   bool SetContext(void* aContext);
+ 
+-  bool UpdatePlanes(wr::ImageRendering aRendering);
++  bool UpdatePlanes(RenderCompositor* aCompositor,
++                    wr::ImageRendering aRendering);
+ 
+   void CleanupPlanes();
+ 

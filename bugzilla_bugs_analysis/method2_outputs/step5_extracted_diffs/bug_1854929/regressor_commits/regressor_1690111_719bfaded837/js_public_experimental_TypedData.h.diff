@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/public/experimental/TypedData.h
+# Commit: 719bfaded837
+# Full Hash: 719bfaded83792edabbeb852a60fe75febf9e65c
+# Author: Steve Fink <sfink@mozilla.com>
+# Date: 2023-09-21 03:21:32
+# Regressor Bug: 1690111
+# File Overlap Count: 1
+# Description:
+#   Bug 1690111 - Implement the ability to pin lengths (prevent changes to length, eg via detaching) for ArrayBuffers and their views. r=jonco
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D131301
+# ==============================================================================
+
+diff -r 9497d4dcd737 -r 719bfaded837 js/public/experimental/TypedData.h
+--- a/js/public/experimental/TypedData.h	Wed Sep 20 09:41:58 2023 +0000
++++ b/js/public/experimental/TypedData.h	Wed Sep 20 09:41:59 2023 +0000
+@@ -275,6 +275,20 @@
+  */
+ JS_PUBLIC_API bool IsLargeArrayBufferView(JSObject* obj);
+ 
++/*
++ * Given an ArrayBuffer or view, prevent the length of the underlying
++ * ArrayBuffer from changing (with pin=true) until unfrozen (with
++ * pin=false). Note that some objects (eg SharedArrayBuffers) cannot change
++ * length to begin with, and are treated as always pinned.
++ *
++ * Normally, ArrayBuffers and their views cannot change length, but one way
++ * currently exists: detaching them. In the future, more will be added with
++ * GrowableArrayBuffer and ResizableArrayBuffer.
++ *
++ * Returns whether the pinned status changed.
++ */
++JS_PUBLIC_API bool PinArrayBufferOrViewLength(JSObject* obj, bool pin);
++
+ namespace detail {
+ 
+ // Map from eg Uint8Clamped -> uint8_t, Uint8 -> uint8_t, or Float64 ->

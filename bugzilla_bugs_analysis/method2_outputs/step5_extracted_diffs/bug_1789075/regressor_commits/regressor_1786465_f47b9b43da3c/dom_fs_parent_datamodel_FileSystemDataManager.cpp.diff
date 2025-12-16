@@ -1,0 +1,80 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fs/parent/datamodel/FileSystemDataManager.cpp
+# Commit: f47b9b43da3c
+# Full Hash: f47b9b43da3c5ad9f4fe34a767c77c8c583232e7
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2022-09-01 09:54:52
+# Regressor Bug: 1786465
+# File Overlap Count: 1
+# Description:
+#   Bug 1786465 - Make sure that gDataManagers is touched on the PBackground thread only; r=dom-storage-reviewers,jesup
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D156062
+# ==============================================================================
+
+diff -r a28786219093 -r f47b9b43da3c dom/fs/parent/datamodel/FileSystemDataManager.cpp
+--- a/dom/fs/parent/datamodel/FileSystemDataManager.cpp	Wed Aug 31 22:38:39 2022 +0000
++++ b/dom/fs/parent/datamodel/FileSystemDataManager.cpp	Wed Aug 31 22:38:40 2022 +0000
+@@ -12,6 +12,7 @@
+ #include "mozilla/dom/quota/QuotaCommon.h"
+ #include "mozilla/dom/quota/QuotaManager.h"
+ #include "mozilla/dom/quota/ResultExtensions.h"
++#include "mozilla/ipc/BackgroundParent.h"
+ #include "nsBaseHashtable.h"
+ #include "nsHashKeys.h"
+ #include "nsNetCID.h"
+@@ -47,9 +48,13 @@
+                     NotNull<CheckedUnsafePtr<FileSystemDataManager>>,
+                     MovingNotNull<CheckedUnsafePtr<FileSystemDataManager>>>;
+ 
++// This hashtable isn't protected by any mutex but it is only ever touched on
++// the PBackground thread.
+ StaticAutoPtr<FileSystemDataManagerHashtable> gDataManagers;
+ 
+ RefPtr<FileSystemDataManager> GetFileSystemDataManager(const Origin& aOrigin) {
++  ::mozilla::ipc::AssertIsOnBackgroundThread();
++
+   if (gDataManagers) {
+     auto maybeDataManager = gDataManagers->MaybeGet(aOrigin);
+     if (maybeDataManager) {
+@@ -64,6 +69,7 @@
+ 
+ void AddFileSystemDataManager(
+     const Origin& aOrigin, const RefPtr<FileSystemDataManager>& aDataManager) {
++  ::mozilla::ipc::AssertIsOnBackgroundThread();
+   MOZ_ASSERT(!quota::QuotaManager::IsShuttingDown());
+ 
+   if (!gDataManagers) {
+@@ -76,6 +82,8 @@
+ }
+ 
+ void RemoveFileSystemDataManager(const Origin& aOrigin) {
++  ::mozilla::ipc::AssertIsOnBackgroundThread();
++
+   MOZ_ASSERT(gDataManagers);
+   const DebugOnly<bool> removed = gDataManagers->Remove(aOrigin);
+   MOZ_ASSERT(removed);
+@@ -164,6 +172,8 @@
+ 
+ // static
+ void FileSystemDataManager::InitiateShutdown() {
++  ::mozilla::ipc::AssertIsOnBackgroundThread();
++
+   if (!gDataManagers) {
+     return;
+   }
+@@ -186,7 +196,11 @@
+ }
+ 
+ // static
+-bool FileSystemDataManager::IsShutdownCompleted() { return !gDataManagers; }
++bool FileSystemDataManager::IsShutdownCompleted() {
++  ::mozilla::ipc::AssertIsOnBackgroundThread();
++
++  return !gDataManagers;
++}
+ 
+ void FileSystemDataManager::Register() { mRegCount++; }
+ 

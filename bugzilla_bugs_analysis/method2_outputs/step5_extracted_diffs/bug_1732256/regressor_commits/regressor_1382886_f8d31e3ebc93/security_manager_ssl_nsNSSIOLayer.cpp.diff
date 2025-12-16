@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: security/manager/ssl/nsNSSIOLayer.cpp
+# Commit: f8d31e3ebc93
+# Full Hash: f8d31e3ebc93db2a466859043fddd66459ac9b04
+# Author: Dragana Damjanovic <dd.mozilla@gmail.com>
+# Date: 2021-09-22 15:53:06
+# Regressor Bug: 1382886
+# File Overlap Count: 1
+# Description:
+#   Bug 1382886 - Use HandshakeDone to signal that a handshake is done r=necko-reviewers,keeler,kershaw
+#   
+#   HandshakeDone will be called after a handshake is finished and also after the certificate verifications are done.
+#   The code relies on HandshakeDone to signal that the handshake is done. When early-data is not available HandshakeDone is responsible for setting up a Http2 session if needed. There are 2 outcomes when early-data is used:
+#   1) early-data is accepted and transaction continues polling for read,
+# ==============================================================================
+
+diff -r 971bda7b5986 -r f8d31e3ebc93 security/manager/ssl/nsNSSIOLayer.cpp
+--- a/security/manager/ssl/nsNSSIOLayer.cpp	Wed Sep 22 09:19:30 2021 +0000
++++ b/security/manager/ssl/nsNSSIOLayer.cpp	Wed Sep 22 09:19:31 2021 +0000
+@@ -251,9 +251,17 @@
+ 
+   mIsFullHandshake = false;  // reset for next handshake on this connection
+ 
+-  if (mTlsHandshakeCallback) {
+-    Unused << mTlsHandshakeCallback->HandshakeDone();
+-  }
++  // HandshakeDone needs to be dispatched so that it is not called inside
++  // nss locks.
++  RefPtr<nsNSSSocketInfo> self(this);
++  NS_DispatchToCurrentThread(NS_NewRunnableFunction(
++      "nsNSSSocketInfo::HandshakeDone",
++      [self{std::move(self)}]() {
++        if (self->mTlsHandshakeCallback) {
++          auto callback = std::move(self->mTlsHandshakeCallback);
++          Unused << callback->HandshakeDone();
++        }
++      }));
+ }
+ 
+ void nsNSSSocketInfo::SetNegotiatedNPN(const char* value, uint32_t length) {

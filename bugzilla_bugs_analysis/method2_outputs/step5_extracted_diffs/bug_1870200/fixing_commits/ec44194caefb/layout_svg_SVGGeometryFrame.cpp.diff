@@ -1,0 +1,57 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: layout/svg/SVGGeometryFrame.cpp
+# Commit: ec44194caefb
+# Full Hash: ec44194caefb41931247d18ad886326cf6d89a93
+# Author: Boris Chiou <boris.chiou@gmail.com>
+# Date: 2024-03-05 09:48:50
+# Description:
+#   Bug 1870200 - Break the cyclic dependency if any of the desendants uses non-scaling-stroke. r=emilio
+#   
+#   While we are computing the transform-box:stroke-box, for CSS Transforms or
+#   Motion path Transforms, we have to avoid the cyclic dependency not only
+#   for the SVG geometry frame itself, but also for the desendants of
+# ==============================================================================
+
+diff -r 5c84d062c789 -r ec44194caefb layout/svg/SVGGeometryFrame.cpp
+--- a/layout/svg/SVGGeometryFrame.cpp	Mon Mar 04 20:33:13 2024 +0000
++++ b/layout/svg/SVGGeometryFrame.cpp	Mon Mar 04 20:46:05 2024 +0000
+@@ -358,13 +358,31 @@
+ 
+   SVGGeometryElement* element = static_cast<SVGGeometryElement*>(GetContent());
+ 
+-  bool getFill = (aFlags & SVGUtils::eBBoxIncludeFillGeometry) ||
+-                 ((aFlags & SVGUtils::eBBoxIncludeFill) &&
+-                  !StyleSVG()->mFill.kind.IsNone());
++  const bool getFill = (aFlags & SVGUtils::eBBoxIncludeFillGeometry) ||
++                       ((aFlags & SVGUtils::eBBoxIncludeFill) &&
++                        !StyleSVG()->mFill.kind.IsNone());
+ 
+-  bool getStroke =
+-      (aFlags & SVGUtils::eBBoxIncludeStrokeGeometry) ||
+-      ((aFlags & SVGUtils::eBBoxIncludeStroke) && SVGUtils::HasStroke(this));
++  const bool getStroke =
++      ((aFlags & SVGUtils::eBBoxIncludeStrokeGeometry) ||
++       ((aFlags & SVGUtils::eBBoxIncludeStroke) &&
++        SVGUtils::HasStroke(this))) &&
++      // If this frame has non-scaling-stroke and we would like to compute its
++      // stroke, it may cause a potential cyclical dependency if the caller is
++      // for transform. In this case, we have to fall back to fill-box, so make
++      // |getStroke| be false.
++      // https://github.com/w3c/csswg-drafts/issues/9640
++      //
++      // Note:
++      // 1. We don't care about the computation of the markers below in this
++      //    function because we know the callers don't set
++      //    SVGUtils::eBBoxIncludeMarkers.
++      //    See nsStyleTransformMatrix::GetSVGBox() and
++      //    MotionPathUtils::GetRayContainReferenceSize() for more details.
++      // 2. We have to break the dependency here *again* because the geometry
++      //    frame may be in the subtree of a SVGContainerFrame, which may not
++      //    set non-scaling-stroke.
++      !(StyleSVGReset()->HasNonScalingStroke() &&
++        (aFlags & SVGUtils::eAvoidCycleIfNonScalingStroke));
+ 
+   SVGContentUtils::AutoStrokeOptions strokeOptions;
+   if (getStroke) {

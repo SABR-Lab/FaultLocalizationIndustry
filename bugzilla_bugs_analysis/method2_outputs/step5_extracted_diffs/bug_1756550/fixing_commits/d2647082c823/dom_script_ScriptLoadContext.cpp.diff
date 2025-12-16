@@ -1,0 +1,70 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/script/ScriptLoadContext.cpp
+# Commit: d2647082c823
+# Full Hash: d2647082c823595eddd3e051bd99c3cbfc53ae73
+# Author: Yulia Startsev <ystartsev@mozilla.com>
+# Date: 2022-02-24 21:46:01
+# Description:
+#   Bug 1756550 - propagate webext global to all dynamically imported modules; r=jonco
+#   
+#   The crashes were occurring due to the missing webext global on dynamically imported modules from a referencing script. There is likely a more elegant way to reintroduce this, but for now this is a quick fix.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D139511
+# ==============================================================================
+
+diff -r e076ff6e02d1 -r d2647082c823 dom/script/ScriptLoadContext.cpp
+--- a/dom/script/ScriptLoadContext.cpp	Thu Feb 24 12:18:19 2022 +0000
++++ b/dom/script/ScriptLoadContext.cpp	Thu Feb 24 12:25:25 2022 +0000
+@@ -38,8 +38,7 @@
+ NS_IMPL_CYCLE_COLLECTION_CLASS(ScriptLoadContext)
+ 
+ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(ScriptLoadContext)
+-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mLoadBlockedDocument, mRequest, mElement,
+-                                  mWebExtGlobal)
++  NS_IMPL_CYCLE_COLLECTION_UNLINK(mLoadBlockedDocument, mRequest, mElement)
+   if (Runnable* runnable = tmp->mRunnable.exchange(nullptr)) {
+     runnable->Release();
+   }
+@@ -47,15 +46,13 @@
+ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
+ 
+ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(ScriptLoadContext)
+-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mLoadBlockedDocument, mRequest, mElement,
+-                                    mWebExtGlobal)
++  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mLoadBlockedDocument, mRequest, mElement)
+ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
+ 
+ NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN(ScriptLoadContext)
+ NS_IMPL_CYCLE_COLLECTION_TRACE_END
+ 
+-ScriptLoadContext::ScriptLoadContext(Element* aElement,
+-                                     nsIGlobalObject* aWebExtGlobal)
++ScriptLoadContext::ScriptLoadContext(Element* aElement)
+     : mScriptMode(ScriptMode::eBlocking),
+       mScriptFromHead(false),
+       mIsInline(true),
+@@ -71,7 +68,6 @@
+       mLineNo(1),
+       mIsPreload(false),
+       mElement(aElement),
+-      mWebExtGlobal(aWebExtGlobal),
+       mRequest(nullptr),
+       mUnreportedPreloadError(NS_OK) {}
+ 
+@@ -179,13 +175,7 @@
+ }
+ 
+ nsIGlobalObject* ScriptLoadContext::GetWebExtGlobal() const {
+-  if (mRequest->IsModuleRequest() && !mRequest->IsTopLevel()) {
+-    JS::loader::ModuleLoadRequest* root =
+-        mRequest->AsModuleRequest()->GetRootModule();
+-    return root->GetLoadContext()->GetWebExtGlobal();
+-  }
+-
+-  return mWebExtGlobal;
++  return mRequest->mFetchOptions->mWebExtGlobal;
+ }
+ 
+ bool ScriptLoadContext::CompileStarted() const {

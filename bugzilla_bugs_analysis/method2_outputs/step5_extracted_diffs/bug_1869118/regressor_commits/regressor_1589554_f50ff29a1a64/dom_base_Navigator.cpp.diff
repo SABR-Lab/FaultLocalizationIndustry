@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/Navigator.cpp
+# Commit: f50ff29a1a64
+# Full Hash: f50ff29a1a649e3aad723b592bdd2c3c325b3d99
+# Author: Vincent Hilla <vhilla@mozilla.com>
+# Date: 2023-12-06 05:18:37
+# Regressor Bug: 1589554
+# File Overlap Count: 1
+# Description:
+#   Bug 1589554 - Part 1: Screen Wake Lock boilerplate. r=dom-core,smaug,emilio,edgar
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D189508
+# ==============================================================================
+
+diff -r 00afe2e46b1b -r f50ff29a1a64 dom/base/Navigator.cpp
+--- a/dom/base/Navigator.cpp	Tue Dec 05 23:29:16 2023 +0000
++++ b/dom/base/Navigator.cpp	Tue Dec 05 23:58:06 2023 +0000
+@@ -60,6 +60,7 @@
+ #include "mozilla/dom/VRServiceTest.h"
+ #include "mozilla/dom/XRSystem.h"
+ #include "mozilla/dom/workerinternals/RuntimeService.h"
++#include "mozilla/dom/WakeLockJS.h"
+ #include "mozilla/Hal.h"
+ #include "mozilla/ClearOnShutdown.h"
+ #include "mozilla/StaticPtr.h"
+@@ -161,6 +162,7 @@
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWebGpu)
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mLocks)
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mUserActivation)
++  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWakeLock)
+ 
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWindow)
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMediaKeySystemAccessManager)
+@@ -250,6 +252,8 @@
+   mUserActivation = nullptr;
+ 
+   mSharePromise = nullptr;
++
++  mWakeLock = nullptr;
+ }
+ 
+ void Navigator::GetUserAgent(nsAString& aUserAgent, CallerType aCallerType,
+@@ -2305,4 +2309,11 @@
+   return do_AddRef(mUserActivation);
+ }
+ 
++dom::WakeLockJS* Navigator::WakeLock() {
++  if (!mWakeLock) {
++    mWakeLock = new WakeLockJS(mWindow);
++  }
++  return mWakeLock;
++}
++
+ }  // namespace mozilla::dom

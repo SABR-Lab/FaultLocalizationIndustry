@@ -1,0 +1,64 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/frontend/BytecodeControlStructures.cpp
+# Commit: d9c1e44eb0ad
+# Full Hash: d9c1e44eb0addfc3e44ae299c86381128aa08e7f
+# Author: Jan de Mooij <jdemooij@mozilla.com>
+# Date: 2019-12-15 21:49:48
+# Regressor Bug: 1601599
+# File Overlap Count: 1
+# Description:
+#   Bug 1601599 part 4 - Support Ion OSR at all loops. r=tcampbell
+#   
+#   Depends on D56700
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D56701
+# ==============================================================================
+
+diff -r 93842c3971f8 -r d9c1e44eb0ad js/src/frontend/BytecodeControlStructures.cpp
+--- a/js/src/frontend/BytecodeControlStructures.cpp	Sun Dec 15 11:33:36 2019 +0000
++++ b/js/src/frontend/BytecodeControlStructures.cpp	Sun Dec 15 11:34:34 2019 +0000
+@@ -44,32 +44,6 @@
+ 
+   stackDepth_ = bce->bytecodeSection().stackDepth();
+   loopDepth_ = enclosingLoop ? enclosingLoop->loopDepth_ + 1 : 1;
+-
+-  int loopSlots;
+-  if (loopKind == StatementKind::Spread) {
+-    // The iterator next method, the iterator, the result array, and
+-    // the current array index are on the stack.
+-    loopSlots = 4;
+-  } else if (loopKind == StatementKind::ForOfLoop) {
+-    // The iterator next method, the iterator, and the current value
+-    // are on the stack.
+-    loopSlots = 3;
+-  } else if (loopKind == StatementKind::ForInLoop) {
+-    // The iterator is on the stack.
+-    loopSlots = 1;
+-  } else {
+-    // No additional loop values are on the stack.
+-    loopSlots = 0;
+-  }
+-
+-  MOZ_ASSERT(loopSlots <= stackDepth_);
+-
+-  if (enclosingLoop) {
+-    canIonOsr_ = (enclosingLoop->canIonOsr_ &&
+-                  stackDepth_ == enclosingLoop->stackDepth_ + loopSlots);
+-  } else {
+-    canIonOsr_ = stackDepth_ == loopSlots;
+-  }
+ }
+ 
+ bool LoopControl::emitContinueTarget(BytecodeEmitter* bce) {
+@@ -120,8 +94,7 @@
+   if (!bce->emitJumpTargetOp(JSOP_LOOPHEAD, &off)) {
+     return false;
+   }
+-  SetLoopHeadDepthHintAndFlags(bce->bytecodeSection().code(off), loopDepth_,
+-                               canIonOsr_);
++  SetLoopHeadDepthHint(bce->bytecodeSection().code(off), loopDepth_);
+ 
+   return true;
+ }

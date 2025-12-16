@@ -1,0 +1,72 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/DrawTargetWebgl.h
+# Commit: ce28584e3869
+# Full Hash: ce28584e386976fc6df815260cdfebd8e6ffbadd
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2023-12-19 05:06:09
+# Regressor Bug: 1829026
+# File Overlap Count: 1
+# Description:
+#   Bug 1829026 - Update CanvasTranslator to work with DrawTargetWebgl. r=aosmond
+#   
+#   This adds the necessary infrastructure for CanvasTranslator to allocate DrawTargetWebgl
+#   instead of just allocating TextureData, and to use RemoteTextureMap to handle sending
+#   the DrawTargetWebgl frames to the compositor.
+# ==============================================================================
+
+diff -r bb4029ea69bb -r ce28584e3869 dom/canvas/DrawTargetWebgl.h
+--- a/dom/canvas/DrawTargetWebgl.h	Mon Dec 18 18:10:46 2023 +0000
++++ b/dom/canvas/DrawTargetWebgl.h	Mon Dec 18 18:10:46 2023 +0000
+@@ -14,7 +14,7 @@
+ #include "mozilla/LinkedList.h"
+ #include "mozilla/WeakPtr.h"
+ #include "mozilla/ThreadLocal.h"
+-#include "mozilla/ipc/Shmem.h"
++#include "mozilla/ipc/SharedMemoryBasic.h"
+ #include "mozilla/layers/LayersTypes.h"
+ 
+ #include <vector>
+@@ -352,10 +352,11 @@
+   // Skia DT pointing to the same pixel data, but without any applied clips.
+   RefPtr<DrawTargetSkia> mSkiaNoClip;
+   // The Shmem backing the Skia DT, if applicable.
+-  mozilla::ipc::Shmem mShmem;
+-  mozilla::ipc::IProtocol* mShmemAllocator = nullptr;
++  RefPtr<mozilla::ipc::SharedMemoryBasic> mShmem;
+   // The currently cached snapshot of the WebGL context
+   RefPtr<DataSourceSurface> mSnapshot;
++  // The mappable size of mShmem.
++  uint32_t mShmemSize = 0;
+   // Whether the framebuffer is still in the initially clear state.
+   bool mIsClear = true;
+   // Whether or not the Skia target has valid contents and is being drawn to
+@@ -431,11 +432,9 @@
+   static bool CanCreate(const IntSize& aSize, SurfaceFormat aFormat);
+   static already_AddRefed<DrawTargetWebgl> Create(
+       const IntSize& aSize, SurfaceFormat aFormat,
+-      ipc::IProtocol* aShmemAllocator,
+       const RefPtr<SharedContextWebgl>& aSharedContext);
+ 
+   bool Init(const IntSize& aSize, SurfaceFormat aFormat,
+-            ipc::IProtocol* aShmemAllocator,
+             const RefPtr<SharedContextWebgl>& aSharedContext);
+ 
+   bool IsValid() const override;
+@@ -565,10 +564,13 @@
+     return stream.str();
+   }
+ 
+-  Maybe<mozilla::ipc::Shmem> GetShmem() const {
+-    return mShmem.IsWritable() ? Some(mShmem) : Nothing();
++  mozilla::ipc::SharedMemoryBasic::Handle TakeShmemHandle() const {
++    return mShmem ? mShmem->TakeHandle()
++                  : mozilla::ipc::SharedMemoryBasic::NULLHandle();
+   }
+ 
++  uint32_t GetShmemSize() const { return mShmemSize; }
++
+  private:
+   bool SupportsPattern(const Pattern& aPattern) {
+     return mSharedContext->SupportsPattern(aPattern);

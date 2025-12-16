@@ -1,0 +1,61 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/HTMLEditSubActionHandler.cpp
+# Commit: f3218564df77
+# Full Hash: f3218564df7730e438567383fbbf84b3fa25f91d
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-12-07 04:11:18
+# Description:
+#   Bug 1803626 - Make `HTMLEditor::AlignNodesAndDescendants` check whether insertion point stays valid r=m_kato
+#   
+#   In the test case, `deleteFromDocument` call makes the point unset.  We should
+#   make it check whether a legacy mutation event listener creates unexpected result
+#   after calling `RemoveAlignFromDescendants`.
+# ==============================================================================
+
+diff -r 0f9cd4dbd0d1 -r f3218564df77 editor/libeditor/HTMLEditSubActionHandler.cpp
+--- a/editor/libeditor/HTMLEditSubActionHandler.cpp	Tue Dec 06 11:48:14 2022 +0200
++++ b/editor/libeditor/HTMLEditSubActionHandler.cpp	Tue Dec 06 07:33:14 2022 +0000
+@@ -6610,21 +6610,26 @@
+     if (HTMLEditUtils::IsListItem(content) ||
+         HTMLEditUtils::IsAnyListElement(content)) {
+       Element* listOrListItemElement = content->AsElement();
+-      AutoEditorDOMPointOffsetInvalidator lockChild(atContent);
+-      // MOZ_KnownLive(*listOrListItemElement): An element of aArrayOfContents
+-      // which is array of OwningNonNull.
+-      Result<EditorDOMPoint, nsresult> pointToPutCaretOrError =
+-          RemoveAlignFromDescendants(MOZ_KnownLive(*listOrListItemElement),
+-                                     aAlignType,
+-                                     EditTarget::OnlyDescendantsExceptTable);
+-      if (MOZ_UNLIKELY(pointToPutCaretOrError.isErr())) {
+-        NS_WARNING(
+-            "HTMLEditor::RemoveAlignFromDescendants(EditTarget::"
+-            "OnlyDescendantsExceptTable) failed");
+-        return pointToPutCaretOrError.propagateErr();
+-      }
+-      if (pointToPutCaretOrError.inspect().IsSet()) {
+-        pointToPutCaret = pointToPutCaretOrError.unwrap();
++      {
++        AutoEditorDOMPointOffsetInvalidator lockChild(atContent);
++        // MOZ_KnownLive(*listOrListItemElement): An element of aArrayOfContents
++        // which is array of OwningNonNull.
++        Result<EditorDOMPoint, nsresult> pointToPutCaretOrError =
++            RemoveAlignFromDescendants(MOZ_KnownLive(*listOrListItemElement),
++                                       aAlignType,
++                                       EditTarget::OnlyDescendantsExceptTable);
++        if (MOZ_UNLIKELY(pointToPutCaretOrError.isErr())) {
++          NS_WARNING(
++              "HTMLEditor::RemoveAlignFromDescendants(EditTarget::"
++              "OnlyDescendantsExceptTable) failed");
++          return pointToPutCaretOrError.propagateErr();
++        }
++        if (pointToPutCaretOrError.inspect().IsSet()) {
++          pointToPutCaret = pointToPutCaretOrError.unwrap();
++        }
++      }
++      if (NS_WARN_IF(!atContent.IsSetAndValid())) {
++        return Err(NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE);
+       }
+ 
+       if (useCSS) {

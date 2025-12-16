@@ -1,0 +1,85 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/debugger/Frame.cpp
+# Commit: 31d14cf1975c
+# Full Hash: 31d14cf1975c1b23ef3db176252f8cc3b31a0772
+# Author: Logan Smyth <loganfsmyth@gmail.com>
+# Date: 2019-12-09 09:50:39
+# Regressor Bug: 1600204
+# File Overlap Count: 2
+# Description:
+#   Bug 1600204 - Part 7: Support .this on suspended generator frames. r=jimb
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D55580
+# ==============================================================================
+
+diff -r fa46d8caefde -r 31d14cf1975c js/src/debugger/Frame.cpp
+--- a/js/src/debugger/Frame.cpp	Sun Dec 08 23:54:15 2019 +0000
++++ b/js/src/debugger/Frame.cpp	Sun Dec 08 23:54:38 2019 +0000
+@@ -649,28 +649,39 @@
+ /* static */
+ bool DebuggerFrame::getThis(JSContext* cx, HandleDebuggerFrame frame,
+                             MutableHandleValue result) {
+-  MOZ_ASSERT(frame->isOnStack());
+-
+-  if (!requireScriptReferent(cx, frame)) {
+-    return false;
+-  }
+-
+   Debugger* dbg = frame->owner();
+ 
+-  Maybe<FrameIter> maybeIter;
+-  if (!DebuggerFrame::getFrameIter(cx, frame, maybeIter)) {
+-    return false;
+-  }
+-  FrameIter& iter = *maybeIter;
++  if (frame->isOnStack()) {
++    if (!requireScriptReferent(cx, frame)) {
++      return false;
++    }
++
++    Maybe<FrameIter> maybeIter;
++    if (!DebuggerFrame::getFrameIter(cx, frame, maybeIter)) {
++      return false;
++    }
++    FrameIter& iter = *maybeIter;
++
++    {
++      AbstractFramePtr frame = iter.abstractFramePtr();
++      AutoRealm ar(cx, frame.environmentChain());
+ 
+-  {
+-    AbstractFramePtr frame = iter.abstractFramePtr();
+-    AutoRealm ar(cx, frame.environmentChain());
++      UpdateFrameIterPc(iter);
+ 
+-    UpdateFrameIterPc(iter);
++      if (!GetThisValueForDebuggerFrameMaybeOptimizedOut(cx, frame, iter.pc(),
++                                                         result)) {
++        return false;
++      }
++    }
++  } else {
++    MOZ_ASSERT(frame->hasGenerator());
+ 
+-    if (!GetThisValueForDebuggerMaybeOptimizedOut(cx, frame, iter.pc(),
+-                                                  result)) {
++    AbstractGeneratorObject& genObj =
++        frame->generatorInfo()->unwrappedGenerator();
++    JSScript* script = frame->generatorInfo()->generatorScript();
++
++    if (!GetThisValueForDebuggerSuspendedGeneratorMaybeOptimizedOut(
++            cx, genObj, script, result)) {
+       return false;
+     }
+   }
+@@ -1477,7 +1488,7 @@
+ }
+ 
+ bool DebuggerFrame::CallData::thisGetter() {
+-  if (!ensureOnStack()) {
++  if (!ensureOnStackOrSuspended()) {
+     return false;
+   }
+ 

@@ -1,0 +1,160 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/ActorsParent.cpp
+# Commit: c009bbdbbfd5
+# Full Hash: c009bbdbbfd5451756cb1f3dc421b82df50911d1
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2019-11-05 22:07:34
+# Regressor Bug: 1168606
+# File Overlap Count: 1
+# Description:
+#   Bug 1168606 - Support preloading also for index cursors. r=ttung,asuth
+#   
+#   Depends on D43252
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D43461
+# ==============================================================================
+
+diff -r 89817a19f3b3 -r c009bbdbbfd5 dom/indexedDB/ActorsParent.cpp
+--- a/dom/indexedDB/ActorsParent.cpp	Tue Nov 05 14:40:37 2019 +0000
++++ b/dom/indexedDB/ActorsParent.cpp	Tue Nov 05 14:40:35 2019 +0000
+@@ -7611,7 +7611,9 @@
+   nsCString mContinueQuery;
+   nsCString mContinueToQuery;
+   nsCString mContinuePrimaryKeyQuery;
+-  const nsCString mLocale;
++  const nsCString
++      mLocale;  ///< The locale if the cursor is locale-aware, otherwise empty.
++                ///< Note that only index-based cursors can be locale-aware.
+ 
+   // TODO: Probably, it is still necessary to change more related identifiers
+   // (e.g. local variables) and literals, to be in line with the new member
+@@ -7674,8 +7676,9 @@
+ 
+   mozilla::ipc::IPCResult RecvDeleteMe() override;
+ 
+-  mozilla::ipc::IPCResult RecvContinue(const CursorRequestParams& aParams,
+-                                       const Key& key) override;
++  mozilla::ipc::IPCResult RecvContinue(
++      const CursorRequestParams& aParams, const Key& aCurrentKey,
++      const Key& aCurrentObjectStoreKey) override;
+ 
+   bool IsLocaleAware() const { return !mLocale.IsEmpty(); }
+ 
+@@ -15223,7 +15226,8 @@
+     if (!files.IsEmpty()) {
+       MOZ_ASSERT(aResponse.type() ==
+                      CursorResponse::TArrayOfObjectStoreCursorResponse ||
+-                 aResponse.type() == CursorResponse::TIndexCursorResponse);
++                 aResponse.type() ==
++                     CursorResponse::TArrayOfIndexCursorResponse);
+       MOZ_ASSERT(mDatabase);
+       MOZ_ASSERT(mBackgroundParent);
+ 
+@@ -15245,10 +15249,12 @@
+           break;
+         }
+ 
+-        case CursorResponse::TIndexCursorResponse:
+-          MOZ_ASSERT(i == 0);
+-          serializedInfo = &aResponse.get_IndexCursorResponse().cloneInfo();
++        case CursorResponse::TArrayOfIndexCursorResponse: {
++          auto& responses = aResponse.get_ArrayOfIndexCursorResponse();
++          MOZ_ASSERT(i < responses.Length());
++          serializedInfo = &responses[i].cloneInfo();
+           break;
++        }
+ 
+         default:
+           MOZ_CRASH("Should never get here!");
+@@ -15302,8 +15308,9 @@
+   return IPC_OK();
+ }
+ 
+-mozilla::ipc::IPCResult Cursor::RecvContinue(const CursorRequestParams& aParams,
+-                                             const Key& aCurrentKey) {
++mozilla::ipc::IPCResult Cursor::RecvContinue(
++    const CursorRequestParams& aParams, const Key& aCurrentKey,
++    const Key& aCurrentObjectStoreKey) {
+   AssertIsOnBackgroundThread();
+   MOZ_ASSERT(aParams.type() != CursorRequestParams::T__None);
+   MOZ_ASSERT(!mActorDestroyed);
+@@ -15321,7 +15328,8 @@
+ #endif
+       ;
+ 
+-  // At the time of writing, the child always passes its current position.
++  // At the time of writing, the child always passes its current position and
++  // object store position.
+   //
+   // TODO: Probably, aCurrentKey is always set, unless ActorsChild is changed to
+   // pass it only when necessary, e.g. only pass if some cached responses were
+@@ -15339,6 +15347,13 @@
+     mPosition = aCurrentKey;
+   }
+ 
++  if (!aCurrentObjectStoreKey.IsUnset()) {
++    MOZ_ASSERT(mType == OpenCursorParams::TIndexOpenCursorParams ||
++               mType == OpenCursorParams::TIndexOpenKeyCursorParams);
++
++    mObjectStorePosition = aCurrentObjectStoreKey;
++  }
++
+   if (!trustParams && !VerifyRequestParams(aParams)) {
+     ASSERT_UNLESS_FUZZING();
+     return IPC_FAIL_NO_REASON(this);
+@@ -25776,10 +25791,15 @@
+         return NS_ERROR_NOT_IMPLEMENTED;
+       }
+ 
+-      MOZ_ASSERT(aInitializeResponse);
+-      mResponse = IndexCursorResponse();
+-
+-      auto& response = mResponse.get_IndexCursorResponse();
++      if (aInitializeResponse) {
++        mResponse = nsTArray<IndexCursorResponse>();
++      } else {
++        MOZ_ASSERT(mResponse.type() ==
++                   CursorResponse::TArrayOfIndexCursorResponse);
++      }
++
++      auto& responses = mResponse.get_ArrayOfIndexCursorResponse();
++      auto& response = *responses.AppendElement();
+       response.cloneInfo().data().data = std::move(cloneInfo.mData);
+       response.key() = mCursor->mPosition;
+       response.sortKey() = mCursor->mLocaleAwarePosition;
+@@ -25819,7 +25839,8 @@
+     const nsCString& aOperation) {
+   AssertIsOnConnectionThread();
+ 
+-  if (mCursor->mType != OpenCursorParams::TObjectStoreOpenCursorParams) {
++  if (mCursor->mType != OpenCursorParams::TObjectStoreOpenCursorParams &&
++      mCursor->mType != OpenCursorParams::TIndexOpenCursorParams) {
+     IDB_WARNING(
+         "PRELOAD: Not yet implemented. Extra results were queried, but are "
+         "discarded for now.");
+@@ -26243,7 +26264,8 @@
+   // Note: Changing the number or order of SELECT columns in the query will
+   // require changes to CursorOpBase::PopulateResponseFromStatement.
+   const nsCString firstQuery = queryStart + keyRangeClause + directionClause +
+-                               kOpenLimit + NS_LITERAL_CSTRING("1");
++                               kOpenLimit +
++                               ToAutoCString(1 + mCursor->mMaxExtraCount);
+ 
+   DatabaseConnection::CachedStatement stmt;
+   nsresult rv = aConnection->GetCachedStatement(firstQuery, &stmt);
+@@ -26289,7 +26311,12 @@
+                                  NS_LITERAL_CSTRING("index_table."),
+                                  std::move(queryStart));
+ 
+-  return NS_OK;
++  // The degree to which extra responses on OpenOp can actually be used depends
++  // on the parameters of subsequent ContinueOp operations, see also comment in
++  // ContinueOp::DoDatabaseWork.
++
++  return PopulateExtraResponses(stmt, mCursor->mMaxExtraCount,
++                                NS_LITERAL_CSTRING("OpenOp"));
+ }
+ 
+ nsresult Cursor::OpenOp::DoIndexKeyDatabaseWork(

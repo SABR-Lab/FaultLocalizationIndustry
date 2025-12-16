@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/AbstractRange.cpp
+# Commit: 15ccf86bce5a
+# Full Hash: 15ccf86bce5a786e4cbda785e186a2efd342b293
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2025-05-08 04:32:48
+# Regressor Bug: 1932150
+# File Overlap Count: 2
+# Description:
+#   Bug 1932150 - Fix some inconsistency about indicating whether the selection is allowed to cross the shadow boundary r=jjaschke,dom-core
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D246949
+# ==============================================================================
+
+diff -r 40f9fe959b19 -r 15ccf86bce5a dom/base/AbstractRange.cpp
+--- a/dom/base/AbstractRange.cpp	Wed May 07 15:04:40 2025 +0000
++++ b/dom/base/AbstractRange.cpp	Wed May 07 15:05:08 2025 +0000
+@@ -249,14 +249,10 @@
+   if (!mIsPositioned) {
+     return nullptr;
+   }
+-  nsINode* startContainer =
+-      aAllowCrossShadowBoundary == AllowRangeCrossShadowBoundary::Yes
+-          ? GetMayCrossShadowBoundaryStartContainer()
+-          : GetStartContainer();
+-  nsINode* endContainer =
+-      aAllowCrossShadowBoundary == AllowRangeCrossShadowBoundary::Yes
+-          ? GetMayCrossShadowBoundaryEndContainer()
+-          : GetEndContainer();
++  nsINode* startContainer = ShadowDOMSelectionHelpers::GetStartContainer(
++      this, aAllowCrossShadowBoundary);
++  nsINode* endContainer = ShadowDOMSelectionHelpers::GetEndContainer(
++      this, aAllowCrossShadowBoundary);
+ 
+   if (MayCrossShadowBoundary() &&
+       aAllowCrossShadowBoundary == AllowRangeCrossShadowBoundary::Yes) {

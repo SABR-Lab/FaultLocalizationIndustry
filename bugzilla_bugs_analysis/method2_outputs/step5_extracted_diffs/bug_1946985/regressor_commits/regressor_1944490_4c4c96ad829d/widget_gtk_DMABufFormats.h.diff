@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/gtk/DMABufFormats.h
+# Commit: 4c4c96ad829d
+# Full Hash: 4c4c96ad829d55b88ee52a320cab335ac2b86340
+# Author: stransky <stransky@redhat.com>
+# Date: 2025-02-05 16:56:59
+# Regressor Bug: 1944490
+# File Overlap Count: 1
+# Description:
+#   Bug 1944490 [Linux] Ensure DMABufFormats provides basic dmabuf formats r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D236688
+# ==============================================================================
+
+diff -r 25e327e7c9ad -r 4c4c96ad829d widget/gtk/DMABufFormats.h
+--- a/widget/gtk/DMABufFormats.h	Tue Feb 04 20:14:58 2025 +0000
++++ b/widget/gtk/DMABufFormats.h	Tue Feb 04 20:44:48 2025 +0000
+@@ -21,6 +21,10 @@
+ class DMABufFormatTable;
+ class DMABufFeedback;
+ 
++#ifndef DRM_FORMAT_MOD_INVALID
++#  define DRM_FORMAT_MOD_INVALID ((1ULL << 56) - 1)
++#endif
++
+ // DRMFormat (fourcc) and available modifiers for it.
+ // Modifiers are sorted from the most preffered one.
+ class DRMFormat final {
+@@ -44,7 +48,11 @@
+     MOZ_ASSERT(!IsFormatModifierSupported(aModifier), "Added modifier twice?");
+     mModifiers.AppendElement(aModifier);
+   }
+-  bool UseModifiers() const { return !mModifiers.IsEmpty(); }
++  bool UseModifiers() const {
++    // Don't use modifiers if we don't have any or we have an invalid one.
++    return !(mModifiers.IsEmpty() || (mModifiers.Length() == 1 ||
++                                      mModifiers[0] == DRM_FORMAT_MOD_INVALID));
++  }
+   const uint64_t* GetModifiers(uint32_t& aModifiersNum) {
+     aModifiersNum = mModifiers.Length();
+     return mModifiers.Elements();
+@@ -79,6 +87,8 @@
+   DRMFormat* GetFormat(uint32_t aFormat, bool aRequestScanoutFormat = false);
+   DMABufFormats();
+ 
++  void EnsureBasicFormats();
++
+  private:
+   ~DMABufFormats();
+ 

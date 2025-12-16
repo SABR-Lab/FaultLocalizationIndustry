@@ -1,0 +1,36 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsFrameLoader.cpp
+# Commit: 07803833e05c
+# Full Hash: 07803833e05c9364ddaf962012034596eade7174
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2020-08-01 09:48:10
+# Description:
+#   Bug 1656596 - Add another missing null-check in our printing code. r=nordzilla
+#   
+#   This code needs fuzzing desperately...
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D85631
+# ==============================================================================
+
+diff -r 4ba66dd08e1e -r 07803833e05c dom/base/nsFrameLoader.cpp
+--- a/dom/base/nsFrameLoader.cpp	Fri Jul 31 21:28:27 2020 +0000
++++ b/dom/base/nsFrameLoader.cpp	Fri Jul 31 21:53:02 2020 +0000
+@@ -3128,11 +3128,11 @@
+                            uint32_t aStateFlags, nsresult aStatus) override {
+     if (aStateFlags & nsIWebProgressListener::STATE_STOP &&
+         aStateFlags & nsIWebProgressListener::STATE_IS_DOCUMENT) {
+-      MOZ_RELEASE_ASSERT(mPromise,
+-                         "Got duplicate load notification, "
+-                         "or load after an error");
+-      mPromise->MaybeResolveWithUndefined();
+-      mPromise = nullptr;
++      MOZ_ASSERT(mPromise);
++      if (mPromise) {
++        mPromise->MaybeResolveWithUndefined();
++        mPromise = nullptr;
++      }
+     }
+     return NS_OK;
+   }

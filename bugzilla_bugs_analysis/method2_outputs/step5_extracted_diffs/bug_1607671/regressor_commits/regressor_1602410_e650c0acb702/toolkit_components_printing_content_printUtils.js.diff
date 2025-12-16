@@ -1,0 +1,90 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/printing/content/printUtils.js
+# Commit: e650c0acb702
+# Full Hash: e650c0acb7027d22d04aeb6525834e5f89eedd92
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2020-08-19 21:28:29
+# Regressor Bug: 1602410
+# File Overlap Count: 1
+# Description:
+#   Bug 1602410 - Make window.print() work with tab-modal printing. r=nika,geckoview-reviewers,agi
+#   
+#   Do this by spinning the event loop until we've done the clone for
+#   preview as appropriate.
+#   
+# ==============================================================================
+
+diff -r 1f9187fefcb6 -r e650c0acb702 toolkit/components/printing/content/printUtils.js
+--- a/toolkit/components/printing/content/printUtils.js	Tue Aug 18 21:33:15 2020 +0000
++++ b/toolkit/components/printing/content/printUtils.js	Wed Aug 19 09:27:18 2020 +0000
+@@ -148,6 +148,7 @@
+     );
+     if (container.querySelector(".printDialogContainer")) {
+       // Don't open another dialog if we're already printing.
++      aBrowsingContext.isAwaitingPrint = false;
+       return;
+     }
+ 
+@@ -166,7 +167,7 @@
+ 
+     // Store the dialog on the overlay for access in the tests.
+     dialog._overlay._dialog = dialog;
+-    let sourceBrowser = aBrowsingContext.embedderElement;
++    let sourceBrowser = aBrowsingContext.top.embedderElement;
+     let printPreviewBrowser = gBrowser.createBrowser({
+       remoteType: sourceBrowser.remoteType,
+       initialBrowsingContextGroupId: aBrowsingContext.group.id,
+@@ -196,8 +197,9 @@
+    * Update a print preview for the provided source Browser, print preview Browser
+    * and nsIPrintSettings.
+    *
+-   * @param sourceBrowser
+-   *        The source Browser (the one associated with a tab) that should be updated.
++   * @param sourceBrowsingContext
++   *        The source BrowsingContext (the one associated with a tab or
++   *        subdocument) that should be updated.
+    * @param printPreviewBrowser
+    *        The Browser that contains the print preview.
+    * @param printSettings
+@@ -206,7 +208,11 @@
+    *
+    * @return {Promise<Integer>} The number of pages that were rendered in the preview.
+    */
+-  updatePrintPreview(sourceBrowser, printPreviewBrowser, printSettings) {
++  updatePrintPreview(
++    sourceBrowsingContext,
++    printPreviewBrowser,
++    printSettings
++  ) {
+     let stack = printPreviewBrowser.parentElement;
+     stack.setAttribute("isRendering", true);
+ 
+@@ -231,7 +237,7 @@
+           changingBrowsers: false,
+           lastUsedPrinterName: printSettings.printerName,
+           simplifiedMode: false,
+-          windowID: sourceBrowser.outerWindowID,
++          browsingContextId: sourceBrowsingContext.id,
+           outputFormat: printSettings.outputFormat,
+         }
+       );
+@@ -244,6 +250,8 @@
+    *
+    * @param aBrowsingContext
+    *        The BrowsingContext of the window to print.
++   *        Note that the browsing context could belong to a subframe of the
++   *        tab that called window.print, or similar shenanigans.
+    */
+   startPrintWindow(aBrowsingContext) {
+     if (PRINT_TAB_MODAL && !PRINT_ALWAYS_SILENT) {
+@@ -661,7 +669,7 @@
+ 
+     let sendEnterPreviewMessage = function(browser, simplified) {
+       mm.sendAsyncMessage("Printing:Preview:Enter", {
+-        windowID: browser.outerWindowID,
++        browsingContextId: browser.browsingContext.id,
+         simplifiedMode: simplified,
+         changingBrowsers: changingPrintPreviewBrowsers,
+         lastUsedPrinterName,

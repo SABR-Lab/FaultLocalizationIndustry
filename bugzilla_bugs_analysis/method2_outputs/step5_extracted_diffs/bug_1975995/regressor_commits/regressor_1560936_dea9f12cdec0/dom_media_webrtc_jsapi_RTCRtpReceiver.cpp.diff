@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/jsapi/RTCRtpReceiver.cpp
+# Commit: dea9f12cdec0
+# Full Hash: dea9f12cdec02aeb5ac260a970659e09dc73a375
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2025-07-02 09:15:46
+# Regressor Bug: 1560936
+# File Overlap Count: 3
+# Description:
+#   Bug 1560936 - For getSettings make all MediaStreamTrackSources populate width and height as appropriate. r=jib,bwc
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D251430
+# ==============================================================================
+
+diff -r a4ae1edb514a -r dea9f12cdec0 dom/media/webrtc/jsapi/RTCRtpReceiver.cpp
+--- a/dom/media/webrtc/jsapi/RTCRtpReceiver.cpp	Tue Jul 01 18:42:42 2025 +0000
++++ b/dom/media/webrtc/jsapi/RTCRtpReceiver.cpp	Tue Jul 01 18:42:43 2025 +0000
+@@ -119,6 +119,8 @@
+ #define INIT_CANONICAL(name, val)         \
+   name(AbstractThread::MainThread(), val, \
+        "RTCRtpReceiver::" #name " (Canonical)")
++#define INIT_MIRROR(name, val) \
++  name(AbstractThread::MainThread(), val, "RTCRtpReceiver::" #name " (Mirror)")
+ 
+ RTCRtpReceiver::RTCRtpReceiver(
+     nsPIDOMWindowInner* aWindow, PrincipalPrivacy aPrivacy,
+@@ -140,7 +142,8 @@
+       INIT_CANONICAL(mVideoCodecs, std::vector<VideoCodecConfig>()),
+       INIT_CANONICAL(mVideoRtpRtcpConfig, Nothing()),
+       INIT_CANONICAL(mReceiving, false),
+-      INIT_CANONICAL(mFrameTransformerProxy, nullptr) {
++      INIT_CANONICAL(mFrameTransformerProxy, nullptr),
++      INIT_MIRROR(mReceivingSize, {}) {
+   PrincipalHandle principalHandle = GetPrincipalHandle(aWindow, aPrivacy);
+   const bool isAudio = aConduit->type() == MediaSessionConduit::AUDIO;
+ 
+@@ -168,6 +171,8 @@
+         mPc->GetHandle(), aTransportHandler, aCallThread, mStsThread.get(),
+         *aConduit->AsVideoSessionConduit(), mTrackSource->Stream(), aTrackingId,
+         principalHandle, aPrivacy);
++    mReceivingSize.Connect(
++        aConduit->AsVideoSessionConduit().ref()->CanonicalReceivingSize());
+   }
+ 
+   mPipeline->InitControl(this);
+@@ -191,6 +196,7 @@
+   mParameters.mCodecs.Construct();
+ }
+ 
++#undef INIT_MIRROR
+ #undef INIT_CANONICAL
+ 
+ RTCRtpReceiver::~RTCRtpReceiver() { MOZ_ASSERT(!mPipeline); }
+@@ -695,6 +701,7 @@
+     mTrackSource->Destroy();
+   }
+   mCallThread = nullptr;
++  mReceivingSize.DisconnectIfConnected();
+   mRtcpByeListener.DisconnectIfExists();
+   mRtcpTimeoutListener.DisconnectIfExists();
+   mUnmuteListener.DisconnectIfExists();
+@@ -1138,6 +1145,12 @@
+   return &mPc->GetTimestampMaker();
+ }
+ 
++Maybe<gfx::IntSize> RTCRtpReceiver::ReceivingSize() const {
++  MOZ_ASSERT(NS_IsMainThread());
++  MOZ_ASSERT(mPipeline->mConduit->type() == MediaSessionConduit::VIDEO);
++  return mReceivingSize.Ref();
++}
++
+ }  // namespace mozilla::dom
+ 
+ #undef LOGTAG

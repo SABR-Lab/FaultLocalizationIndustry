@@ -1,0 +1,95 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/webrtc/signaling/gtest/mediapipeline_unittest.cpp
+# Commit: 7a33c8b73972
+# Full Hash: 7a33c8b7397200d89a0d3904669777e60550c445
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2025-06-11 18:38:51
+# Regressor Bug: 1968812
+# File Overlap Count: 1
+# Description:
+#   Bug 1968812 - Remove the CallWorker thread and use TaskQueue::Observer instead. r=bwc
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D252686
+# ==============================================================================
+
+diff -r a3ad3abc4d02 -r 7a33c8b73972 media/webrtc/signaling/gtest/mediapipeline_unittest.cpp
+--- a/media/webrtc/signaling/gtest/mediapipeline_unittest.cpp	Wed Jun 11 13:37:22 2025 +0000
++++ b/media/webrtc/signaling/gtest/mediapipeline_unittest.cpp	Wed Jun 11 13:37:23 2025 +0000
+@@ -42,19 +42,52 @@
+ static MtransportTestUtils* test_utils;
+ 
+ namespace {
+-class MainAsCurrent
+-    : public WebrtcTaskQueueWrapper<DeletionPolicy::NonBlocking> {
++class MainAsCurrent : public webrtc::TaskQueueBase {
+  public:
+   MainAsCurrent()
+-      : WebrtcTaskQueueWrapper(do_AddRef(GetMainThreadSerialEventTarget()),
+-                               "MainAsCurrent"_ns, false),
+-        mSetter(this) {
++      : mTaskQueue(CreateWebrtcTaskQueueWrapper(
++            do_AddRef(GetMainThreadSerialEventTarget()), "MainAsCurrent"_ns,
++            false)),
++        mWebrtcTaskQueue(([&] {
++          // Shady but fine, as this raw pointer points to the WebrtcTaskQueue
++          // owned and kept alive by mTaskQueue.
++          webrtc::TaskQueueBase* queue{};
++          MOZ_ALWAYS_SUCCEEDS(mTaskQueue->Dispatch(NS_NewRunnableFunction(
++              "MainAsCurrent::Current",
++              [&] { queue = webrtc::TaskQueueBase::Current(); })));
++          NS_ProcessPendingEvents(nullptr);
++          MOZ_RELEASE_ASSERT(queue);
++          return queue;
++        })()),
++        mSetter(mWebrtcTaskQueue) {
+     MOZ_RELEASE_ASSERT(NS_IsMainThread());
+   }
+ 
+   ~MainAsCurrent() = default;
+ 
++  void Delete() override { delete this; }
++
++  void PostTaskImpl(absl::AnyInvocable<void() &&> task,
++                    const PostTaskTraits& traits,
++                    const webrtc::Location& location) override {
++    mWebrtcTaskQueue->PostTask(std::move(task), location);
++  }
++
++  void PostDelayedTaskImpl(absl::AnyInvocable<void() &&> task,
++                           webrtc::TimeDelta delay,
++                           const PostDelayedTaskTraits& traits,
++                           const webrtc::Location& location) override {
++    if (traits.high_precision) {
++      mWebrtcTaskQueue->PostDelayedHighPrecisionTask(std::move(task), delay,
++                                                     location);
++      return;
++    }
++    mWebrtcTaskQueue->PostDelayedTask(std::move(task), delay, location);
++  }
++
+  private:
++  RefPtr<TaskQueue> mTaskQueue;
++  webrtc::TaskQueueBase* mWebrtcTaskQueue;
+   CurrentTaskQueueSetter mSetter;
+ };
+ 
+@@ -464,7 +497,7 @@
+  public:
+   explicit MediaPipelineTest(MediaPipelineTestOptions options = {})
+       : main_task_queue_(
+-            WrapUnique<WebrtcTaskQueueWrapper<DeletionPolicy::NonBlocking>>(
++            std::unique_ptr<webrtc::TaskQueueBase, webrtc::TaskQueueDeleter>(
+                 new MainAsCurrent())),
+         options_(options),
+         env_wrapper_(WebrtcEnvironmentWrapper::Create(
+@@ -586,7 +619,7 @@
+  protected:
+   // main_task_queue_ has this type to make sure it goes through Delete() when
+   // we're destroyed.
+-  UniquePtr<WebrtcTaskQueueWrapper<DeletionPolicy::NonBlocking>>
++  std::unique_ptr<webrtc::TaskQueueBase, webrtc::TaskQueueDeleter>
+       main_task_queue_;
+   const MediaPipelineTestOptions options_;
+   const RefPtr<WebrtcEnvironmentWrapper> env_wrapper_;

@@ -1,0 +1,90 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: tools/profiler/core/platform.cpp
+# Commit: 747c6705d006
+# Full Hash: 747c6705d00627b032063055173575d6e6043880
+# Author: Adam Brouwers-Harries <abrouwersharries@mozilla.com>
+# Date: 2024-04-11 15:55:01
+# Description:
+#   Bug 1890154 - Hide signal-handling helper code behind a macro on XP_WIN r=canaltinova,profiler-reviewers
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D207177
+# ==============================================================================
+
+diff -r 3531a1b13af3 -r 747c6705d006 tools/profiler/core/platform.cpp
+--- a/tools/profiler/core/platform.cpp	Thu Apr 11 09:59:25 2024 +0000
++++ b/tools/profiler/core/platform.cpp	Thu Apr 11 11:25:08 2024 +0000
+@@ -669,7 +669,9 @@
+ 
+   PS_GET_AND_SET(const nsACString&, ProcessName)
+   PS_GET_AND_SET(const nsACString&, ETLDplus1)
++#if !defined(XP_WIN)
+   PS_GET_AND_SET(const Maybe<nsCOMPtr<nsIFile>>&, DownloadDirectory)
++#endif
+ 
+   static void SetBandwidthCounter(ProfilerBandwidthCounter* aBandwidthCounter) {
+     MOZ_ASSERT(sInstance);
+@@ -720,7 +722,9 @@
+   JsFrameBuffer mJsFrames;
+ 
+   // Cached download directory for when we need to dump profiles to disk.
++#if !defined(XP_WIN)
+   Maybe<nsCOMPtr<nsIFile>> mDownloadDirectory;
++#endif
+ };
+ 
+ CorePS* CorePS::sInstance = nullptr;
+@@ -5307,6 +5311,11 @@
+ // directory, or if the directory has moved since we cached the path.
+ // This is non-ideal, but captured by Bug 1885000
+ Maybe<nsAutoCString> profiler_find_dump_path() {
++// Note, this is currently a posix-only implementation, as we currently have
++// issues with fetching the download directory on Windows. See Bug 1890154.
++#if defined(XP_WIN)
++  return Nothing();
++#else
+   Maybe<nsCOMPtr<nsIFile>> directory = Nothing();
+   nsAutoCString path;
+ 
+@@ -5341,12 +5350,8 @@
+       return Nothing();
+     }
+ 
+-// Write the result *back* to the original path
+-#if defined(XP_WIN)
+-    rv = directory.value()->GetNativeTarget(path);
+-#else
++    // Write the result *back* to the original path
+     rv = directory.value()->GetNativePath(path);
+-#endif
+     if (NS_FAILED(rv)) {
+       LOG("Failed to get native path for temp path");
+       return Nothing();
+@@ -5356,6 +5361,7 @@
+   }
+ 
+   return Nothing();
++#endif
+ }
+ 
+ void profiler_dump_and_stop() {
+@@ -6459,6 +6465,10 @@
+ 
+ // See `ProfilerControl.h` for more details.
+ void profiler_lookup_download_directory() {
++// This implementation is causing issues on Windows (see Bug 1890154) but as it
++// only exists to support the posix signal handling (on non-windows platforms)
++// we can remove it for now.
++#if !defined(XP_WIN)
+   LOG("profiler_lookup_download_directory");
+ 
+   MOZ_ASSERT(
+@@ -6481,6 +6491,7 @@
+   } else {
+     CorePS::SetDownloadDirectory(lock, Some(tDownloadDir));
+   }
++#endif
+ }
+ 
+ RefPtr<GenericPromise> profiler_pause() {

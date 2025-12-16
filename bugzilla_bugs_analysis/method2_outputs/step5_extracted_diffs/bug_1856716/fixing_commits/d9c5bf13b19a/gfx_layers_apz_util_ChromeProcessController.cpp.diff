@@ -1,0 +1,45 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/apz/util/ChromeProcessController.cpp
+# Commit: d9c5bf13b19a
+# Full Hash: d9c5bf13b19a73883abad0a4e61b234aee446079
+# Author: Dan Robertson <dan@dlrobertson.com>
+# Date: 2023-10-06 15:27:33
+# Description:
+#   Bug 1856716 - Ensure that we hold a strong reference to the APZ event state. r=hiro
+#   
+#   - Ensure that we hold a strong reference to the APZ event state before
+#      calling ProcessSingleTap, as ProcessSingleTap fires events.
+#    - Mark ProcessSingleTap as MOZ_CAN_RUN_SCRIPT since it can fire events.
+# ==============================================================================
+
+diff -r 5c2d783060b0 -r d9c5bf13b19a gfx/layers/apz/util/ChromeProcessController.cpp
+--- a/gfx/layers/apz/util/ChromeProcessController.cpp	Thu Oct 05 22:18:54 2023 +0000
++++ b/gfx/layers/apz/util/ChromeProcessController.cpp	Thu Oct 05 22:34:32 2023 +0000
+@@ -193,17 +193,19 @@
+   InputAPZContext context(aGuid, aInputBlockId, nsEventStatus_eSentinel);
+ 
+   switch (aType) {
+-    case TapType::eSingleTap:
+-      mAPZEventState->ProcessSingleTap(point, scale, aModifiers, 1,
+-                                       aInputBlockId);
++    case TapType::eSingleTap: {
++      RefPtr<APZEventState> eventState(mAPZEventState);
++      eventState->ProcessSingleTap(point, scale, aModifiers, 1, aInputBlockId);
+       break;
++    }
+     case TapType::eDoubleTap:
+       HandleDoubleTap(point, aModifiers, aGuid);
+       break;
+-    case TapType::eSecondTap:
+-      mAPZEventState->ProcessSingleTap(point, scale, aModifiers, 2,
+-                                       aInputBlockId);
++    case TapType::eSecondTap: {
++      RefPtr<APZEventState> eventState(mAPZEventState);
++      eventState->ProcessSingleTap(point, scale, aModifiers, 2, aInputBlockId);
+       break;
++    }
+     case TapType::eLongTap: {
+       RefPtr<APZEventState> eventState(mAPZEventState);
+       eventState->ProcessLongTap(presShell, point, scale, aModifiers,

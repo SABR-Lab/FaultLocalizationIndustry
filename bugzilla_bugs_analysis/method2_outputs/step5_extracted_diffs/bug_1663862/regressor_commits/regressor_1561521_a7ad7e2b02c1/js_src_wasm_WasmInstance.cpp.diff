@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmInstance.cpp
+# Commit: a7ad7e2b02c1
+# Full Hash: a7ad7e2b02c11538c1f27efb67a48a4fb823ba8e
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2020-08-18 09:24:52
+# Regressor Bug: 1561521
+# File Overlap Count: 2
+# Description:
+#   Bug 1561521 - Generalize table/element code for future reference-types. r=lth
+#   
+#   wasm::Table uses wasm::TableKind to determine the element type of the table,
+#   which makes it difficult to extend tables to support more reference types. This
+#   commit drops TableKind in favor of directly storing the element RefType, along
+# ==============================================================================
+
+diff -r 538920d2d777 -r a7ad7e2b02c1 js/src/wasm/WasmInstance.cpp
+--- a/js/src/wasm/WasmInstance.cpp	Tue Aug 18 00:04:37 2020 +0000
++++ b/js/src/wasm/WasmInstance.cpp	Tue Aug 18 00:45:07 2020 +0000
+@@ -1150,7 +1150,7 @@
+       table.fillAnyRef(start, len, AnyRef::fromCompiledCode(value));
+       break;
+     case TableRepr::Func:
+-      MOZ_RELEASE_ASSERT(table.kind() == TableKind::FuncRef);
++      MOZ_RELEASE_ASSERT(!table.isAsmJS());
+       table.fillFuncRef(start, len, FuncRef::fromCompiledCode(value), cx);
+       break;
+   }
+@@ -1173,7 +1173,7 @@
+     return table.getAnyRef(index).forCompiledCode();
+   }
+ 
+-  MOZ_RELEASE_ASSERT(table.kind() == TableKind::FuncRef);
++  MOZ_RELEASE_ASSERT(!table.isAsmJS());
+ 
+   JSContext* cx = TlsContext.get();
+   RootedFunction fun(cx);
+@@ -1199,7 +1199,7 @@
+         table.fillAnyRef(oldSize, delta, ref);
+         break;
+       case TableRepr::Func:
+-        MOZ_RELEASE_ASSERT(table.kind() == TableKind::FuncRef);
++        MOZ_RELEASE_ASSERT(!table.isAsmJS());
+         table.fillFuncRef(oldSize, delta, FuncRef::fromAnyRefUnchecked(ref),
+                           TlsContext.get());
+         break;
+@@ -1225,7 +1225,7 @@
+       table.fillAnyRef(index, 1, AnyRef::fromCompiledCode(value));
+       break;
+     case TableRepr::Func:
+-      MOZ_RELEASE_ASSERT(table.kind() == TableKind::FuncRef);
++      MOZ_RELEASE_ASSERT(!table.isAsmJS());
+       table.fillFuncRef(index, 1, FuncRef::fromCompiledCode(value),
+                         TlsContext.get());
+       break;

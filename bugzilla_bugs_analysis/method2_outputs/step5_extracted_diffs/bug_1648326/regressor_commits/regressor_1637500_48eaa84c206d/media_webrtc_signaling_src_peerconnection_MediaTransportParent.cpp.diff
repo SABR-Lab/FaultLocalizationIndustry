@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/webrtc/signaling/src/peerconnection/MediaTransportParent.cpp
+# Commit: 48eaa84c206d
+# Full Hash: 48eaa84c206dbdda637c57b55ddbd07e975ba103
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2020-06-23 16:15:06
+# Regressor Bug: 1637500
+# File Overlap Count: 2
+# Description:
+#   Bug 1637500 - P2. Rename methods as they are not always dealing with "threads". r=froydnj
+#   
+#   Before P1, GetCurrentThreadSerialEventTarget would have always returned the same data as NS_GetCurrentThread, making the comment incorrect Now it will properly return the running TaskQueue if any.
+#   
+#   This change of name more clearly exposes what they are doing, as we aren't always dealing with threads directly; but a nsISerialEventTarget
+# ==============================================================================
+
+diff -r 00687d06a8a6 -r 48eaa84c206d media/webrtc/signaling/src/peerconnection/MediaTransportParent.cpp
+--- a/media/webrtc/signaling/src/peerconnection/MediaTransportParent.cpp	Tue Jun 23 05:02:39 2020 +0000
++++ b/media/webrtc/signaling/src/peerconnection/MediaTransportParent.cpp	Tue Jun 23 05:05:36 2020 +0000
+@@ -15,8 +15,7 @@
+ class MediaTransportParent::Impl : public sigslot::has_slots<> {
+  public:
+   explicit Impl(MediaTransportParent* aParent)
+-      : mHandler(
+-            MediaTransportHandler::Create(GetCurrentThreadSerialEventTarget())),
++      : mHandler(MediaTransportHandler::Create(GetCurrentSerialEventTarget())),
+         mParent(aParent) {
+     mHandler->SignalCandidate.connect(this,
+                                       &MediaTransportParent::Impl::OnCandidate);
+@@ -94,7 +93,7 @@
+ mozilla::ipc::IPCResult MediaTransportParent::RecvGetIceLog(
+     const nsCString& pattern, GetIceLogResolver&& aResolve) {
+   mImpl->mHandler->GetIceLog(pattern)->Then(
+-      GetCurrentThreadSerialEventTarget(), __func__,
++      GetCurrentSerialEventTarget(), __func__,
+       // IPDL doesn't give us a reject function, so we cannot reject async, so
+       // we are forced to resolve with an empty result. Laaaaaaame.
+       [aResolve = std::move(aResolve)](
+@@ -217,7 +216,7 @@
+     GetIceStatsResolver&& aResolve) {
+   mImpl->mHandler->GetIceStats(transportId, now)
+       ->Then(
+-          GetCurrentThreadSerialEventTarget(), __func__,
++          GetCurrentSerialEventTarget(), __func__,
+           // IPDL doesn't give us a reject function, so we cannot reject async,
+           // so we are forced to resolve with an unmodified result. Laaaaaaame.
+           [aResolve = std::move(aResolve)](

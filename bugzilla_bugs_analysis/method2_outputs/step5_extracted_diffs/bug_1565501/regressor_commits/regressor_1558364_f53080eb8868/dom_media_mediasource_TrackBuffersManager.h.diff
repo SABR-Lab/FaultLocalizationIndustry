@@ -1,0 +1,37 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasource/TrackBuffersManager.h
+# Commit: f53080eb8868
+# Full Hash: f53080eb8868a5031861a0182433701dae21f1dd
+# Author: Chris Pearce <cpearce@mozilla.com>
+# Date: 2019-06-14 10:00:22
+# Regressor Bug: 1558364
+# File Overlap Count: 1
+# Description:
+#   Bug 1558364 - Convert TrackBuffersManager::mPendingInput into a MediaSpan. r=jya
+#   
+#   This allows us to avoid a (probably small) copy when we stash the pending input.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D34662
+# ==============================================================================
+
+diff -r f6df4eb84932 -r f53080eb8868 dom/media/mediasource/TrackBuffersManager.h
+--- a/dom/media/mediasource/TrackBuffersManager.h	Fri Jun 14 02:10:09 2019 +0000
++++ b/dom/media/mediasource/TrackBuffersManager.h	Fri Jun 14 02:10:24 2019 +0000
+@@ -223,14 +223,13 @@
+ 
+   // Demuxer objects and methods.
+   void AppendDataToCurrentInputBuffer(const MediaSpan& aData);
+-  void AppendDataToCurrentInputBuffer(MediaByteBuffer* aData);
+ 
+   RefPtr<MediaByteBuffer> mInitData;
+   // Temporary input buffer to handle partial media segment header.
+   // We store the current input buffer content into it should we need to
+   // reinitialize the demuxer once we have some samples and a discontinuity is
+   // detected.
+-  RefPtr<MediaByteBuffer> mPendingInputBuffer;
++  Maybe<MediaSpan> mPendingInputBuffer;
+   RefPtr<SourceBufferResource> mCurrentInputBuffer;
+   RefPtr<MediaDataDemuxer> mInputDemuxer;
+   // Length already processed in current media segment.

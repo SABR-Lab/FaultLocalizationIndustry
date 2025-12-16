@@ -1,0 +1,123 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/ClientWebGLContext.cpp
+# Commit: 6149f5b15c5e
+# Full Hash: 6149f5b15c5e278ef15ea36fa896fa8c146ebdca
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2021-01-14 08:32:45
+# Regressor Bug: 1640607
+# File Overlap Count: 1
+# Description:
+#   Bug 1640607 - Send SurfaceDescriptors for GPU blitting for video-to-webgl. r=lsalzman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D101061
+# ==============================================================================
+
+diff -r 29fd3a6a7e27 -r 6149f5b15c5e dom/canvas/ClientWebGLContext.cpp
+--- a/dom/canvas/ClientWebGLContext.cpp	Wed Jan 13 20:14:54 2021 +0000
++++ b/dom/canvas/ClientWebGLContext.cpp	Wed Jan 13 21:49:40 2021 +0000
+@@ -3882,7 +3882,6 @@
+ Maybe<webgl::TexUnpackBlobDesc> FromDomElem(const ClientWebGLContext&,
+                                             GLenum target, uvec3 size,
+                                             const dom::Element& src,
+-                                            const bool allowBlitImage,
+                                             ErrorResult* const out_error);
+ }  // namespace webgl
+ 
+@@ -3991,17 +3990,8 @@
+     }
+ 
+     if (src.mDomElem) {
+-      bool canUseLayerImage = true;
+-      if (StaticPrefs::webgl_disable_DOM_blit_uploads()) {
+-        canUseLayerImage = false;
+-      }
+-      if (mNotLost && mNotLost->outOfProcess) {
+-        canUseLayerImage = false;
+-      }
+-
+       return webgl::FromDomElem(*this, imageTarget, explicitSize,
+-                                *(src.mDomElem), canUseLayerImage,
+-                                src.mOut_error);
++                                *(src.mDomElem), src.mOut_error);
+     }
+ 
+     return Some(webgl::TexUnpackBlobDesc{
+@@ -4014,20 +4004,17 @@
+   // UNPACK_ALIGNMENT are not strictly defined. These restrictions ensure
+   // consistent and efficient behavior regardless of implied UNPACK_ params.
+ 
+-  Maybe<gfx::IntSize> structuredSrcSize;
+-  if (desc->surf) {
+-    structuredSrcSize = Some(desc->surf->GetSize());
+-  }
+-  if (desc->image) {
+-    structuredSrcSize = Some(desc->image->GetSize());
++  Maybe<uvec2> structuredSrcSize;
++  if (desc->dataSurf || desc->sd) {
++    structuredSrcSize = Some(desc->imageSize);
+   }
+   if (structuredSrcSize) {
+     auto& size = desc->size;
+     if (!size.x) {
+-      size.x = structuredSrcSize->width;
++      size.x = structuredSrcSize->x;
+     }
+     if (!size.y) {
+-      size.y = structuredSrcSize->height;
++      size.y = structuredSrcSize->x;
+     }
+   }
+ 
+@@ -4049,7 +4036,50 @@
+ 
+   // -
+ 
++  if (desc->sd) {
++    auto fallbackReason = BlitPreventReason(level, offset, pi, *desc);
++
++    const auto& sd = *(desc->sd);
++    const auto sdType = sd.type();
++    const auto& contextInfo = mNotLost->info;
++
++    const bool canUploadViaSd = contextInfo.uploadableSdTypes[sdType];
++    if (!canUploadViaSd) {
++      const nsPrintfCString msg(
++          "Fast uploads for resource type %i not implemented.", int(sdType));
++      fallbackReason.reset();
++      fallbackReason.emplace(ToString(msg));
++    }
++
++    if (StaticPrefs::webgl_disable_DOM_blit_uploads()) {
++      fallbackReason.reset();
++      fallbackReason.emplace("DOM blit uploads are disabled.");
++    }
++
++    if (fallbackReason) {
++      EnqueuePerfWarning("Missed GPU-copy fast-path: %s",
++                         fallbackReason->c_str());
++
++      const auto& image = desc->image;
++      const RefPtr<gfx::SourceSurface> surf = image->GetAsSourceSurface();
++      if (surf) {
++        // WARNING: OSX can lose our MakeCurrent here.
++        desc->dataSurf = surf->GetDataSurface();
++      }
++      if (!desc->dataSurf) {
++        EnqueueError(LOCAL_GL_OUT_OF_MEMORY,
++                     "Failed to retrieve source bytes for CPU upload.");
++        return;
++      }
++      desc->sd = Nothing();
++    }
++  }
++  desc->image = nullptr;
++
++  // -
++
+   desc->Shrink(pi);
++
+   Run<RPROC(TexImage)>(static_cast<uint32_t>(level), respecFormat,
+                        CastUvec3(offset), pi, std::move(*desc));
+ }

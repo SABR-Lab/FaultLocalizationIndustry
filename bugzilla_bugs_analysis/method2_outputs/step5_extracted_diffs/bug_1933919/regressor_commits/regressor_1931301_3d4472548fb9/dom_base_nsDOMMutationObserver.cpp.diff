@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsDOMMutationObserver.cpp
+# Commit: 3d4472548fb9
+# Full Hash: 3d4472548fb9d48cce00f59066690611ee20ffcb
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2024-11-26 09:36:10
+# Regressor Bug: 1931301
+# File Overlap Count: 1
+# Description:
+#   Bug 1931301 - Notify of removals on a stable state, not mid-remove. r=smaug,masayuki,dshin
+#   
+#   This simplifies some observers, and makes others a bit more subtle, but I think
+#   over-all it is an improvement.
+#   
+# ==============================================================================
+
+diff -r 20a0394d798f -r 3d4472548fb9 dom/base/nsDOMMutationObserver.cpp
+--- a/dom/base/nsDOMMutationObserver.cpp	Mon Nov 25 17:56:21 2024 +0000
++++ b/dom/base/nsDOMMutationObserver.cpp	Mon Nov 25 17:58:40 2024 +0000
+@@ -254,8 +254,7 @@
+   m->mNextSibling = aChild->GetNextSibling();
+ }
+ 
+-void nsMutationReceiver::ContentRemoved(nsIContent* aChild,
+-                                        nsIContent* aPreviousSibling) {
++void nsMutationReceiver::ContentWillBeRemoved(nsIContent* aChild) {
+   if (!IsObservable(aChild)) {
+     return;
+   }
+@@ -333,9 +332,8 @@
+     m->mTarget = parent;
+     m->mRemovedNodes = new nsSimpleContentList(parent);
+     m->mRemovedNodes->AppendElement(aChild);
+-    m->mPreviousSibling = aPreviousSibling;
+-    m->mNextSibling = aPreviousSibling ? aPreviousSibling->GetNextSibling()
+-                                       : parent->GetFirstChild();
++    m->mPreviousSibling = aChild->GetPreviousSibling();
++    m->mNextSibling = aChild->GetNextSibling();
+   }
+   // We need to schedule always, so that after microtask mTransientReceivers
+   // can be cleared correctly.

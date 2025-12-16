@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mp4/MP4Decoder.cpp
+# Commit: 6f97064ebae7
+# Full Hash: 6f97064ebae745b0a85cab06a1e81782ef66c2f1
+# Author: Zaggy1024 <Zaggy1024@gmail.com>
+# Date: 2022-04-11 09:48:30
+# Regressor Bug: 1757861
+# File Overlap Count: 1
+# Description:
+#   Bug 1757861 - Part 2 - Add AV1 codec string parsing for MediaCapabilities, etc. decoding support checks. r=alwu
+#   
+#   This adds both av1C and AV1 sequence header OBU parsing, which is used by MediaChangeMonitor to determine whether a new decoder is needed when the codec configuration changes during playback.
+#   
+#   AV1 codec strings from MediaCapabilities, HTMLVideoElement.canPlayType and MediaSource.isTypeSupported will be converted to av1C format with a sequence header attached and passed to decoders to initialize them, allowing better detection of codec support in software or hardware to be implemented.
+# ==============================================================================
+
+diff -r 08bf7c943aa2 -r 6f97064ebae7 dom/media/mp4/MP4Decoder.cpp
+--- a/dom/media/mp4/MP4Decoder.cpp	Mon Apr 11 02:38:03 2022 +0000
++++ b/dom/media/mp4/MP4Decoder.cpp	Mon Apr 11 02:38:04 2022 +0000
+@@ -7,6 +7,7 @@
+ #include "MP4Decoder.h"
+ #include "H264.h"
+ #include "VPXDecoder.h"
++#include "AOMDecoder.h"
+ #include "MP4Demuxer.h"
+ #include "MediaContainerType.h"
+ #include "PDMFactory.h"
+@@ -103,9 +104,11 @@
+     }
+ #ifdef MOZ_AV1
+     if (StaticPrefs::media_av1_enabled() && IsAV1CodecString(codec)) {
+-      tracks.AppendElement(
++      auto trackInfo =
+           CreateTrackInfoWithMIMETypeAndContainerTypeExtraParameters(
+-              "video/av1"_ns, aType));
++              "video/av1"_ns, aType);
++      AOMDecoder::SetVideoInfo(trackInfo->GetAsVideoInfo(), codec);
++      tracks.AppendElement(std::move(trackInfo));
+       continue;
+     }
+ #endif

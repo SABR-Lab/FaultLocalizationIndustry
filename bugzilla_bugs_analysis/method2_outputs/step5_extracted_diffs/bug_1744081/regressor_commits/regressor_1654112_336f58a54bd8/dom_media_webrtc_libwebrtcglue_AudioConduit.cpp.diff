@@ -1,0 +1,158 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/AudioConduit.cpp
+# Commit: 336f58a54bd8
+# Full Hash: 336f58a54bd8128c47fa783a508877096ba84918
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 2
+# Description:
+#   Bug 1654112 - Move AudioConduit from a Mutex to an RWLock. r=padenot
+#   
+#   AudioConduit will try to grab the lock on the audio thread, and if it fails
+#   there is a risk of glitching. That is fine as long as the only other usage of
+#   the lock is related to renegotiation where the audio stream is being recreated
+# ==============================================================================
+
+diff -r a802c8f458cb -r 336f58a54bd8 dom/media/webrtc/libwebrtcglue/AudioConduit.cpp
+--- a/dom/media/webrtc/libwebrtcglue/AudioConduit.cpp	Wed Aug 25 16:44:09 2021 +0200
++++ b/dom/media/webrtc/libwebrtcglue/AudioConduit.cpp	Wed Aug 25 20:28:12 2021 +0200
+@@ -89,7 +89,7 @@
+   mControl.mOnDtmfEventListener.DisconnectIfExists();
+   mWatchManager.Shutdown();
+ 
+-  MutexAutoLock lock(mMutex);
++  AutoWriteLock lock(mLock);
+   DeleteSendStream();
+   DeleteRecvStream();
+ }
+@@ -110,7 +110,7 @@
+       mSendStreamRunning(false),
+       mRecvStreamRunning(false),
+       mDtmfEnabled(false),
+-      mMutex("WebrtcAudioConduit::mMutex"),
++      mLock("WebrtcAudioConduit::mLock"),
+       mCallThread(std::move(mCall->mCallThread)),
+       mStsThread(std::move(aStsThread)),
+       mControl(mCall->mCallThread),
+@@ -274,7 +274,7 @@
+   }
+ 
+   // Recreate/Stop/Start streams as needed.
+-  MutexAutoLock lock(mMutex);
++  AutoWriteLock lock(mLock);
+   if (mRecvStream) {
+     if (recvStreamRecreationNeeded) {
+       DeleteRecvStream();
+@@ -320,7 +320,7 @@
+   }
+   mRecvSSRC = mRecvStreamConfig.rtp.remote_ssrc = ssrc;
+ 
+-  MutexAutoLock lock(mMutex);
++  AutoWriteLock lock(mLock);
+   bool wasReceiving = mRecvStreamRunning;
+   bool hadRecvStream = mRecvStream;
+   DeleteRecvStream();
+@@ -414,7 +414,7 @@
+   }
+ 
+   // This is the AudioProxyThread, blocking it for a bit is fine.
+-  MutexAutoLock lock(mMutex);
++  AutoReadLock lock(mLock);
+   if (!mSendStreamRunning) {
+     CSFLogError(LOGTAG, "%s Engine not transmitting ", __FUNCTION__);
+     return kMediaConduitSessionNotInited;
+@@ -442,8 +442,8 @@
+     return kMediaConduitMalformedArgument;
+   }
+ 
+-  // If the Mutex is taken, skip this chunk to avoid blocking the audio thread.
+-  MutexAutoTryLock tryLock(mMutex);
++  // If the lock is taken, skip this chunk to avoid blocking the audio thread.
++  AutoTryReadLock tryLock(mLock);
+   if (!tryLock) {
+     CSFLogError(LOGTAG, "%s Conduit going through negotiation ", __FUNCTION__);
+     return kMediaConduitPlayoutError;
+@@ -557,7 +557,7 @@
+ 
+ MediaConduitErrorCode WebrtcAudioConduit::StopTransmittingLocked() {
+   MOZ_ASSERT(mCallThread->IsOnCurrentThread());
+-  mMutex.AssertCurrentThreadOwns();
++  MOZ_ASSERT(mLock.LockedForWritingByCurrentThread());
+ 
+   if (mSendStreamRunning) {
+     MOZ_ASSERT(mSendStream);
+@@ -572,7 +572,7 @@
+ 
+ MediaConduitErrorCode WebrtcAudioConduit::StartTransmittingLocked() {
+   MOZ_ASSERT(mCallThread->IsOnCurrentThread());
+-  mMutex.AssertCurrentThreadOwns();
++  MOZ_ASSERT(mLock.LockedForWritingByCurrentThread());
+ 
+   if (mSendStreamRunning) {
+     return kMediaConduitNoError;
+@@ -592,7 +592,7 @@
+ 
+ MediaConduitErrorCode WebrtcAudioConduit::StopReceivingLocked() {
+   MOZ_ASSERT(mCallThread->IsOnCurrentThread());
+-  mMutex.AssertCurrentThreadOwns();
++  MOZ_ASSERT(mLock.LockedForWritingByCurrentThread());
+ 
+   if (mRecvStreamRunning) {
+     MOZ_ASSERT(mRecvStream);
+@@ -605,7 +605,7 @@
+ 
+ MediaConduitErrorCode WebrtcAudioConduit::StartReceivingLocked() {
+   MOZ_ASSERT(mCallThread->IsOnCurrentThread());
+-  mMutex.AssertCurrentThreadOwns();
++  MOZ_ASSERT(mLock.LockedForWritingByCurrentThread());
+ 
+   if (mRecvStreamRunning) {
+     return kMediaConduitNoError;
+@@ -700,7 +700,7 @@
+   MOZ_ASSERT(NS_IsMainThread());
+   std::vector<webrtc::RtpSource> sources;
+   {
+-    MutexAutoLock lock(mMutex);
++    AutoReadLock lock(mLock);
+     if (mRecvStream) {
+       sources = mRecvStream->GetSources();
+     }
+@@ -821,7 +821,7 @@
+ 
+ void WebrtcAudioConduit::DeleteSendStream() {
+   MOZ_ASSERT(mCallThread->IsOnCurrentThread());
+-  mMutex.AssertCurrentThreadOwns();
++  MOZ_ASSERT(mLock.LockedForWritingByCurrentThread());
+   if (mSendStream) {
+     mCall->Call()->DestroyAudioSendStream(mSendStream);
+     mSendStreamRunning = false;
+@@ -831,7 +831,7 @@
+ 
+ MediaConduitErrorCode WebrtcAudioConduit::CreateSendStream() {
+   MOZ_ASSERT(mCallThread->IsOnCurrentThread());
+-  mMutex.AssertCurrentThreadOwns();
++  MOZ_ASSERT(mLock.LockedForWritingByCurrentThread());
+ 
+   mSendStream = mCall->Call()->CreateAudioSendStream(mSendStreamConfig);
+   if (!mSendStream) {
+@@ -843,7 +843,7 @@
+ 
+ void WebrtcAudioConduit::DeleteRecvStream() {
+   MOZ_ASSERT(mCallThread->IsOnCurrentThread());
+-  mMutex.AssertCurrentThreadOwns();
++  MOZ_ASSERT(mLock.LockedForWritingByCurrentThread());
+   if (mRecvStream) {
+     mCall->Call()->DestroyAudioReceiveStream(mRecvStream);
+     mRecvStreamRunning = false;
+@@ -853,7 +853,7 @@
+ 
+ MediaConduitErrorCode WebrtcAudioConduit::CreateRecvStream() {
+   MOZ_ASSERT(mCallThread->IsOnCurrentThread());
+-  mMutex.AssertCurrentThreadOwns();
++  MOZ_ASSERT(mLock.LockedForWritingByCurrentThread());
+ 
+   mRecvStreamConfig.rtcp_send_transport = this;
+   mRecvStreamConfig.rtp.rtcp_event_observer = this;

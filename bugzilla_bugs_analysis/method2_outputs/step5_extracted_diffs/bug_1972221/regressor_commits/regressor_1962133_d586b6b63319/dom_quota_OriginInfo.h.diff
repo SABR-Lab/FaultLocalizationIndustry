@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/quota/OriginInfo.h
+# Commit: d586b6b63319
+# Full Hash: d586b6b633191a7c6ff251361b0442d98d06c764
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2025-06-15 09:03:40
+# Regressor Bug: 1962133
+# File Overlap Count: 14
+# Description:
+#   Bug 1962133 - QM: Add accessed flag to FullOriginMetadata and persist it in the origin metadata file; r=dom-storage-reviewers,hsingh
+#   
+#   This patch introduces a new mAccessed field in OriginStateMetadata, which is
+#   inherited by FullOriginMetadata. One of the reserved 32-bit fields in the
+#   metadata header is now used as a bitfield, with one bit allocated to represent
+# ==============================================================================
+
+diff -r ca3bdda9fbfd -r d586b6b63319 dom/quota/OriginInfo.h
+--- a/dom/quota/OriginInfo.h	Sat Jun 14 02:29:19 2025 +0000
++++ b/dom/quota/OriginInfo.h	Sat Jun 14 02:46:33 2025 +0000
+@@ -58,6 +58,12 @@
+     return mAccessTime;
+   }
+ 
++  bool LockedAccessed() const {
++    AssertCurrentThreadOwnsQuotaMutex();
++
++    return mAccessed;
++  }
++
+   bool LockedPersisted() const {
+     AssertCurrentThreadOwnsQuotaMutex();
+ 
+@@ -103,6 +109,14 @@
+     }
+   }
+ 
++  void LockedUpdateAccessed() {
++    AssertCurrentThreadOwnsQuotaMutex();
++
++    if (!mAccessed) {
++      mAccessed = true;
++    }
++  }
++
+   void LockedPersist();
+ 
+   void LockedDirectoryCreated();

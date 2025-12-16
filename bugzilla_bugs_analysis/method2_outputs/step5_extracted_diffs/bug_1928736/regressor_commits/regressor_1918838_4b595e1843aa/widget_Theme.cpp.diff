@@ -1,0 +1,54 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/Theme.cpp
+# Commit: 4b595e1843aa
+# Full Hash: 4b595e1843aa64b05f111f363838f3adea239f3a
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2024-09-19 21:27:30
+# Regressor Bug: 1918838
+# File Overlap Count: 1
+# Description:
+#   Bug 1918838 - Make CSS zoom apply to themed widgets properly. r=dshin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D222320
+# ==============================================================================
+
+diff -r 68a97b80a5b7 -r 4b595e1843aa widget/Theme.cpp
+--- a/widget/Theme.cpp	Thu Sep 19 09:23:28 2024 +0000
++++ b/widget/Theme.cpp	Thu Sep 19 09:56:50 2024 +0000
+@@ -188,18 +188,15 @@
+   }
+ }
+ 
+-auto Theme::GetDPIRatio(nsPresContext* aPc,
++auto Theme::GetDPIRatio(nsIFrame* aFrame,
+                         StyleAppearance aAppearance) -> DPIRatio {
+   // Widgets react to zoom, except scrollbars.
++  nsPresContext* pc = aFrame->PresContext();
+   if (IsWidgetScrollbarPart(aAppearance)) {
+-    return GetScrollbarDrawing().GetDPIRatioForScrollbarPart(aPc);
++    return GetScrollbarDrawing().GetDPIRatioForScrollbarPart(pc);
+   }
+-  return DPIRatio(float(AppUnitsPerCSSPixel()) / aPc->AppUnitsPerDevPixel());
+-}
+-
+-auto Theme::GetDPIRatio(nsIFrame* aFrame,
+-                        StyleAppearance aAppearance) -> DPIRatio {
+-  return GetDPIRatio(aFrame->PresContext(), aAppearance);
++  return DPIRatio(aFrame->Style()->EffectiveZoom().Zoom(
++      float(AppUnitsPerCSSPixel()) / pc->AppUnitsPerDevPixel()));
+ }
+ 
+ // Checkbox and radio need to preserve aspect-ratio for compat. We also snap the
+@@ -1540,9 +1537,7 @@
+   return GetScrollbarDrawing().GetScrollbarSize(aPresContext, aWidth, aOverlay);
+ }
+ 
+-nscoord Theme::GetCheckboxRadioPrefSize() {
+-  return CSSPixel::ToAppUnits(kCheckboxRadioSize);
+-}
++CSSCoord Theme::GetCheckboxRadioPrefSize() { return kCheckboxRadioSize; }
+ 
+ /* static */
+ UniquePtr<ScrollbarDrawing> Theme::ScrollbarStyle() {

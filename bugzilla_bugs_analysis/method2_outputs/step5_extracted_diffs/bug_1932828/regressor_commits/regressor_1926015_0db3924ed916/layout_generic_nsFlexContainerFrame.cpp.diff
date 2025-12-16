@@ -1,0 +1,49 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/generic/nsFlexContainerFrame.cpp
+# Commit: 0db3924ed916
+# Full Hash: 0db3924ed9160b5d0ae0693c24082a11c43d49c2
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2024-11-22 09:28:00
+# Regressor Bug: 1926015
+# File Overlap Count: 1
+# Description:
+#   Bug 1926015 - Percentage-basis aware intrinsic cache. r=TYLin,dholbert
+#   
+#   This avoids returning wrong intrinsic values with different calls into
+#   intrinsic size computation, which is wrong by definition.
+#   
+# ==============================================================================
+
+diff -r 8a1a1450e750 -r 0db3924ed916 layout/generic/nsFlexContainerFrame.cpp
+--- a/layout/generic/nsFlexContainerFrame.cpp	Thu Nov 21 19:17:26 2024 +0000
++++ b/layout/generic/nsFlexContainerFrame.cpp	Thu Nov 21 19:55:31 2024 +0000
+@@ -2062,9 +2062,7 @@
+ 
+ /* virtual */
+ void nsFlexContainerFrame::MarkIntrinsicISizesDirty() {
+-  mCachedMinISize = NS_INTRINSIC_ISIZE_UNKNOWN;
+-  mCachedPrefISize = NS_INTRINSIC_ISIZE_UNKNOWN;
+-
++  mCachedIntrinsicSizes.Clear();
+   nsContainerFrame::MarkIntrinsicISizesDirty();
+ }
+ 
+@@ -6551,13 +6549,9 @@
+ 
+ nscoord nsFlexContainerFrame::IntrinsicISize(const IntrinsicSizeInput& aInput,
+                                              IntrinsicISizeType aType) {
+-  nscoord& cachedISize = aType == IntrinsicISizeType::MinISize
+-                             ? mCachedMinISize
+-                             : mCachedPrefISize;
+-  if (cachedISize == NS_INTRINSIC_ISIZE_UNKNOWN) {
+-    cachedISize = ComputeIntrinsicISize(aInput, aType);
+-  }
+-  return cachedISize;
++  return mCachedIntrinsicSizes.GetOrSet(*this, aType, aInput, [&] {
++    return ComputeIntrinsicISize(aInput, aType);
++  });
+ }
+ 
+ int32_t nsFlexContainerFrame::GetNumLines() const {

@@ -1,0 +1,47 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/ipc/DocAccessibleChildBase.cpp
+# Commit: 5e92b9c7d479
+# Full Hash: 5e92b9c7d4794af1d7ab0fb5c278c2e681a18fc6
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2023-01-28 21:11:06
+# Regressor Bug: 1811092
+# File Overlap Count: 1
+# Description:
+#   Bug 1811092 - P1: Add new async add/set text selection message. r=Jamie
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D167201
+# ==============================================================================
+
+diff -r 7cebaa85f4ff -r 5e92b9c7d479 accessible/ipc/DocAccessibleChildBase.cpp
+--- a/accessible/ipc/DocAccessibleChildBase.cpp	Fri Jan 27 20:03:06 2023 +0000
++++ b/accessible/ipc/DocAccessibleChildBase.cpp	Fri Jan 27 20:15:11 2023 +0000
+@@ -14,6 +14,7 @@
+ #ifdef A11Y_LOG
+ #  include "Logging.h"
+ #endif
++#include "TextLeafRange.h"
+ 
+ namespace mozilla {
+ namespace a11y {
+@@ -238,6 +239,19 @@
+   return IPC_OK();
+ }
+ 
++mozilla::ipc::IPCResult DocAccessibleChildBase::RecvSetTextSelection(
++    const uint64_t& aStartID, const int32_t& aStartOffset,
++    const uint64_t& aEndID, const int32_t& aEndOffset,
++    const int32_t& aSelectionNum) {
++  TextLeafRange range(TextLeafPoint(IdToAccessible(aStartID), aStartOffset),
++                      TextLeafPoint(IdToAccessible(aEndID), aEndOffset));
++  if (range) {
++    range.SetSelection(aSelectionNum);
++  }
++
++  return IPC_OK();
++}
++
+ LocalAccessible* DocAccessibleChildBase::IdToAccessible(
+     const uint64_t& aID) const {
+   if (!aID) return mDoc;

@@ -1,0 +1,93 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmBaselineCompile.cpp
+# Commit: fb02656bb788
+# Full Hash: fb02656bb788b8111d7159b1691094e429e7fc4f
+# Author: Lars T Hansen <lhansen@mozilla.com>
+# Date: 2021-10-18 16:09:29
+# Regressor Bug: 1727084
+# File Overlap Count: 6
+# Description:
+#   Bug 1727084 - Memory64 - Non-atomic-RMW baseline operations. r=yury
+#   
+#   Implement scalar, SIMD, and atomic loads and stores for the baseline
+#   compiler for x64, x86, arm64, and arm32.  Atomic RMW operations and
+#   wait/notify are in the next patch.
+# ==============================================================================
+
+diff -r 13ee9674ee35 -r fb02656bb788 js/src/wasm/WasmBaselineCompile.cpp
+--- a/js/src/wasm/WasmBaselineCompile.cpp	Mon Oct 18 09:58:14 2021 +0000
++++ b/js/src/wasm/WasmBaselineCompile.cpp	Mon Oct 18 09:58:15 2021 +0000
+@@ -4919,7 +4919,6 @@
+   if (deadCode_) {
+     return true;
+   }
+-  MOZ_ASSERT(isMem32());
+   MemoryAccessDesc access(viewType, addr.align, addr.offset, bytecodeOffset());
+   loadCommon(&access, AccessCheck(), type);
+   return true;
+@@ -4935,7 +4934,6 @@
+   if (deadCode_) {
+     return true;
+   }
+-  MOZ_ASSERT(isMem32());
+   MemoryAccessDesc access(viewType, addr.align, addr.offset, bytecodeOffset());
+   storeCommon(&access, AccessCheck(), resultType);
+   return true;
+@@ -5326,7 +5324,6 @@
+   if (deadCode_) {
+     return true;
+   }
+-  MOZ_ASSERT(isMem32());
+   MemoryAccessDesc access(viewType, addr.align, addr.offset, bytecodeOffset(),
+                           Synchronization::Load());
+   atomicLoad(&access, type);
+@@ -5360,7 +5357,6 @@
+   if (deadCode_) {
+     return true;
+   }
+-  MOZ_ASSERT(isMem32());
+   MemoryAccessDesc access(viewType, addr.align, addr.offset, bytecodeOffset(),
+                           Synchronization::Store());
+   atomicStore(&access, type);
+@@ -7499,7 +7495,6 @@
+   if (deadCode_) {
+     return true;
+   }
+-  MOZ_ASSERT(isMem32());
+   MemoryAccessDesc access(viewType, addr.align, addr.offset, bytecodeOffset());
+   loadSplat(&access);
+   return true;
+@@ -7514,7 +7509,6 @@
+   if (deadCode_) {
+     return true;
+   }
+-  MOZ_ASSERT(isMem32());
+   MemoryAccessDesc access(viewType, addr.align, addr.offset, bytecodeOffset());
+   loadZero(&access);
+   return true;
+@@ -7528,7 +7522,6 @@
+   if (deadCode_) {
+     return true;
+   }
+-  MOZ_ASSERT(isMem32());
+   MemoryAccessDesc access(Scalar::Int64, addr.align, addr.offset,
+                           bytecodeOffset());
+   loadExtend(&access, viewType);
+@@ -7562,7 +7555,6 @@
+     default:
+       MOZ_CRASH("unsupported laneSize");
+   }
+-  MOZ_ASSERT(isMem32());
+   MemoryAccessDesc access(viewType, addr.align, addr.offset, bytecodeOffset());
+   loadLane(&access, laneIndex);
+   return true;
+@@ -7595,7 +7587,6 @@
+     default:
+       MOZ_CRASH("unsupported laneSize");
+   }
+-  MOZ_ASSERT(isMem32());
+   MemoryAccessDesc access(viewType, addr.align, addr.offset, bytecodeOffset());
+   storeLane(&access, laneIndex);
+   return true;

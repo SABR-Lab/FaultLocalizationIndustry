@@ -1,0 +1,30 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/html/TextControlState.cpp
+# Commit: db49d0ca59cb
+# Full Hash: db49d0ca59cb923c14a975c86c8a754ac99b7de1
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2025-03-14 21:11:55
+# Description:
+#   Bug 1953933 - Make `TextEditor::IsEmpty()` return `true` if it's not been initialized yet r=m_kato
+#   
+#   `GetTextNode()` requires that the instance has already been initialized since
+#   it requires the native anonymous `<div>`.  And `IsEmpty()` is a public method.
+#   Therefore, it should return `true` if there is no editor root, i.e., when it's
+# ==============================================================================
+
+diff -r b67cacc3cdf8 -r db49d0ca59cb dom/html/TextControlState.cpp
+--- a/dom/html/TextControlState.cpp	Fri Mar 14 06:25:03 2025 +0000
++++ b/dom/html/TextControlState.cpp	Fri Mar 14 06:41:47 2025 +0000
+@@ -2537,7 +2537,9 @@
+     // XXXbz if we could just get the textContent of our anonymous content (eg
+     // if plaintext editor didn't create <br> nodes all over), we wouldn't need
+     // this.
+-    { /* Scope for AutoNoJSAPI. */
++    // XXX If mTextEditor has not been initialized yet, ComputeTextValue()
++    // anyway returns empty string. Is this always expected here?
++    if (mEditorInitialized) {
+       AutoNoJSAPI nojsapi;
+ 
+       DebugOnly<nsresult> rv = mTextEditor->ComputeTextValue(flags, aValue);

@@ -1,0 +1,28 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/gl/GLContextProviderEGL.cpp
+# Commit: ab256f2ce7f2
+# Full Hash: ab256f2ce7f23c24ea8e2e5a09bb24b4a1a6b2bc
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2020-08-06 21:54:39
+# Description:
+#   Bug 1656853 - Check for EGL context to be alive on destruction r=aosmond,jgilbert
+#   
+#   This probably doesn't matter, as the changes will be rolled back by
+#   https://phabricator.services.mozilla.com/D85496
+#   But the change should fix the crash anyway, for now.
+# ==============================================================================
+
+diff -r 01e7a45cd5e2 -r ab256f2ce7f2 gfx/gl/GLContextProviderEGL.cpp
+--- a/gfx/gl/GLContextProviderEGL.cpp	Thu Aug 06 13:14:53 2020 +0000
++++ b/gfx/gl/GLContextProviderEGL.cpp	Wed Aug 05 21:58:14 2020 +0000
+@@ -392,7 +392,7 @@
+   MarkDestroyed();
+ 
+   // Wrapped context should not destroy eglContext/Surface
+-  if (!mOwnsContext) {
++  if (!mOwnsContext || !mEgl->IsAlive()) {
+     return;
+   }
+ 

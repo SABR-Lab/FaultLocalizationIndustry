@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasource/SourceBufferResource.h
+# Commit: f6df4eb84932
+# Full Hash: f6df4eb84932ddaccae4e53d4897234e0153913e
+# Author: Chris Pearce <cpearce@mozilla.com>
+# Date: 2019-06-14 10:00:22
+# Regressor Bug: 1558364
+# File Overlap Count: 1
+# Description:
+#   Bug 1558364 - Add MediaSpan and use it for TrackBuffersManager::mInputBuffer. r=jya
+#   
+#   As seen in this profile of a Twitch replay: https://perfht.ml/2K9Ydb3 we can
+#   often end up spending time in TrackBuffersManager::CodedFrameProcessing()
+#   shaving off bytes from the front off TrackBuffersManager::mInputBuffer. This
+# ==============================================================================
+
+diff -r e708fe457a95 -r f6df4eb84932 dom/media/mediasource/SourceBufferResource.h
+--- a/dom/media/mediasource/SourceBufferResource.h	Fri Jun 14 00:37:25 2019 +0000
++++ b/dom/media/mediasource/SourceBufferResource.h	Fri Jun 14 02:10:09 2019 +0000
+@@ -88,6 +88,7 @@
+ 
+   // Used by SourceBuffer.
+   void AppendData(MediaByteBuffer* aData);
++  void AppendData(const MediaSpan& aData);
+   void Ended();
+   bool IsEnded() {
+     MOZ_ASSERT(OnThread());
+@@ -95,11 +96,10 @@
+   }
+   // Remove data from resource if it holds more than the threshold reduced by
+   // the given number of bytes. Returns amount evicted.
+-  uint32_t EvictData(uint64_t aPlaybackOffset, int64_t aThresholdReduct,
+-                     ErrorResult& aRv);
++  uint32_t EvictData(uint64_t aPlaybackOffset, int64_t aThresholdReduct);
+ 
+   // Remove data from resource before the given offset.
+-  void EvictBefore(uint64_t aOffset, ErrorResult& aRv);
++  void EvictBefore(uint64_t aOffset);
+ 
+   // Remove all data from the resource
+   uint32_t EvictAll();

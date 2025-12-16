@@ -1,0 +1,27 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/security/nsHTTPSOnlyUtils.cpp
+# Commit: eeb566e9aee6
+# Full Hash: eeb566e9aee6a26dc8b89528b078cb8cc41b47b3
+# Author: Christoph Kerschbaumer <ckerschb@christophkerschbaumer.com>
+# Date: 2020-10-19 21:38:35
+# Description:
+#   Bug 1671720: HTTPS-Only Mode: Query if channel is auth only if we can query nsIHttpChannelInternal. r=dragana
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D93910
+# ==============================================================================
+
+diff -r 7c0018c583b5 -r eeb566e9aee6 dom/security/nsHTTPSOnlyUtils.cpp
+--- a/dom/security/nsHTTPSOnlyUtils.cpp	Mon Oct 19 08:45:04 2020 +0000
++++ b/dom/security/nsHTTPSOnlyUtils.cpp	Mon Oct 19 09:05:12 2020 +0000
+@@ -424,7 +424,8 @@
+   // to upgrade is already in progress or if the channel is an auth channel.
+   // If it is in progress or Auth is in progress, then all good, if not
+   // then let's cancel that channel so we can dispaly the exception page.
+-  nsCOMPtr<nsIChannel> httpsOnlyChannel = mDocumentLoadListener->GetChannel();
++  nsCOMPtr<nsIChannel> docChannel = mDocumentLoadListener->GetChannel();
++  nsCOMPtr<nsIHttpChannel> httpsOnlyChannel = do_QueryInterface(docChannel);
+   if (httpsOnlyChannel) {
+     nsCOMPtr<nsILoadInfo> loadInfo = httpsOnlyChannel->LoadInfo();
+     uint32_t topLevelLoadInProgress =

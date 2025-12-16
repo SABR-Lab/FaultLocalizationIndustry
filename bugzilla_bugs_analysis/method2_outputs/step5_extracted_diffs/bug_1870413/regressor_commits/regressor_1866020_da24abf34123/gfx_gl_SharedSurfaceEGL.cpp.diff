@@ -1,0 +1,31 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/gl/SharedSurfaceEGL.cpp
+# Commit: da24abf34123
+# Full Hash: da24abf341236e00fa47e9e55dc72c82ae8a8c84
+# Author: Jamie Nicol <jnicol@mozilla.com>
+# Date: 2023-12-14 17:20:20
+# Regressor Bug: 1866020
+# File Overlap Count: 1
+# Description:
+#   Bug 1866020 - Override buggy colorspace conversion on Pixel devices. r=gw,padenot,geckoview-reviewers,owlish
+#   
+#   Pixel 6, 7, and 8 devices running Android 14 are affected by a bug
+#   where video frames with SMPTE 432 color primaries are rendered
+#   incorrectly when sampled from an external texture in GLES. To work
+# ==============================================================================
+
+diff -r 3a34e7a424e0 -r da24abf34123 gfx/gl/SharedSurfaceEGL.cpp
+--- a/gfx/gl/SharedSurfaceEGL.cpp	Thu Dec 14 10:08:52 2023 +0000
++++ b/gfx/gl/SharedSurfaceEGL.cpp	Thu Dec 14 10:45:08 2023 +0000
+@@ -254,7 +254,8 @@
+ SharedSurface_SurfaceTexture::ToSurfaceDescriptor() {
+   return Some(layers::SurfaceTextureDescriptor(
+       mSurface->GetHandle(), mDesc.size, gfx::SurfaceFormat::R8G8B8A8,
+-      false /* NOT continuous */, Nothing() /* Do not override transform */));
++      false /* Do NOT override colorspace */, false /* NOT continuous */,
++      Nothing() /* Do not override transform */));
+ }
+ 
+ SurfaceFactory_SurfaceTexture::SurfaceFactory_SurfaceTexture(GLContext& gl)

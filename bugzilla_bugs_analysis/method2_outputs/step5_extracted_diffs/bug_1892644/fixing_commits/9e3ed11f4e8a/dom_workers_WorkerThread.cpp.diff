@@ -1,0 +1,49 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/WorkerThread.cpp
+# Commit: 9e3ed11f4e8a
+# Full Hash: 9e3ed11f4e8a3e4af5fd56d084f142c50eb30bb8
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2024-05-02 16:06:59
+# Description:
+#   Bug 1892644 - Handling WorkerThreadRunnable::Run() after Worker is "Dead". r=asuth
+#   
+#   In bug 1769913, we remove the WorkerThreadRunnable's raw pointer to the corresponding WorkerPrivate and expect the corresponding WorkerPrivate to be obtained by GetCurrentThreadWorkerPrivate() when WorkerThreadRunnable::Run executing.
+#   
+#   In general, the assumption is correct. However, it could be violated in the following two situations.
+# ==============================================================================
+
+diff -r 810c65d8b2d3 -r 9e3ed11f4e8a dom/workers/WorkerThread.cpp
+--- a/dom/workers/WorkerThread.cpp	Thu May 02 06:34:16 2024 +0000
++++ b/dom/workers/WorkerThread.cpp	Thu May 02 06:37:51 2024 +0000
+@@ -246,8 +246,13 @@
+ 
+   WorkerPrivate* workerPrivate = nullptr;
+   if (onWorkerThread) {
++    // If the mWorkerPrivate has already disconnected by
++    // WorkerPrivate::ResetWorkerPrivateInWorkerThread(), there is no chance
++    // that to execute this runnable. Return NS_ERROR_UNEXPECTED here.
++    if (!mWorkerPrivate) {
++      return NS_ERROR_UNEXPECTED;
++    }
+     // No need to lock here because it is only modified on this thread.
+-    MOZ_ASSERT(mWorkerPrivate);
+     mWorkerPrivate->AssertIsOnWorkerThread();
+ 
+     workerPrivate = mWorkerPrivate;
+@@ -266,13 +271,7 @@
+   }
+ 
+   nsresult rv;
+-  if (runnable && onWorkerThread) {
+-    RefPtr<WorkerRunnable> workerRunnable =
+-        workerPrivate->MaybeWrapAsWorkerRunnable(runnable.forget());
+-    rv = nsThread::Dispatch(workerRunnable.forget(), NS_DISPATCH_NORMAL);
+-  } else {
+-    rv = nsThread::Dispatch(runnable.forget(), NS_DISPATCH_NORMAL);
+-  }
++  rv = nsThread::Dispatch(runnable.forget(), NS_DISPATCH_NORMAL);
+ 
+   if (!onWorkerThread && workerPrivate) {
+     // We need to wake the worker thread if we're not already on the right

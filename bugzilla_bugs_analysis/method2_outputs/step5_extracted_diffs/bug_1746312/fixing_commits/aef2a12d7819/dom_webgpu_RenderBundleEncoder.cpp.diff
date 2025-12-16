@@ -1,0 +1,54 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/webgpu/RenderBundleEncoder.cpp
+# Commit: aef2a12d7819
+# Full Hash: aef2a12d7819577e36f239d5be3a248d42e34929
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2022-01-05 09:33:53
+# Description:
+#   Bug 1746312 - Return WebGPU errors from RenderBundle creation r=jimb
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D134986
+# ==============================================================================
+
+diff -r b0072bfee83c -r aef2a12d7819 dom/webgpu/RenderBundleEncoder.cpp
+--- a/dom/webgpu/RenderBundleEncoder.cpp	Tue Jan 04 23:00:53 2022 +0000
++++ b/dom/webgpu/RenderBundleEncoder.cpp	Tue Jan 04 23:04:08 2022 +0000
+@@ -29,7 +29,8 @@
+ }
+ 
+ ffi::WGPURenderBundleEncoder* CreateRenderBundleEncoder(
+-    RawId aDeviceId, const dom::GPURenderBundleEncoderDescriptor& aDesc) {
++    RawId aDeviceId, const dom::GPURenderBundleEncoderDescriptor& aDesc,
++    WebGPUChild* const aBridge) {
+   ffi::WGPURenderBundleEncoderDescriptor desc = {};
+   desc.sample_count = aDesc.mSampleCount;
+ 
+@@ -56,14 +57,24 @@
+   desc.color_formats = colorFormats.data();
+   desc.color_formats_length = colorFormats.size();
+ 
+-  return ffi::wgpu_device_create_render_bundle_encoder(aDeviceId, &desc);
++  ipc::ByteBuf failureAction;
++  auto* bundle = ffi::wgpu_device_create_render_bundle_encoder(
++      aDeviceId, &desc, ToFFI(&failureAction));
++  // report an error only if the operation failed
++  if (!bundle &&
++      !aBridge->SendDeviceAction(aDeviceId, std::move(failureAction))) {
++    MOZ_CRASH("IPC failure");
++  }
++  return bundle;
+ }
+ 
+ RenderBundleEncoder::RenderBundleEncoder(
+     Device* const aParent, WebGPUChild* const aBridge,
+     const dom::GPURenderBundleEncoderDescriptor& aDesc)
+     : ChildOf(aParent),
+-      mEncoder(CreateRenderBundleEncoder(aParent->mId, aDesc)) {}
++      mEncoder(CreateRenderBundleEncoder(aParent->mId, aDesc, aBridge)) {
++  mValid = mEncoder.get() != nullptr;
++}
+ 
+ RenderBundleEncoder::~RenderBundleEncoder() { Cleanup(); }
+ 

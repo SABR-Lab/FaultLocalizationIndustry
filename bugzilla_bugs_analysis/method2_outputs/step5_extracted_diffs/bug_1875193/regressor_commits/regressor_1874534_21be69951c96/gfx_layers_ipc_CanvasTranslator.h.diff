@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/CanvasTranslator.h
+# Commit: 21be69951c96
+# Full Hash: 21be69951c962d3833d7117f56c2909b20b3d841
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2024-01-14 09:31:25
+# Regressor Bug: 1874534
+# File Overlap Count: 2
+# Description:
+#   Bug 1874534 - Fix DrawTargetWebgl and RemoteTextureMap context loss handling. r=aosmond
+#   
+#   When a context loss occurs on DrawTargetWebgl, this may result in a fallback TextureData
+#   being created. Each of these are currently managed by two different RemoteTextureOwnerClients.
+#   This is not really safe at all.
+# ==============================================================================
+
+diff -r 0930954b46bb -r 21be69951c96 gfx/layers/ipc/CanvasTranslator.h
+--- a/gfx/layers/ipc/CanvasTranslator.h	Sat Jan 13 18:00:25 2024 +0000
++++ b/gfx/layers/ipc/CanvasTranslator.h	Sat Jan 13 18:19:24 2024 +0000
+@@ -299,7 +299,8 @@
+                                            gfx::SurfaceFormat aFormat,
+                                            bool aClear);
+ 
+-  void EnsureRemoteTextureOwner(RemoteTextureOwnerId aOwnerId);
++  void EnsureRemoteTextureOwner(
++      RemoteTextureOwnerId aOwnerId = RemoteTextureOwnerId());
+ 
+   UniquePtr<TextureData> CreateOrRecycleTextureData(const gfx::IntSize& aSize,
+                                                     gfx::SurfaceFormat aFormat);
+@@ -318,7 +319,8 @@
+   void NotifyDeviceChanged();
+ 
+   bool EnsureSharedContextWebgl();
+-  gfx::DrawTargetWebgl* GetDrawTargetWebgl(int64_t aTextureId) const;
++  gfx::DrawTargetWebgl* GetDrawTargetWebgl(int64_t aTextureId,
++                                           bool aCheckForFallback = true) const;
+   void NotifyRequiresRefresh(int64_t aTextureId, bool aDispatch = true);
+   void CacheSnapshotShmem(int64_t aTextureId, bool aDispatch = true);
+ 
+@@ -373,7 +375,8 @@
+     int32_t mLocked = 1;
+     OpenMode mTextureLockMode = OpenMode::OPEN_NONE;
+ 
+-    gfx::DrawTargetWebgl* GetDrawTargetWebgl() const;
++    gfx::DrawTargetWebgl* GetDrawTargetWebgl(
++        bool aCheckForFallback = true) const;
+   };
+   std::unordered_map<int64_t, TextureInfo> mTextureInfo;
+   nsRefPtrHashtable<nsPtrHashKey<void>, gfx::DataSourceSurface> mDataSurfaces;

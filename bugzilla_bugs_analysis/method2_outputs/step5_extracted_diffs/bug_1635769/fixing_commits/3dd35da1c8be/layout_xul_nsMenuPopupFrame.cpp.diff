@@ -1,0 +1,30 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: layout/xul/nsMenuPopupFrame.cpp
+# Commit: 3dd35da1c8be
+# Full Hash: 3dd35da1c8bee1353c935e045e7518bc01ea3e77
+# Author: sotaro <sotaro.ikeda.g@gmail.com>
+# Date: 2020-05-09 21:30:55
+# Description:
+#   Bug 1635769 - Call WebRenderLayerManager::ClearCachedResources() during re-creating widget r=tnikkel
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D74392
+# ==============================================================================
+
+diff -r efb86c809f5c -r 3dd35da1c8be layout/xul/nsMenuPopupFrame.cpp
+--- a/layout/xul/nsMenuPopupFrame.cpp	Sat May 09 09:38:52 2020 +0300
++++ b/layout/xul/nsMenuPopupFrame.cpp	Sat May 09 05:44:37 2020 +0000
+@@ -257,6 +257,12 @@
+ void nsMenuPopupFrame::EnsureWidget(bool aRecreate) {
+   nsView* ourView = GetView();
+   if (aRecreate) {
++    auto* widget = GetWidget();
++    if (widget) {
++      // Widget's WebRender resources needs to be cleared before creating new
++      // widget.
++      widget->ClearCachedWebrenderResources();
++    }
+     ourView->DestroyWidget();
+   }
+   if (!ourView->HasWidget()) {

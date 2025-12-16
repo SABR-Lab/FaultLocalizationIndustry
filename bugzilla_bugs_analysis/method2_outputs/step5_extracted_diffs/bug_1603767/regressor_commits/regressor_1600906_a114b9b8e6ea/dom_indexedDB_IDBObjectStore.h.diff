@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/indexedDB/IDBObjectStore.h
+# Commit: a114b9b8e6ea
+# Full Hash: a114b9b8e6eaa23a445a31efc436f4e367f7874f
+# Author: Simon Giesecke <sgiesecke@mozilla.com>
+# Date: 2020-01-10 21:49:10
+# Regressor Bug: 1600906
+# File Overlap Count: 1
+# Description:
+#   Bug 1600906 - Convert IDBCursor and BackgroundCursorChild to templates to increase type safety and reduce state. r=dom-workers-and-storage-reviewers,ytausky
+#   
+#   This also simplifies delegating calls that are dependent on the cursor type.
+#   
+#   Also reduce dependency on IDBCursor.h by moving enums and type traits to IDBCursorType.h
+# ==============================================================================
+
+diff -r cc3cfee4a014 -r a114b9b8e6ea dom/indexedDB/IDBObjectStore.h
+--- a/dom/indexedDB/IDBObjectStore.h	Fri Jan 10 11:07:59 2020 +0000
++++ b/dom/indexedDB/IDBObjectStore.h	Fri Jan 10 14:21:18 2020 +0000
+@@ -7,6 +7,7 @@
+ #ifndef mozilla_dom_idbobjectstore_h__
+ #define mozilla_dom_idbobjectstore_h__
+ 
++#include "IDBCursor.h"
+ #include "js/RootingAPI.h"
+ #include "mozilla/dom/IDBCursorBinding.h"
+ #include "mozilla/dom/IDBIndexBinding.h"
+@@ -27,7 +28,6 @@
+ namespace dom {
+ 
+ class DOMStringList;
+-class IDBCursor;
+ class IDBRequest;
+ class IDBTransaction;
+ class StringOrStringSequence;
+@@ -50,7 +50,9 @@
+   typedef indexedDB::StructuredCloneReadInfo StructuredCloneReadInfo;
+ 
+   // For AddOrPut() and DeleteInternal().
+-  friend class IDBCursor;
++  // TODO Consider removing this, and making the functions public?
++  template <IDBCursor::Type>
++  friend class IDBTypedCursor;
+ 
+   static const JSClass sDummyPropJSClass;
+ 

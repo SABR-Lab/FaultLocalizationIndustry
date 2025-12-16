@@ -1,0 +1,30 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/ipc/CanvasChild.cpp
+# Commit: 986bbc7b49b1
+# Full Hash: 986bbc7b49b1f3305c5ef9ba399e2e77ab574d47
+# Author: Andrew Osmond <aosmond@mozilla.com>
+# Date: 2023-12-19 05:06:09
+# Description:
+#   Bug 1870683 - Ensure CanvasChild::EnsureDataSurfaceShmem checks for uninitialized state. r=gfx-reviewers,lsalzman
+#   
+#   If we fail to create CanvasChild::mRecorder, we shouldn't attempt to
+#   readback a recording surface that never got created.
+#   
+# ==============================================================================
+
+diff -r 98cba9e72d8c -r 986bbc7b49b1 gfx/layers/ipc/CanvasChild.cpp
+--- a/gfx/layers/ipc/CanvasChild.cpp	Mon Dec 18 19:26:42 2023 +0000
++++ b/gfx/layers/ipc/CanvasChild.cpp	Mon Dec 18 20:01:48 2023 +0000
+@@ -314,6 +314,10 @@
+ 
+ bool CanvasChild::EnsureDataSurfaceShmem(gfx::IntSize aSize,
+                                          gfx::SurfaceFormat aFormat) {
++  if (!mRecorder) {
++    return false;
++  }
++
+   size_t sizeRequired =
+       ImageDataSerializer::ComputeRGBBufferSize(aSize, aFormat);
+   if (!sizeRequired) {

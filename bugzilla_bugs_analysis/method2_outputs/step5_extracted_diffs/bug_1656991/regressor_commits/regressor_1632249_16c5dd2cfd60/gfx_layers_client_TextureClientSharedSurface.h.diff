@@ -1,0 +1,75 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/client/TextureClientSharedSurface.h
+# Commit: 16c5dd2cfd60
+# Full Hash: 16c5dd2cfd600a62c80ca17cfb35c0868e016056
+# Author: Jeff Gilbert <jgilbert@mozilla.com>
+# Date: 2020-06-15 21:48:38
+# Regressor Bug: 1632249
+# File Overlap Count: 1
+# Description:
+#   Bug 1632249 - Support compositing out-of-process WebGL. r=handyman,lsalzman,nical,geckoview-reviewers,agi,imanol
+#   
+#   * Majorly simplity CanvasRenderer
+#   * Replace GLScreenBuffer with trivial GLSwapChain
+#   * Use descriptor structs so that future SharedSurface changes aren't so painful
+# ==============================================================================
+
+diff -r ca8139d58d58 -r 16c5dd2cfd60 gfx/layers/client/TextureClientSharedSurface.h
+--- a/gfx/layers/client/TextureClientSharedSurface.h	Fri Jun 12 21:53:14 2020 +0000
++++ b/gfx/layers/client/TextureClientSharedSurface.h	Mon Jun 15 18:25:55 2020 +0000
+@@ -30,14 +30,15 @@
+ class SharedSurfaceTextureClient;
+ 
+ class SharedSurfaceTextureData : public TextureData {
+- protected:
+-  const UniquePtr<gl::SharedSurface> mSurf;
+-
+   friend class SharedSurfaceTextureClient;
+ 
+-  explicit SharedSurfaceTextureData(UniquePtr<gl::SharedSurface> surf);
++ public:
++  const SurfaceDescriptor mDesc;
++  const gfx::SurfaceFormat mFormat;
++  const gfx::IntSize mSize;
+ 
+- public:
++  SharedSurfaceTextureData(const SurfaceDescriptor&, gfx::SurfaceFormat,
++                           gfx::IntSize);
+   virtual ~SharedSurfaceTextureData();
+ 
+   bool Lock(OpenMode) override { return false; }
+@@ -49,10 +50,8 @@
+   bool Serialize(SurfaceDescriptor& aOutDescriptor) override;
+ 
+   void Deallocate(LayersIPCChannel*) override;
+-
+-  gl::SharedSurface* Surf() const { return mSurf.get(); }
+ };
+-
++/*
+ class SharedSurfaceTextureClient : public TextureClient {
+  public:
+   SharedSurfaceTextureClient(SharedSurfaceTextureData* aData,
+@@ -60,16 +59,16 @@
+ 
+   ~SharedSurfaceTextureClient();
+ 
+-  static already_AddRefed<SharedSurfaceTextureClient> Create(
++  static RefPtr<SharedSurfaceTextureClient> Create(
+       UniquePtr<gl::SharedSurface> surf, gl::SurfaceFactory* factory,
+       LayersIPCChannel* aAllocator, TextureFlags aFlags);
+ 
+-  gl::SharedSurface* Surf() const {
++  const auto& Desc() const {
+     return static_cast<const SharedSurfaceTextureData*>(GetInternalData())
+-        ->Surf();
++        ->mDesc;
+   }
+ };
+-
++*/
+ }  // namespace layers
+ }  // namespace mozilla
+ 

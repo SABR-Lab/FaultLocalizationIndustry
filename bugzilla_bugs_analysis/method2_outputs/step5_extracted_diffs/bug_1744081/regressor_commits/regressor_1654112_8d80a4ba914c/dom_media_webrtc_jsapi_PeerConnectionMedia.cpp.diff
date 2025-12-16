@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/jsapi/PeerConnectionMedia.cpp
+# Commit: 8d80a4ba914c
+# Full Hash: 8d80a4ba914c6f81430ba1c55471a8d2b3aac60e
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 2
+# Description:
+#   Bug 1654112 - Create CallWorkerThread which implements AbstractThread for a TaskQueueWrapper. r=ng
+#   
+#   Ideally TaskQueueWrapper would implement both webrtc::TaskQueueBase and
+#   AbstractThread, but webrtc::TaskQueueBase is not refcounted so implementing both
+#   in the same class is not possible.
+# ==============================================================================
+
+diff -r e0a2e54e4de8 -r 8d80a4ba914c dom/media/webrtc/jsapi/PeerConnectionMedia.cpp
+--- a/dom/media/webrtc/jsapi/PeerConnectionMedia.cpp	Thu Apr 08 11:31:43 2021 +0200
++++ b/dom/media/webrtc/jsapi/PeerConnectionMedia.cpp	Mon Apr 12 14:49:20 2021 +0200
+@@ -610,9 +610,8 @@
+   mQueuedIceCtxOperations.clear();
+ 
+   if (mCall) {
+-    // Clear any resources held by libwebrtc
+-    // mMainThread because that's the Call worker thread for now
+-    mMainThread->Dispatch(NS_NewRunnableFunction(
++    // Clear any resources held by libwebrtc through our Call instance.
++    mCall->mCallThread->Dispatch(NS_NewRunnableFunction(
+         "PeerConnectionMedia::SelfDestruct(mCall)",
+         [call = std::move(mCall)]() { call->Destroy(); }));
+   }

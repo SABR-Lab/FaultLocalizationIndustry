@@ -1,0 +1,89 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webcodecs/VideoDecoder.cpp
+# Commit: e903ac081227
+# Full Hash: e903ac0812273c476426eba3462c4bb2977c4f2f
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2023-12-23 09:52:03
+# Regressor Bug: 1749047
+# File Overlap Count: 3
+# Description:
+#   Bug 1749047 - Move and deduplicate some utility functions to WebCodecUtils. r=chunmin
+#   
+#   They will be reused for the encoding side.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D195699
+# ==============================================================================
+
+diff -r 029f5470314e -r e903ac081227 dom/media/webcodecs/VideoDecoder.cpp
+--- a/dom/media/webcodecs/VideoDecoder.cpp	Fri Dec 22 21:39:04 2023 +0000
++++ b/dom/media/webcodecs/VideoDecoder.cpp	Fri Dec 22 21:39:05 2023 +0000
+@@ -121,8 +121,9 @@
+ /*static*/
+ UniquePtr<VideoDecoderConfigInternal> VideoDecoderConfigInternal::Create(
+     const VideoDecoderConfig& aConfig) {
+-  if (!VideoDecoderTraits::Validate(aConfig)) {
+-    LOGE("Failed to create VideoDecoderConfigInternal");
++  nsCString errorMessage;
++  if (!VideoDecoderTraits::Validate(aConfig, errorMessage)) {
++    LOGE("Failed to create VideoDecoderConfigInternal: %s", errorMessage.get());
+     return nullptr;
+   }
+ 
+@@ -188,22 +189,6 @@
+   return types;
+ }
+ 
+-static bool IsOnAndroid() {
+-#if defined(ANDROID)
+-  return true;
+-#else
+-  return false;
+-#endif
+-}
+-
+-static bool IsOnMacOS() {
+-#if defined(XP_MACOSX)
+-  return true;
+-#else
+-  return false;
+-#endif
+-}
+-
+ static bool IsSupportedCodec(const nsAString& aCodec) {
+   // H265 is unsupported.
+   if (!IsAV1CodecString(aCodec) && !IsVP9CodecString(aCodec) &&
+@@ -281,7 +266,8 @@
+ static Result<Ok, nsresult> CloneConfiguration(
+     RootedDictionary<VideoDecoderConfig>& aDest, JSContext* aCx,
+     const VideoDecoderConfig& aConfig) {
+-  MOZ_ASSERT(VideoDecoderTraits::Validate(aConfig));
++  DebugOnly<nsCString> str;
++  MOZ_ASSERT(VideoDecoderTraits::Validate(aConfig, str));
+ 
+   aDest.mCodec = aConfig.mCodec;
+   if (aConfig.mCodedHeight.WasPassed()) {
+@@ -646,7 +632,8 @@
+ 
+ // https://w3c.github.io/webcodecs/#valid-videodecoderconfig
+ /* static */
+-bool VideoDecoderTraits::Validate(const VideoDecoderConfig& aConfig) {
++bool VideoDecoderTraits::Validate(const VideoDecoderConfig& aConfig,
++                                  nsCString& aErrorMessage) {
+   Maybe<nsString> codec = ParseCodecString(aConfig.mCodec);
+   if (!codec || codec->IsEmpty()) {
+     LOGE("Invalid codec string");
+@@ -753,8 +740,10 @@
+     return p.forget();
+   }
+ 
+-  if (!VideoDecoderTraits::Validate(aConfig)) {
+-    p->MaybeRejectWithTypeError("config is invalid");
++  nsCString errorMessage;
++  if (!VideoDecoderTraits::Validate(aConfig, errorMessage)) {
++    p->MaybeRejectWithTypeError(nsPrintfCString(
++        "VideoDecoderConfig is invalid: %s", errorMessage.get()));
+     return p.forget();
+   }
+ 

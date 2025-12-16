@@ -1,0 +1,60 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/tests/test_assign_event_data.html
+# Commit: 0ea945553f63
+# Full Hash: 0ea945553f63659b99fd37265c5e7a764f70504d
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2024-12-03 16:21:08
+# Regressor Bug: 1680669
+# File Overlap Count: 1
+# Description:
+#   Bug 1680669 - part 6: Make methods of `MouseEvent` and static methods of `Event` aware of fractional coordinates r=smaug,emilio,webdriver-reviewers
+#   
+#   `screenX`, `screenY`, `clientX`, `clientY`, `x`, `y`, `offsetX` and `offsetY`
+#   are now `double`.  This patch makes the event classes aware of DOM events.
+#   
+# ==============================================================================
+
+diff -r 98d5a05c6c6e -r 0ea945553f63 widget/tests/test_assign_event_data.html
+--- a/widget/tests/test_assign_event_data.html	Tue Dec 03 07:10:01 2024 +0000
++++ b/widget/tests/test_assign_event_data.html	Tue Dec 03 07:10:05 2024 +0000
+@@ -260,7 +260,18 @@
+     },
+     todoMismatch: [],
+   },
+-  { description: "WidgetMouseEvent (click of middle button with Shift)",
++  { description: "WidgetPointerEvent (pointerdown of left button without modifier)",
++    targetID: "button", eventType: "pointerdown",
++    dispatchEvent() {
++      synthesizeMouseAtCenter(document.getElementById(this.targetID),
++                              { button: 0 });
++    },
++    canRun() {
++      return true;
++    },
++    todoMismatch: [],
++  },
++  { description: "WidgetPointerEvent (click of middle button with Shift)",
+     targetID: "button", eventType: "auxclick",
+     dispatchEvent() {
+       document.getElementById(this.targetID).value = "";
+@@ -284,6 +295,18 @@
+     },
+     todoMismatch: [],
+   },
++  { description: "WidgetPointerEvent (pointerup of right button with Alt)",
++    targetID: "button", eventType: "pointerup",
++    dispatchEvent() {
++      document.getElementById(this.targetID).value = "";
++      synthesizeMouseAtCenter(document.getElementById(this.targetID),
++                              { button: 2, altKey: true });
++    },
++    canRun() {
++      return true;
++    },
++    todoMismatch: [],
++  },
+   { description: "WidgetDragEvent",
+     targetID: "input-text", eventType: "dragstart",
+     dispatchEvent() {

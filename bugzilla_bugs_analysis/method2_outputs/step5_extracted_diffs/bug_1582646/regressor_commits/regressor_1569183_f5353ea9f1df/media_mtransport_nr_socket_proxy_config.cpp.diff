@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/mtransport/nr_socket_proxy_config.cpp
+# Commit: f5353ea9f1df
+# Full Hash: f5353ea9f1dfe15a65076bc7aa272d688ebdb8ca
+# Author: Byron Campen [:bwc] <docfaraday@gmail.com>
+# Date: 2019-09-18 21:49:27
+# Regressor Bug: 1569183
+# File Overlap Count: 2
+# Description:
+#   Bug 1569183: Add a proxy policy argument to NrSocketProxyConfig, and always set this config on the NrIceCtx. r=mjf
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D45101
+# ==============================================================================
+
+diff -r ed1ae6a85255 -r f5353ea9f1df media/mtransport/nr_socket_proxy_config.cpp
+--- a/media/mtransport/nr_socket_proxy_config.cpp	Tue Sep 17 18:17:13 2019 +0000
++++ b/media/mtransport/nr_socket_proxy_config.cpp	Tue Sep 17 18:17:14 2019 +0000
+@@ -16,12 +16,14 @@
+   uint64_t mTabId;
+   nsCString mAlpn;
+   net::LoadInfoArgs mLoadInfoArgs;
++  ProxyPolicy mProxyPolicy;
+ };
+ 
+ NrSocketProxyConfig::NrSocketProxyConfig(uint64_t aTabId,
+                                          const nsCString& aAlpn,
+-                                         const net::LoadInfoArgs& aArgs)
+-    : mPrivate(new Private({aTabId, aAlpn, aArgs})) {}
++                                         const net::LoadInfoArgs& aArgs,
++                                         ProxyPolicy aProxyPolicy)
++    : mPrivate(new Private({aTabId, aAlpn, aArgs, aProxyPolicy})) {}
+ 
+ NrSocketProxyConfig::NrSocketProxyConfig(NrSocketProxyConfig&& aOrig)
+     : mPrivate(std::move(aOrig.mPrivate)) {}
+@@ -38,4 +40,7 @@
+   return mPrivate->mLoadInfoArgs;
+ }
+ 
++NrSocketProxyConfig::ProxyPolicy NrSocketProxyConfig::GetProxyPolicy() const {
++  return mPrivate->mProxyPolicy;
++}
+ }  // namespace mozilla

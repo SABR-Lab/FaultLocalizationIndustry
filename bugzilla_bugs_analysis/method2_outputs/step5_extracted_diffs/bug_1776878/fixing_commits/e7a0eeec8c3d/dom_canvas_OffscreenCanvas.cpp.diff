@@ -1,0 +1,39 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: dom/canvas/OffscreenCanvas.cpp
+# Commit: e7a0eeec8c3d
+# Full Hash: e7a0eeec8c3d981836f6ad3091d65d8b8d009848
+# Author: Jens Stutte <jstutte@mozilla.com>
+# Date: 2022-07-07 09:37:57
+# Description:
+#   Bug 1776878 - Extract the WorkerRef initialization from the EventCallback constructor. r=smaug
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D150491
+# ==============================================================================
+
+diff -r c3878c884a09 -r e7a0eeec8c3d dom/canvas/OffscreenCanvas.cpp
+--- a/dom/canvas/OffscreenCanvas.cpp	Wed Jul 06 17:39:57 2022 +0000
++++ b/dom/canvas/OffscreenCanvas.cpp	Wed Jul 06 17:43:24 2022 +0000
+@@ -280,7 +280,9 @@
+   class EncodeCallback : public EncodeCompleteCallback {
+    public:
+     explicit EncodeCallback(Promise* aPromise)
+-        : mPromise(aPromise), mCanceled(false) {
++        : mPromise(aPromise), mCanceled(false) {}
++
++    void MaybeInitWorkerRef() {
+       WorkerPrivate* wp = GetCurrentThreadWorkerPrivate();
+       if (wp) {
+         mWorkerRef = WeakWorkerRef::Create(
+@@ -327,7 +329,9 @@
+     Atomic<bool> mCanceled;
+   };
+ 
+-  return MakeAndAddRef<EncodeCallback>(aPromise);
++  RefPtr<EncodeCallback> p = MakeAndAddRef<EncodeCallback>(aPromise);
++  p->MaybeInitWorkerRef();
++  return p.forget();
+ }
+ 
+ already_AddRefed<Promise> OffscreenCanvas::ConvertToBlob(

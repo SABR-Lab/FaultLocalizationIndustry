@@ -1,0 +1,116 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: third_party/rust/naga/src/front/wgsl/lexer.rs
+# Commit: ef5dc3e04e5f
+# Full Hash: ef5dc3e04e5f271eea0636ab3a495e95cc912f1d
+# Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+# Date: 2021-09-04 09:40:24
+# Regressor Bug: 1726626
+# File Overlap Count: 3
+# Description:
+#   Bug 1726626 - Move gfx/wgpu into a 3rd party dependency r=jgilbert,bholley
+#   
+#   This update makes wgpu a vendored dependency instead of having it in gfx/wgpu.
+#   
+#   ## Notes
+# ==============================================================================
+
+diff --git a/third_party/rust/naga/src/front/wgsl/lexer.rs b/third_party/rust/naga/src/front/wgsl/lexer.rs
+--- a/third_party/rust/naga/src/front/wgsl/lexer.rs
++++ b/third_party/rust/naga/src/front/wgsl/lexer.rs
+@@ -192,20 +192,24 @@ impl<'a> Lexer<'a> {
+ 
+     fn peek_token_and_rest(&mut self) -> (TokenSpan<'a>, &'a str) {
+         let mut cloned = self.clone();
+         let token = cloned.next();
+         let rest = cloned.input;
+         (token, rest)
+     }
+ 
+-    fn current_byte_offset(&self) -> usize {
++    pub(super) fn current_byte_offset(&self) -> usize {
+         self.source.len() - self.input.len()
+     }
+ 
++    pub(super) fn span_from(&self, offset: usize) -> Span {
++        offset..self.current_byte_offset()
++    }
++
+     #[must_use]
+     pub(super) fn next(&mut self) -> TokenSpan<'a> {
+         let mut start_byte_offset = self.current_byte_offset();
+         loop {
+             let (token, rest) = consume_token(self.input, false);
+             self.input = rest;
+             match token {
+                 Token::Trivia => start_byte_offset = self.current_byte_offset(),
+@@ -342,22 +346,36 @@ impl<'a> Lexer<'a> {
+                 .map(|(a, b)| (a, b, span.clone()))
+                 .ok_or(Error::UnknownScalarType(span)),
+             (_, span) => Err(Error::UnknownScalarType(span)),
+         }?;
+         self.expect_generic_paren('>')?;
+         Ok(pair)
+     }
+ 
+-    pub(super) fn next_format_generic(&mut self) -> Result<crate::StorageFormat, Error<'a>> {
++    // TODO relocate storage texture specifics
++    pub(super) fn next_format_generic(
++        &mut self,
++    ) -> Result<(crate::StorageFormat, crate::StorageAccess), Error<'a>> {
+         self.expect(Token::Paren('<'))?;
+         let (ident, ident_span) = self.next_ident_with_span()?;
+         let format = conv::map_storage_format(ident, ident_span)?;
++        let access = if self.skip(Token::Separator(',')) {
++            let (raw, span) = self.next_ident_with_span()?;
++            match raw {
++                "read" => crate::StorageAccess::LOAD,
++                "write" => crate::StorageAccess::STORE,
++                "read_write" => crate::StorageAccess::all(),
++                _ => return Err(Error::UnknownAccess(span)),
++            }
++        } else {
++            crate::StorageAccess::LOAD
++        };
+         self.expect(Token::Paren('>'))?;
+-        Ok(format)
++        Ok((format, access))
+     }
+ 
+     pub(super) fn open_arguments(&mut self) -> Result<(), Error<'a>> {
+         self.expect(Token::Paren('('))
+     }
+ 
+     pub(super) fn close_arguments(&mut self) -> Result<(), Error<'a>> {
+         let _ = self.skip(Token::Separator(','));
+@@ -450,10 +468,28 @@ fn test_variable_decl() {
+             Token::Word("texture"),
+             Token::Separator(':'),
+             Token::Word("texture_multisampled_2d"),
+             Token::Paren('<'),
+             Token::Word("f32"),
+             Token::Paren('>'),
+             Token::Separator(';'),
+         ],
+-    )
++    );
++    sub_test(
++        "var<storage,read_write> buffer: array<u32>;",
++        &[
++            Token::Word("var"),
++            Token::Paren('<'),
++            Token::Word("storage"),
++            Token::Separator(','),
++            Token::Word("read_write"),
++            Token::Paren('>'),
++            Token::Word("buffer"),
++            Token::Separator(':'),
++            Token::Word("array"),
++            Token::Paren('<'),
++            Token::Word("u32"),
++            Token::Paren('>'),
++            Token::Separator(';'),
++        ],
++    );
+ }

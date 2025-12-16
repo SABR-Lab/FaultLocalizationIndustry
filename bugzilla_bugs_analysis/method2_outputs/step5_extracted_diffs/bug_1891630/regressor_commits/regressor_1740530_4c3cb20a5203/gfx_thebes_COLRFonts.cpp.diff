@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/COLRFonts.cpp
+# Commit: 4c3cb20a5203
+# Full Hash: 4c3cb20a52034b3cead6ac88e008f17bd446fb1c
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2022-08-16 16:01:29
+# Regressor Bug: 1740530
+# File Overlap Count: 1
+# Description:
+#   Bug 1740530 - patch 7 - Route COLRv1 fonts on macOS through our COLR-rendering path; only COLRv0 can use the native Core Text support. r=gfx-reviewers,lsalzman
+#   
+#   Depends on D153880
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D152162
+# ==============================================================================
+
+diff -r 275eb6c4900b -r 4c3cb20a5203 gfx/thebes/COLRFonts.cpp
+--- a/gfx/thebes/COLRFonts.cpp	Tue Aug 16 10:39:52 2022 +0000
++++ b/gfx/thebes/COLRFonts.cpp	Tue Aug 16 10:39:52 2022 +0000
+@@ -987,8 +987,17 @@
+     UniquePtr<Pattern> fillPattern =
+         DispatchMakePattern(aState, aOffset + paintOffset);
+     if (fillPattern) {
++      // On macOS we can't use FillGlyphs because when we render the glyph,
++      // Core Text's own color font support may step in and ignore the
++      // pattern. So to avoid this, fill the glyph as a path instead.
++#if XP_MACOSX
++      RefPtr<Path> path =
++          aState.mScaledFont->GetPathForGlyphs(buffer, aState.mDrawTarget);
++      aState.mDrawTarget->Fill(path, *fillPattern, aState.mDrawOptions);
++#else
+       aState.mDrawTarget->FillGlyphs(aState.mScaledFont, buffer, *fillPattern,
+                                      aState.mDrawOptions);
++#endif
+       return true;
+     }
+     RefPtr<Path> path =

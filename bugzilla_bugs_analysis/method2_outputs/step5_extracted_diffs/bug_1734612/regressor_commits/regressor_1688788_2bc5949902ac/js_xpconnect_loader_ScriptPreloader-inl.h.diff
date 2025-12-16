@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/xpconnect/loader/ScriptPreloader-inl.h
+# Commit: 2bc5949902ac
+# Full Hash: 2bc5949902acc042205fc7e85260bbbc37dbedc7
+# Author: Matthew Gaudet <mgaudet@mozilla.com>
+# Date: 2021-09-18 09:46:57
+# Regressor Bug: 1688788
+# File Overlap Count: 1
+# Description:
+#   Bug 1688788 - Convert ScriptPreloader to manage Stencils, not Scripts. r=kmag,tcampbell
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D113013
+# ==============================================================================
+
+diff -r e660e2c3c3d1 -r 2bc5949902ac js/xpconnect/loader/ScriptPreloader-inl.h
+--- a/js/xpconnect/loader/ScriptPreloader-inl.h	Sat Sep 18 01:29:45 2021 +0000
++++ b/js/xpconnect/loader/ScriptPreloader-inl.h	Sat Sep 18 01:29:45 2021 +0000
+@@ -34,6 +34,22 @@
+   return Ok();
+ }
+ 
++static inline Result<Ok, nsresult> WritePadding(PRFileDesc* fd,
++                                                uint8_t padding) {
++  static const char paddingBytes[8] = "PADBYTE";
++  MOZ_DIAGNOSTIC_ASSERT(padding <= sizeof(paddingBytes));
++
++  if (padding == 0) {
++    return Ok();
++  }
++
++  if (PR_Write(fd, static_cast<const void*>(paddingBytes), padding) !=
++      padding) {
++    return Err(NS_ERROR_FAILURE);
++  }
++  return Ok();
++}
++
+ struct MOZ_RAII AutoSafeJSAPI : public AutoJSAPI {
+   AutoSafeJSAPI() { Init(); }
+ };

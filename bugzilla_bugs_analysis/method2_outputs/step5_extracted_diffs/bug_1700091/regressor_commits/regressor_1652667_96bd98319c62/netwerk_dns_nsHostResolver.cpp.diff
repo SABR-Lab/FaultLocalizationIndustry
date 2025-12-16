@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/dns/nsHostResolver.cpp
+# Commit: 96bd98319c62
+# Full Hash: 96bd98319c6242a9b05dc4723b928e88537424e1
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2020-08-26 03:24:37
+# Regressor Bug: 1652667
+# File Overlap Count: 1
+# Description:
+#   Bug 1652667 - P1: Add telemetry for when an HTTPSSVC record is received r=dragana
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D87844
+# ==============================================================================
+
+diff -r b61a789151df -r 96bd98319c62 netwerk/dns/nsHostResolver.cpp
+--- a/netwerk/dns/nsHostResolver.cpp	Tue Aug 25 17:29:21 2020 +0000
++++ b/netwerk/dns/nsHostResolver.cpp	Tue Aug 25 17:29:32 2020 +0000
+@@ -624,6 +624,19 @@
+   return NS_OK;
+ }
+ 
++NS_IMETHODIMP
++TypeHostRecord::GetHasIPAddresses(bool* aResult) {
++  NS_ENSURE_ARG(aResult);
++
++  if (!mResults.is<TypeRecordHTTPSSVC>()) {
++    return NS_ERROR_NOT_AVAILABLE;
++  }
++
++  auto& results = mResults.as<TypeRecordHTTPSSVC>();
++  *aResult = HasIPAddressesInternal(results);
++  return NS_OK;
++}
++
+ //----------------------------------------------------------------------------
+ 
+ static const char kPrefGetTtl[] = "network.dns.get-ttl";

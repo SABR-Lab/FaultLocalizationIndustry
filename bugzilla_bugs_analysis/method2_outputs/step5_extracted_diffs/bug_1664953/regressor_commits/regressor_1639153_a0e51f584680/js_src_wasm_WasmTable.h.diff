@@ -1,0 +1,51 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmTable.h
+# Commit: a0e51f584680
+# Full Hash: a0e51f584680a017fc4d8124c58a51f3caadfade
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2021-09-16 09:43:03
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Introduce indirect stubs to optimize call_indirect. r=lth
+#   
+#   This patch introduces indirect stubs.
+#   An indirect stub is a stub that takes care of any switching activities needed for call_indirect.
+#   Before this patch, we have to conservatively assume that any call_indirect's target can be from a foreign instance,
+# ==============================================================================
+
+diff -r ece3dcc343a2 -r a0e51f584680 js/src/wasm/WasmTable.h
+--- a/js/src/wasm/WasmTable.h	Thu Sep 16 04:38:26 2021 +0000
++++ b/js/src/wasm/WasmTable.h	Thu Sep 16 05:09:24 2021 +0000
+@@ -53,6 +53,7 @@
+   TableAnyRefVector objects_;     //   or objects_, but not both
+   const RefType elemType_;
+   const bool isAsmJS_;
++  const bool importedOrExported;
+   uint32_t length_;
+   const Maybe<uint32_t> maximum_;
+ 
+@@ -78,6 +79,12 @@
+     MOZ_ASSERT(elemType_.isFunc());
+     return isAsmJS_;
+   }
++
++  bool isImportedOrExported() const {
++    MOZ_ASSERT(elemType_.isFunc());
++    return importedOrExported;
++  }
++
+   bool isFunction() const { return elemType().isFunc(); }
+   uint32_t length() const { return length_; }
+   Maybe<uint32_t> maximum() const { return maximum_; }
+@@ -93,7 +100,7 @@
+   bool getFuncRef(JSContext* cx, uint32_t index,
+                   MutableHandleFunction fun) const;
+   void setFuncRef(uint32_t index, void* code, const Instance* instance);
+-  void fillFuncRef(uint32_t index, uint32_t fillCount, FuncRef ref,
++  bool fillFuncRef(uint32_t index, uint32_t fillCount, FuncRef ref,
+                    JSContext* cx);
+ 
+   AnyRef getAnyRef(uint32_t index) const;

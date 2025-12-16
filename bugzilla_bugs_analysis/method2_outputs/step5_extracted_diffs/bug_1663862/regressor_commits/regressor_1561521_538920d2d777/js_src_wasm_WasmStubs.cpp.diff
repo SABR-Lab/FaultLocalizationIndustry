@@ -1,0 +1,84 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmStubs.cpp
+# Commit: 538920d2d777
+# Full Hash: 538920d2d77751743a51f10cf730f1ce65b5d0ee
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2020-08-18 09:24:52
+# Regressor Bug: 1561521
+# File Overlap Count: 2
+# Description:
+#   Bug 1561521 - Rename TypeCode/ValType/RefType::Any to Extern. r=lth
+#   
+#   This commit renames the TypeCode/ValType/RefType occurrences of 'any' to 'extern'
+#   to match what they actually represent. All public API facing occurrences have
+#   already been switched to 'externref' so this should only be aligning the
+# ==============================================================================
+
+diff -r 3d3e3d124767 -r 538920d2d777 js/src/wasm/WasmStubs.cpp
+--- a/js/src/wasm/WasmStubs.cpp	Tue Aug 18 00:03:29 2020 +0000
++++ b/js/src/wasm/WasmStubs.cpp	Tue Aug 18 00:04:37 2020 +0000
+@@ -326,7 +326,7 @@
+   // the system ABI.
+   //
+   // SetupABIArguments are only used for C++ -> wasm calls through callExport(),
+-  // and V128 and Ref types (other than anyref) are not currently allowed.
++  // and V128 and Ref types (other than externref) are not currently allowed.
+   ArgTypeVector args(fe.funcType());
+   for (ABIArgIter iter(args); !iter.done(); iter++) {
+     unsigned argOffset = iter.index() * sizeof(ExportArg);
+@@ -1115,7 +1115,7 @@
+       }
+       case ValType::Ref: {
+         switch (fe.funcType().args()[i].refTypeKind()) {
+-          case RefType::Any: {
++          case RefType::Extern: {
+             ScratchTagScope tag(masm, scratchV);
+             masm.splitTagForTest(scratchV, tag);
+ 
+@@ -1290,7 +1290,7 @@
+         switch (results[0].refTypeKind()) {
+           case RefType::Func:
+             // For FuncRef use the AnyRef path for now, since that will work.
+-          case RefType::Any:
++          case RefType::Extern:
+             // Per comment above, the call may have clobbered the Tls register,
+             // so reload since unboxing will need it.
+             GenerateJitEntryLoadTls(masm, /* frameSize */ 0);
+@@ -1586,7 +1586,7 @@
+         switch (results[0].refTypeKind()) {
+           case wasm::RefType::Func:
+             // For FuncRef, use the AnyRef path for now, since that will work.
+-          case wasm::RefType::Any:
++          case wasm::RefType::Extern:
+             // The call to wasm above preserves the WasmTlsReg, we don't need to
+             // reload it here.
+             UnboxAnyrefIntoValueReg(masm, WasmTlsReg, ReturnReg,
+@@ -2116,7 +2116,7 @@
+                       funcImportIndex);
+             GenPrintPtr(DebugChannel::Import, masm, ReturnReg);
+             break;
+-          case RefType::Any:
++          case RefType::Extern:
+             masm.call(SymbolicAddress::CallImport_AnyRef);
+             masm.branchTest32(Assembler::Zero, ReturnReg, ReturnReg,
+                               throwLabel);
+@@ -2354,7 +2354,7 @@
+         break;
+       case ValType::Ref:
+         switch (results[0].refTypeKind()) {
+-          case RefType::Any:
++          case RefType::Extern:
+             BoxValueIntoAnyref(masm, JSReturnOperand, ReturnReg, &oolConvert);
+             GenPrintPtr(DebugChannel::Import, masm, ReturnReg);
+             break;
+@@ -2458,7 +2458,7 @@
+           break;
+         case ValType::Ref:
+           switch (results[0].refTypeKind()) {
+-            case RefType::Any:
++            case RefType::Extern:
+               masm.call(SymbolicAddress::BoxValue_Anyref);
+               masm.branchTest32(Assembler::Zero, ReturnReg, ReturnReg,
+                                 throwLabel);

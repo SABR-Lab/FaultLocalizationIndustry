@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/test/unit/test_httpssvc_iphint.js
+# Commit: 1a38b75a7dbb
+# Full Hash: 1a38b75a7dbb86fa14d2763e7a983dfd0bde5d50
+# Author: Kershaw Chang <kershaw@mozilla.com>
+# Date: 2021-01-22 10:17:55
+# Regressor Bug: 1686828
+# File Overlap Count: 1
+# Description:
+#   Bug 1686828 - Use https OriginAttributes to fetch HTTPS RR r=necko-reviewers,timhuang,dragana
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D102234
+# ==============================================================================
+
+diff -r e83b6fb52b62 -r 1a38b75a7dbb netwerk/test/unit/test_httpssvc_iphint.js
+--- a/netwerk/test/unit/test_httpssvc_iphint.js	Thu Jan 21 22:08:27 2021 +0000
++++ b/netwerk/test/unit/test_httpssvc_iphint.js	Thu Jan 21 22:08:26 2021 +0000
+@@ -236,6 +236,7 @@
+   let chan = NetUtil.newChannel({
+     uri: url,
+     loadUsingSystemPrincipal: true,
++    contentPolicyType: Ci.nsIContentPolicy.TYPE_DOCUMENT,
+   }).QueryInterface(Ci.nsIHttpChannel);
+   return chan;
+ }
+@@ -285,8 +286,13 @@
+   );
+ 
+   // The connection should be succeeded since the IP hint is 127.0.0.1.
+-  let chan = makeChan(`https://test.iphint.com:8080/`);
++  let chan = makeChan(`http://test.iphint.com:8080/`);
++  // Note that the partitionKey stored in DNS cache would be
++  // "%28https%2Ciphint.com%29". The http request to test.iphint.com will be
++  // upgraded to https and the ip hint address will be used by the https
++  // request in the end.
+   let [req] = await channelOpenPromise(chan);
++  req.QueryInterface(Ci.nsIHttpChannel);
+   Assert.equal(req.getResponseHeader("x-connection-http2"), "yes");
+ 
+   certOverrideService.setDisableAllSecurityChecksAndLetAttackersInterceptMyData(

@@ -1,0 +1,48 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasession/MediaSessionController.cpp
+# Commit: a008d3cebfdb
+# Full Hash: a008d3cebfdb9d96ab32530b90180141575316a8
+# Author: alwu <alwu@mozilla.com>
+# Date: 2020-03-17 09:36:40
+# Regressor Bug: 1582508
+# File Overlap Count: 1
+# Description:
+#   Bug 1582508 - part4 : propagate declared playback state to media session controller. r=chunmin
+#   
+#   This patch includes the implementation of propagating declared playback state from the media session in the content process to the media session controller in the chrome process.
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D66341
+# ==============================================================================
+
+diff -r a73415e9c006 -r a008d3cebfdb dom/media/mediasession/MediaSessionController.cpp
+--- a/dom/media/mediasession/MediaSessionController.cpp	Tue Mar 17 00:03:44 2020 +0000
++++ b/dom/media/mediasession/MediaSessionController.cpp	Tue Mar 17 00:17:36 2020 +0000
+@@ -199,6 +199,26 @@
+   return EmptyString();
+ }
+ 
++void MediaSessionController::SetDeclaredPlaybackState(
++    uint64_t aSessionContextId, MediaSessionPlaybackState aState) {
++  MOZ_ASSERT(mMediaSessionInfoMap.Contains(aSessionContextId),
++             "Update declared state for unknown media session!");
++  MediaSessionInfo* info = mMediaSessionInfoMap.GetValue(aSessionContextId);
++  LOG("SetDeclaredPlaybackState from %s to %s",
++      ToMediaSessionPlaybackStateStr(info->mDeclaredPlaybackState),
++      ToMediaSessionPlaybackStateStr(aState));
++  info->mDeclaredPlaybackState = aState;
++}
++
++MediaSessionPlaybackState
++MediaSessionController::GetCurrentDeclaredPlaybackState() const {
++  if (!mActiveMediaSessionContextId) {
++    return MediaSessionPlaybackState::None;
++  }
++  return mMediaSessionInfoMap.Get(*mActiveMediaSessionContextId)
++      .mDeclaredPlaybackState;
++}
++
+ MediaMetadataBase MediaSessionController::GetCurrentMediaMetadata() const {
+   // If we don't have active media session, active media session doesn't have
+   // media metadata, or we're in private browsing mode, then we should create a

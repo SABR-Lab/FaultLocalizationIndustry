@@ -1,0 +1,84 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: servo/components/style/custom_properties.rs
+# Commit: 1c44d9efbe3a
+# Full Hash: 1c44d9efbe3afe31bbc49e6dfa3d3c29b428df77
+# Author: Emilio Cobos Álvarez <emilio@crisal.io>
+# Date: 2023-12-18 17:17:57
+# Regressor Bug: 1846516
+# File Overlap Count: 1
+# Description:
+#   Bug 1846516 - More fixes on top of bug 1870009. r=zrhoffman
+#   
+#   This fixes some leaks, and fixes IsAnimatable/IsTransitionable to look
+#   at PropertyId.
+#   
+# ==============================================================================
+
+diff -r e26c8d5274eb -r 1c44d9efbe3a servo/components/style/custom_properties.rs
+--- a/servo/components/style/custom_properties.rs	Mon Dec 18 09:24:09 2023 +0000
++++ b/servo/components/style/custom_properties.rs	Mon Dec 18 09:24:10 2023 +0000
+@@ -863,36 +863,41 @@
+ 
+ impl<'a, 'b: 'a> CustomPropertiesBuilder<'a, 'b> {
+     /// Create a new builder, inheriting from a given custom properties map.
+-    pub fn new(stylist: &'a Stylist, computed_context: &'a computed::Context<'b>) -> Self {
+-        let is_root_element = computed_context.is_root_element();
+-
+-        let inherited = computed_context.inherited_custom_properties();
+-        let initial_values = stylist.get_custom_property_initial_values();
+-
+-        // Reuse flags from computing registered custom properties initial values, such as whether
+-        // they depend on viewport units.
+-        computed_context
+-            .style()
+-            .add_flags(stylist.get_custom_property_initial_values_flags());
+-
++    ///
++    /// We expose this publicly mostly for @keyframe blocks.
++    pub fn new_with_properties(stylist: &'a Stylist, custom_properties: ComputedCustomProperties, computed_context: &'a computed::Context<'b>) -> Self {
+         Self {
+             seen: PrecomputedHashSet::default(),
+             reverted: Default::default(),
+             may_have_cycles: false,
+-            custom_properties: ComputedCustomProperties {
+-                inherited: if is_root_element {
+-                    debug_assert!(inherited.is_empty());
+-                    initial_values.inherited.clone()
+-                } else {
+-                    inherited.inherited.clone()
+-                },
+-                non_inherited: initial_values.non_inherited.clone(),
+-            },
++            custom_properties,
+             stylist,
+             computed_context,
+         }
+     }
+ 
++    /// Create a new builder, inheriting from the right style given context.
++    pub fn new(stylist: &'a Stylist, context: &'a computed::Context<'b>) -> Self {
++        let is_root_element = context.is_root_element();
++
++        let inherited = context.inherited_custom_properties();
++        let initial_values = stylist.get_custom_property_initial_values();
++        let properties = ComputedCustomProperties {
++            inherited: if is_root_element {
++                debug_assert!(inherited.is_empty());
++                initial_values.inherited.clone()
++            } else {
++                inherited.inherited.clone()
++            },
++            non_inherited: initial_values.non_inherited.clone(),
++        };
++
++        // Reuse flags from computing registered custom properties initial values, such as
++        // whether they depend on viewport units.
++        context.style().add_flags(stylist.get_custom_property_initial_values_flags());
++        Self::new_with_properties(stylist, properties, context)
++    }
++
+     /// Cascade a given custom property declaration.
+     pub fn cascade(&mut self, declaration: &'a CustomDeclaration, priority: CascadePriority) {
+         let CustomDeclaration {

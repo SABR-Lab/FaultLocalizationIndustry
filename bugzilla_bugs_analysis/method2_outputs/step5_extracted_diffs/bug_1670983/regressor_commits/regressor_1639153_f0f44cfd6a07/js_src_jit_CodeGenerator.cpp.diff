@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/jit/CodeGenerator.cpp
+# Commit: f0f44cfd6a07
+# Full Hash: f0f44cfd6a07c787846c8c84388f503adce349aa
+# Author: Dmitry Bezhetskov <dbezhetskov@igalia.com>
+# Date: 2020-10-02 04:10:47
+# Regressor Bug: 1639153
+# File Overlap Count: 1
+# Description:
+#   Bug 1639153 - Part 6.1: Untie callWithAbi from Frame::tls for Baseline. r=lth
+#   
+#   We have a tls dependency in callWithABI for wasm because we call builtins via BuiltinThunk.
+#   Last one requires that tls to be loaded. In this patch I gradually extend callWithABI interface to
+#   pass offset to tls. This allows us to preserve tls and load it by offset in callWithABI and frees us from
+# ==============================================================================
+
+diff -r 0e268b8d01fe -r f0f44cfd6a07 js/src/jit/CodeGenerator.cpp
+--- a/js/src/jit/CodeGenerator.cpp	Thu Oct 01 04:54:42 2020 +0000
++++ b/js/src/jit/CodeGenerator.cpp	Thu Oct 01 07:52:07 2020 +0000
+@@ -8954,7 +8954,7 @@
+     masm.passABIArg(lhs, MoveOp::DOUBLE);
+     masm.passABIArg(rhs, MoveOp::DOUBLE);
+     masm.callWithABI(ins->mir()->bytecodeOffset(), wasm::SymbolicAddress::ModD,
+-                     MoveOp::DOUBLE);
++                     mozilla::Nothing(), MoveOp::DOUBLE);
+   } else {
+     masm.setupUnalignedABICall(ToRegister(ins->temp()));
+     masm.passABIArg(lhs, MoveOp::DOUBLE);

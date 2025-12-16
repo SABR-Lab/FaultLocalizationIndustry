@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/ipc/BrowserParent.h
+# Commit: dabd7d6836c8
+# Full Hash: dabd7d6836c8ed368c06537c3c19a61295d67a18
+# Author: Nika Layzell <nika@thelayzells.com>
+# Date: 2024-06-21 04:13:05
+# Regressor Bug: 1728331
+# File Overlap Count: 1
+# Description:
+#   Bug 1728331 - Part 4: Make ContentParent KeepAlives explicit with RAII references, r=smaug,dom-worker-reviewers,asuth
+#   
+#   This is a fairly significant patch, however it would be difficult to break it
+#   down into smaller patches:
+#   
+# ==============================================================================
+
+diff -r 9e04f49c926e -r dabd7d6836c8 dom/ipc/BrowserParent.h
+--- a/dom/ipc/BrowserParent.h	Thu Jun 20 19:24:51 2024 +0000
++++ b/dom/ipc/BrowserParent.h	Thu Jun 20 19:24:51 2024 +0000
+@@ -19,6 +19,7 @@
+ #include "mozilla/dom/BrowserBridgeParent.h"
+ #include "mozilla/dom/PBrowserParent.h"
+ #include "mozilla/dom/TabContext.h"
++#include "mozilla/dom/UniqueContentParentKeepAlive.h"
+ #include "mozilla/dom/VsyncParent.h"
+ #include "mozilla/dom/ipc/IdType.h"
+ #include "mozilla/layout/RemoteLayerTreeOwner.h"
+@@ -872,6 +873,12 @@
+   // non-null.
+   BrowserHost* mBrowserHost;
+ 
++  // KeepAlive for the containing process.
++  // NOTE: While this is a strong reference to ContentParent, which is
++  // cycle-collected, it is cleared as the BrowserParent's IPC connection is
++  // destroyed, so does not need to be cycle-collected.
++  UniqueContentParentKeepAlive mContentParentKeepAlive;
++
+   ContentCacheInParent mContentCache;
+ 
+   layout::RemoteLayerTreeOwner mRemoteLayerTreeOwner;

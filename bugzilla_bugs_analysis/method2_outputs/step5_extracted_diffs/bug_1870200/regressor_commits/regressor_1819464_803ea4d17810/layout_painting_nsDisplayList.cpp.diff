@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/painting/nsDisplayList.cpp
+# Commit: 803ea4d17810
+# Full Hash: 803ea4d17810ead7bfd72fa28f97a676ce765382
+# Author: Boris Chiou <boris.chiou@gmail.com>
+# Date: 2023-08-23 04:21:33
+# Regressor Bug: 1819464
+# File Overlap Count: 1
+# Description:
+#   Bug 1819464 - Part 4: Support content-box (for CSS layout). r=emilio
+#   
+#   Use a valid content-box for CSS layout. For SVG layout, just map it to
+#   fill-box.
+#   
+# ==============================================================================
+
+diff -r d9b057905efd -r 803ea4d17810 layout/painting/nsDisplayList.cpp
+--- a/layout/painting/nsDisplayList.cpp	Tue Aug 22 19:49:03 2023 +0000
++++ b/layout/painting/nsDisplayList.cpp	Tue Aug 22 19:49:04 2023 +0000
+@@ -6084,13 +6084,13 @@
+   CSSPoint origin = nsStyleTransformMatrix::Convert2DPosition(
+       transformOrigin.horizontal, transformOrigin.vertical, aRefBox);
+ 
+-  if (aFrame->HasAnyStateBits(NS_FRAME_SVG_LAYOUT)) {
+-    // SVG frames (unlike other frames) have a reference box that can be (and
+-    // typically is) offset from the TopLeft() of the frame. We need to account
+-    // for that here.
+-    origin.x += CSSPixel::FromAppUnits(aRefBox.X());
+-    origin.y += CSSPixel::FromAppUnits(aRefBox.Y());
+-  }
++  // Note:
++  // 1. SVG frames have a reference box that can be (and typically is) offset
++  //    from the TopLeft() of the frame. We need to account for that here.
++  // 2. If we are using transform-box:content-box in CSS layout, we have the
++  //    offset from TopLeft() of the frame as well.
++  origin.x += CSSPixel::FromAppUnits(aRefBox.X());
++  origin.y += CSSPixel::FromAppUnits(aRefBox.Y());
+ 
+   float scale = AppUnitsPerCSSPixel() / float(aAppUnitsPerPixel);
+   float z = transformOrigin.depth._0;

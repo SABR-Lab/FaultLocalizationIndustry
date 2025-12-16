@@ -1,0 +1,84 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/wr/webrender/src/render_task_graph.rs
+# Commit: 15da94c6a7b1
+# Full Hash: 15da94c6a7b19f971d3dffaa4cab8edb8e41cb62
+# Author: Glenn Watson <git@intuitionlibrary.com>
+# Date: 2020-12-15 09:29:54
+# Regressor Bug: 1682365
+# File Overlap Count: 1
+# Description:
+#   Bug 1682365 - Pt 2 - Remove texture array usage from render task graph. r=nical
+#   
+#   With this change, all color/alpha intermediate surfaces are individual
+#   textures, rather than texture arrays.
+#   
+# ==============================================================================
+
+diff -r 72ddac486037 -r 15da94c6a7b1 gfx/wr/webrender/src/render_task_graph.rs
+--- a/gfx/wr/webrender/src/render_task_graph.rs	Tue Dec 15 01:46:51 2020 +0200
++++ b/gfx/wr/webrender/src/render_task_graph.rs	Mon Dec 14 21:48:41 2020 +0000
+@@ -7,12 +7,11 @@
+ use api::units::*;
+ use crate::internal_types::{CacheTextureId, FastHashMap};
+ use crate::render_backend::FrameId;
+-use crate::render_target::{RenderTargetKind, RenderTargetList, ColorRenderTarget};
++use crate::render_target::{RenderTargetList, ColorRenderTarget};
+ use crate::render_target::{PictureCacheTarget, TextureCacheRenderTarget, AlphaRenderTarget};
+ use crate::render_task::{BlitSource, RenderTask, RenderTaskKind, RenderTaskData};
+-use crate::render_task::{RenderTaskLocation};
+ use crate::util::{VecHelper, Allocation};
+-use std::{cmp, usize, f32, i32, u32};
++use std::{usize, f32, i32, u32};
+ 
+ #[cfg_attr(feature = "capture", derive(Serialize))]
+ #[cfg_attr(feature = "replay", derive(Deserialize))]
+@@ -196,12 +195,8 @@
+             let task_id = RenderTaskId {
+                 index: task_index as u32,
+             };
+-            let task = &self.tasks[task_index];
+             passes[pass_index as usize].add_render_task(
+                 task_id,
+-                task.get_dynamic_size(),
+-                task.target_kind(),
+-                &task.location,
+             );
+         }
+     }
+@@ -431,23 +426,7 @@
+     pub fn add_render_task(
+         &mut self,
+         task_id: RenderTaskId,
+-        size: DeviceIntSize,
+-        target_kind: RenderTargetKind,
+-        location: &RenderTaskLocation,
+     ) {
+-        // If this will be rendered to a dynamically-allocated region on an
+-        // off-screen render target, update the max-encountered size. We don't
+-        // need to do this for things drawn to the texture cache, since those
+-        // don't affect our render target allocation.
+-        if location.is_dynamic() {
+-            let max_size = match target_kind {
+-                RenderTargetKind::Color => &mut self.color.max_dynamic_size,
+-                RenderTargetKind::Alpha => &mut self.alpha.max_dynamic_size,
+-            };
+-            max_size.width = cmp::max(max_size.width, size.width);
+-            max_size.height = cmp::max(max_size.height, size.height);
+-        }
+-
+         self.tasks.push(task_id);
+     }
+ }
+@@ -639,6 +618,10 @@
+ use euclid::size2;
+ #[cfg(test)]
+ use smallvec::SmallVec;
++#[cfg(test)]
++use crate::render_task::RenderTaskLocation;
++#[cfg(test)]
++use crate::render_target::RenderTargetKind;
+ 
+ #[cfg(test)]
+ fn dyn_location(w: i32, h: i32) -> RenderTaskLocation {

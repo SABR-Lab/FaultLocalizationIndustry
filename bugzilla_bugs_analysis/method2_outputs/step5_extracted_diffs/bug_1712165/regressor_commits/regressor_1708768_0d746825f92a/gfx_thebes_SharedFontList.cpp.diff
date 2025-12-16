@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/SharedFontList.cpp
+# Commit: 0d746825f92a
+# Full Hash: 0d746825f92a3039433aa275997c6e7f2ebfaf56
+# Author: Jonathan Kew <jkew@mozilla.com>
+# Date: 2021-05-18 21:36:28
+# Regressor Bug: 1708768
+# File Overlap Count: 2
+# Description:
+#   Bug 1708768 - Make InitFontList safe to call off-main-thread on macOS, and run font-list initialization on a separate thread during startup. r=lsalzman
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D115295
+# ==============================================================================
+
+diff -r fbe7310ee5f3 -r 0d746825f92a gfx/thebes/SharedFontList.cpp
+--- a/gfx/thebes/SharedFontList.cpp	Tue May 18 11:10:43 2021 +0000
++++ b/gfx/thebes/SharedFontList.cpp	Tue May 18 11:10:43 2021 +0000
+@@ -630,8 +630,16 @@
+   // because child processes can't have initialized their list at all
+   // prior to the first block being set up.
+   if (mBlocks.Length() > 1) {
+-    dom::ContentParent::BroadcastShmBlockAdded(GetGeneration(),
+-                                               mBlocks.Length() - 1);
++    if (NS_IsMainThread()) {
++      dom::ContentParent::BroadcastShmBlockAdded(GetGeneration(),
++                                                 mBlocks.Length() - 1);
++    } else {
++      NS_DispatchToMainThread(NS_NewRunnableFunction(
++          "ShmBlockAdded callback",
++          [generation = GetGeneration(), index = mBlocks.Length() - 1] {
++            dom::ContentParent::BroadcastShmBlockAdded(generation, index);
++          }));
++    }
+   }
+ 
+   return true;

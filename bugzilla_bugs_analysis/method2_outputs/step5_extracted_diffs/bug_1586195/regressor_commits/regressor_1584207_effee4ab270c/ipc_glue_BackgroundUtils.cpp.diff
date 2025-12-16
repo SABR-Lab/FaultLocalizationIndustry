@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: ipc/glue/BackgroundUtils.cpp
+# Commit: effee4ab270c
+# Full Hash: effee4ab270cba85ad53b7be844212bc458ec1a6
+# Author: Honza Bambas <honzab.moz@firemni.cz>
+# Date: 2019-10-03 04:38:57
+# Regressor Bug: 1584207
+# File Overlap Count: 1
+# Description:
+#   Bug 1584207 - Forward nsILoadInfo.requestBlockingReason to the parent process for both old and new redirect channels, r=dragana,asuth
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D47264
+# ==============================================================================
+
+diff -r a49132352f5b -r effee4ab270c ipc/glue/BackgroundUtils.cpp
+--- a/ipc/glue/BackgroundUtils.cpp	Wed Oct 02 20:53:50 2019 +0200
++++ b/ipc/glue/BackgroundUtils.cpp	Tue Oct 01 16:50:23 2019 +0000
+@@ -885,7 +885,7 @@
+     nsILoadInfo* aLoadInfo, ChildLoadInfoForwarderArgs* aForwarderArgsOut) {
+   if (!aLoadInfo) {
+     *aForwarderArgsOut =
+-        ChildLoadInfoForwarderArgs(Nothing(), Nothing(), Nothing());
++        ChildLoadInfoForwarderArgs(Nothing(), Nothing(), Nothing(), 0);
+     return;
+   }
+ 
+@@ -908,7 +908,8 @@
+   }
+ 
+   *aForwarderArgsOut =
+-      ChildLoadInfoForwarderArgs(ipcReserved, ipcInitial, ipcController);
++      ChildLoadInfoForwarderArgs(ipcReserved, ipcInitial, ipcController,
++                                 aLoadInfo->GetRequestBlockingReason());
+ }
+ 
+ nsresult MergeChildLoadInfoForwarder(
+@@ -960,6 +961,13 @@
+     aLoadInfo->SetController(ServiceWorkerDescriptor(controller.ref()));
+   }
+ 
++  uint32_t blockingReason = aForwarderArgs.requestBlockingReason();
++  if (blockingReason) {
++    // We only want to override when non-null, so that any earlier set non-null
++    // value is not reverted to 0.
++    aLoadInfo->SetRequestBlockingReason(blockingReason);
++  }
++
+   return NS_OK;
+ }
+ 

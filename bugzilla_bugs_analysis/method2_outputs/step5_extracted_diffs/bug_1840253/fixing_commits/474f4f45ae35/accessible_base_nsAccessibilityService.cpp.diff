@@ -1,0 +1,68 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: accessible/base/nsAccessibilityService.cpp
+# Commit: 474f4f45ae35
+# Full Hash: 474f4f45ae35312bc63917d95d5bd073b9b9cbcd
+# Author: Nathan LaPre <nlapre@mozilla.com>
+# Date: 2023-06-28 09:18:31
+# Description:
+#   Bug 1840253: Defend against NotifyOfAnchorJumpTo null pointer dereference, r=Jamie
+#   
+#   This revision adds a check for null to the document variable in order to avoid
+#   dereferencing it if it's null. This defends us against a crash we can observe
+#   when the document isn't built yet or is hidden, in which case we can't handle
+# ==============================================================================
+
+diff -r 4d572336a63b -r 474f4f45ae35 accessible/base/nsAccessibilityService.cpp
+--- a/accessible/base/nsAccessibilityService.cpp	Tue Jun 27 17:33:15 2023 +0000
++++ b/accessible/base/nsAccessibilityService.cpp	Tue Jun 27 17:43:58 2023 +0000
+@@ -491,26 +491,30 @@
+ 
+ void nsAccessibilityService::NotifyOfAnchorJumpTo(nsIContent* aTargetNode) {
+   Document* documentNode = aTargetNode->GetUncomposedDoc();
+-  if (documentNode) {
+-    // If the document has focus when we get this notification, ensure that
+-    // we fire a start scrolling event.
+-    DocAccessible* document = GetDocAccessible(documentNode);
+-    const Accessible* focusedAcc = FocusedAccessible();
+-    if (focusedAcc &&
+-        (focusedAcc == document || focusedAcc->IsNonInteractive())) {
+-      LocalAccessible* targetAcc = document->GetAccessible(aTargetNode);
+-      if (targetAcc) {
+-        nsEventShell::FireEvent(nsIAccessibleEvent::EVENT_SCROLLING_START,
+-                                targetAcc);
+-        document->SetAnchorJump(nullptr);
+-      } else {
+-        // We can't find the target accessible in the document yet. Set the
+-        // anchor jump so that we can fire the scrolling start event later.
+-        document->SetAnchorJump(aTargetNode);
+-      }
+-    } else if (document) {
++  if (!documentNode) {
++    return;
++  }
++  DocAccessible* document = GetDocAccessible(documentNode);
++  if (!document) {
++    return;
++  }
++  // If the document has focus when we get this notification, ensure that
++  // we fire a start scrolling event.
++  const Accessible* focusedAcc = FocusedAccessible();
++  if (focusedAcc &&
++      (focusedAcc == document || focusedAcc->IsNonInteractive())) {
++    LocalAccessible* targetAcc = document->GetAccessible(aTargetNode);
++    if (targetAcc) {
++      nsEventShell::FireEvent(nsIAccessibleEvent::EVENT_SCROLLING_START,
++                              targetAcc);
++      document->SetAnchorJump(nullptr);
++    } else {
++      // We can't find the target accessible in the document yet. Set the
++      // anchor jump so that we can fire the scrolling start event later.
+       document->SetAnchorJump(aTargetNode);
+     }
++  } else {
++    document->SetAnchorJump(aTargetNode);
+   }
+ }
+ 

@@ -1,0 +1,30 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/protocol/http/nsHttpConnection.h
+# Commit: 7f2260b49e60
+# Full Hash: 7f2260b49e600771c1cbbd6cd1360dd4a328a871
+# Author: Dragana Damjanovic <dd.mozilla@gmail.com>
+# Date: 2021-09-17 21:50:08
+# Regressor Bug: 1382886
+# File Overlap Count: 1
+# Description:
+#   Bug 1382886 - Use HandshakeDone to signal that a handshake is done r=necko-reviewers,keeler,kershaw
+#   
+#   HandshakeDone will be called after a handshake is finished and also after the certificate verifications are done.
+#   The code relies on HandshakeDone to signal that the handshake is done. When early-data is not available HandshakeDone is responsible for setting up a Http2 session if needed. There are 2 outcomes when early-data is used:
+#   1) early-data is accepted and transaction continues polling for read,
+# ==============================================================================
+
+diff -r 0c049a8ee4a8 -r 7f2260b49e60 netwerk/protocol/http/nsHttpConnection.h
+--- a/netwerk/protocol/http/nsHttpConnection.h	Fri Sep 17 13:19:01 2021 +0000
++++ b/netwerk/protocol/http/nsHttpConnection.h	Fri Sep 17 13:19:01 2021 +0000
+@@ -247,6 +247,8 @@
+   bool CheckCanWrite0RTTData();
+   void Check0RttEnabled(nsISSLSocketControl* ssl);
+   void EarlyDataTelemetry(int16_t tlsVersion, bool earlyDataAccepted);
++  void FinishNPNSetup(bool handshakeSucceeded, bool hasSecurityInfo);
++  void Reset0RttForSpdy();
+ 
+  private:
+   // mTransaction only points to the HTTP Transaction callbacks if the

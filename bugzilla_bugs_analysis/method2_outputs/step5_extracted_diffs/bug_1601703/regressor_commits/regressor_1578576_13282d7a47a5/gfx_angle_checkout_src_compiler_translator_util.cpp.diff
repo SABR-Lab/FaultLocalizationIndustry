@@ -1,0 +1,171 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/angle/checkout/src/compiler/translator/util.cpp
+# Commit: 13282d7a47a5
+# Full Hash: 13282d7a47a57a73be8d060efd9645b4d642f03e
+# Author: Miko Mynttinen <mikokm@gmail.com>
+# Date: 2019-09-08 09:46:52
+# Regressor Bug: 1578576
+# File Overlap Count: 4
+# Description:
+#   Bug 1578576 - Part 2: Update to ANGLE 3865 r=jgilbert
+#   
+#   Depends on D44561
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D44579
+# ==============================================================================
+
+diff -r 3064469c073d -r 13282d7a47a5 gfx/angle/checkout/src/compiler/translator/util.cpp
+--- a/gfx/angle/checkout/src/compiler/translator/util.cpp	Sat Sep 07 13:36:46 2019 +0000
++++ b/gfx/angle/checkout/src/compiler/translator/util.cpp	Sat Sep 07 13:38:36 2019 +0000
+@@ -453,7 +453,8 @@
+             case EbpLow:
+                 return GL_LOW_FLOAT;
+             case EbpUndefined:
+-            // Should be defined as the default precision by the parser
++                // Desktop specs do not use precision
++                return GL_NONE;
+             default:
+                 UNREACHABLE();
+         }
+@@ -469,7 +470,8 @@
+             case EbpLow:
+                 return GL_LOW_INT;
+             case EbpUndefined:
+-            // Should be defined as the default precision by the parser
++                // Desktop specs do not use precision
++                return GL_NONE;
+             default:
+                 UNREACHABLE();
+         }
+@@ -707,6 +709,11 @@
+     return false;
+ }
+ 
++bool IsShaderOutput(TQualifier qualifier)
++{
++    return IsVaryingOut(qualifier) || IsBuiltinOutputVariable(qualifier);
++}
++
+ bool IsOutputESSL(ShShaderOutput output)
+ {
+     return output == SH_ESSL_OUTPUT;
+@@ -813,4 +820,117 @@
+     }
+ }
+ 
++bool IsSpecWithFunctionBodyNewScope(ShShaderSpec shaderSpec, int shaderVersion)
++{
++    return (shaderVersion == 100 && !sh::IsWebGLBasedSpec(shaderSpec));
++}
++
++ImplicitTypeConversion GetConversion(TBasicType t1, TBasicType t2)
++{
++    if (t1 == t2)
++        return ImplicitTypeConversion::Same;
++
++    switch (t1)
++    {
++        case EbtInt:
++            switch (t2)
++            {
++                case EbtInt:
++                    UNREACHABLE();
++                    break;
++                case EbtUInt:
++                    return ImplicitTypeConversion::Invalid;
++                case EbtFloat:
++                    return ImplicitTypeConversion::Left;
++                default:
++                    return ImplicitTypeConversion::Invalid;
++            }
++            break;
++        case EbtUInt:
++            switch (t2)
++            {
++                case EbtInt:
++                    return ImplicitTypeConversion::Invalid;
++                case EbtUInt:
++                    UNREACHABLE();
++                    break;
++                case EbtFloat:
++                    return ImplicitTypeConversion::Left;
++                default:
++                    return ImplicitTypeConversion::Invalid;
++            }
++            break;
++        case EbtFloat:
++            switch (t2)
++            {
++                case EbtInt:
++                case EbtUInt:
++                    return ImplicitTypeConversion::Right;
++                case EbtFloat:
++                    UNREACHABLE();
++                    break;
++                default:
++                    return ImplicitTypeConversion::Invalid;
++            }
++            break;
++        default:
++            return ImplicitTypeConversion::Invalid;
++    }
++    return ImplicitTypeConversion::Invalid;
++}
++
++bool IsValidImplicitConversion(sh::ImplicitTypeConversion conversion, TOperator op)
++{
++    switch (conversion)
++    {
++        case sh::ImplicitTypeConversion::Same:
++            return true;
++        case sh::ImplicitTypeConversion::Left:
++            switch (op)
++            {
++                case EOpEqual:
++                case EOpNotEqual:
++                case EOpLessThan:
++                case EOpGreaterThan:
++                case EOpLessThanEqual:
++                case EOpGreaterThanEqual:
++                case EOpAdd:
++                case EOpSub:
++                case EOpMul:
++                case EOpDiv:
++                    return true;
++                default:
++                    break;
++            }
++            break;
++        case sh::ImplicitTypeConversion::Right:
++            switch (op)
++            {
++                case EOpAssign:
++                case EOpInitialize:
++                case EOpEqual:
++                case EOpNotEqual:
++                case EOpLessThan:
++                case EOpGreaterThan:
++                case EOpLessThanEqual:
++                case EOpGreaterThanEqual:
++                case EOpAdd:
++                case EOpSub:
++                case EOpMul:
++                case EOpDiv:
++                case EOpAddAssign:
++                case EOpSubAssign:
++                case EOpMulAssign:
++                case EOpDivAssign:
++                    return true;
++                default:
++                    break;
++            }
++            break;
++        case sh::ImplicitTypeConversion::Invalid:
++            break;
++    }
++    return false;
++}
++
+ }  // namespace sh

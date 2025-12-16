@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/vm/Opcodes.h
+# Commit: 5f6b9e2fc3bb
+# Full Hash: 5f6b9e2fc3bb3c5fd74f9871399269a2665a5270
+# Author: Iain Ireland <iireland@mozilla.com>
+# Date: 2022-03-09 09:44:44
+# Regressor Bug: 885514
+# File Overlap Count: 1
+# Description:
+#   Bug 885514: Refactor try/finally to use goto r=jandem
+#   
+#   JSOp::Gosub is just a JSOp::Goto that lies about its effect on the stack. We can start simplifying try/finally by using a JSOp::Goto instead.
+#   
+#   Currently, to make the stack depth work out when returning from a finally, Gosub pretends to pop two values (the arguments to retsub), and Finally pretends to push them. This means that bytecode analysis can treat Gosub as if it falls through, and the stack depth of the jumptarget following the gosub will be correct. This patch uses a different approach: bytecode analysis marks the return address as reachable when we push it using JSOp::ResumeIndex. This means that the bytecode no longer has to lie about stack depth.
+# ==============================================================================
+
+diff -r b199b21ed5a3 -r 5f6b9e2fc3bb js/src/vm/Opcodes.h
+--- a/js/src/vm/Opcodes.h	Tue Mar 08 21:00:30 2022 +0000
++++ b/js/src/vm/Opcodes.h	Tue Mar 08 21:10:21 2022 +0000
+@@ -2693,18 +2693,14 @@
+      */ \
+     MACRO(Gosub, gosub, NULL, 5, 2, 0, JOF_JUMP) \
+     /*
+-     * No-op instruction that marks the start of a `finally` block. This has a
+-     * def count of 2, but the values are already on the stack (they're
+-     * actually left on the stack by `JSOp::Gosub`).
+-     *
+-     * These two values must not be used except by `JSOp::Retsub`.
++     * No-op instruction that marks the start of a `finally` block.
+      *
+      *   Category: Control flow
+      *   Type: Exceptions
+      *   Operands:
+-     *   Stack: => false, resumeIndex
++     *   Stack: =>
+      */ \
+-    MACRO(Finally, finally, NULL, 1, 0, 2, JOF_BYTE) \
++    MACRO(Finally, finally, NULL, 1, 0, 0, JOF_BYTE) \
+     /*
+      * Jump back to the next instruction, or rethrow an exception, at the end
+      * of a `finally` block. See `JSOp::Gosub` for the explanation.

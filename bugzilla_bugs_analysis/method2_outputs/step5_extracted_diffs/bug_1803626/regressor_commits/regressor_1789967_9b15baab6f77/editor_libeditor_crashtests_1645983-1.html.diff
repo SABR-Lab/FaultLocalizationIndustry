@@ -1,0 +1,38 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: editor/libeditor/crashtests/1645983-1.html
+# Commit: 9b15baab6f77
+# Full Hash: 9b15baab6f77d09eca2956276f66fee97555e4a1
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-09-22 09:56:47
+# Regressor Bug: 1789967
+# File Overlap Count: 1
+# Description:
+#   Bug 1789967 - part 3: Make `HTMLEditor::CollapseSelectionToEndOfLastLeafNodeOfDocument` and `HTMLEditor::InitEditorContentAndSelection` do nothing if the document is partially editable r=m_kato
+#   
+#   They and their callees work with the result of `GetRoot()` which is the document
+#   element or the body element.  If the body is not editable, `Selection` should
+#   not be updated in non-editable region nor `<br>` elements should not be
+# ==============================================================================
+
+diff -r 4d1e93c629da -r 9b15baab6f77 editor/libeditor/crashtests/1645983-1.html
+--- a/editor/libeditor/crashtests/1645983-1.html	Thu Sep 22 06:24:38 2022 +0000
++++ b/editor/libeditor/crashtests/1645983-1.html	Thu Sep 22 06:27:37 2022 +0000
+@@ -1,8 +1,10 @@
+ <div contenteditable>&nbsp;a</div>
+ <script>
+-let editor = document.querySelector("div[contenteditable]");
+-editor.insertBefore(document.createTextNode(""), editor.firstChild);
+-let selection = getSelection();
+-selection.collapse(editor.firstChild.nextSibling, 2);
+-document.execCommand("delete", false);
++// For emulating the traditional behavior, collapse Selection to end of the
++// <body>, i.e., at the text node after this <script>.
++getSelection().collapse(document.body, document.body.childNodes.length);
++const editingHost = document.querySelector("div[contenteditable]");
++editingHost.insertBefore(document.createTextNode(""), editingHost.firstChild);
++getSelection().collapse(editingHost.firstChild.nextSibling, 2);
++document.execCommand("delete");
+ </script>
+\ No newline at end of file

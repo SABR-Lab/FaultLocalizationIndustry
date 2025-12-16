@@ -1,0 +1,34 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: gfx/layers/SurfacePoolWayland.h
+# Commit: 086a82512429
+# Full Hash: 086a825124296adeaf48cc3d05975e82f55fcb85
+# Author: Robert Mader <robert.mader@posteo.de>
+# Date: 2021-06-21 09:42:23
+# Description:
+#   Bug 1716006 - Clear pending callbacks when destroying a NativeSurfaceWayland, r=gfx-reviewers,gw
+#   
+#   Unlike buffer release callbacks, which can't happen after the
+#   corresponding buffer was destroyed, frame callbacks can apparently
+#   arrive even if the corresponding surface was destroyed.
+# ==============================================================================
+
+diff -r 95970359b68e -r 086a82512429 gfx/layers/SurfacePoolWayland.h
+--- a/gfx/layers/SurfacePoolWayland.h	Sun Jun 20 15:46:38 2021 +0000
++++ b/gfx/layers/SurfacePoolWayland.h	Sun Jun 20 21:05:47 2021 +0000
+@@ -85,13 +85,13 @@
+ 
+   Mutex mMutex;
+   RefPtr<nsWaylandDisplay> mWaylandDisplay;
++  wl_callback* mCallback = nullptr;
+   wp_viewport* mViewport = nullptr;
+   bool mBufferTransformFlipped = false;
+   IntPoint mPosition = IntPoint(0, 0);
+   Rect mViewportSourceRect = Rect(-1, -1, -1, -1);
+   IntSize mViewportDestinationSize = IntSize(-1, -1);
+   nsTArray<RefPtr<CallbackMultiplexHelper>> mCallbackMultiplexHelpers;
+-  bool mCallbackRequested = false;
+ };
+ 
+ class NativeSurfaceWaylandEGL final : public NativeSurfaceWayland {

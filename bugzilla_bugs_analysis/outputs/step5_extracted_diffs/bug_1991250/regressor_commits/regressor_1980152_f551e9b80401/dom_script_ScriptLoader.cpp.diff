@@ -1,0 +1,76 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/script/ScriptLoader.cpp
+# Commit: f551e9b80401
+# Full Hash: f551e9b804013f1f2fc825ff20b8de51bf7fc152
+# Author: Tooru Fujisawa <arai_a@mac.com>
+# Date: 2025-09-25 10:57 +0000
+# Regressor Bug: 1980152
+# File Overlap Count: 1
+# Overlapping Files: dom/script/ScriptLoader.cpp
+# Description:
+#   Bug 1980152 - Part 2: Save bytecode also with stencil navigation. r=nbp
+# ==============================================================================
+
+diff -r a10921d560a0 -r f551e9b80401 dom/script/ScriptLoader.cpp
+--- a/dom/script/ScriptLoader.cpp	Thu Sep 25 10:57:33 2025 +0000
++++ b/dom/script/ScriptLoader.cpp	Thu Sep 25 10:57:33 2025 +0000
+@@ -3608,11 +3608,34 @@
+ 
+     RefPtr<JS::Stencil> stencil;
+     stencil = FinishCollectingDelazifications(aes.cx(), request);
+-    if (stencil) {
+-      MOZ_ASSERT_IF(request->IsStencil(), stencil == request->GetStencil());
+-
+-      // TODO: This should be performed also with mCache at some point.
+-      if (!mCache) {
++    if (mCache) {
++      if (stencil) {
++        MOZ_ASSERT_IF(request->IsStencil(), stencil == request->GetStencil());
++
++        // The bytecode encoding is performed only when there was no
++        // bytecode stored in the necko cache.
++        //
++        // The nsICacheInfoChannel is stored when this request receives
++        // a source text (See ScriptLoadHandler::OnStreamComplete), and also
++        // the SRI is calculated only in that case.
++        MOZ_ASSERT_IF(request->HasDiskCacheReference(),
++                      !request->SRIAndBytecode().empty());
++
++        if (request->IsMarkedForDiskCache()) {
++          MOZ_ASSERT(request->HasDiskCacheReference());
++          MOZ_ASSERT(request->SRIAndBytecode().length() ==
++                     request->GetSRILength());
++
++          EncodeBytecodeAndSave(aes.cx(), request, request->mCacheInfo,
++                                BytecodeMimeTypeFor(request),
++                                request->SRIAndBytecode(), stencil);
++
++          request->DropBytecode();
++        }
++      }
++      request->DropDiskCacheReference();
++    } else {
++      if (stencil) {
+         MOZ_ASSERT(request->SRIAndBytecode().length() ==
+                    request->GetSRILength());
+ 
+@@ -3622,8 +3645,8 @@
+ 
+         request->DropBytecode();
+       }
++      request->DropDiskCacheReference();
+     }
+-    request->DropDiskCacheReference();
+   }
+ }
+ 
+@@ -3654,7 +3677,6 @@
+     JSContext* aCx, ScriptLoadRequest* aRequest,
+     nsCOMPtr<nsICacheInfoChannel>& aCacheInfo, nsCString& aMimeType,
+     const JS::TranscodeBuffer& aSRI, JS::Stencil* aStencil) {
+-  MOZ_ASSERT(!mCache);
+   MOZ_ASSERT(aCacheInfo);
+ 
+   using namespace mozilla::Telemetry;

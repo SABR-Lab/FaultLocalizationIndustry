@@ -1,0 +1,54 @@
+# ==============================================================================
+# FIXING COMMIT DIFF
+# ==============================================================================
+# File: testing/web-platform/tests/html/semantics/interactive-elements/the-dialog-element/dialog-form-submission.html
+# Commit: 7e73e0ab27fe
+# Full Hash: 7e73e0ab27feb43b078eabb317ed191c878efc9f
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2020-07-15 09:37:18
+# Description:
+#   Bug 1652699 - Fix a null pointer crash while doing dialog form submission r=smaug
+#   
+#   It's possible that the dialog is closed while we are processing
+#   the request, and we'd deferencing a null pointer for such case.
+#   
+# ==============================================================================
+
+diff -r aaa0c6fdc568 -r 7e73e0ab27fe testing/web-platform/tests/html/semantics/interactive-elements/the-dialog-element/dialog-form-submission.html
+--- a/testing/web-platform/tests/html/semantics/interactive-elements/the-dialog-element/dialog-form-submission.html	Tue Jul 14 12:20:10 2020 +0000
++++ b/testing/web-platform/tests/html/semantics/interactive-elements/the-dialog-element/dialog-form-submission.html	Tue Jul 14 21:19:10 2020 +0000
+@@ -9,7 +9,7 @@
+ 
+ <body>
+ <dialog id="favDialog">
+-  <form method="dialog">
++  <form id="dialogForm" method="dialog">
+     <button id="confirmBtn" value="default">Confirm</button>
+     <input id="confirmImgBtn" src="./resources/submit.jpg" width="41"
+     height="41" type="image" alt="Hello">
+@@ -78,5 +78,25 @@
+   assert_false(dialog.open, "dialog should be closed now");
+ }, "formmethod attribute should use dialog form submission");
+ 
++promise_test(async () => {
++  const dialog = document.querySelector('dialog');
++  dialog.returnValue = "";
++  dialog.showModal();
++
++  const button = document.querySelector('button');
++  button.value = "sushi";
++
++  const dialogForm = document.getElementById('dialogForm');
++  dialogForm.onsubmit = function() {
++    dialog.close();
++  }
++
++  button.click();
++  assert_false(dialog.open, "dialog should be closed now");
++  // If the submission request got processed, the returnValue should change
++  // to "sushi" because that's the value of the submitter
++  assert_equals(dialog.returnValue, "", "dialog's returnValue remains the same");
++}, "closing the dialog while submitting should stop the submission");
++
+ </script>
+ </body>

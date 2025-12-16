@@ -1,0 +1,52 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/BodyStream.h
+# Commit: ff1de20097f6
+# Full Hash: ff1de20097f6aa13cb7e27d827c42e44de4269e4
+# Author: Kagami Sascha Rosylight <krosylight@mozilla.com>
+# Date: 2023-02-21 21:26:48
+# Regressor Bug: 1813011
+# File Overlap Count: 1
+# Description:
+#   Bug 1813011 - Part 3: Remove BodyStream::mState r=smaug
+#   
+#   1. eInitializing is only used to call MarkAsRead, but it can just be called unconditionally since it's just a boolean setter.
+#   2. eClosed is aliased to `!mStreamHolder`, since it becomes null when being closed.
+#   
+# ==============================================================================
+
+diff -r 68fbd6ac34b2 -r ff1de20097f6 dom/base/BodyStream.h
+--- a/dom/base/BodyStream.h	Tue Feb 21 12:37:38 2023 +0000
++++ b/dom/base/BodyStream.h	Tue Feb 21 12:37:38 2023 +0000
+@@ -134,24 +134,17 @@
+ 
+   void ReleaseObjects();
+ 
+-  // Common methods
+-
+-  enum State {
+-    // This is the beginning state before any reading operation.
+-    eInitializing,
++  // The closed state should ultimately be managed by the source algorithms
++  // class. See also bug 1815997.
++  bool IsClosed() { return !mStreamHolder; }
+ 
+-    // Stream is initialized and being consumed.
+-    eInitialized,
+-
+-    // Operation completed.
+-    eClosed,
+-  };
+-
+-  State mState;
++  // Common methods
+ 
+   // mGlobal is set on creation, and isn't modified off the owning thread.
+   // It isn't set to nullptr until ReleaseObjects() runs.
+   nsCOMPtr<nsIGlobalObject> mGlobal;
++  // Same for mStreamHolder. mStreamHolder being nullptr means the stream is
++  // closed.
+   RefPtr<BodyStreamHolder> mStreamHolder;
+   nsCOMPtr<nsIEventTarget> mOwningEventTarget;
+   // Same as mGlobal but set to nullptr on OnInputStreamReady (on the owning

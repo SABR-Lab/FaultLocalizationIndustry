@@ -1,0 +1,57 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/performance/PerformanceWorker.h
+# Commit: b1ab6c750d04
+# Full Hash: b1ab6c750d04299011c1446b1752c2ff98a92b33
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2023-06-07 03:30:33
+# Regressor Bug: 1800659
+# File Overlap Count: 1
+# Description:
+#   Bug 1800659 - P3 Remove WorkerPrivate::ClearMainEventQueue() r=asuth,smaug
+#   
+#   Pending->Canceling->Killing (WorkerNeverRan)
+#   
+#   Need to clear WorkerPrivate::mPreStartRunnables
+# ==============================================================================
+
+diff -r 32515f9b41c7 -r b1ab6c750d04 dom/performance/PerformanceWorker.h
+--- a/dom/performance/PerformanceWorker.h	Tue Jun 06 06:36:50 2023 +0000
++++ b/dom/performance/PerformanceWorker.h	Tue Jun 06 06:36:50 2023 +0000
+@@ -8,13 +8,14 @@
+ #define mozilla_dom_PerformanceWorker_h
+ 
+ #include "Performance.h"
+-#include "mozilla/dom/WorkerPrivate.h"
+ 
+ namespace mozilla::dom {
+ 
++class WorkerGlobalScope;
++
+ class PerformanceWorker final : public Performance {
+  public:
+-  explicit PerformanceWorker(WorkerPrivate* aWorkerPrivate);
++  explicit PerformanceWorker(WorkerGlobalScope* aGlobalScope);
+ 
+   PerformanceStorage* AsPerformanceStorage() override {
+     MOZ_CRASH("This should not be called on workers.");
+@@ -80,8 +81,6 @@
+     MOZ_CRASH("This should not be called on workers");
+   }
+ 
+-  void NoteShuttingDown();
+-
+  protected:
+   ~PerformanceWorker();
+ 
+@@ -90,9 +89,6 @@
+   void DispatchBufferFullEvent() override {
+     // Nothing to do here. See bug 1432758.
+   }
+-
+- private:
+-  CheckedUnsafePtr<WorkerPrivate> mWorkerPrivate;
+ };
+ 
+ }  // namespace mozilla::dom

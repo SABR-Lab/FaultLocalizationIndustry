@@ -1,0 +1,46 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/frontend/Stencil.cpp
+# Commit: 3749d6d2325d
+# Full Hash: 3749d6d2325d36db3987be586fcfba07b9423356
+# Author: Tooru Fujisawa <arai_a@mac.com>
+# Date: 2020-11-14 09:46:25
+# Regressor Bug: 1675241
+# File Overlap Count: 1
+# Description:
+#   Bug 1675241 - Part 7: Add CompilationStencil::getParserAtomAt. r=tcampbell
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D96914
+# ==============================================================================
+
+diff -r 50e9d084764c -r 3749d6d2325d js/src/frontend/Stencil.cpp
+--- a/js/src/frontend/Stencil.cpp	Sat Nov 14 00:25:21 2020 +0000
++++ b/js/src/frontend/Stencil.cpp	Sat Nov 14 00:03:00 2020 +0000
+@@ -1664,3 +1664,26 @@
+ 
+   return true;
+ }
++
++const ParserAtom* CompilationStencil::getParserAtomAt(
++    JSContext* cx, TaggedParserAtomIndex taggedIndex) const {
++  if (taggedIndex.isParserAtomIndex()) {
++    auto index = taggedIndex.toParserAtomIndex();
++    MOZ_ASSERT(index < parserAtomData.length());
++    return parserAtomData[index]->asAtom();
++  }
++
++  if (taggedIndex.isWellKnownAtomId()) {
++    auto index = taggedIndex.toWellKnownAtomId();
++    return cx->runtime()->commonParserNames->getWellKnown(index);
++  }
++
++  if (taggedIndex.isStaticParserString1()) {
++    auto index = taggedIndex.toStaticParserString1();
++    return WellKnownParserAtoms::getStatic1(index);
++  }
++
++  MOZ_ASSERT(taggedIndex.isStaticParserString2());
++  auto index = taggedIndex.toStaticParserString2();
++  return WellKnownParserAtoms::getStatic2(index);
++}

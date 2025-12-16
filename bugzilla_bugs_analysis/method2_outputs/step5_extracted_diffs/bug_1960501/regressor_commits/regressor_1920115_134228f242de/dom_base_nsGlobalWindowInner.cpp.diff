@@ -1,0 +1,32 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/nsGlobalWindowInner.cpp
+# Commit: 134228f242de
+# Full Hash: 134228f242dee041e94824d207c4f0e68b48c83c
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2025-04-01 09:40:15
+# Regressor Bug: 1920115
+# File Overlap Count: 2
+# Description:
+#   Bug 1920115 - Allow high priority tasks to run before timers r=smaug
+#   
+#   In Gecko, unlike other runnables where the TaskController
+#   picks one each at a time, the TimeoutManager allows multiple
+#   timers to run sequentially without allowing other runnables
+# ==============================================================================
+
+diff -r 41d90165c19a -r 134228f242de dom/base/nsGlobalWindowInner.cpp
+--- a/dom/base/nsGlobalWindowInner.cpp	Mon Mar 31 19:49:03 2025 +0000
++++ b/dom/base/nsGlobalWindowInner.cpp	Mon Mar 31 19:49:03 2025 +0000
+@@ -2907,6 +2907,10 @@
+   return outer && outer->GetCurrentInnerWindow() == this;
+ }
+ 
++bool nsGlobalWindowInner::HasScheduledNormalOrHighPriorityWebTasks() const {
++  return gNumNormalOrHighPriorityQueuesHaveTaskScheduledMainThread > 0;
++}
++
+ bool nsPIDOMWindowInner::IsFullyActive() const {
+   WindowContext* wc = GetWindowContext();
+   if (!wc || wc->IsDiscarded() || !wc->IsCurrent()) {

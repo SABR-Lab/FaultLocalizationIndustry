@@ -1,0 +1,45 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: widget/ContentCache.h
+# Commit: 989ad9507a0c
+# Full Hash: 989ad9507a0c9d1a88df299b27f7fa8783463e1a
+# Author: Masayuki Nakano <masayuki@d-toybox.com>
+# Date: 2022-02-08 17:32:27
+# Regressor Bug: 1746104
+# File Overlap Count: 1
+# Description:
+#   Bug 1746104 - part 6-5: Make `ContentCache` not stop caching other data when it fails caching something r=m_kato
+#   
+#   Currently, `mSelection` is cached only when `mText` is some, text rects are
+#   cached only when `mSelection` is cached.  However, as far as widget can work
+#   with IME, it should cache content as far as possible.  Therefore, this patch
+# ==============================================================================
+
+diff -r 7d1d1864b99b -r 989ad9507a0c widget/ContentCache.h
+--- a/widget/ContentCache.h	Mon Feb 07 22:33:40 2022 +0000
++++ b/widget/ContentCache.h	Mon Feb 07 22:33:41 2022 +0000
+@@ -73,6 +73,10 @@
+     // Whole rect of selected text. This is empty if the selection is collapsed.
+     LayoutDeviceIntRect mRect;
+ 
++    Selection() : mAnchor(UINT32_MAX), mFocus(UINT32_MAX), mHasRange(false) {
++      ClearRects();
++    };
++
+     explicit Selection(
+         const IMENotification::SelectionChangeDataBase& aSelectionChangeData)
+         : mAnchor(UINT32_MAX),
+@@ -172,12 +176,6 @@
+       aStream << " }";
+       return aStream;
+     }
+-
+-   private:
+-    Selection() = default;
+-
+-    friend struct IPC::ParamTraits<ContentCache::Selection>;
+-    friend struct IPC::ParamTraits<Maybe<ContentCache::Selection>>;
+   };
+   Maybe<Selection> mSelection;
+ 

@@ -1,0 +1,40 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/workers/WorkerScope.h
+# Commit: b1ab6c750d04
+# Full Hash: b1ab6c750d04299011c1446b1752c2ff98a92b33
+# Author: Eden Chuang <echuang@mozilla.com>
+# Date: 2023-06-07 03:30:33
+# Regressor Bug: 1800659
+# File Overlap Count: 1
+# Description:
+#   Bug 1800659 - P3 Remove WorkerPrivate::ClearMainEventQueue() r=asuth,smaug
+#   
+#   Pending->Canceling->Killing (WorkerNeverRan)
+#   
+#   Need to clear WorkerPrivate::mPreStartRunnables
+# ==============================================================================
+
+diff -r 32515f9b41c7 -r b1ab6c750d04 dom/workers/WorkerScope.h
+--- a/dom/workers/WorkerScope.h	Tue Jun 06 06:36:50 2023 +0000
++++ b/dom/workers/WorkerScope.h	Tue Jun 06 06:36:50 2023 +0000
+@@ -248,6 +248,10 @@
+ 
+   mozilla::dom::StorageManager* GetStorageManager() final;
+ 
++  void SetIsNotEligibleForMessaging() { mIsEligibleForMessaging = false; }
++
++  bool IsEligibleForMessaging() final;
++
+   // WorkerGlobalScope WebIDL implementation
+   WorkerGlobalScope* Self() { return this; }
+ 
+@@ -381,6 +385,7 @@
+   RefPtr<DebuggerNotificationManager> mDebuggerNotificationManager;
+   RefPtr<WebTaskSchedulerWorker> mWebTaskScheduler;
+   uint32_t mWindowInteractionsAllowed = 0;
++  bool mIsEligibleForMessaging{true};
+ };
+ 
+ class DedicatedWorkerGlobalScope final

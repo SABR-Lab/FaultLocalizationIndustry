@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: xpcom/components/nsComponentManager.cpp
+# Commit: 7ae4df10749c
+# Full Hash: 7ae4df10749c176009923591c252c634571c21d1
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2020-07-02 15:21:09
+# Regressor Bug: 1627075
+# File Overlap Count: 1
+# Description:
+#   Bug 1627075 - Route Omnijar requests through StartupCache r=froydnj
+#   
+#   This should be a relatively straightforward patch. Essentially, we implement
+#   a wrapper class (and friends) around nsZipArchive (and friends), which transparently
+#   caches entries from the underlying zip archive in the StartupCache. This will break
+# ==============================================================================
+
+diff -r ece9a4223349 -r 7ae4df10749c xpcom/components/nsComponentManager.cpp
+--- a/xpcom/components/nsComponentManager.cpp	Thu Jul 02 03:39:46 2020 +0000
++++ b/xpcom/components/nsComponentManager.cpp	Thu Jul 02 02:51:41 2020 +0000
+@@ -491,7 +491,7 @@
+     InitializeModuleLocations();
+     ComponentLocation* cl = sModuleLocations->AppendElement();
+     cl->type = NS_APP_LOCATION;
+-    RefPtr<nsZipArchive> greOmnijar =
++    RefPtr<CacheAwareZipReader> greOmnijar =
+         mozilla::Omnijar::GetReader(mozilla::Omnijar::GRE);
+     if (greOmnijar) {
+       cl->location.Init(greOmnijar, "chrome.manifest");
+@@ -500,7 +500,7 @@
+       cl->location.Init(lf);
+     }
+ 
+-    RefPtr<nsZipArchive> appOmnijar =
++    RefPtr<CacheAwareZipReader> appOmnijar =
+         mozilla::Omnijar::GetReader(mozilla::Omnijar::APP);
+     if (appOmnijar) {
+       cl = sModuleLocations->AppendElement();

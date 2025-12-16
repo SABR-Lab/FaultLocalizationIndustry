@@ -1,0 +1,36 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/gc/GC.cpp
+# Commit: c63801497940
+# Full Hash: c63801497940b667d2c47373aee95312502a2acb
+# Author: Jon Coppeard <jcoppeard@mozilla.com>
+# Date: 2024-10-15 16:18:18
+# Regressor Bug: 1924504
+# File Overlap Count: 1
+# Description:
+#   Bug 1924504 - Make GCRuntime::getOrAllocChunk leave chunk on the empty chunks list r=sfink
+#   
+#   The problem is that we can fail to allocate an arena in a new chunk for various
+#   reason, but currently we eagerly move the chunk from the empty to the available
+#   chunks list when getting an empty chunk and this causes an assertion failure
+# ==============================================================================
+
+diff -r 7a7ea826905f -r c63801497940 js/src/gc/GC.cpp
+--- a/js/src/gc/GC.cpp	Tue Oct 15 07:07:54 2024 +0000
++++ b/js/src/gc/GC.cpp	Tue Oct 15 07:33:02 2024 +0000
+@@ -2191,6 +2191,14 @@
+   }
+ 
+   for (ArenaChunk* chunk : chunksToDecommit) {
++    MOZ_ASSERT(chunk->getKind() == ChunkKind::TenuredArenas);
++    MOZ_ASSERT(!chunk->unused());
++    if (!chunk->hasAvailableArenas()) {
++      // Chunk has become full while lock was released.
++      continue;
++    }
++
++    MOZ_ASSERT(availableChunks(lock).contains(chunk));
+     chunk->decommitFreeArenas(this, cancel, lock);
+   }
+ }

@@ -1,0 +1,77 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: parser/html/nsHtml5TokenizerCppSupplement.h
+# Commit: 9a8abd87cc79
+# Full Hash: 9a8abd87cc7935f29b94248c1a6f8203faa14403
+# Author: Henri Sivonen <hsivonen@hsivonen.fi>
+# Date: 2021-12-08 21:43:06
+# Regressor Bug: 1701828
+# File Overlap Count: 10
+# Description:
+#   Bug 1701828 - meta charset rewrite. r=smaug
+#   
+#   Implements https://github.com/whatwg/html/issues/6962 . Improves performance
+#   when <meta charset> occurs in head but after the first kilobyte and aligns
+#   behavior better with WebKit and Blink.
+# ==============================================================================
+
+diff --git a/parser/html/nsHtml5TokenizerCppSupplement.h b/parser/html/nsHtml5TokenizerCppSupplement.h
+--- a/parser/html/nsHtml5TokenizerCppSupplement.h
++++ b/parser/html/nsHtml5TokenizerCppSupplement.h
+@@ -56,32 +56,55 @@ bool nsHtml5Tokenizer::EnsureBufferSpace
+       return false;
+     }
+     memcpy(newBuf, strBuf, sizeof(char16_t) * size_t(strBufLen));
+     strBuf = newBuf;
+   }
+   return true;
+ }
+ 
++bool nsHtml5Tokenizer::TemplatePushedOrHeadPopped() {
++  if (encodingDeclarationHandler) {
++    return encodingDeclarationHandler->TemplatePushedOrHeadPopped();
++  }
++  return false;
++}
++
++void nsHtml5Tokenizer::RememberGt(int32_t aPos) {
++  if (encodingDeclarationHandler) {
++    return encodingDeclarationHandler->RememberGt(aPos);
++  }
++}
++
+ void nsHtml5Tokenizer::StartPlainText() {
+   stateSave = nsHtml5Tokenizer::PLAINTEXT;
+ }
+ 
+ void nsHtml5Tokenizer::EnableViewSource(nsHtml5Highlighter* aHighlighter) {
+   mViewSource = WrapUnique(aHighlighter);
+ }
+ 
+ bool nsHtml5Tokenizer::FlushViewSource() { return mViewSource->FlushOps(); }
+ 
+ void nsHtml5Tokenizer::StartViewSource(const nsAutoString& aTitle) {
+   mViewSource->Start(aTitle);
+ }
+ 
++void nsHtml5Tokenizer::StartViewSourceCharacters() {
++  mViewSource->StartCharacters();
++}
++
+ void nsHtml5Tokenizer::EndViewSource() { mViewSource->End(); }
+ 
++void nsHtml5Tokenizer::SetViewSourceOpSink(nsAHtml5TreeOpSink* aOpSink) {
++  mViewSource->SetOpSink(aOpSink);
++}
++
++void nsHtml5Tokenizer::RewindViewSource() { mViewSource->Rewind(); }
++
+ void nsHtml5Tokenizer::errWarnLtSlashInRcdata() {}
+ 
+ // The null checks below annotated MOZ_LIKELY are not actually necessary.
+ 
+ void nsHtml5Tokenizer::errUnquotedAttributeValOrNull(char16_t c) {
+   if (MOZ_LIKELY(mViewSource)) {
+     switch (c) {
+       case '<':

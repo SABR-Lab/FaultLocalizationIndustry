@@ -1,0 +1,39 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/webrtc/libwebrtcglue/WebrtcVideoCodecFactory.cpp
+# Commit: 709078257c62
+# Full Hash: 709078257c628fae054382894de5864b1f5f5c2a
+# Author: Andreas Pehrson <apehrson@mozilla.com>
+# Date: 2021-11-01 18:17:33
+# Regressor Bug: 1654112
+# File Overlap Count: 3
+# Description:
+#   Bug 1654112 - Re-wire GMP PluginID between codecs and VideoConduit. r=bwc
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D104724
+# ==============================================================================
+
+diff -r 3ca24e761cc3 -r 709078257c62 dom/media/webrtc/libwebrtcglue/WebrtcVideoCodecFactory.cpp
+--- a/dom/media/webrtc/libwebrtcglue/WebrtcVideoCodecFactory.cpp	Wed Feb 10 10:34:14 2021 +0100
++++ b/dom/media/webrtc/libwebrtcglue/WebrtcVideoCodecFactory.cpp	Wed Feb 10 15:17:29 2021 +0100
+@@ -23,7 +23,8 @@
+     case webrtc::VideoCodecType::kVideoCodecH264: {
+       // Get an external decoder
+       auto gmpDecoder = WrapUnique(GmpVideoCodec::CreateDecoder(mPCHandle));
+-      // XXX Hook up gmpDecoder's PluginID
++      mCreatedGmpPluginEvent.Forward(*gmpDecoder->InitPluginEvent());
++      mReleasedGmpPluginEvent.Forward(*gmpDecoder->ReleasePluginEvent());
+       decoder.reset(gmpDecoder.release());
+       break;
+     }
+@@ -116,7 +117,8 @@
+     case webrtc::VideoCodecType::kVideoCodecH264: {
+       // get an external encoder
+       auto gmpEncoder = WrapUnique(GmpVideoCodec::CreateEncoder(mPCHandle));
+-      // XXX Hook up gmpEncoder's PluginID
++      mCreatedGmpPluginEvent.Forward(*gmpEncoder->InitPluginEvent());
++      mReleasedGmpPluginEvent.Forward(*gmpEncoder->ReleasePluginEvent());
+       encoder.reset(gmpEncoder.release());
+       break;
+     }

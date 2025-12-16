@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/cookie/nsICookieService.idl
+# Commit: 36aa6faea947
+# Full Hash: 36aa6faea9477a13b6d94e396596697e56675018
+# Author: Paul Zuehlcke <pbz@mozilla.com>
+# Date: 2023-09-19 03:53:26
+# Regressor Bug: 1839918
+# File Overlap Count: 6
+# Description:
+#   Bug 1839918 - Refactor "cookie-changed" notifications to use nsICookieNotification. r=extension-reviewers,cookie-reviewers,sessionstore-reviewers,bvandersloot,edgul,robwu
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D185300
+# ==============================================================================
+
+diff -r 905592ffa91d -r 36aa6faea947 netwerk/cookie/nsICookieService.idl
+--- a/netwerk/cookie/nsICookieService.idl	Mon Sep 18 11:25:24 2023 +0000
++++ b/netwerk/cookie/nsICookieService.idl	Mon Sep 18 11:55:08 2023 +0000
+@@ -33,31 +33,15 @@
+  *       observer. Doing so will cause undefined behavior. Mutating the cookie
+  *       list (e.g. by calling methods on nsICookieService and friends) is
+  *       allowed, but beware that there may be pending notifications you haven't
+- *       seen yet -- for instance, a "batch-deleted" notification will likely be
+- *       immediately followed by "added". You may check the state of the cookie
++ *       seen yet -- for instance, a COOKIES_BATCH_DELETED notification will likely be
++ *       immediately followed by COOKIE_ADDED. You may check the state of the cookie
+  *       list to determine if this is the case.
+  *
+  * topic  : "cookie-changed"
+  *          broadcast whenever the cookie list changes in some way. see
+  *          explanation of data strings below.
+- * subject: see below.
+- * data   : "deleted"
+- *          a cookie was deleted. the subject is an nsICookie representing
+- *          the deleted cookie.
+- *          "added"
+- *          a cookie was added. the subject is an nsICookie representing
+- *          the added cookie.
+- *          "changed"
+- *          a cookie was changed. the subject is an nsICookie representing
+- *          the new cookie. (note that host, path, and name are invariant
+- *          for a given cookie; other parameters may change.)
+- *          "batch-deleted"
+- *          a set of cookies was purged (typically, because they have either
+- *          expired or because the cookie list has grown too large). The subject
+- *          is an nsIArray of nsICookie's representing the deleted cookies.
+- *          Note that the array could contain a single cookie.
+- *          "cleared"
+- *          the entire cookie list was cleared. the subject is null.
++ * subject: The cookie notification. See nsICookieNotification for details.
++ * data   : none. For possible actions see nsICookieNotification_Action.
+  *
+  * topic  : "cookie-rejected"
+  *          broadcast whenever a cookie was rejected from being set as a

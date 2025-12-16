@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmBaselineCompile.cpp
+# Commit: 00b99ec19d1e
+# Full Hash: 00b99ec19d1e819d64d277c406edfaea1009797f
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2022-03-24 21:54:20
+# Regressor Bug: 1642412
+# File Overlap Count: 2
+# Description:
+#   Bug 1642412 - wasm: Switch ion to use the precise post-write barrier. r=jseward
+#   
+#   Ion has an easier time switching to the precise post-write barrier
+#   as it's already unconditionally doing a call (postBarrierFiltering),
+#   and so there's little extra cost in switching that call to be the
+# ==============================================================================
+
+diff -r 89db2f360b8f -r 00b99ec19d1e js/src/wasm/WasmBaselineCompile.cpp
+--- a/js/src/wasm/WasmBaselineCompile.cpp	Thu Mar 24 17:56:52 2022 +0000
++++ b/js/src/wasm/WasmBaselineCompile.cpp	Thu Mar 24 17:56:52 2022 +0000
+@@ -2110,19 +2110,19 @@
+ Address BaseCompiler::addressOfTableField(const TableDesc& table,
+                                           uint32_t fieldOffset, RegPtr tls) {
+   uint32_t tableToTlsOffset =
+-      offsetof(TlsData, globalArea) + table.globalDataOffset + fieldOffset;
++      wasm::Instance::offsetOfGlobalArea() + table.globalDataOffset + fieldOffset;
+   return Address(tls, tableToTlsOffset);
+ }
+ 
+ void BaseCompiler::loadTableLength(const TableDesc& table, RegPtr tls,
+                                    RegI32 length) {
+-  masm.load32(addressOfTableField(table, offsetof(TableTls, length), tls),
++  masm.load32(addressOfTableField(table, offsetof(TableInstanceData, length), tls),
+               length);
+ }
+ 
+ void BaseCompiler::loadTableElements(const TableDesc& table, RegPtr tls,
+                                      RegPtr elements) {
+-  masm.loadPtr(addressOfTableField(table, offsetof(TableTls, elements), tls),
++  masm.loadPtr(addressOfTableField(table, offsetof(TableInstanceData, elements), tls),
+                elements);
+ }
+ 
+@@ -5906,7 +5906,7 @@
+   Label ok;
+   masm.wasmBoundsCheck32(
+       Assembler::Condition::Below, index,
+-      addressOfTableField(table, offsetof(TableTls, length), tls), &ok);
++      addressOfTableField(table, offsetof(TableInstanceData, length), tls), &ok);
+   masm.wasmTrap(wasm::Trap::OutOfBounds, bytecodeOffset());
+   masm.bind(&ok);
+ }

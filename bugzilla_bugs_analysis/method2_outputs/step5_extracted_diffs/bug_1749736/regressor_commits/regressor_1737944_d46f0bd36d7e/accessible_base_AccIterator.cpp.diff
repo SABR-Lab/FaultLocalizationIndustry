@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: accessible/base/AccIterator.cpp
+# Commit: d46f0bd36d7e
+# Full Hash: d46f0bd36d7edd1d9d040be6298e6e5d1ccc70b2
+# Author: Eitan Isaacson <eitan@monotonous.org>
+# Date: 2022-01-05 09:33:53
+# Regressor Bug: 1737944
+# File Overlap Count: 1
+# Description:
+#   Bug 1737944 - P9: Make AccGroupInfo use Accessible. r=Jamie
+#   
+#   Now that GroupPosition and GetGroupInfo are in Accessible, we can make
+#   AccGroupInfo use the Accessible base class.
+#   
+# ==============================================================================
+
+diff -r ac04b727a98b -r d46f0bd36d7e accessible/base/AccIterator.cpp
+--- a/accessible/base/AccIterator.cpp	Tue Jan 04 21:01:37 2022 +0000
++++ b/accessible/base/AccIterator.cpp	Tue Jan 04 21:01:38 2022 +0000
+@@ -293,12 +293,18 @@
+ 
+ LocalAccessible* ItemIterator::Next() {
+   if (mContainer) {
+-    mAnchor = AccGroupInfo::FirstItemOf(mContainer);
++    Accessible* first = AccGroupInfo::FirstItemOf(mContainer);
++    mAnchor = first ? first->AsLocal() : nullptr;
+     mContainer = nullptr;
+     return mAnchor;
+   }
+ 
+-  return mAnchor ? (mAnchor = AccGroupInfo::NextItemTo(mAnchor)) : nullptr;
++  if (mAnchor) {
++    Accessible* next = AccGroupInfo::NextItemTo(mAnchor);
++    mAnchor = next ? next->AsLocal() : nullptr;
++  }
++
++  return mAnchor;
+ }
+ 
+ ////////////////////////////////////////////////////////////////////////////////

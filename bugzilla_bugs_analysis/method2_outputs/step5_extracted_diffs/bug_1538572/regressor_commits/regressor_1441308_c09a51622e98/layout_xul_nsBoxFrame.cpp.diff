@@ -1,0 +1,105 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/xul/nsBoxFrame.cpp
+# Commit: c09a51622e98
+# Full Hash: c09a51622e988e81077c75e3aaa5a49df66284b3
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2019-03-22 16:44:08
+# Regressor Bug: 1441308
+# File Overlap Count: 2
+# Description:
+#   Bug 1441308 - Core renderroot splitting changes r=kats,sotaro
+#   
+#   This is a large patch that contains all of the core changes for
+#   renderroot splitting.
+#   
+# ==============================================================================
+
+diff -r 737807563dd5 -r c09a51622e98 layout/xul/nsBoxFrame.cpp
+--- a/layout/xul/nsBoxFrame.cpp	Thu Mar 21 23:14:26 2019 +0000
++++ b/layout/xul/nsBoxFrame.cpp	Fri Mar 22 03:15:14 2019 +0000
+@@ -42,6 +42,7 @@
+ 
+ #include "nsBoxFrame.h"
+ 
++#include "gfxPrefs.h"
+ #include "gfxUtils.h"
+ #include "mozilla/gfx/2D.h"
+ #include "nsBoxLayoutState.h"
+@@ -69,6 +70,7 @@
+ #include "nsITheme.h"
+ #include "nsTransform2D.h"
+ #include "mozilla/EventStateManager.h"
++#include "mozilla/gfx/gfxVars.h"
+ #include "nsDisplayList.h"
+ #include "mozilla/Preferences.h"
+ #include "nsStyleConsts.h"
+@@ -1045,6 +1047,13 @@
+ void nsBoxFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
+                                   const nsDisplayListSet& aLists) {
+   bool forceLayer = false;
++  // We check the renderroot attribute here in nsBoxFrame for lack of a better
++  // place. This roughly mirrors the pre-existing "layer" attribute. In the
++  // long term we may want to add a specific element in which we can wrap
++  // alternate renderroot content, but we're electing to not go down that
++  // rabbit hole today.
++  wr::RenderRoot renderRoot =
++      gfxUtils::GetRenderRootForFrame(this).valueOr(wr::RenderRoot::Default);
+ 
+   if (GetContent()->IsXULElement()) {
+     // forcelayer is only supported on XUL elements with box layout
+@@ -1062,12 +1071,14 @@
+   }
+ 
+   nsDisplayListCollection tempLists(aBuilder);
+-  const nsDisplayListSet& destination = forceLayer ? tempLists : aLists;
++  const nsDisplayListSet& destination =
++      (forceLayer || renderRoot != wr::RenderRoot::Default) ? tempLists
++                                                            : aLists;
+ 
+   DisplayBorderBackgroundOutline(aBuilder, destination);
+ 
+   Maybe<nsDisplayListBuilder::AutoContainerASRTracker> contASRTracker;
+-  if (forceLayer) {
++  if (forceLayer || renderRoot != wr::RenderRoot::Default) {
+     contASRTracker.emplace(aBuilder);
+   }
+ 
+@@ -1076,7 +1087,7 @@
+   // see if we have to draw a selection frame around this container
+   DisplaySelectionOverlay(aBuilder, destination.Content());
+ 
+-  if (forceLayer) {
++  if (forceLayer || renderRoot != wr::RenderRoot::Default) {
+     // This is a bit of a hack. Collect up all descendant display items
+     // and merge them into a single Content() list. This can cause us
+     // to violate CSS stacking order, but forceLayer is a magic
+@@ -1088,15 +1099,21 @@
+     masterList.AppendToTop(tempLists.Content());
+     masterList.AppendToTop(tempLists.PositionedDescendants());
+     masterList.AppendToTop(tempLists.Outlines());
+-
+     const ActiveScrolledRoot* ownLayerASR = contASRTracker->GetContainerASR();
+-
+     DisplayListClipState::AutoSaveRestore ownLayerClipState(aBuilder);
+ 
+-    // Wrap the list to make it its own layer
+-    aLists.Content()->AppendToTop(MakeDisplayItem<nsDisplayOwnLayer>(
+-        aBuilder, this, &masterList, ownLayerASR, nsDisplayOwnLayerFlags::eNone,
+-        mozilla::layers::ScrollbarData{}, true, true));
++    if (forceLayer) {
++      MOZ_ASSERT(renderRoot == wr::RenderRoot::Default);
++      // Wrap the list to make it its own layer
++      aLists.Content()->AppendToTop(MakeDisplayItem<nsDisplayOwnLayer>(
++          aBuilder, this, &masterList, ownLayerASR,
++          nsDisplayOwnLayerFlags::eNone, mozilla::layers::ScrollbarData{}, true,
++          true));
++    } else {
++      MOZ_ASSERT(!XRE_IsContentProcess());
++      aLists.Content()->AppendToTop(MakeDisplayItem<nsDisplayRenderRoot>(
++          aBuilder, this, &masterList, ownLayerASR, renderRoot));
++    }
+   }
+ }
+ 

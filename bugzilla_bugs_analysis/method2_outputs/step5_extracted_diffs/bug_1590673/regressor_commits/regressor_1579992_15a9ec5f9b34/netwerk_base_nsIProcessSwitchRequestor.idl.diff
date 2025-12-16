@@ -1,0 +1,33 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: netwerk/base/nsIProcessSwitchRequestor.idl
+# Commit: 15a9ec5f9b34
+# Full Hash: 15a9ec5f9b344d37cc7c1b6144e0d22adc365272
+# Author: Valentin Gosu <valentin.gosu@gmail.com>
+# Date: 2019-10-22 15:53:00
+# Regressor Bug: 1579992
+# File Overlap Count: 1
+# Description:
+#   Bug 1579992 - Load pages into new webCOOP+COEP process type r=nika
+#   
+#   * This patch makes pages with the `OPENER_POLICY_SAME_ORIGIN_EMBEDDER_POLICY_REQUIRE_CORP` policy load into a special `webCOOP+COEP={pageOrigin}` remote type.
+#   * Adds `E10SUtils.WEB_REMOTE_COOP_COEP_TYPE_PREFIX="webCOOP+COEP="`
+#   * When a COOP process switch occurs and the target page doesn't have this policy, we pass a `preferredRemoteType="web"` into `E10SUtils.getRemoteTypeForPrincipal` ensuring that we correctly get a different `remoteType`
+# ==============================================================================
+
+diff -r fa1d78394a96 -r 15a9ec5f9b34 netwerk/base/nsIProcessSwitchRequestor.idl
+--- a/netwerk/base/nsIProcessSwitchRequestor.idl	Thu Oct 17 13:48:47 2019 +0000
++++ b/netwerk/base/nsIProcessSwitchRequestor.idl	Tue Oct 22 08:02:16 2019 +0000
+@@ -42,4 +42,11 @@
+    * @throws NS_ERROR_NOT_AVAILABLE if we don't have a responseHead
+    */
+   [must_use] boolean hasCrossOriginOpenerPolicyMismatch();
++
++  /**
++   * Returns a cached CrossOriginOpenerPolicy that is computed just before we
++   * determine if there is a policy mismatch.
++   * @throws NS_ERROR_NOT_AVAILABLE if it has not been computed yet
++   */
++  [must_use] readonly attribute nsILoadInfo_CrossOriginOpenerPolicy crossOriginOpenerPolicy;
+ };

@@ -1,0 +1,58 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/fs/parent/datamodel/FileSystemDataManager.h
+# Commit: 6d1f25188b13
+# Full Hash: 6d1f25188b13f5c88f36bcb32caa2b74216f81ab
+# Author: Jan Varga <jvarga@mozilla.com>
+# Date: 2022-08-31 21:54:47
+# Regressor Bug: 1786465
+# File Overlap Count: 2
+# Description:
+#   Bug 1786465 - Add support for asynchronous closing of FileSystemDataManager; r=dom-storage-reviewers,jesup
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D155787
+# ==============================================================================
+
+diff -r 0256861a7ac5 -r 6d1f25188b13 dom/fs/parent/datamodel/FileSystemDataManager.h
+--- a/dom/fs/parent/datamodel/FileSystemDataManager.h	Wed Aug 31 09:34:57 2022 +0000
++++ b/dom/fs/parent/datamodel/FileSystemDataManager.h	Wed Aug 31 09:34:58 2022 +0000
+@@ -12,6 +12,7 @@
+ #include "mozilla/dom/FileSystemTypes.h"
+ #include "mozilla/dom/FileSystemHelpers.h"
+ #include "mozilla/dom/quota/CheckedUnsafePtr.h"
++#include "mozilla/dom/quota/ForwardDecls.h"
+ #include "nsCOMPtr.h"
+ #include "nsISupportsUtils.h"
+ #include "nsString.h"
+@@ -31,7 +32,7 @@
+ class FileSystemDataManager
+     : public SupportsCheckedUnsafePtr<CheckIf<DiagnosticAssertEnabled>> {
+  public:
+-  enum struct State : uint8_t { Initial = 0, Closed };
++  enum struct State : uint8_t { Initial = 0, Closing, Closed };
+ 
+   FileSystemDataManager(const Origin& aOrigin,
+                         MovingNotNull<RefPtr<TaskQueue>> aIOTaskQueue);
+@@ -58,17 +59,20 @@
+ 
+   void UnregisterActor(NotNull<FileSystemManagerParent*> aActor);
+ 
++  RefPtr<BoolPromise> OnClose();
++
+  protected:
+   ~FileSystemDataManager();
+ 
+   bool IsInactive() const;
+ 
+-  void Close();
++  RefPtr<BoolPromise> BeginClose();
+ 
+   nsTHashSet<FileSystemManagerParent*> mActors;
+   const Origin mOrigin;
+   const NotNull<nsCOMPtr<nsISerialEventTarget>> mBackgroundTarget;
+   const NotNull<RefPtr<TaskQueue>> mIOTaskQueue;
++  MozPromiseHolder<BoolPromise> mClosePromiseHolder;
+   uint32_t mRegCount;
+   State mState;
+ };

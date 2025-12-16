@@ -1,0 +1,158 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: js/src/wasm/WasmBaselineCompile.cpp
+# Commit: 28feda14fdec
+# Full Hash: 28feda14fdec962ea68c26a0570ea69042a5ad27
+# Author: Ryan Hunt <rhunt@eqrion.net>
+# Date: 2023-08-05 09:19:01
+# Regressor Bug: 1692065
+# File Overlap Count: 3
+# Description:
+#   Bug 1692065 - wasm: Add tagging for JSString* in AnyRef. r=yury
+#   
+#   Before this commit we would need to box a JSString* in WasmValueBox
+#   when we received one from JS and converted to an AnyRef.
+#   
+# ==============================================================================
+
+diff -r 85605041672d -r 28feda14fdec js/src/wasm/WasmBaselineCompile.cpp
+--- a/js/src/wasm/WasmBaselineCompile.cpp	Fri Aug 04 14:06:50 2023 +0000
++++ b/js/src/wasm/WasmBaselineCompile.cpp	Fri Aug 04 14:06:50 2023 +0000
+@@ -3841,15 +3841,15 @@
+   if (b.hasBlockResults()) {
+     needResultRegisters(b.resultType);
+   }
+-  RegRef rp = popRef();
++  RegRef ref = popRef();
+   if (b.hasBlockResults()) {
+     freeResultRegisters(b.resultType);
+   }
+-  if (!jumpConditionalWithResults(&b, Assembler::Equal, rp,
+-                                  ImmWord(NULLREF_VALUE))) {
+-    return false;
+-  }
+-  pushRef(rp);
++  if (!jumpConditionalWithResults(&b, Assembler::Equal, ref,
++                                  ImmWord(AnyRef::NullRefValue))) {
++    return false;
++  }
++  pushRef(ref);
+ 
+   return true;
+ }
+@@ -3880,22 +3880,22 @@
+   needIntegerResultRegisters(b.resultType);
+ 
+   // Get the ref from the top of the stack
+-  RegRef condition = popRef();
++  RegRef refCondition = popRef();
+ 
+   // Create a copy of the ref for passing to the on_non_null label,
+   // the original ref is used in the condition.
+-  RegRef rp = needRef();
+-  moveRef(condition, rp);
+-  pushRef(rp);
++  RegRef ref = needRef();
++  moveRef(refCondition, ref);
++  pushRef(ref);
+ 
+   freeIntegerResultRegisters(b.resultType);
+ 
+-  if (!jumpConditionalWithResults(&b, Assembler::NotEqual, condition,
+-                                  ImmWord(NULLREF_VALUE))) {
+-    return false;
+-  }
+-
+-  freeRef(condition);
++  if (!jumpConditionalWithResults(&b, Assembler::NotEqual, refCondition,
++                                  ImmWord(AnyRef::NullRefValue))) {
++    return false;
++  }
++
++  freeRef(refCondition);
+ 
+   // Dropping null reference.
+   dropValue();
+@@ -5895,7 +5895,7 @@
+     return true;
+   }
+ 
+-  pushRef(NULLREF_VALUE);
++  pushRef(AnyRef::NullRefValue);
+   return true;
+ }
+ 
+@@ -5912,7 +5912,7 @@
+   RegRef r = popRef();
+   RegI32 rd = narrowRef(r);
+ 
+-  masm.cmpPtrSet(Assembler::Equal, r, ImmWord(NULLREF_VALUE), rd);
++  masm.cmpPtrSet(Assembler::Equal, r, ImmWord(AnyRef::NullRefValue), rd);
+   pushI32(rd);
+   return true;
+ }
+@@ -6559,7 +6559,7 @@
+   emitPreBarrier(valueAddr);
+ 
+   // Store null
+-  masm.storePtr(ImmWord(NULLREF_VALUE), Address(valueAddr, 0));
++  masm.storePtr(ImmWord(AnyRef::NullRefValue), Address(valueAddr, 0));
+ 
+   // No post-barrier is needed, as null does not require a store buffer entry
+ }
+@@ -7474,10 +7474,10 @@
+ void BaseCompiler::emitRefTestCommon(RefType sourceType, RefType destType) {
+   Label success;
+   Label join;
+-  RegRef object = popRef();
++  RegRef ref = popRef();
+   RegI32 result = needI32();
+ 
+-  branchIfRefSubtype(object, sourceType, destType, &success,
++  branchIfRefSubtype(ref, sourceType, destType, &success,
+                      /*onSuccess=*/true);
+   masm.xor32(result, result);
+   masm.jump(&join);
+@@ -7486,7 +7486,7 @@
+   masm.bind(&join);
+ 
+   pushI32(result);
+-  freeRef(object);
++  freeRef(ref);
+ }
+ 
+ void BaseCompiler::emitRefCastCommon(RefType sourceType, RefType destType) {
+@@ -7651,22 +7651,24 @@
+     needIntegerResultRegisters(b.resultType);
+   }
+ 
+-  // Create a copy of the ref for passing to the br_on_cast label,
+-  // the original ref is used for casting in the condition.
+-  RegRef object = popRef();
+-  RegRef objectCondition = needRef();
+-  moveRef(object, objectCondition);
+-  pushRef(object);
++  // Get the ref from the top of the stack
++  RegRef refCondition = popRef();
++
++  // Create a copy of the ref for passing to the on_cast label,
++  // the original ref is used in the condition.
++  RegRef ref = needRef();
++  moveRef(refCondition, ref);
++  pushRef(ref);
+ 
+   if (b.hasBlockResults()) {
+     freeIntegerResultRegisters(b.resultType);
+   }
+ 
+-  if (!jumpConditionalWithResults(&b, objectCondition, sourceType, destType,
++  if (!jumpConditionalWithResults(&b, refCondition, sourceType, destType,
+                                   onSuccess)) {
+     return false;
+   }
+-  freeRef(objectCondition);
++  freeRef(refCondition);
+ 
+   return true;
+ }

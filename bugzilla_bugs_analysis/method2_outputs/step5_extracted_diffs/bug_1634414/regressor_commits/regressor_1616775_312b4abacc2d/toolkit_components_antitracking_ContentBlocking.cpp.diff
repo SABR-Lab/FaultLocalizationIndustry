@@ -1,0 +1,69 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: toolkit/components/antitracking/ContentBlocking.cpp
+# Commit: 312b4abacc2d
+# Full Hash: 312b4abacc2dfe0ab2014d62ca271ac54af6704d
+# Author: Dimi Lee <dlee@mozilla.com>
+# Date: 2020-04-23 21:43:09
+# Regressor Bug: 1616775
+# File Overlap Count: 1
+# Description:
+#   Bug 1616775 - P7. Add IPC for ContentBlockingNotifier::OnDecision r=timhuang,baku
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D71016
+# ==============================================================================
+
+diff -r 9be5ae499d84 -r 312b4abacc2d toolkit/components/antitracking/ContentBlocking.cpp
+--- a/toolkit/components/antitracking/ContentBlocking.cpp	Thu Apr 23 14:25:31 2020 +0000
++++ b/toolkit/components/antitracking/ContentBlocking.cpp	Thu Apr 23 14:25:33 2020 +0000
+@@ -402,23 +402,6 @@
+   MOZ_ASSERT(aParentContext);
+   MOZ_ASSERT_IF(XRE_IsContentProcess(), aParentContext->IsInProcess());
+ 
+-  nsCOMPtr<nsPIDOMWindowOuter> parentOuter = aParentContext->GetDOMWindow();
+-  if (!parentOuter) {
+-    LOG(
+-        ("No outer window found for our parent window context, bailing out "
+-         "early"));
+-    return StorageAccessGrantPromise::CreateAndReject(false, __func__);
+-  }
+-
+-  nsCOMPtr<nsPIDOMWindowInner> parentInnerWindow =
+-      parentOuter->GetCurrentInnerWindow();
+-  if (!parentInnerWindow) {
+-    LOG(
+-        ("No inner window found for our parent outer window, bailing out "
+-         "early"));
+-    return StorageAccessGrantPromise::CreateAndReject(false, __func__);
+-  }
+-
+   nsCOMPtr<nsIPrincipal> trackingPrincipal;
+   nsAutoCString trackingOrigin;
+   if (!aTrackingPrincipal) {
+@@ -460,13 +443,24 @@
+               _spec),
+              trackingPrincipal);
+     ContentBlockingNotifier::OnDecision(
+-        parentInnerWindow, ContentBlockingNotifier::BlockingDecision::eBlock,
++        aParentContext, ContentBlockingNotifier::BlockingDecision::eBlock,
+         CookieJarSettings::IsRejectThirdPartyWithExceptions(aCookieBehavior)
+             ? nsIWebProgressListener::STATE_COOKIES_BLOCKED_FOREIGN
+             : nsIWebProgressListener::STATE_COOKIES_BLOCKED_TRACKER);
+     return StorageAccessGrantPromise::CreateAndReject(false, __func__);
+   }
+ 
++  // Ensure we can find the window before continuing, so we can safely
++  // execute storePermission.
++  if (aParentContext->IsInProcess() &&
++      (!aParentContext->GetDOMWindow() ||
++       !aParentContext->GetDOMWindow()->GetCurrentInnerWindow())) {
++    LOG(
++        ("No window found for our parent browsing context, bailing out "
++         "early"));
++    return StorageAccessGrantPromise::CreateAndReject(false, __func__);
++  }
++
+   auto storePermission =
+       [aParentContext, aTopLevelWindowId, trackingOrigin, trackingPrincipal,
+        aCookieBehavior,

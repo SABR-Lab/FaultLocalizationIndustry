@@ -1,0 +1,44 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: intl/hyphenation/glue/nsHyphenator.cpp
+# Commit: 7ae4df10749c
+# Full Hash: 7ae4df10749c176009923591c252c634571c21d1
+# Author: Doug Thayer <dothayer@mozilla.com>
+# Date: 2020-07-02 15:21:09
+# Regressor Bug: 1627075
+# File Overlap Count: 1
+# Description:
+#   Bug 1627075 - Route Omnijar requests through StartupCache r=froydnj
+#   
+#   This should be a relatively straightforward patch. Essentially, we implement
+#   a wrapper class (and friends) around nsZipArchive (and friends), which transparently
+#   caches entries from the underlying zip archive in the StartupCache. This will break
+# ==============================================================================
+
+diff -r ece9a4223349 -r 7ae4df10749c intl/hyphenation/glue/nsHyphenator.cpp
+--- a/intl/hyphenation/glue/nsHyphenator.cpp	Thu Jul 02 03:39:46 2020 +0000
++++ b/intl/hyphenation/glue/nsHyphenator.cpp	Thu Jul 02 02:51:41 2020 +0000
+@@ -41,20 +41,11 @@
+   if (!file) {
+     return nullptr;
+   }
+-  RefPtr<nsZipArchive> archive = Omnijar::GetReader(file);
++  RefPtr<CacheAwareZipReader> archive = Omnijar::GetReader(file);
+   if (archive) {
+     nsCString path;
+     aJAR->GetJAREntry(path);
+-    nsZipItem* item = archive->GetItem(path.get());
+-    if (item && item->Compression() == 0 && item->Size() > 0) {
+-      // We do NOT own this data, but it won't go away until the omnijar
+-      // file is closed during shutdown.
+-      const uint8_t* data = archive->GetData(item);
+-      if (data) {
+-        *aLength = item->Size();
+-        return data;
+-      }
+-    }
++    return archive->GetData(path.get(), aLength);
+   }
+   return nullptr;
+ }

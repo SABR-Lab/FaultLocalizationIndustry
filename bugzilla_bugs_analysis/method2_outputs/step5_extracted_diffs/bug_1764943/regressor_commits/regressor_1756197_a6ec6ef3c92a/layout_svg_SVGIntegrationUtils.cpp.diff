@@ -1,0 +1,43 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/svg/SVGIntegrationUtils.cpp
+# Commit: a6ec6ef3c92a
+# Full Hash: a6ec6ef3c92a64edbd6534753c0deca9d13658d1
+# Author: Jeff Muizelaar <jmuizelaar@mozilla.com>
+# Date: 2022-02-24 03:51:41
+# Regressor Bug: 1756197
+# File Overlap Count: 1
+# Description:
+#   Bug 1756197. Avoid clipping if we're just going to fill the path. r=gfx-reviewers,nical
+#   
+#   This avoids having to rasterize the path twice. Once for the clip path and once for
+#   the fill. It will also give us correct antialiasing on the edges.
+#   
+# ==============================================================================
+
+diff -r 13a75f8c612b -r a6ec6ef3c92a layout/svg/SVGIntegrationUtils.cpp
+--- a/layout/svg/SVGIntegrationUtils.cpp	Wed Feb 23 16:19:07 2022 +0000
++++ b/layout/svg/SVGIntegrationUtils.cpp	Wed Feb 23 16:19:07 2022 +0000
+@@ -758,16 +758,19 @@
+     MoveContextOriginToUserSpace(firstFrame, aParams);
+ 
+     basicShapeSR.SetContext(&ctx);
+-    CSSClipPathInstance::ApplyBasicShapeOrPathClip(
+-        ctx, frame, SVGUtils::GetCSSPxToDevPxMatrix(frame));
++    gfxMatrix mat = SVGUtils::GetCSSPxToDevPxMatrix(frame);
+     if (!maskUsage.shouldGenerateMaskLayer) {
+       // Only have basic-shape clip-path effect. Fill clipped region by
+       // opaque white.
+       ctx.SetDeviceColor(DeviceColor::MaskOpaqueWhite());
++      RefPtr<Path> path = CSSClipPathInstance::CreateClipPathForFrame(
++          ctx.GetDrawTarget(), frame, mat);
++      ctx.SetPath(path);
+       ctx.Fill();
+ 
+       return true;
+     }
++    CSSClipPathInstance::ApplyBasicShapeOrPathClip(ctx, frame, mat);
+   }
+ 
+   // Paint mask onto ctx.

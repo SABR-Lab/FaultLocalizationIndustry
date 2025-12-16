@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/base/StaticRange.h
+# Commit: 713c66e124c7
+# Full Hash: 713c66e124c74d0d9c1dda6821bd2984d6cb4040
+# Author: Sean Feng <sefeng@mozilla.com>
+# Date: 2024-03-26 04:11:24
+# Regressor Bug: 1867058
+# File Overlap Count: 1
+# Description:
+#   Bug 1867058 - Part 2: Make both StaticRange and nsRange to have a way to cross the trees r=jjaschke,smaug,dom-core
+#   
+#   For StaticRange, simply allows node to cross the trees.
+#   
+#   For nsRange, when nodes are in different trees, in addition
+# ==============================================================================
+
+diff -r 0b237fd5577a -r 713c66e124c7 dom/base/StaticRange.h
+--- a/dom/base/StaticRange.h	Mon Mar 25 13:40:56 2024 +0000
++++ b/dom/base/StaticRange.h	Mon Mar 25 13:40:56 2024 +0000
+@@ -8,6 +8,7 @@
+ #define mozilla_dom_StaticRange_h
+ 
+ #include "mozilla/RangeBoundary.h"
++#include "mozilla/RangeUtils.h"
+ #include "mozilla/dom/AbstractRange.h"
+ #include "mozilla/dom/StaticRangeBinding.h"
+ #include "nsTArray.h"
+@@ -70,6 +71,11 @@
+    */
+   bool IsValid() const;
+ 
++ private:
++  // Whether the start and end points are in the same tree.
++  // They could be in different trees, i.e, cross shadow boundaries.
++  bool mAreStartAndEndInSameTree = false;
++
+  protected:
+   explicit StaticRange(nsINode* aNode)
+       : AbstractRange(aNode, /* aIsDynamicRange = */ false) {}

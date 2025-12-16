@@ -1,0 +1,41 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: layout/style/Loader.cpp
+# Commit: a15f046e5cdf
+# Full Hash: a15f046e5cdf1cb5ab7848dc57714c782f3b1f70
+# Author: Tooru Fujisawa <arai_a@mac.com>
+# Date: 2024-10-02 09:50:09
+# Regressor Bug: 1899734
+# File Overlap Count: 1
+# Description:
+#   Bug 1899734 - Part 6: Set SheetLoadData::mLoadStart also when coalesced. r=emilio
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D223352
+# ==============================================================================
+
+diff -r 313c1f782833 -r a15f046e5cdf layout/style/Loader.cpp
+--- a/layout/style/Loader.cpp	Tue Oct 01 12:17:22 2024 +0000
++++ b/layout/style/Loader.cpp	Tue Oct 01 12:17:22 2024 +0000
+@@ -65,6 +65,7 @@
+ #include "mozilla/SharedStyleSheetCache.h"
+ #include "mozilla/StaticPrefs_layout.h"
+ #include "mozilla/StaticPrefs_network.h"
++#include "mozilla/TimeStamp.h"
+ #include "mozilla/Try.h"
+ #include "ReferrerInfo.h"
+ 
+@@ -430,6 +431,13 @@
+   }
+ }
+ 
++void SheetLoadData::OnCoalescedTo(const SheetLoadData& aExistingLoad) {
++  if (&aExistingLoad.Loader() != &Loader()) {
++    mShouldEmulateNotificationsForCachedLoad = true;
++  }
++  mLoadStart = TimeStamp::Now();
++}
++
+ RefPtr<StyleSheet> SheetLoadData::ValueForCache() const {
+   // We need to clone the sheet on insertion to the cache because otherwise the
+   // stylesheets can keep full windows alive via either their JS wrapper, or via

@@ -1,0 +1,55 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: media/ffvpx/libavutil/hwcontext.c
+# Commit: 186e2a334f2d
+# Full Hash: 186e2a334f2deb37b29f44b28bc8c83babeeb9a4
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2024-02-09 09:37:17
+# Regressor Bug: 1877221
+# File Overlap Count: 1
+# Description:
+#   Bug 1877221 - Pull in new ffmpeg code, reapply patch. r=media-playback-reviewers,chunmin
+#   
+#   Differential Revision: https://phabricator.services.mozilla.com/D199909
+# ==============================================================================
+
+diff -r c5920de78d16 -r 186e2a334f2d media/ffvpx/libavutil/hwcontext.c
+--- a/media/ffvpx/libavutil/hwcontext.c	Thu Feb 08 10:39:53 2024 +0000
++++ b/media/ffvpx/libavutil/hwcontext.c	Thu Feb 08 10:39:54 2024 +0000
+@@ -36,6 +36,9 @@
+ #if CONFIG_D3D11VA
+     &ff_hwcontext_type_d3d11va,
+ #endif
++#if CONFIG_D3D12VA
++    &ff_hwcontext_type_d3d12va,
++#endif
+ #if CONFIG_LIBDRM
+     &ff_hwcontext_type_drm,
+ #endif
+@@ -71,6 +74,7 @@
+     [AV_HWDEVICE_TYPE_DRM]    = "drm",
+     [AV_HWDEVICE_TYPE_DXVA2]  = "dxva2",
+     [AV_HWDEVICE_TYPE_D3D11VA] = "d3d11va",
++    [AV_HWDEVICE_TYPE_D3D12VA] = "d3d12va",
+     [AV_HWDEVICE_TYPE_OPENCL] = "opencl",
+     [AV_HWDEVICE_TYPE_QSV]    = "qsv",
+     [AV_HWDEVICE_TYPE_VAAPI]  = "vaapi",
+@@ -819,8 +823,7 @@
+                 return AVERROR(EINVAL);
+             }
+             hwmap = (HWMapDescriptor*)src->buf[0]->data;
+-            av_frame_unref(dst);
+-            return av_frame_ref(dst, hwmap->source);
++            return av_frame_replace(dst, hwmap->source);
+         }
+     }
+ 
+@@ -950,6 +953,5 @@
+ int ff_hwframe_map_replace(AVFrame *dst, const AVFrame *src)
+ {
+     HWMapDescriptor *hwmap = (HWMapDescriptor*)dst->buf[0]->data;
+-    av_frame_unref(hwmap->source);
+-    return av_frame_ref(hwmap->source, src);
++    return av_frame_replace(hwmap->source, src);
+ }

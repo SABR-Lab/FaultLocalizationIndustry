@@ -1,0 +1,53 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediacapabilities/BenchmarkStorageParent.cpp
+# Commit: 48eaa84c206d
+# Full Hash: 48eaa84c206dbdda637c57b55ddbd07e975ba103
+# Author: Jean-Yves Avenard <jyavenard@mozilla.com>
+# Date: 2020-06-23 16:15:06
+# Regressor Bug: 1637500
+# File Overlap Count: 2
+# Description:
+#   Bug 1637500 - P2. Rename methods as they are not always dealing with "threads". r=froydnj
+#   
+#   Before P1, GetCurrentThreadSerialEventTarget would have always returned the same data as NS_GetCurrentThread, making the comment incorrect Now it will properly return the running TaskQueue if any.
+#   
+#   This change of name more clearly exposes what they are doing, as we aren't always dealing with threads directly; but a nsISerialEventTarget
+# ==============================================================================
+
+diff -r 00687d06a8a6 -r 48eaa84c206d dom/media/mediacapabilities/BenchmarkStorageParent.cpp
+--- a/dom/media/mediacapabilities/BenchmarkStorageParent.cpp	Tue Jun 23 05:02:39 2020 +0000
++++ b/dom/media/mediacapabilities/BenchmarkStorageParent.cpp	Tue Jun 23 05:05:36 2020 +0000
+@@ -71,7 +71,7 @@
+   // then to store the new aggregated value.
+   mStorage->Get(aDbName, aKey)
+       ->Then(
+-          GetCurrentThreadSerialEventTarget(), __func__,
++          GetCurrentSerialEventTarget(), __func__,
+           [storage = mStorage, aDbName, aKey, aValue](int32_t aResult) {
+             int32_t window = 0;
+             int32_t average = 0;
+@@ -97,7 +97,7 @@
+                                           GetResolver&& aResolve) {
+   mStorage->Get(aDbName, aKey)
+       ->Then(
+-          GetCurrentThreadSerialEventTarget(), __func__,
++          GetCurrentSerialEventTarget(), __func__,
+           [aResolve](int32_t aResult) {
+             int32_t window = 0;  // not used
+             aResolve(aResult < 0 ? -1 : ParseStoredValue(aResult, window));
+@@ -111,11 +111,11 @@
+                                                    int32_t aVersion) {
+   mStorage->Get(aDbName, NS_LITERAL_CSTRING("Version"))
+       ->Then(
+-          GetCurrentThreadSerialEventTarget(), __func__,
++          GetCurrentSerialEventTarget(), __func__,
+           [storage = mStorage, aDbName, aVersion](int32_t aResult) {
+             if (aVersion != aResult) {
+               storage->Clear(aDbName)->Then(
+-                  GetCurrentThreadSerialEventTarget(), __func__,
++                  GetCurrentSerialEventTarget(), __func__,
+                   [storage, aDbName, aVersion](bool) {
+                     storage->Put(aDbName, NS_LITERAL_CSTRING("Version"),
+                                  aVersion);

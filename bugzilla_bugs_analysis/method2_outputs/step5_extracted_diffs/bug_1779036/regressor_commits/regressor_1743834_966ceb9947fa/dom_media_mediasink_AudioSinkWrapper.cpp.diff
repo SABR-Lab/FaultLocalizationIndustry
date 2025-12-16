@@ -1,0 +1,42 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: dom/media/mediasink/AudioSinkWrapper.cpp
+# Commit: 966ceb9947fa
+# Full Hash: 966ceb9947fad700a28b3eed94256057898b9781
+# Author: Paul Adenot <paul@paul.cx>
+# Date: 2022-05-10 03:50:31
+# Regressor Bug: 1743834
+# File Overlap Count: 1
+# Description:
+#   Bug 1743834 - Detect when switching clock provider in AudioSinkWrapper. r=alwu,media-playback-reviewers
+#   
+#   This will allow detecting the first time the AudioSinkWrapper starts using the
+#   clock from an audio stream after having been muted (=using the system clock) for
+#   some time, to correct the timing.
+# ==============================================================================
+
+diff -r f604fe0f8d02 -r 966ceb9947fa dom/media/mediasink/AudioSinkWrapper.cpp
+--- a/dom/media/mediasink/AudioSinkWrapper.cpp	Mon May 09 13:20:50 2022 +0000
++++ b/dom/media/mediasink/AudioSinkWrapper.cpp	Mon May 09 13:20:50 2022 +0000
+@@ -81,6 +81,7 @@
+     // Rely on the audio sink to report playback position when it is not ended.
+     pos = mAudioSink->GetPosition();
+     LOGV("%p: Getting position from the Audio Sink %lf", this, pos.ToSeconds());
++    mLastClockSource = ClockSource::AudioStream;
+   } else if (!mPlayStartTime.IsNull()) {
+     // Calculate playback position using system clock if we are still playing,
+     // but not rendering the audio, because this audio sink is muted.
+@@ -100,10 +101,12 @@
+         mEndedPromiseHolder.Resolve(true, __func__);
+       }
+     }
++    mLastClockSource = ClockSource::SystemClock;
+   } else {
+     // Return how long we've played if we are not playing.
+     pos = mPlayDuration;
+     LOGV("%p: Getting static position, not playing %lf", this, pos.ToSeconds());
++    mLastClockSource = ClockSource::Paused;
+   }
+ 
+   if (aTimeStamp) {

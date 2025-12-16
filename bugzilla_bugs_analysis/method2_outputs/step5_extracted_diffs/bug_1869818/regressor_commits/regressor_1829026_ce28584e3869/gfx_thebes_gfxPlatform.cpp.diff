@@ -1,0 +1,56 @@
+# ==============================================================================
+# REGRESSOR COMMIT DIFF
+# ==============================================================================
+# File: gfx/thebes/gfxPlatform.cpp
+# Commit: ce28584e3869
+# Full Hash: ce28584e386976fc6df815260cdfebd8e6ffbadd
+# Author: Lee Salzman <lsalzman@mozilla.com>
+# Date: 2023-12-19 05:06:09
+# Regressor Bug: 1829026
+# File Overlap Count: 1
+# Description:
+#   Bug 1829026 - Update CanvasTranslator to work with DrawTargetWebgl. r=aosmond
+#   
+#   This adds the necessary infrastructure for CanvasTranslator to allocate DrawTargetWebgl
+#   instead of just allocating TextureData, and to use RemoteTextureMap to handle sending
+#   the DrawTargetWebgl frames to the compositor.
+# ==============================================================================
+
+diff -r bb4029ea69bb -r ce28584e3869 gfx/thebes/gfxPlatform.cpp
+--- a/gfx/thebes/gfxPlatform.cpp	Mon Dec 18 18:10:46 2023 +0000
++++ b/gfx/thebes/gfxPlatform.cpp	Mon Dec 18 18:10:46 2023 +0000
+@@ -1189,7 +1189,8 @@
+ 
+ /* static */
+ bool gfxPlatform::UseRemoteCanvas() {
+-  return XRE_IsContentProcess() && gfx::gfxVars::RemoteCanvasEnabled();
++  return XRE_IsContentProcess() && (gfx::gfxVars::RemoteCanvasEnabled() ||
++                                    gfx::gfxVars::UseAcceleratedCanvas2D());
+ }
+ 
+ /* static */
+@@ -3871,13 +3872,18 @@
+ }
+ 
+ /* static */ void gfxPlatform::DisableRemoteCanvas() {
+-  if (!gfxVars::RemoteCanvasEnabled()) {
+-    return;
++  if (gfxVars::RemoteCanvasEnabled()) {
++    gfxConfig::ForceDisable(Feature::REMOTE_CANVAS, FeatureStatus::Failed,
++                            "Disabled by runtime error",
++                            "FEATURE_REMOTE_CANVAS_RUNTIME_ERROR"_ns);
++    gfxVars::SetRemoteCanvasEnabled(false);
+   }
+-  gfxConfig::ForceDisable(Feature::REMOTE_CANVAS, FeatureStatus::Failed,
+-                          "Disabled by runtime error",
+-                          "FEATURE_REMOTE_CANVAS_RUNTIME_ERROR"_ns);
+-  gfxVars::SetRemoteCanvasEnabled(false);
++  if (gfxVars::UseAcceleratedCanvas2D()) {
++    gfxConfig::ForceDisable(Feature::ACCELERATED_CANVAS2D,
++                            FeatureStatus::Failed, "Disabled by runtime error",
++                            "FEATURE_ACCELERATED_CANVAS2D_RUNTIME_ERROR"_ns);
++    gfxVars::SetUseAcceleratedCanvas2D(false);
++  }
+ }
+ 
+ void gfxPlatform::ImportCachedContentDeviceData() {

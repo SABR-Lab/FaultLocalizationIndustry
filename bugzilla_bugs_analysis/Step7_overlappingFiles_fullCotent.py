@@ -6,11 +6,11 @@ STEP 7: EXTRACT FULL FILE CONTENTS FOR OVERLAPPING FILES (CODE FILES ONLY)
 
 PURPOSE:
 --------
-Extract the FULL source code content from PARENT commits for overlapping files.
-This gives you the code BEFORE the change was made.
+Extract the FULL source code content from commits for overlapping files.
+This gives you the code AFTER the change was made.
 
-- For fixing commits: Get code from parent (state before fix was applied)
-- For regressor commits: Get code from parent (state before regression was introduced)
+- For fixing commits: Get code from the commit (state after fix was applied)
+- For regressor commits: Get code from the commit (state after regression was introduced)
 
 Only extracts actual code files (skips tests, configs, docs, etc.)
 
@@ -22,8 +22,8 @@ OUTPUT:
 -------
 outputs/step7_full_file_contents/
 ├── bug_<ID>/
-│   ├── <filename>__fixing_parent_<hash>.txt
-│   └── <filename>__regressor_parent_<bug>_<hash>.txt
+│   ├── <filename>__fixing_<hash>.txt
+│   └── <filename>__regressor_<bug>_<hash>.txt
 ├── extraction_summary.json
 └── extraction_report.txt
 """
@@ -46,7 +46,7 @@ print(f"Changed working directory to: {parent_dir}")
 
 
 class FullFileExtractor:
-    """Extract complete file contents from parent commits (code files only)"""
+    """Extract complete file contents from p commits (code files only)"""
     
     CODE_EXTENSIONS = {
         '.c', '.cc', '.cpp', '.cxx', '.h', '.hh', '.hpp', '.hxx',
@@ -136,60 +136,7 @@ class FullFileExtractor:
         else:
             return 'other'
     
-    def get_parent_commit_hash(self, commit_hash: str) -> Optional[str]:
-        """Get the parent commit hash from local repositories"""
-        for repo_name, repo_path in self.available_repos.items():
-            try:
-                result = subprocess.run(
-                    ['hg', 'log', '-r', f'parents({commit_hash})', '--template', '{node}'],
-                    cwd=repo_path,
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                    encoding='utf-8',
-                    errors='replace'
-                )
-                
-                if result.returncode == 0 and result.stdout.strip():
-                    return result.stdout.strip()
-                    
-            except subprocess.TimeoutExpired:
-                continue
-            except Exception:
-                continue
-        
-        return None
-    
-    def get_parent_commit_info(self, parent_hash: str) -> Optional[Dict]:
-        """Get metadata for a parent commit"""
-        for repo_name, repo_path in self.available_repos.items():
-            try:
-                result = subprocess.run(
-                    ['hg', 'log', '-r', parent_hash, '--template', 
-                     '{node|short}\\n{node}\\n{author}\\n{date|isodate}\\n{desc}'],
-                    cwd=repo_path,
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                    encoding='utf-8',
-                    errors='replace'
-                )
-                
-                if result.returncode == 0 and result.stdout.strip():
-                    lines = result.stdout.strip().split('\n', 4)
-                    if len(lines) >= 4:
-                        return {
-                            'commit_hash': lines[0],
-                            'full_hash': lines[1],
-                            'author': lines[2],
-                            'date': lines[3],
-                            'description': lines[4] if len(lines) > 4 else ''
-                        }
-                    
-            except Exception:
-                continue
-        
-        return None
+
     
     def get_file_content_from_commit(self, commit_hash: str, filepath: str) -> Optional[str]:
         """Get the full content of a file from a specific commit"""
@@ -271,7 +218,7 @@ class FullFileExtractor:
             
             safe_filename = filepath.replace('/', '_').replace('\\', '_')
             
-            # Extract from PARENT of fixing commits
+            # Extract from fixing commits
             for fixing_commit in bug_data.get('fixing_commits', []):
                 commit_files = [f['filename'] for f in fixing_commit.get('files', [])]
                 if filepath not in commit_files:
@@ -280,15 +227,10 @@ class FullFileExtractor:
                 commit_hash = fixing_commit.get('full_hash', '')
                 short_hash = fixing_commit.get('commit_hash', '')
                 
-                parent_hash = self.get_parent_commit_hash(commit_hash)
-                if not parent_hash:
-                    continue
-                
-                parent_info = self.get_parent_commit_info(parent_hash)
-                content = self.get_file_content_from_commit(parent_hash, filepath)
+                content = self.get_file_content_from_commit(commit_hash, filepath)
                 
                 if content:
-                    output_filename = f"{safe_filename}__fixing_parent_{short_hash}.txt"
+                    output_filename = f"{safe_filename}__fixing_{short_hash}.txt"
                     output_path = bug_dir / output_filename
                     
                     with open(output_path, 'w', encoding='utf-8', errors='replace') as f:
@@ -297,13 +239,11 @@ class FullFileExtractor:
                     file_result['fixing_commits'].append({
                         'commit_hash': short_hash,
                         'full_hash': commit_hash,
-                        'parent_hash': parent_hash,
-                        'parent_info': parent_info,
                         'output_file': str(output_path),
                         'content_length': len(content)
                     })
             
-            # Extract from PARENT of regressor commits
+            # Extract from regressor commits
             for regressor_commit in bug_data.get('regressor_commits', []):
                 commit_files = [f['filename'] for f in regressor_commit.get('files', [])]
                 if filepath not in commit_files:
@@ -313,15 +253,10 @@ class FullFileExtractor:
                 short_hash = regressor_commit.get('commit_hash', '')
                 regressor_bug_id = regressor_commit.get('regressor_bug_id', 'unknown')
                 
-                parent_hash = self.get_parent_commit_hash(commit_hash)
-                if not parent_hash:
-                    continue
-                
-                parent_info = self.get_parent_commit_info(parent_hash)
-                content = self.get_file_content_from_commit(parent_hash, filepath)
+                content = self.get_file_content_from_commit(commit_hash, filepath)
                 
                 if content:
-                    output_filename = f"{safe_filename}__regressor_parent_{regressor_bug_id}_{short_hash}.txt"
+                    output_filename = f"{safe_filename}__regressor_{regressor_bug_id}_{short_hash}.txt"
                     output_path = bug_dir / output_filename
                     
                     with open(output_path, 'w', encoding='utf-8', errors='replace') as f:
@@ -330,8 +265,6 @@ class FullFileExtractor:
                     file_result['regressor_commits'].append({
                         'commit_hash': short_hash,
                         'full_hash': commit_hash,
-                        'parent_hash': parent_hash,
-                        'parent_info': parent_info,
                         'regressor_bug_id': regressor_bug_id,
                         'output_file': str(output_path),
                         'content_length': len(content)
@@ -399,10 +332,10 @@ class FullFileExtractor:
             
             if extracted_count > 0:
                 successful_bug_ids.append(bug_id)
-                print(f"    ✓ Extracted {extracted_count} code files, skipped {skipped_count}")
+                print(f"     Extracted {extracted_count} code files, skipped {skipped_count}")
             else:
                 failed_bug_ids.append(bug_id)
-                print(f"    ✗ No code files extracted (skipped {skipped_count})")
+                print(f"     No code files extracted (skipped {skipped_count})")
         
         # Build summary
         summary = {
@@ -433,8 +366,8 @@ class FullFileExtractor:
         
         s = summary['summary']
         print(f"\nBugs processed: {s['bugs_processed']}")
-        print(f"  ✓ With extractions: {s['bugs_with_extractions']}")
-        print(f"  ✗ Without extractions: {s['bugs_without_extractions']}")
+        print(f"   With extractions: {s['bugs_with_extractions']}")
+        print(f"   Without extractions: {s['bugs_without_extractions']}")
         print(f"\nFiles:")
         print(f"  Code files extracted: {s['total_code_files_extracted']}")
         print(f"  Non-code files skipped: {s['total_non_code_files_skipped']}")
@@ -449,12 +382,12 @@ class FullFileExtractor:
         summary_file = self.output_dir / 'extraction_summary.json'
         with open(summary_file, 'w', encoding='utf-8') as f:
             json.dump(results, f, indent=2)
-        print(f"✓ Saved extraction summary to {summary_file}")
+        print(f" Saved extraction summary to {summary_file}")
         
         # Save report
         report_file = self.output_dir / 'extraction_report.txt'
         self._save_report(results, report_file)
-        print(f"✓ Saved extraction report to {report_file}")
+        print(f" Saved extraction report to {report_file}")
     
     def _save_report(self, results: Dict, output_path: Path):
         """Save human-readable report"""
@@ -510,11 +443,11 @@ def main():
         print(f"\nOutput: {extractor.output_dir}")
         print(f"\nEach bug folder contains:")
         print(f"  - extraction_metadata.json")
-        print(f"  - <filename>__fixing_parent_<hash>.txt")
-        print(f"  - <filename>__regressor_parent_<bug>_<hash>.txt")
+        print(f"  - <filename>__fixing_<hash>.txt")
+        print(f"  - <filename>__regressor_<bug>_<hash>.txt")
     else:
         print("\n" + "=" * 80)
-        print("✗ STEP 7 FAILED")
+        print(" STEP 7 FAILED")
         print("=" * 80)
         print(f"\nError: {results.get('error')}")
 

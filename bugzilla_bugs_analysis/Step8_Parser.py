@@ -153,9 +153,9 @@ class MethodExtractor:
                 language = Language(lang_module.language())
                 parser = Parser(language)
                 self.parsers[lang_name] = {'parser': parser, 'language': language}
-                print(f"  ✓ Initialized {lang_name}")
+                print(f"   Initialized {lang_name}")
             except Exception as e:
-                print(f"  ✗ Failed to initialize {lang_name}: {e}")
+                print(f"   Failed to initialize {lang_name}: {e}")
         
         print(f"\nInitialized {len(self.parsers)} language parsers\n")
 
@@ -314,7 +314,6 @@ class MethodExtractor:
                 commit_result = {
                     'commit_hash': commit_data.get('commit_hash'),
                     'full_hash': commit_data.get('full_hash'),
-                    'parent_hash': commit_data.get('parent_hash'),
                     'parse_success': parse_result['success'],
                     'language': parse_result.get('language', 'unknown'),
                     'methods': parse_result['methods'],
@@ -335,7 +334,6 @@ class MethodExtractor:
                 commit_result = {
                     'commit_hash': commit_data.get('commit_hash'),
                     'full_hash': commit_data.get('full_hash'),
-                    'parent_hash': commit_data.get('parent_hash'),
                     'regressor_bug_id': commit_data.get('regressor_bug_id'),
                     'parse_success': parse_result['success'],
                     'language': parse_result.get('language', 'unknown'),
@@ -392,7 +390,7 @@ class MethodExtractor:
             # Load bug metadata from Step 7
             bug_data = self.load_bug_metadata(bug_dir)
             if not bug_data:
-                print(f"  ✗ No extraction_metadata.json found")
+                print(f"   No extraction_metadata.json found")
                 failed_bug_ids.append(bug_id)
                 continue
             
@@ -534,7 +532,7 @@ def main():
         print(f"  - files[].regressor_commits[].methods[]")
     else:
         print("\n" + "=" * 80)
-        print("✗ STEP 8 FAILED")
+        print(" STEP 8 FAILED")
         print("=" * 80)
         print(f"\nError: {results.get('error')}")
 

@@ -32,7 +32,7 @@ import json
 import os
 import subprocess
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from pathlib import Path
 import sys
 
@@ -169,7 +169,7 @@ class FullFileExtractor:
             print(f"  Warning: Failed to load {bug_file}: {e}")
             return None
     
-    def extract_file_content(self, bug_id: str, bug_data: Dict) -> Dict:
+    def extract_file_content(self, bug_id: str, bug_data: Dict) -> Tuple[Dict, List[Dict]]:
         """Extract full file contents for a single bug"""
         print(f"\n  Processing {len(bug_data['overlapping_files'])} overlapping files...")
         
@@ -188,13 +188,19 @@ class FullFileExtractor:
         # Create bug output directory
         bug_dir = self.output_dir / f"bug_{bug_id}"
         bug_dir.mkdir(parents=True, exist_ok=True)
-        
+        # Separate code files from non-code files
+        code_files = [f for f in bug_data['overlapping_files'] if self.is_code_file(f)]
+        filtered_files = [
+            {'filepath': f, 'category': file_categories[f]} 
+            for f in bug_data['overlapping_files'] if not self.is_code_file(f)
+        ]
+ 
         results = {
             'bug_id': bug_id,
-            'all_overlapping_files': bug_data['overlapping_files'],
-            'file_categories': file_categories,
-            'extracted_files': [],
-            'skipped_files': []
+            'all_overlapping_files': code_files,
+            'file_categories': {f: c for f, c in file_categories.items() if self.is_code_file(f)},
+            'extracted_files': []
+            
         }
         
         for filepath in bug_data['overlapping_files']:
@@ -202,11 +208,6 @@ class FullFileExtractor:
             
             # Skip non-code files
             if not self.is_code_file(filepath):
-                results['skipped_files'].append({
-                    'filepath': filepath,
-                    'category': category,
-                    'reason': f'Not a code file ({category})'
-                })
                 continue
             
             file_result = {
@@ -273,7 +274,7 @@ class FullFileExtractor:
             if file_result['fixing_commits'] or file_result['regressor_commits']:
                 results['extracted_files'].append(file_result)
         
-        return results
+        return results, filtered_files
     
     def extract_all_files(self) -> Dict:
         """Extract full file contents for all bugs"""
@@ -306,6 +307,7 @@ class FullFileExtractor:
         bugs_processed = 0
         successful_bug_ids = []
         failed_bug_ids = []
+        filtered_files_by_bug = {}
         
         for i, bug_file in enumerate(bug_files, 1):
             bug_id = bug_file.stem.replace('bug_', '')
@@ -316,26 +318,44 @@ class FullFileExtractor:
                 failed_bug_ids.append(bug_id)
                 continue
             
-            bug_result = self.extract_file_content(bug_id, bug_data)
+            bug_result, filtered_files = self.extract_file_content(bug_id, bug_data)
+            # Track filtered files for summary
+            if filtered_files:
+                filtered_files_by_bug[bug_id] = {
+                    'filtered_files': filtered_files,
+                    'fixing_commits': [c.get('commit_hash', '') for c in bug_data.get('fixing_commits', [])],
+                    'regressor_commits': [c.get('commit_hash', '') for c in bug_data.get('regressor_commits', [])]
+                }
+
             
             # Save individual bug result
-            result_file = self.output_dir / f"bug_{bug_id}" / "extraction_metadata.json"
-            result_file.parent.mkdir(parents=True, exist_ok=True)
-            with open(result_file, 'w', encoding='utf-8') as f:
-                json.dump(bug_result, f, indent=2)
-            
             bugs_processed += 1
             extracted_count = len(bug_result['extracted_files'])
-            skipped_count = len(bug_result['skipped_files'])
+            filtered_count = len(filtered_files)
             total_files_extracted += extracted_count
-            total_files_skipped += skipped_count
-            
+            total_files_skipped += filtered_count
+
             if extracted_count > 0:
+                # Only save bugs that have extracted code files
+                result_file = self.output_dir / f"bug_{bug_id}" / "extraction_metadata.json"
+                result_file.parent.mkdir(parents=True, exist_ok=True)
+                with open(result_file, 'w', encoding='utf-8') as f:
+                    json.dump(bug_result, f, indent=2)
                 successful_bug_ids.append(bug_id)
-                print(f"     Extracted {extracted_count} code files, skipped {skipped_count}")
+                print(f"     Extracted {extracted_count} code files, filtered {filtered_count}")
             else:
                 failed_bug_ids.append(bug_id)
-                print(f"     No code files extracted (skipped {skipped_count})")
+                print(f"     No code files extracted (skipped)")   
+
+
+        if failed_bug_ids:
+            import shutil
+            print(f"\nCleaning up {len(failed_bug_ids)} bugs without extractions...")
+            for bug_id in failed_bug_ids:
+                bug_dir = self.output_dir / f"bug_{bug_id}"
+                if bug_dir.exists():
+                    shutil.rmtree(bug_dir)
+                    print(f"  Removed bug_{bug_id}/")
         
         # Build summary
         summary = {
@@ -351,7 +371,8 @@ class FullFileExtractor:
                 'total_non_code_files_skipped': total_files_skipped
             },
             'successful_bug_ids': successful_bug_ids,
-            'failed_bug_ids': failed_bug_ids
+            'failed_bug_ids': failed_bug_ids,
+            'filtered_files_by_bug': filtered_files_by_bug
         }
         
         self._print_summary(summary)

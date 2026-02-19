@@ -72,6 +72,11 @@ try:
 except ImportError:
     pass
 
+try:
+    import tree_sitter_rust
+    LANGUAGE_MODULES['rust'] = tree_sitter_rust
+except ImportError:
+    pass
 
 class MethodExtractor:
     """Extract methods/functions from code files using tree-sitter"""
@@ -80,7 +85,7 @@ class MethodExtractor:
         '.c': 'c', '.h': 'c',
         '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp',
         '.hpp': 'cpp', '.hh': 'cpp', '.hxx': 'cpp',
-        '.py': 'python',
+        '.py': 'python', '.rs': 'rust',
         '.js': 'javascript', '.jsx': 'javascript', '.mjs': 'javascript',
     }
     
@@ -106,6 +111,16 @@ class MethodExtractor:
             (function_definition
                 name: (identifier) @function.name)
         """,
+        'rust': """
+            (function_item
+                name: (identifier) @function.name)
+
+            (impl_item
+                body: (declaration_list
+                    (function_item
+                        name: (identifier) @method.name)))
+        """,
+    
         'javascript': """
             (function_declaration
                 name: (identifier) @function.name)
@@ -398,9 +413,13 @@ class MethodExtractor:
             bug_result = self.process_bug(bug_id, bug_data)
             
             # Save individual bug result
-            bug_output_file = self.bugs_output_dir / f"bug_{bug_id}.json"
-            with open(bug_output_file, 'w', encoding='utf-8') as f:
-                json.dump(bug_result, f, indent=2)
+            if bug_result['summary']['total_methods'] > 0:
+                bug_output_file = self.bugs_output_dir / f"bug_{bug_id}.json"
+                with open(bug_output_file, 'w', encoding='utf-8') as f:
+                    json.dump(bug_result, f, indent=2)
+            else:
+                print(f"   ✗ No methods found → skipping bug {bug_id}")
+
             
             total_bugs_processed += 1
             bug_methods = bug_result['summary']['total_methods']

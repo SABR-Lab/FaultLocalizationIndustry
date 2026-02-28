@@ -578,49 +578,49 @@ class SingleCommitRegressorMatcher:
                 print(f"  https://bugzilla.mozilla.org/show_bug.cgi?id={bid}")
     
     def save_results(self, results: Dict):
-    print("\n" + "=" * 70)
-    print("SAVING")
-    print("=" * 70 + "\n")
-
-    # 1. Save single_commit_matched bugs (existing) 
-    matched_dir = self.output_base / "bugs_with_single_commit_regressor_commit" / "bugs"
-    matched_dir.mkdir(parents=True, exist_ok=True)
-
-    for f in matched_dir.glob("bug_*.json"):
-        f.unlink()
-
-    for bug_id, data in results['single_commit_matched'].items():
-        with open(matched_dir / f"bug_{bug_id}.json", 'w') as f:
-            json.dump(data, f, indent=2)
-
-    print(f"✓ Saved {len(results['single_commit_matched'])} matched bugs to {matched_dir}")
-
-    # 2. Save single_commit_no_match bugs  
-    no_match_dir = self.output_base / "bugs_with_single_commit_no_match" / "bugs"
-    no_match_dir.mkdir(parents=True, exist_ok=True)
-
-    for f in no_match_dir.glob("bug_*.json"):
-        f.unlink()
-
-    for bug_id, data in results['single_commit_no_match'].items():
-        with open(no_match_dir / f"bug_{bug_id}.json", 'w') as f:
-            json.dump(data, f, indent=2)
-
-    print(f"✓ Saved {len(results['single_commit_no_match'])} no-match bugs to {no_match_dir}")
-
-    # 3. Save summary 
-    with open(self.output_base / "filter_summary.json", 'w') as f:
-        json.dump({
-            'timestamp': results['filter_timestamp'],
-            'summary': results['summary'],
-            'matched_bug_ids':   sorted(results['single_commit_matched'].keys()),
-            'no_match_bug_ids':  sorted(results['single_commit_no_match'].keys()),  # NEW
-            'multi_bug_ids':     sorted(results['multi_commit_bugs'].keys()),
-            'no_commit_bug_ids': sorted(results['no_commit_bugs'].keys())
-        }, f, indent=2)
-    print(" Saved filter_summary.json")
-
-def main():
+        print("\n" + "=" * 70)
+        print("SAVING")
+        print("=" * 70 + "\n")
+    
+        # 1. Save single_commit_matched bugs (existing) 
+        matched_dir = self.output_base / "bugs_with_single_commit_regressor_commit" / "bugs"
+        matched_dir.mkdir(parents=True, exist_ok=True)
+    
+        for f in matched_dir.glob("bug_*.json"):
+            f.unlink()
+    
+        for bug_id, data in results['single_commit_matched'].items():
+            with open(matched_dir / f"bug_{bug_id}.json", 'w') as f:
+                json.dump(data, f, indent=2)
+    
+        print(f"✓ Saved {len(results['single_commit_matched'])} matched bugs to {matched_dir}")
+    
+        # 2. Save single_commit_no_match bugs  
+        no_match_dir = self.output_base / "bugs_with_single_commit_no_match" / "bugs"
+        no_match_dir.mkdir(parents=True, exist_ok=True)
+    
+        for f in no_match_dir.glob("bug_*.json"):
+            f.unlink()
+    
+        for bug_id, data in results['single_commit_no_match'].items():
+            with open(no_match_dir / f"bug_{bug_id}.json", 'w') as f:
+                json.dump(data, f, indent=2)
+    
+        print(f"✓ Saved {len(results['single_commit_no_match'])} no-match bugs to {no_match_dir}")
+    
+        # 3. Save summary 
+        with open(self.output_base / "filter_summary.json", 'w') as f:
+            json.dump({
+                'timestamp': results['filter_timestamp'],
+                'summary': results['summary'],
+                'matched_bug_ids':   sorted(results['single_commit_matched'].keys()),
+                'no_match_bug_ids':  sorted(results['single_commit_no_match'].keys()),  # NEW
+                'multi_bug_ids':     sorted(results['multi_commit_bugs'].keys()),
+                'no_commit_bug_ids': sorted(results['no_commit_bugs'].keys())
+            }, f, indent=2)
+        print(" Saved filter_summary.json")
+    
+    def main():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--workers', type=int, default=4)

@@ -1,7 +1,8 @@
+
 #!/usr/bin/env python3
 """
 ================================================================================
-STEP 4A: FIND FIXING & REGRESSOR COMMITS
+FIND FIXING & REGRESSOR COMMITS
 ================================================================================
 
 PURPOSE:
@@ -87,7 +88,6 @@ LOCAL_REPOS = {
     "mozilla-central":  "./mozilla-central",
     "mozilla-autoland": "./mozilla-autoland",
     "mozilla-release":  "./mozilla-release",
-    "mozilla-esr115":   "./mozilla-esr115",
 }
 
 # Repos to try when doing remote commit message lookup (json-rev)
@@ -131,12 +131,37 @@ def extract_hg_links(text: str) -> List[Tuple[str, str]]:
     """
     Extract (repo_path, commit_hash) pairs from free text.
     Deduplicated by commit hash (first occurrence wins).
+    Normalises short hashes to full length is not possible here,
+    but ensures the same hash from two different repo URLs is only
+    kept once (preferring mozilla-central over autoland over others).
     """
-    seen, result = set(), []
+    # Collect all (repo, hash) pairs first
+    all_pairs: List[Tuple[str, str]] = []
     for repo, rev in HG_REV_RE.findall(text):
+        all_pairs.append((repo, rev))
+
+    # For each unique hash, pick the best repo (mozilla-central preferred)
+    REPO_PRIORITY = {
+        "mozilla-central":        0,
+        "integration/autoland":   1,
+        "releases/mozilla-esr128": 2,
+        "releases/mozilla-esr115": 3,
+    }
+    best: Dict[str, Tuple[str, str]] = {}
+    for repo, rev in all_pairs:
+        if rev not in best:
+            best[rev] = (repo, rev)
+        else:
+            current_repo = best[rev][0]
+            if REPO_PRIORITY.get(repo, 99) < REPO_PRIORITY.get(current_repo, 99):
+                best[rev] = (repo, rev)
+
+    # Return in original order of first appearance
+    seen, result = set(), []
+    for repo, rev in all_pairs:
         if rev not in seen:
             seen.add(rev)
-            result.append((repo, rev))
+            result.append(best[rev])   # use best repo for this hash
     return result
 
 
@@ -438,11 +463,14 @@ class CommitFinder:
         comments      = self.bz.get_comments(bug_id)   # cached; reused below
 
         # T1 — history → RESOLVED FIXED → nearest comment
-        #      No verification needed; timing correlation is precise.
+        #      Verify each hash against the crashed bug ID to guard against
+        #      edge cases where a human (not the landing bot) posted the
+        #      comment, or a backport link appeared at the same moment.
         if resolved_time:
             nearest = comment_closest_to(comments, resolved_time)
             if nearest:
                 links = extract_hg_links(nearest.get("text", ""))
+                links = self._verify_links(links, bug_id)   # verify against crashed bug ID
                 if links:
                     commits = self._enrich_links(links, "bugzilla_comment")
                     if commits:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ================================================================================
-STEP4.2: FIND FIXING & REGRESSOR COMMITS
+STEP 4A: FIND FIXING & REGRESSOR COMMITS
 ================================================================================
 
 PURPOSE:
@@ -16,39 +16,41 @@ Fixing commits (for the crashed bug):
   TIER 1  → GET /bug/<id>/history → find RESOLVED FIXED timestamp
              GET /bug/<id>/comment → find comment nearest that timestamp
              → extract hg.mozilla.org/rev/ links
-             (no verification needed — timing is already precise)
+             → stop here if any links found (timing is already precise)
 
-  TIER 2  → scan ALL comments of the crashed bug for hg.mozilla.org/rev/ links
-             → verify each hash via local repo: "Bug <id>" must appear in
-               the commit message (filters backports, related patches, noise)
+  TIER 2  → scan only comments posted AT OR AFTER the RESOLVED FIXED timestamp
+             (pre-resolution comments are bisection notes / review discussion,
+             not the actual fix link)
+             → verify each hash: bug ID must appear in commit message
+               * check local repos first
+               * if not local → query hg.mozilla.org/json-rev/<hash> remotely
+               * only keep if confirmed; drop if confirmed wrong; keep if
+                 both local and remote lookups fail
 
   TIER 3  → hg log -k "Bug <id>" across local repos
              (bug ID verified in commit message by construction)
 
 Regressor commits (for each regressed_by bug):
   TIER 1  → GET /bug/<crashed_bug_id>/history → find when regressed_by field
-             was SET → GET /bug/<crashed_bug_id>/comment → nearest comment
-             → extract hg.mozilla.org/rev/ links → verify against reg bug ID
+             was SET → nearest comment → hg links → verify against reg bug ID
+             using same two-step local+remote verification
 
   TIER 2  → GET /bug/<regressed_by_id>/comment → scan all comments
-             → verify each hash: "Bug <reg_id>" must appear in commit message
+             → verify each hash: reg bug ID must appear in commit message
 
-  TIER 3  → scan ALL comments of crashed bug for hg.mozilla.org/rev/ links
-             → verify each hash against regressor bug ID
+  TIER 3  → scan comments of crashed bug → verify against reg bug ID
 
   TIER 4  → hg log -k "Bug <reg_id>" across local repos
 
-OUTPUT STRUCTURE:
------------------
-outputs/step4.2_commits_extraction/
+OUTPUT:
+-------
+outputs/multi_commit_extraction/
 └── bug_<ID>/
-    ├── fixing_commits.json
+    ├── fixing_commits.json      (commits sorted newest → oldest)
     └── regressor_commits.json
-
-outputs/step4.2_commits_extraction/
+outputs/multi_commit_extraction/
 ├── pipeline_summary.json
 └── statistics_report.txt
-
 """
 
 import json
@@ -88,14 +90,20 @@ LOCAL_REPOS = {
     "mozilla-esr115":   "./mozilla-esr115",
 }
 
-# Matches any hg.mozilla.org commit URL — captures (repo_path, hash)
+# Repos to try when doing remote commit message lookup (json-rev)
+HG_REMOTE_REPOS = [
+    "mozilla-central",
+    "integration/autoland",
+    "releases/mozilla-esr128",
+    "releases/mozilla-esr115",
+]
+
 HG_REV_RE = re.compile(
     r'https://hg\.mozilla\.org/([^/\s"\'<>]+(?:/[^/\s"\'<>]+)*)'
     r'/rev/([0-9a-f]{7,40})',
     re.IGNORECASE,
 )
 
-# Bug-ID patterns used for commit message verification
 BUG_ID_PATTERNS = [
     r'[Bb]ug\s+{bid}',
     r'b={bid}',
@@ -103,7 +111,8 @@ BUG_ID_PATTERNS = [
     r'\[Bug\s*{bid}\]',
 ]
 
-API_DELAY = 0.35   # seconds between Bugzilla REST calls
+API_DELAY        = 0.35   # seconds between Bugzilla REST calls
+REMOTE_VER_DELAY = 0.20   # seconds between hg.mozilla.org json-rev calls
 
 
 # ===========================================================================
@@ -131,6 +140,11 @@ def extract_hg_links(text: str) -> List[Tuple[str, str]]:
     return result
 
 
+def comments_at_or_after(comments: List[dict], iso_timestamp: str) -> List[dict]:
+    """Return comments whose creation_time >= iso_timestamp."""
+    return [c for c in comments if c.get("creation_time", "") >= iso_timestamp]
+
+
 def comment_closest_to(
     comments: List[dict], iso_timestamp: str
 ) -> Optional[dict]:
@@ -150,17 +164,8 @@ def comment_closest_to(
 
 
 def sort_commits_newest_first(commits: List[Dict]) -> List[Dict]:
-    """
-    Sort a list of commit dicts newest → oldest by pushdate.
-    Commits with missing/unparseable pushdates go to the end.
-    """
-    def sort_key(c):
-        pd = c.get("pushdate", "")
-        # ISO strings sort lexicographically correctly, so a plain
-        # string comparison works fine here.
-        return pd if pd else ""
-
-    return sorted(commits, key=sort_key, reverse=True)
+    """Sort commit dicts newest → oldest by pushdate."""
+    return sorted(commits, key=lambda c: c.get("pushdate", ""), reverse=True)
 
 
 # ===========================================================================
@@ -171,9 +176,7 @@ class LocalRepoManager:
     """
     Wraps local Mercurial repositories for:
       1. Verifying a commit hash and reading its message + metadata
-         (used by tier-2 / tier-3 noise filtering)
-      2. Finding commits by bug ID via hg log -k
-         (tier-3 / tier-4 fallback)
+      2. Finding commits by bug ID via hg log -k  (tier-3/4 fallback)
     """
 
     def __init__(self):
@@ -187,18 +190,10 @@ class LocalRepoManager:
                 print(f"  ✗  {name}: {path} (not found)")
         print()
 
-    # ------------------------------------------------------------------
-    # Commit lookup by hash
-    # ------------------------------------------------------------------
-
     def get_commit_info(self, commit_hash: str) -> Optional[Dict]:
         """
-        Return a dict with node, description, author, pushdate
-        for commit_hash, or None if not found in any local repo.
-
-        Used for tier-2 verification: we need the message to check
-        whether the correct bug ID appears in it, and the metadata
-        (author, pushdate) to enrich the output JSON.
+        Return {node, author, pushdate, desc, repo_name} for commit_hash,
+        or None if not found in any local repo.
         """
         for repo_name, repo_path in self.available.items():
             try:
@@ -225,15 +220,10 @@ class LocalRepoManager:
                 continue
         return None
 
-    # ------------------------------------------------------------------
-    # Commit search by bug ID  (tier-3 / tier-4 fallback)
-    # ------------------------------------------------------------------
-
     def find_commits_by_bug_id(self, bug_id: str) -> List[Dict]:
         """
         Search all available local repos for commits mentioning bug_id.
-        Returns a deduplicated list of commit dicts, sorted newest first.
-        Bug ID is double-verified (hg log -k + message check).
+        Returns deduplicated list, sorted newest first.
         """
         commits, seen = [], set()
 
@@ -264,7 +254,6 @@ class LocalRepoManager:
                     node = lines[0].strip()
                     desc = lines[3].strip()
 
-                    # Extra guard: confirm bug ID really appears in message
                     if not bug_appears_in_message(bug_id, desc):
                         continue
                     if node in seen:
@@ -289,6 +278,54 @@ class LocalRepoManager:
 
 
 # ===========================================================================
+# REMOTE COMMIT VERIFIER
+# ===========================================================================
+
+class RemoteCommitVerifier:
+    """
+    Fetches commit metadata from hg.mozilla.org/json-rev/<hash> to verify
+    a commit message when the hash is not present in any local repo.
+
+    This is the key improvement over the previous version: instead of
+    blindly keeping unverifiable hashes, we actively check remotely.
+    """
+
+    def __init__(self, delay: float = REMOTE_VER_DELAY):
+        self.delay   = delay
+        self.session = requests.Session()
+        self.session.headers.update({
+            "Accept":     "application/json",
+            "User-Agent": "Mozilla-Crash-Analysis-Research/1.0",
+        })
+        # Cache: commit_hash → desc string (or None if not found anywhere)
+        self._cache: Dict[str, Optional[str]] = {}
+
+    def get_commit_desc(self, commit_hash: str) -> Optional[str]:
+        """
+        Return the first line of the commit description, or None if not
+        found in any remote repo.  Results are cached.
+        """
+        if commit_hash in self._cache:
+            return self._cache[commit_hash]
+
+        for repo in HG_REMOTE_REPOS:
+            time.sleep(self.delay)
+            url = f"{HG_BASE}/{repo}/json-rev/{commit_hash}"
+            try:
+                r = self.session.get(url, timeout=15)
+                if r.status_code == 200:
+                    data = r.json()
+                    desc = data.get("desc", "").split("\n")[0].strip()
+                    self._cache[commit_hash] = desc
+                    return desc
+            except Exception:
+                continue
+
+        self._cache[commit_hash] = None
+        return None
+
+
+# ===========================================================================
 # BUGZILLA CLIENT
 # ===========================================================================
 
@@ -301,7 +338,6 @@ class BugzillaClient:
             "Accept":     "application/json",
             "User-Agent": "Mozilla-Crash-Analysis-Research/1.0",
         })
-        # Cache comments per bug_id to avoid duplicate API calls
         self._comment_cache: Dict[str, List[dict]] = {}
 
     def _get(self, url: str, params: dict = None) -> Optional[dict]:
@@ -321,19 +357,23 @@ class BugzillaClient:
         return data.get("bugs", [{}])[0].get("history", [])
 
     def get_comments(self, bug_id: str) -> List[dict]:
-        """Fetch comments with caching to avoid redundant API calls."""
+        """Fetch comments with per-session caching."""
         if bug_id in self._comment_cache:
             return self._comment_cache[bug_id]
         data = self._get(f"{BUGZILLA_API}/bug/{bug_id}/comment")
         if not data:
             comments = []
         else:
-            comments = data.get("bugs", {}).get(str(bug_id), {}).get("comments", [])
+            comments = (
+                data.get("bugs", {})
+                    .get(str(bug_id), {})
+                    .get("comments", [])
+            )
         self._comment_cache[bug_id] = comments
         return comments
 
     def get_resolved_fixed_time(self, bug_id: str) -> Optional[str]:
-        """Timestamp of first RESOLVED FIXED event, or None."""
+        """ISO timestamp of first RESOLVED FIXED event, or None."""
         for event in self.get_history(bug_id):
             changes       = event.get("changes", [])
             status_ok     = any(
@@ -352,9 +392,8 @@ class BugzillaClient:
 
     def get_regressed_by_set_time(self, bug_id: str) -> Optional[str]:
         """
-        Timestamp of the first event where the regressed_by field was SET.
-        This is when devs paste mozregression output — the most precise
-        signal for finding the regressor commit.
+        ISO timestamp of the first event where regressed_by was set.
+        This is when devs paste mozregression output.
         """
         for event in self.get_history(bug_id):
             for change in event.get("changes", []):
@@ -372,29 +411,34 @@ class BugzillaClient:
 
 class CommitFinder:
     """
-    Multi-tier commit finder for fixing and regressor commits.
-    Produces enriched commit dicts ready for JSON output.
+    Multi-tier commit finder.  Each tier is only reached if the previous
+    tier found nothing.
     """
 
-    def __init__(self, bz: BugzillaClient, local: LocalRepoManager):
-        self.bz    = bz
-        self.local = local
+    def __init__(
+        self,
+        bz:     BugzillaClient,
+        local:  LocalRepoManager,
+        remote: RemoteCommitVerifier,
+    ):
+        self.bz     = bz
+        self.local  = local
+        self.remote = remote
 
     # ------------------------------------------------------------------
-    # Public API
+    # Fixing commits
     # ------------------------------------------------------------------
 
     def find_fixing_commits(
         self, bug_id: str
     ) -> Tuple[List[Dict], str]:
-        """
-        Returns (commits_list, tier_label).
-        commits_list is sorted newest → oldest.
-        """
+        """Returns (commits_sorted_newest_first, tier_label)."""
+
+        resolved_time = self.bz.get_resolved_fixed_time(bug_id)
+        comments      = self.bz.get_comments(bug_id)   # cached; reused below
 
         # T1 — history → RESOLVED FIXED → nearest comment
-        resolved_time = self.bz.get_resolved_fixed_time(bug_id)
-        comments      = self.bz.get_comments(bug_id)   # cached; reused in T2
+        #      No verification needed; timing correlation is precise.
         if resolved_time:
             nearest = comment_closest_to(comments, resolved_time)
             if nearest:
@@ -405,13 +449,21 @@ class CommitFinder:
                         print(f"      [fixing T1] → {len(commits)} commit(s)")
                         return sort_commits_newest_first(commits), "T1_history_comment"
 
-        # T2 — all comments, verified against bug ID
-        links = self._verified_links_from_comments(comments, bug_id)
+        # T2 — only comments posted AT OR AFTER resolved time, verified.
+        #      Restricting to post-resolution comments eliminates bisection
+        #      notes and review discussion that precede the actual fix link.
+        post_comments = (
+            comments_at_or_after(comments, resolved_time)
+            if resolved_time
+            else comments          # no resolved time → scan all
+        )
+        links = self._verified_links_from_comments(post_comments, bug_id)
         if links:
             commits = self._enrich_links(links, "bugzilla_comment")
             if commits:
-                print(f"      [fixing T2] verified comments → {len(commits)} commit(s)")
-                return sort_commits_newest_first(commits), "T2_verified_comments"
+                label = "T2_post_resolution_comments"
+                print(f"      [fixing T2] {label} → {len(commits)} commit(s)")
+                return sort_commits_newest_first(commits), label
 
         # T3 — local repos
         local_commits = self.local.find_commits_by_bug_id(bug_id)
@@ -423,17 +475,19 @@ class CommitFinder:
         print(f"      [fixing] not found")
         return [], "not_found"
 
+    # ------------------------------------------------------------------
+    # Regressor commits
+    # ------------------------------------------------------------------
+
     def find_regressor_commits(
         self, reg_bug_id: str, crashed_bug_id: str
     ) -> Tuple[List[Dict], str]:
-        """
-        Returns (commits_list, tier_label).
-        commits_list is sorted newest → oldest.
-        """
+        """Returns (commits_sorted_newest_first, tier_label)."""
 
-        # T1 — history of crashed bug: when was regressed_by field set?
         reg_set_time     = self.bz.get_regressed_by_set_time(crashed_bug_id)
-        crashed_comments = self.bz.get_comments(crashed_bug_id)  # cached; reused in T3
+        crashed_comments = self.bz.get_comments(crashed_bug_id)  # cached
+
+        # T1 — when was regressed_by field set on the crashed bug?
         if reg_set_time:
             nearest = comment_closest_to(crashed_comments, reg_set_time)
             if nearest:
@@ -473,15 +527,14 @@ class CommitFinder:
         return [], "not_found"
 
     # ------------------------------------------------------------------
-    # Link verification (the noise filter)
+    # Verification  (the noise filter)
     # ------------------------------------------------------------------
 
     def _verified_links_from_comments(
         self, comments: List[dict], bug_id: str
     ) -> List[Tuple[str, str]]:
-        """Extract all hg links from comments, keep only those whose
-        commit message contains bug_id."""
-        all_text = "\n".join(c.get("text", "") for c in comments)
+        """Extract all hg links from comments, keep only verified ones."""
+        all_text  = "\n".join(c.get("text", "") for c in comments)
         raw_links = extract_hg_links(all_text)
         return self._verify_links(raw_links, bug_id)
 
@@ -489,24 +542,51 @@ class CommitFinder:
         self, links: List[Tuple[str, str]], bug_id: str
     ) -> List[Tuple[str, str]]:
         """
-        For each (hint_repo, hash) check the commit message via local repo.
-          - Bug ID in message → keep
-          - Bug ID NOT in message → drop (log what was filtered)
-          - Hash not in local repos → keep (can't verify, safer to keep)
+        Three-outcome verification for each (hint_repo, hash):
+
+          1. Local repo has the hash → check message → keep or drop.
+          2. Not local → query hg.mozilla.org/json-rev/<hash> remotely
+               → check message → keep or drop.
+          3. Both lookups failed (network error / very old commit) → keep
+             (last-resort; we genuinely cannot verify).
         """
         verified = []
         for hint_repo, commit_hash in links:
+            short = commit_hash[:12]
+
+            # Step 1: local lookup
             info = self.local.get_commit_info(commit_hash)
-            if info is None:
-                print(f"        [verify] {commit_hash[:12]} not in local repos — keeping")
-                verified.append((hint_repo, commit_hash))
-            elif bug_appears_in_message(bug_id, info["desc"]):
-                verified.append((hint_repo, commit_hash))
-            else:
-                print(
-                    f"        [verify] dropped {commit_hash[:12]} "
-                    f"— bug {bug_id} not in: \"{info['desc'][:70]}\""
-                )
+            if info is not None:
+                if bug_appears_in_message(bug_id, info["desc"]):
+                    verified.append((hint_repo, commit_hash))
+                else:
+                    print(
+                        f"        [verify local] dropped {short} "
+                        f"— bug {bug_id} not in: \"{info['desc'][:70]}\""
+                    )
+                continue   # local lookup conclusive either way
+
+            # Step 2: remote lookup via json-rev
+            print(f"        [verify remote] {short} not local — querying hg.mozilla.org …")
+            remote_desc = self.remote.get_commit_desc(commit_hash)
+            if remote_desc is not None:
+                if bug_appears_in_message(bug_id, remote_desc):
+                    print(f"        [verify remote] {short} confirmed ✓")
+                    verified.append((hint_repo, commit_hash))
+                else:
+                    print(
+                        f"        [verify remote] dropped {short} "
+                        f"— bug {bug_id} not in: \"{remote_desc[:70]}\""
+                    )
+                continue   # remote lookup conclusive
+
+            # Step 3: both failed — keep with warning
+            print(
+                f"        [verify] {short} unverifiable (not local, "
+                f"not remote) — keeping as fallback"
+            )
+            verified.append((hint_repo, commit_hash))
+
         return verified
 
     # ------------------------------------------------------------------
@@ -517,17 +597,18 @@ class CommitFinder:
         self, links: List[Tuple[str, str]], source: str
     ) -> List[Dict]:
         """
-        Convert (hint_repo, hash) pairs into full commit dicts by looking
-        up metadata from local repos. Pairs whose hashes are not found
-        locally still get a minimal dict (hash + hint_repo only).
+        Convert (hint_repo, hash) pairs into full commit dicts.
+        Tries local first, then remote json-rev for metadata.
         """
         commits = []
         seen    = set()
+
         for hint_repo, commit_hash in links:
             if commit_hash in seen:
                 continue
             seen.add(commit_hash)
 
+            # Local metadata
             info = self.local.get_commit_info(commit_hash)
             if info:
                 commits.append({
@@ -539,17 +620,20 @@ class CommitFinder:
                     "hint_repo":   hint_repo,
                     "source":      source,
                 })
-            else:
-                # Not in local repos — keep the hash with what we know
-                commits.append({
-                    "commit_hash": commit_hash,
-                    "short_hash":  commit_hash[:12],
-                    "description": "",
-                    "author":      "",
-                    "pushdate":    "",
-                    "hint_repo":   hint_repo,
-                    "source":      source,
-                })
+                continue
+
+            # Remote metadata via json-rev
+            remote_desc = self.remote.get_commit_desc(commit_hash)
+            commits.append({
+                "commit_hash": commit_hash,
+                "short_hash":  commit_hash[:12],
+                "description": remote_desc or "",
+                "author":      "",
+                "pushdate":    "",
+                "hint_repo":   hint_repo,
+                "source":      source,
+            })
+
         return commits
 
     @staticmethod
@@ -575,36 +659,38 @@ class OutputWriter:
         self.base = base_dir
         self.base.mkdir(parents=True, exist_ok=True)
 
-    def save_fixing_commits(self, bug_id: str, commits: List[Dict], method: str):
+    def save_fixing_commits(
+        self, bug_id: str, commits: List[Dict], method: str
+    ):
         bug_dir = self.base / f"bug_{bug_id}"
         bug_dir.mkdir(parents=True, exist_ok=True)
-
         payload = {
             "bug_id":        bug_id,
             "find_method":   method,
             "total_commits": len(commits),
-            "commits":       commits,   # already sorted newest → oldest
+            "commits":       commits,
         }
-        path = bug_dir / "fixing_commits.json"
-        path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        (bug_dir / "fixing_commits.json").write_text(
+            json.dumps(payload, indent=2), encoding="utf-8"
+        )
 
     def save_regressor_commits(
         self,
-        bug_id:      str,
+        bug_id:       str,
         regressed_by: List[str],
-        regressors:  List[Dict],   # list of per-regressor-bug dicts
+        regressors:   List[Dict],
     ):
         bug_dir = self.base / f"bug_{bug_id}"
         bug_dir.mkdir(parents=True, exist_ok=True)
-
         payload = {
             "bug_id":               bug_id,
             "regressed_by":         regressed_by,
             "total_regressor_bugs": len(regressors),
             "regressors":           regressors,
         }
-        path = bug_dir / "regressor_commits.json"
-        path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        (bug_dir / "regressor_commits.json").write_text(
+            json.dumps(payload, indent=2), encoding="utf-8"
+        )
 
 
 # ===========================================================================
@@ -623,12 +709,13 @@ class Step4aPipeline:
             / "bugs_with_regression"
             / "bugs"
         )
-        self.output_base = self.outputs_base / "step4.2_commit_extraction"
+        self.output_base = self.outputs_base / "multi_commit_extraction"
         self.output_base.mkdir(parents=True, exist_ok=True)
 
         self.local  = LocalRepoManager()
         self.bz     = BugzillaClient(delay=rate_limit)
-        self.finder = CommitFinder(self.bz, self.local)
+        self.remote = RemoteCommitVerifier()
+        self.finder = CommitFinder(self.bz, self.local, self.remote)
         self.writer = OutputWriter(self.output_base)
 
         print(f"Input:  {self.input_dir}")
@@ -664,13 +751,13 @@ class Step4aPipeline:
         regressed_by = [str(r) for r in bug_data.get("regressed_by", [])]
         print(f"    regressed_by: {regressed_by}")
 
-        # ── Fixing commits ─────────────────────────────────────────────
+        # Fixing
         print(f"    Finding fixing commits …")
         fixing_commits, fixing_method = self.finder.find_fixing_commits(bug_id)
         self.writer.save_fixing_commits(bug_id, fixing_commits, fixing_method)
         print(f"    → {len(fixing_commits)} fixing commit(s) [{fixing_method}]")
 
-        # ── Regressor commits ──────────────────────────────────────────
+        # Regressors
         regressors = []
         for reg_bug_id in regressed_by:
             print(f"    Finding regressor commits for bug {reg_bug_id} …")
@@ -681,20 +768,20 @@ class Step4aPipeline:
                 "regressor_bug_id": reg_bug_id,
                 "find_method":      reg_method,
                 "total_commits":    len(reg_commits),
-                "commits":          reg_commits,   # sorted newest → oldest
+                "commits":          reg_commits,
             })
             print(f"    → {len(reg_commits)} regressor commit(s) [{reg_method}]")
 
         self.writer.save_regressor_commits(bug_id, regressed_by, regressors)
 
         return {
-            "bug_id":               bug_id,
-            "fixing_commit_count":  len(fixing_commits),
-            "fixing_method":        fixing_method,
-            "regressor_bugs":       len(regressors),
+            "bug_id":                 bug_id,
+            "fixing_commit_count":    len(fixing_commits),
+            "fixing_method":          fixing_method,
+            "regressor_bugs":         len(regressors),
             "regressor_commit_count": sum(r["total_commits"] for r in regressors),
-            "has_fixing":           len(fixing_commits) > 0,
-            "has_regressors":       any(r["total_commits"] > 0 for r in regressors),
+            "has_fixing":             len(fixing_commits) > 0,
+            "has_regressors":         any(r["total_commits"] > 0 for r in regressors),
         }
 
     # ------------------------------------------------------------------
@@ -703,7 +790,7 @@ class Step4aPipeline:
 
     def run(self) -> Dict:
         print("=" * 80)
-        print("STEP 4.2: FIND FIXING & REGRESSOR COMMITS")
+        print("STEP 4A: FIND FIXING & REGRESSOR COMMITS")
         print("=" * 80 + "\n")
 
         all_bugs = self.load_bugs()
@@ -737,7 +824,9 @@ class Step4aPipeline:
                 stats["bugs_no_fixing"]              += int(not res["has_fixing"])
                 stats["bugs_with_regressor_commits"] += int(res["has_regressors"])
                 stats["bugs_no_regressor"]           += int(not res["has_regressors"])
-                stats["bugs_with_both"]              += int(res["has_fixing"] and res["has_regressors"])
+                stats["bugs_with_both"]              += int(
+                    res["has_fixing"] and res["has_regressors"]
+                )
                 stats["total_fixing_commits_found"]    += res["fixing_commit_count"]
                 stats["total_regressor_commits_found"] += res["regressor_commit_count"]
                 stats["fixing_method_counts"][res["fixing_method"]] += 1
@@ -772,7 +861,7 @@ class Step4aPipeline:
         print(f"  Total regressor commits found   : {s['total_regressor_commits_found']}")
         print(f"\n  Fixing commit find methods:")
         for m, c in s["fixing_method_counts"].items():
-            print(f"    {m:45s}: {c}")
+            print(f"    {m:50s}: {c}")
 
     def _save_summary(self, stats: Dict, results: Dict):
         summary = {
@@ -799,8 +888,7 @@ class Step4aPipeline:
             "", "Fixing commit find methods:",
         ]
         for m, c in stats["fixing_method_counts"].items():
-            lines.append(f"  {m:45s}: {c}")
-
+            lines.append(f"  {m:50s}: {c}")
         lines += ["", "=" * 80, "PER-BUG RESULTS", "=" * 80, ""]
         for bid, res in results.items():
             if "error" in res:
@@ -824,7 +912,7 @@ class Step4aPipeline:
 def main():
     import argparse
     parser = argparse.ArgumentParser(
-        description="Step4.1 — Find fixing & regressor commits for each bug"
+        description="Find fixing & regressor commits for each bug"
     )
     parser.add_argument(
         "--rate-limit", type=float, default=API_DELAY,
@@ -836,8 +924,9 @@ def main():
     pipeline.run()
 
     print("\n" + "=" * 80)
-    print("  STEP 4.2 COMPLETE")
+    print("✓  STEP COMPLETE")
     print("=" * 80)
+    print(f"\nNext step: run step4b_download_diffs.py")
 
 
 if __name__ == "__main__":

@@ -80,7 +80,7 @@ HG_REMOTE_REPOS = [
 
 LOCAL_REPOS = {
     "mozilla-central":  "./mozilla-central",
-    "mozilla-autoland": "./mozilla-autoland",
+    "autoland": "./autoland",
     "mozilla-release":  "./mozilla-release",
     "mozilla-esr115":   "./mozilla-esr115",
 }

@@ -15,7 +15,7 @@ for each bug, then for every commit listed:
 
 INPUT:
 ------
-outputs/step/
+outputs/multi_commit_extraction/
 └── bug_<ID>/
     ├── fixing_commits.json
     └── regressor_commits.json
@@ -23,22 +23,26 @@ outputs/step/
 OUTPUT STRUCTURE:
 -----------------
 outputs/multi_commit_diff_extraction/
-└── bug_<ID>/
-    ├── fixing_commits/
-    │   └── <commit_hash>/
-    │       ├── <original/path/to/file.cpp>   ← raw diff, original filename
-    │       └── metadata.json
-    └── regressor_commits/
-        └── <regressor_bug_id>/
-            └── <commit_hash>/
-                ├── <original/path/to/file.cpp>
-                └── metadata.json
-
-outputs/multi_commit_diff_extraction/
+├── bugs_with_fixing_commits/
+│   └── bug_<ID>/
+│       ├── fixing_commits/
+│       │   └── <commit_hash>/
+│       │       ├── <original/path/to/file.cpp>
+│       │       └── metadata.json
+│       └── regressor_commits/
+│           └── <regressor_bug_id>/
+│               └── <commit_hash>/
+│                   ├── <original/path/to/file.cpp>
+│                   └── metadata.json
+├── bugs_without_fixing_commits/
+│   └── bug_<ID>/
+│       └── regressor_commits/
+│           └── <regressor_bug_id>/
+│               └── <commit_hash>/
+│                   ├── <original/path/to/file.cpp>
+│                   └── metadata.json
 ├── pipeline_summary.json
 └── statistics_report.txt
-
-
 """
 
 import json
@@ -70,7 +74,6 @@ print(f"Working directory: {parent_dir}")
 
 HG_BASE = "https://hg.mozilla.org"
 
-# Remote repos tried in order when local diff fails
 HG_REMOTE_REPOS = [
     "mozilla-central",
     "integration/autoland",
@@ -85,15 +88,13 @@ LOCAL_REPOS = {
     "mozilla-esr115":   "./mozilla-esr115",
 }
 
-# Maps hint_repo strings (from Bugzilla URLs or local names) to local repo names
 REMOTE_TO_LOCAL = {
     "mozilla-central":           "mozilla-central",
     "integration/autoland":      "mozilla-autoland",
-    "releases/mozilla-esr128":   "mozilla-esr115",   # closest available
+    "releases/mozilla-esr128":   "mozilla-esr115",
     "releases/mozilla-esr115":   "mozilla-esr115",
 }
 
-# Maps hint_repo strings to canonical remote paths
 HINT_TO_REMOTE = {
     "mozilla-central":           "mozilla-central",
     "central":                   "mozilla-central",
@@ -106,7 +107,11 @@ HINT_TO_REMOTE = {
     "releases/mozilla-esr115":   "releases/mozilla-esr115",
 }
 
-DIFF_DELAY = 0.25   # seconds between remote hg requests
+DIFF_DELAY = 0.25
+
+# Folder names for the two categories
+WITH_FIXING    = "bugs_with_fixing_commits"
+WITHOUT_FIXING = "bugs_without_fixing_commits"
 
 
 # ===========================================================================
@@ -114,7 +119,6 @@ DIFF_DELAY = 0.25   # seconds between remote hg requests
 # ===========================================================================
 
 class LocalRepoManager:
-    """Wraps local Mercurial repos for diff extraction."""
 
     def __init__(self):
         self.available: Dict[str, str] = {}
@@ -132,11 +136,6 @@ class LocalRepoManager:
         commit_hash: str,
         hint_repo_name: Optional[str] = None,
     ) -> Tuple[Optional[str], Optional[str]]:
-        """
-        Run `hg diff -c <commit_hash>` across local repos.
-        Tries hint_repo_name first, then all others.
-        Returns (raw_diff_text, repo_name_used) or (None, None).
-        """
         order = self._repo_order(hint_repo_name)
         for repo_name in order:
             repo_path = self.available.get(repo_name)
@@ -171,11 +170,6 @@ class LocalRepoManager:
 # ===========================================================================
 
 class DiffFetcher:
-    """
-    Two-tier diff fetching per commit hash:
-      Tier 1 (primary)  → local hg diff -c <hash>  (fast, no rate limits)
-      Tier 2 (fallback) → hg.mozilla.org/raw-diff/<hash>
-    """
 
     def __init__(self, local: LocalRepoManager, delay: float = DIFF_DELAY):
         self.local = local
@@ -188,22 +182,15 @@ class DiffFetcher:
         commit_hash: str,
         hint_repo:   Optional[str] = None,
     ) -> Tuple[Optional[str], Optional[str], str]:
-        """
-        Returns (raw_diff_text, repo_label, source).
-        source ∈ {'local', 'remote', 'not_found'}.
-        """
-        # Map hint to local repo name
         local_hint = None
         if hint_repo:
             normalised = HINT_TO_REMOTE.get(hint_repo, hint_repo)
             local_hint = REMOTE_TO_LOCAL.get(normalised, hint_repo)
 
-        # Tier 1: local
         raw, repo_name = self.local.get_diff(commit_hash, local_hint)
         if raw:
             return raw, repo_name, "local"
 
-        # Tier 2: remote
         remote_order = self._remote_order(hint_repo)
         for remote_repo in remote_order:
             time.sleep(self.delay)
@@ -234,19 +221,6 @@ class DiffFetcher:
 # ===========================================================================
 
 def parse_files_from_diff(raw_diff: str) -> List[Dict]:
-    """
-    Split a full unified diff into per-file sections.
-
-    Returns:
-      [
-        {
-          'filepath':    str,                          # original path, never renamed
-          'change_type': 'added' | 'modified' | 'deleted',
-          'diff_text':   str,
-        },
-        ...
-      ]
-    """
     if not raw_diff:
         return []
 
@@ -254,17 +228,14 @@ def parse_files_from_diff(raw_diff: str) -> List[Dict]:
     current: Optional[Dict] = None
 
     for line in raw_diff.splitlines(keepends=True):
-
         if line.startswith("diff "):
             if current:
                 files.append(_finalise(current))
             current = {"lines": [line], "filepath": None, "change_type": "modified"}
 
-            # hg native: "diff -r <hash> <path>"
             m = re.search(r"diff -r [0-9a-f]+ (.+)", line)
             if m:
                 current["filepath"] = m.group(1).strip()
-            # git-style: "diff --git a/<p> b/<p>"
             m2 = re.search(r"diff --git a/.+ b/(.+)", line)
             if m2:
                 current["filepath"] = m2.group(1).strip()
@@ -312,20 +283,25 @@ class OutputWriter:
     def __init__(self, base_dir: Path):
         self.base = base_dir
         self.base.mkdir(parents=True, exist_ok=True)
+        # Pre-create the two category folders
+        (self.base / WITH_FIXING).mkdir(exist_ok=True)
+        (self.base / WITHOUT_FIXING).mkdir(exist_ok=True)
+
+    def bug_dir(self, bug_id: str, has_fixing: bool) -> Path:
+        """Return the correct category folder for this bug."""
+        category = WITH_FIXING if has_fixing else WITHOUT_FIXING
+        return self.base / category / f"bug_{bug_id}"
 
     def save_commit(
         self,
         bug_id:      str,
         commit_hash: str,
-        commit_role: str,    # e.g. 'fixing_commits' or 'regressor_commits/99999'
+        commit_role: str,
         file_diffs:  List[Dict],
         meta:        Dict,
+        has_fixing:  bool,
     ) -> Path:
-        """
-        Write each file diff to its original path and save metadata.json.
-        Returns the commit directory path.
-        """
-        commit_dir = self.base / f"bug_{bug_id}" / commit_role / commit_hash
+        commit_dir = self.bug_dir(bug_id, has_fixing) / commit_role / commit_hash
         commit_dir.mkdir(parents=True, exist_ok=True)
 
         saved = []
@@ -361,7 +337,7 @@ class OutputWriter:
 # MAIN PIPELINE
 # ===========================================================================
 
-class Step4bPipeline:
+class diffExtractorPipeline:
 
     def __init__(self, diff_delay: float = DIFF_DELAY):
         self.script_dir   = Path(__file__).resolve().parent
@@ -383,7 +359,6 @@ class Step4bPipeline:
     # ------------------------------------------------------------------
 
     def load_bug_dirs(self) -> List[Path]:
-        """Return all bug_<id> directories from step4a output."""
         if not self.input_base.exists():
             print(f"ERROR: {self.input_base} not found — run step4a first.")
             return []
@@ -408,11 +383,8 @@ class Step4bPipeline:
         commit:      Dict,
         commit_role: str,
         base_meta:   Dict,
+        has_fixing:  bool,
     ) -> Dict:
-        """
-        Fetch diff for a single commit and save all files.
-        Returns a result summary dict.
-        """
         commit_hash = commit.get("commit_hash", "")
         hint_repo   = commit.get("hint_repo", "") or None
         short_hash  = commit_hash[:12]
@@ -453,6 +425,7 @@ class Step4bPipeline:
             commit_role=commit_role,
             file_diffs=file_diffs,
             meta=meta,
+            has_fixing=has_fixing,
         )
 
         return {
@@ -480,16 +453,21 @@ class Step4bPipeline:
             "regressor_results": [],
         }
 
-        # ── Fixing commits ─────────────────────────────────────────────
+        # ── Determine whether this bug has fixing commits ───────────────
         fixing_path = bug_dir / "fixing_commits.json"
         fixing_data = self.load_json(fixing_path)
+        fixing_commits = fixing_data.get("commits", []) if fixing_data else []
+        has_fixing = len(fixing_commits) > 0
 
+        category = WITH_FIXING if has_fixing else WITHOUT_FIXING
+        print(f"    Category: {category}")
+
+        # ── Fixing commits ──────────────────────────────────────────────
         if fixing_data:
-            commits      = fixing_data.get("commits", [])
-            find_method  = fixing_data.get("find_method", "")
-            print(f"    Fixing commits: {len(commits)}")
+            find_method = fixing_data.get("find_method", "")
+            print(f"    Fixing commits: {len(fixing_commits)}")
 
-            for commit in commits:
+            for commit in fixing_commits:
                 r = self.process_commit(
                     bug_id=bug_id,
                     commit=commit,
@@ -498,13 +476,15 @@ class Step4bPipeline:
                         "role":           "fixing",
                         "crashed_bug_id": bug_id,
                         "find_method":    find_method,
+                        "category":       category,
                     },
+                    has_fixing=has_fixing,
                 )
                 result["fixing_results"].append(r)
         else:
             print(f"    No fixing_commits.json found")
 
-        # ── Regressor commits ──────────────────────────────────────────
+        # ── Regressor commits ───────────────────────────────────────────
         regressor_path = bug_dir / "regressor_commits.json"
         regressor_data = self.load_json(regressor_path)
 
@@ -526,7 +506,9 @@ class Step4bPipeline:
                             "crashed_bug_id":   bug_id,
                             "regressor_bug_id": reg_bug_id,
                             "find_method":      find_method,
+                            "category":         category,
                         },
+                        has_fixing=has_fixing,
                     )
                     result["regressor_results"].append(
                         {**r, "regressor_bug_id": reg_bug_id}
@@ -534,6 +516,7 @@ class Step4bPipeline:
         else:
             print(f"    No regressor_commits.json found")
 
+        result["category"] = category
         return result
 
     # ------------------------------------------------------------------
@@ -552,36 +535,42 @@ class Step4bPipeline:
         total = len(bug_dirs)
 
         stats = {
-            "total_bugs":                  total,
-            "total_fixing_commits":        0,
-            "total_regressor_commits":     0,
-            "total_files_in_fixing":       0,
-            "total_files_in_regressors":   0,
-            "diff_source_counts":          defaultdict(int),
-            "diff_not_found_count":        0,
-            "bugs_with_fixing_diffs":      0,
-            "bugs_with_regressor_diffs":   0,
+            "total_bugs":                    total,
+            "bugs_with_fixing_commits":      0,
+            "bugs_without_fixing_commits":   0,
+            "total_fixing_commits":          0,
+            "total_regressor_commits":       0,
+            "total_files_in_fixing":         0,
+            "total_files_in_regressors":     0,
+            "diff_source_counts":            defaultdict(int),
+            "diff_not_found_count":          0,
+            "bugs_with_fixing_diffs":        0,
+            "bugs_with_regressor_diffs":     0,
         }
 
         all_results = {}
 
         for idx, bug_dir in enumerate(bug_dirs, 1):
             try:
-                res = self.process_bug(bug_dir, idx, total)
+                res    = self.process_bug(bug_dir, idx, total)
                 bug_id = res["bug_id"]
                 all_results[bug_id] = res
 
-                fix_ok  = [r for r in res["fixing_results"]    if r["status"] == "ok"]
-                reg_ok  = [r for r in res["regressor_results"] if r["status"] == "ok"]
+                has_fixing = res["category"] == WITH_FIXING
+                stats["bugs_with_fixing_commits"]    += int(has_fixing)
+                stats["bugs_without_fixing_commits"] += int(not has_fixing)
+
+                fix_ok   = [r for r in res["fixing_results"]    if r["status"] == "ok"]
+                reg_ok   = [r for r in res["regressor_results"] if r["status"] == "ok"]
                 fix_fail = [r for r in res["fixing_results"]    if r["status"] != "ok"]
                 reg_fail = [r for r in res["regressor_results"] if r["status"] != "ok"]
 
-                stats["total_fixing_commits"]    += len(res["fixing_results"])
-                stats["total_regressor_commits"] += len(res["regressor_results"])
-                stats["total_files_in_fixing"]   += sum(r["file_count"] for r in fix_ok)
+                stats["total_fixing_commits"]      += len(res["fixing_results"])
+                stats["total_regressor_commits"]   += len(res["regressor_results"])
+                stats["total_files_in_fixing"]     += sum(r["file_count"] for r in fix_ok)
                 stats["total_files_in_regressors"] += sum(r["file_count"] for r in reg_ok)
-                stats["diff_not_found_count"]    += len(fix_fail) + len(reg_fail)
-                stats["bugs_with_fixing_diffs"]  += int(bool(fix_ok))
+                stats["diff_not_found_count"]      += len(fix_fail) + len(reg_fail)
+                stats["bugs_with_fixing_diffs"]    += int(bool(fix_ok))
                 stats["bugs_with_regressor_diffs"] += int(bool(reg_ok))
 
                 for r in res["fixing_results"] + res["regressor_results"]:
@@ -605,14 +594,16 @@ class Step4bPipeline:
         print("\n" + "=" * 80)
         print("STEP 4B SUMMARY")
         print("=" * 80)
-        print(f"  Total bugs processed            : {s['total_bugs']}")
-        print(f"  Bugs with fixing diffs          : {s['bugs_with_fixing_diffs']}")
-        print(f"  Bugs with regressor diffs       : {s['bugs_with_regressor_diffs']}")
-        print(f"  Total fixing commits processed  : {s['total_fixing_commits']}")
+        print(f"  Total bugs processed             : {s['total_bugs']}")
+        print(f"  Bugs WITH fixing commits         : {s['bugs_with_fixing_commits']}")
+        print(f"  Bugs WITHOUT fixing commits      : {s['bugs_without_fixing_commits']}")
+        print(f"  Bugs with fixing diffs           : {s['bugs_with_fixing_diffs']}")
+        print(f"  Bugs with regressor diffs        : {s['bugs_with_regressor_diffs']}")
+        print(f"  Total fixing commits processed   : {s['total_fixing_commits']}")
         print(f"  Total regressor commits processed: {s['total_regressor_commits']}")
-        print(f"  Total files saved (fixing)      : {s['total_files_in_fixing']}")
-        print(f"  Total files saved (regressor)   : {s['total_files_in_regressors']}")
-        print(f"  Diff fetch failures             : {s['diff_not_found_count']}")
+        print(f"  Total files saved (fixing)       : {s['total_files_in_fixing']}")
+        print(f"  Total files saved (regressor)    : {s['total_files_in_regressors']}")
+        print(f"  Diff fetch failures              : {s['diff_not_found_count']}")
         print(f"\n  Diff sources:")
         for src, c in s["diff_source_counts"].items():
             print(f"    {src:15s}: {c}")
@@ -623,6 +614,7 @@ class Step4bPipeline:
             "statistics":         stats,
             "per_bug": {
                 bid: {
+                    "category":          res.get("category", ""),
                     "fixing_results":    res.get("fixing_results", []),
                     "regressor_results": res.get("regressor_results", []),
                 }
@@ -635,9 +627,11 @@ class Step4bPipeline:
 
         rp = self.output_base / "statistics_report.txt"
         lines = [
-            "=" * 80, "STEP 4B STATISTICS REPORT", "=" * 80,
+            "=" * 80, "diff Extractor STATISTICS REPORT", "=" * 80,
             f"Generated: {datetime.now().isoformat()}", "",
             f"Total bugs processed             : {stats['total_bugs']}",
+            f"Bugs WITH fixing commits         : {stats['bugs_with_fixing_commits']}",
+            f"Bugs WITHOUT fixing commits      : {stats['bugs_without_fixing_commits']}",
             f"Bugs with fixing diffs           : {stats['bugs_with_fixing_diffs']}",
             f"Bugs with regressor diffs        : {stats['bugs_with_regressor_diffs']}",
             f"Total fixing commits processed   : {stats['total_fixing_commits']}",
@@ -656,7 +650,8 @@ class Step4bPipeline:
                 lines.append(f"Bug {bid}  [ERROR: {res.get('error')}]")
                 lines.append("")
                 continue
-            lines.append(f"Bug {bid}")
+            category = res.get("category", "unknown")
+            lines.append(f"Bug {bid}  [{category}]")
             for r in res.get("fixing_results", []):
                 lines.append(
                     f"  [fix]  {r.get('short_hash','?'):12s}  "
@@ -675,7 +670,7 @@ class Step4bPipeline:
             lines.append("")
 
         rp.write_text("\n".join(lines), encoding="utf-8")
-        print(f"✓ statistics_report.txt  → {rp}")
+        print(f"statistics_report.txt  → {rp}")
 
 
 # ===========================================================================
@@ -693,11 +688,11 @@ def main():
     )
     args = parser.parse_args()
 
-    pipeline = Step4bPipeline(diff_delay=args.diff_delay)
+    pipeline = diffExtractorPipeline(diff_delay=args.diff_delay)
     pipeline.run()
 
     print("\n" + "=" * 80)
-    print("✓  STEP COMPLETE")
+    print(" STEP COMPLETE")
     print("=" * 80)
 
 

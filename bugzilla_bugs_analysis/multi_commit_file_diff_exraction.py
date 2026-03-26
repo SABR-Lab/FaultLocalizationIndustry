@@ -247,6 +247,8 @@ def parse_files_from_diff(raw_diff: str) -> List[Dict]:
 
             if line.startswith("+++ "):
                 path = line[4:].strip()
+                # Strip any trailing tab + timestamp (e.g. "/dev/null\tThu Jan 01 ...")
+                path = path.split("\t")[0].strip()
                 if path.startswith("b/"):
                     path = path[2:]
                 if path != "/dev/null":
@@ -337,7 +339,7 @@ class OutputWriter:
 # MAIN PIPELINE
 # ===========================================================================
 
-class diffExtractorPipeline:
+class fileDiffPipeline:
 
     def __init__(self, diff_delay: float = DIFF_DELAY):
         self.script_dir   = Path(__file__).resolve().parent
@@ -592,7 +594,7 @@ class diffExtractorPipeline:
 
     def _print_summary(self, s: Dict):
         print("\n" + "=" * 80)
-        print("STEP 4B SUMMARY")
+        print("FILE_DIFF_EXTRACTOR SUMMARY")
         print("=" * 80)
         print(f"  Total bugs processed             : {s['total_bugs']}")
         print(f"  Bugs WITH fixing commits         : {s['bugs_with_fixing_commits']}")
@@ -627,7 +629,7 @@ class diffExtractorPipeline:
 
         rp = self.output_base / "statistics_report.txt"
         lines = [
-            "=" * 80, "diff Extractor STATISTICS REPORT", "=" * 80,
+            "=" * 80, "FILE_DIFF_EXTRACTOR STATISTICS REPORT", "=" * 80,
             f"Generated: {datetime.now().isoformat()}", "",
             f"Total bugs processed             : {stats['total_bugs']}",
             f"Bugs WITH fixing commits         : {stats['bugs_with_fixing_commits']}",
@@ -654,23 +656,23 @@ class diffExtractorPipeline:
             lines.append(f"Bug {bid}  [{category}]")
             for r in res.get("fixing_results", []):
                 lines.append(
-                    f"  [fix]  {r.get('short_hash','?'):12s}  "
-                    f"repo={r.get('repo_used','?'):25s}  "
-                    f"src={r.get('diff_source','?'):8s}  "
-                    f"files={r.get('file_count',0):4d}  [{r.get('status')}]"
+                    f"  [fix]  {str(r.get('short_hash') or '?'):12s}  "
+                    f"repo={str(r.get('repo_used') or '?'):25s}  "
+                    f"src={str(r.get('diff_source') or '?'):8s}  "
+                    f"files={r.get('file_count') or 0:4d}  [{r.get('status')}]"
                 )
             for r in res.get("regressor_results", []):
                 lines.append(
-                    f"  [reg]  {r.get('short_hash','?'):12s}  "
-                    f"reg_bug={r.get('regressor_bug_id','?'):10s}  "
-                    f"repo={r.get('repo_used','?'):25s}  "
-                    f"src={r.get('diff_source','?'):8s}  "
-                    f"files={r.get('file_count',0):4d}  [{r.get('status')}]"
+                    f"  [reg]  {str(r.get('short_hash') or '?'):12s}  "
+                    f"reg_bug={str(r.get('regressor_bug_id') or '?'):10s}  "
+                    f"repo={str(r.get('repo_used') or '?'):25s}  "
+                    f"src={str(r.get('diff_source') or '?'):8s}  "
+                    f"files={r.get('file_count') or 0:4d}  [{r.get('status')}]"
                 )
             lines.append("")
 
         rp.write_text("\n".join(lines), encoding="utf-8")
-        print(f"statistics_report.txt  → {rp}")
+        print(f"✓ statistics_report.txt  → {rp}")
 
 
 # ===========================================================================
@@ -680,7 +682,7 @@ class diffExtractorPipeline:
 def main():
     import argparse
     parser = argparse.ArgumentParser(
-        description="Download diffs for all commits found in Step 4A"
+        description="Download diffs for all commits found in multiple-commit_extractor step"
     )
     parser.add_argument(
         "--diff-delay", type=float, default=DIFF_DELAY,
@@ -688,11 +690,11 @@ def main():
     )
     args = parser.parse_args()
 
-    pipeline = diffExtractorPipeline(diff_delay=args.diff_delay)
+    pipeline = fileDiffPipeline(diff_delay=args.diff_delay)
     pipeline.run()
 
     print("\n" + "=" * 80)
-    print(" STEP COMPLETE")
+    print("✓  STEP COMPLETE")
     print("=" * 80)
 
 
